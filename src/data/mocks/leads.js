@@ -1,0 +1,8 @@
+﻿export const leadsMock = [
+  { id: 'lead-3101', nombre: 'Maria Gomez', telefono: '099 321 445', ubicacion: 'Montevideo', fuente: 'Meta Ads', estadoVenta: 'seguimiento', proximaAccion: '2026-03-10T15:30:00', intentos: 1, asignadoA: 'usr-004', loteId: 'lot-2403-a', productoInteresId: 'prd-001', createdAt: '2026-03-08T09:40:00' },
+  { id: 'lead-3102', nombre: 'Jorge Pereira', telefono: '098 410 778', ubicacion: 'Canelones', fuente: 'Referidos', estadoVenta: 'no_contesta', proximaAccion: null, intentos: 3, asignadoA: 'usr-004', loteId: 'lot-2403-a', productoInteresId: 'prd-002', createdAt: '2026-03-08T10:12:00' },
+  { id: 'lead-3103', nombre: 'Ana Duarte', telefono: '094 885 100', ubicacion: 'Maldonado', fuente: 'Landing Web', estadoVenta: 'rellamar', proximaAccion: '2026-03-10T18:00:00', intentos: 1, asignadoA: 'usr-004', loteId: 'lot-2403-b', productoInteresId: 'prd-001', createdAt: '2026-03-09T11:05:00' },
+  { id: 'lead-3104', nombre: 'Ruben Sosa', telefono: '097 442 991', ubicacion: 'Salto', fuente: 'Base historica', estadoVenta: 'venta', proximaAccion: null, intentos: 2, asignadoA: 'usr-004', loteId: 'lot-2403-a', productoInteresId: 'prd-001', createdAt: '2026-03-07T08:50:00' },
+  { id: 'lead-3105', nombre: 'Lucia Benitez', telefono: '093 700 321', ubicacion: 'Paysandu', fuente: 'Meta Ads', estadoVenta: 'rechazo', proximaAccion: null, intentos: 2, asignadoA: 'usr-007', loteId: 'lot-2403-c', productoInteresId: 'prd-002', createdAt: '2026-03-07T17:20:00' },
+  { id: 'lead-3106', nombre: 'Carlos Rivas', telefono: '000 000 000', ubicacion: 'Montevideo', fuente: 'Landing Web', estadoVenta: 'dato_erroneo', proximaAccion: null, intentos: 1, asignadoA: 'usr-004', loteId: 'lot-2403-b', productoInteresId: 'prd-004', createdAt: '2026-03-07T16:45:00' }
+];

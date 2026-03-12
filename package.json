@@ -1,0 +1,23 @@
+{
+  "name": "rednacrem-local",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5173",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 5173",
+    "start": "npm run dev"
+  },
+  "dependencies": {
+    "lucide-react": "^0.552.0",
+    "oidc-client-ts": "^3.4.1",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-oidc-context": "^3.3.0",
+    "recharts": "^3.2.1"
+  },
+  "devDependencies": {
+    "vite": "^7.1.3"
+  }
+}
