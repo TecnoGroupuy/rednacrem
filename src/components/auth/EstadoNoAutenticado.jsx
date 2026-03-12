@@ -1,22 +1,17 @@
 ﻿import React from 'react';
-import { Shield, ArrowRight, AlertCircle, Terminal, LogIn, Loader2 } from 'lucide-react';
+import { ArrowRight, Check, Loader2, Mail, Shield, Terminal, Zap } from 'lucide-react';
 import { useAuth as useOidcAuth } from 'react-oidc-context';
 import { useAuth as useAppAuth } from '../../auth/AuthProvider.jsx';
+import './EstadoNoAutenticado.css';
 
 export default function EstadoNoAutenticado() {
   const oidcAuth = useOidcAuth();
   const { login } = useAppAuth();
   const [isLoggingDev, setIsLoggingDev] = React.useState(false);
   const [isRedirecting, setIsRedirecting] = React.useState(false);
+  const [showEmailForm, setShowEmailForm] = React.useState(false);
+  const [isSubmittingEmail, setIsSubmittingEmail] = React.useState(false);
   const [showTip, setShowTip] = React.useState(false);
-
-  React.useEffect(() => {
-    console.log('OIDC isLoading:', oidcAuth.isLoading);
-    console.log('OIDC isAuthenticated:', oidcAuth.isAuthenticated);
-    console.log('OIDC activeNavigator:', oidcAuth.activeNavigator);
-    console.log('OIDC error:', oidcAuth.error);
-    console.log('OIDC user:', oidcAuth.user);
-  }, [oidcAuth.isLoading, oidcAuth.isAuthenticated, oidcAuth.activeNavigator, oidcAuth.error, oidcAuth.user]);
 
   const handleLoginDev = async () => {
     if (!import.meta.env.DEV || isLoggingDev) return;
@@ -39,51 +34,109 @@ export default function EstadoNoAutenticado() {
     if (isRedirecting) return;
     setIsRedirecting(true);
     try {
-      await oidcAuth.signinRedirect({
-        redirect_uri: 'http://localhost:5173'
-      });
+      await oidcAuth.signinRedirect({ redirect_uri: 'http://localhost:5173' });
     } finally {
       setIsRedirecting(false);
     }
   };
 
+  const handleEmailSubmit = async (event) => {
+    event.preventDefault();
+    if (isSubmittingEmail || isRedirecting) return;
+    setIsSubmittingEmail(true);
+    await new Promise((resolve) => window.setTimeout(resolve, 450));
+    setIsSubmittingEmail(false);
+    handleCognitoLogin();
+  };
+
   return (
-    <div className="view" style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24, position: 'relative' }}>
-      <section style={{ width: 'min(560px, 100%)' }}>
-        <div className="panel" style={{ textAlign: 'center' }}>
-          <div style={{ width: 76, height: 76, borderRadius: 20, margin: '0 auto 16px', display: 'grid', placeItems: 'center', background: 'rgba(37,99,235,0.12)', color: '#2563eb' }}>
-            <LogIn size={34} />
-          </div>
-          <h1 className="panel-title" style={{ fontSize: '1.55rem', marginBottom: 8 }}>Iniciar sesión</h1>
-          <p className="panel-subtitle" style={{ marginBottom: 18 }}>Accede con tu cuenta corporativa</p>
-
-          <button
-            type="button"
-            className="button secondary"
-            onClick={handleCognitoLogin}
-            disabled={isRedirecting}
-            style={{ width: '100%', justifyContent: 'center' }}
-          >
-            {isRedirecting ? <Loader2 size={16} className="spin" /> : <Shield size={18} />}
-            {isRedirecting ? 'Redirigiendo...' : 'Continuar con Cognito'}
-            {!isRedirecting ? <ArrowRight size={16} /> : null}
-          </button>
-
-          {oidcAuth.isLoading ? <p style={{ marginTop: 10, color: 'var(--muted)', fontSize: '0.84rem' }}>Procesando autenticación...</p> : null}
-          {oidcAuth.activeNavigator ? <p style={{ marginTop: 6, color: 'var(--muted)', fontSize: '0.84rem' }}>Redirigiendo...</p> : null}
-          {oidcAuth.error ? <p style={{ marginTop: 6, color: '#b91c1c', fontSize: '0.84rem' }}>Error OIDC: {oidcAuth.error.message}</p> : null}
-
-          <div style={{ marginTop: 18, padding: 12, borderRadius: 14, border: '1px solid rgba(20,34,53,0.08)', background: 'rgba(20,34,53,0.03)', textAlign: 'left' }}>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', color: 'var(--muted)' }}>
-              <AlertCircle size={16} style={{ marginTop: 2, flexShrink: 0 }} />
-              <div style={{ fontSize: '0.88rem', lineHeight: 1.45 }}>El módulo de autenticación corporativa está en integración con Amazon Cognito.</div>
-            </div>
+    <div className="login-screen-root">
+      <div className="login-left-pane">
+        <div className="login-left-copy fade-in-delay">
+          <h1>Bienvenido a <span>Rednacrem</span></h1>
+          <p>
+            Gestiona contactos, usuarios y seguimiento comercial en un solo lugar.
+            La plataforma integral para equipos de ventas modernos.
+          </p>
+          <div className="login-feature-list">
+            <div><Check size={14} />Gestion centralizada de contactos</div>
+            <div><Check size={14} />Seguimiento de oportunidades en tiempo real</div>
+            <div><Check size={14} />Reportes y analisis avanzados</div>
           </div>
         </div>
-      </section>
+
+        <div className="login-left-footer fade-in-delay-2">Desarrollado por Tecno Group</div>
+        <div className="login-left-glow-a"></div>
+        <div className="login-left-glow-b"></div>
+      </div>
+
+      <div className="login-right-pane">
+        <div className="login-mobile-brand fade-in-up">
+          <div className="login-brand-icon"><Zap size={16} /></div>
+          <span>Rednacrem</span>
+        </div>
+
+        <div className="login-card fade-in-up">
+          <div className="login-card-head">
+            <h2>Iniciar sesion</h2>
+            <p>Accede a tu cuenta para continuar</p>
+          </div>
+
+          <button type="button" className="login-google-btn btn-hover" onClick={handleCognitoLogin} disabled={isRedirecting}>
+            <svg className="login-google-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+            </svg>
+            {isRedirecting ? 'Redirigiendo...' : 'Continuar con Google'}
+          </button>
+
+          <div className="login-divider"><span>O</span></div>
+
+          <button type="button" className="login-email-btn" onClick={() => setShowEmailForm((prev) => !prev)}>
+            <Mail size={16} />Iniciar sesion con email
+          </button>
+
+          {showEmailForm ? (
+            <form className="login-email-form fade-in-up" onSubmit={handleEmailSubmit}>
+              <label>
+                Correo electronico
+                <input type="email" placeholder="nombre@empresa.com" required />
+              </label>
+              <label>
+                Contrasena
+                <input type="password" placeholder="••••••••" required />
+              </label>
+              <div className="login-email-row">
+                <label className="login-check-row"><input type="checkbox" />Recordarme</label>
+                <a href="#">¿Olvidaste tu contrasena?</a>
+              </div>
+              <button type="submit" className="login-submit-btn btn-hover" disabled={isSubmittingEmail || isRedirecting}>
+                {isSubmittingEmail ? <Loader2 size={16} className="spin" /> : null}
+                {isSubmittingEmail ? 'Validando...' : 'Acceder'}
+              </button>
+            </form>
+          ) : null}
+
+          {oidcAuth.isLoading ? <p className="login-status">Procesando autenticacion...</p> : null}
+          {oidcAuth.activeNavigator ? <p className="login-status">Redirigiendo...</p> : null}
+          {oidcAuth.error ? <p className="login-error">Error OIDC: {oidcAuth.error.message}</p> : null}
+
+          <p className="login-help">¿No tienes cuenta? <a href="#">Contacta a tu administrador</a></p>
+        </div>
+
+        <div className="login-legal-links fade-in-delay-2">
+          <a href="#">Privacidad</a>
+          <a href="#">Terminos</a>
+          <a href="#">Soporte</a>
+        </div>
+
+        <div className="login-right-glow"></div>
+      </div>
 
       {import.meta.env.DEV ? (
-        <div style={{ position: 'fixed', right: 24, bottom: 24, zIndex: 90 }}>
+        <div className="login-dev-wrap">
           <button
             type="button"
             className="button ghost"
@@ -91,16 +144,20 @@ export default function EstadoNoAutenticado() {
             onMouseEnter={() => setShowTip(true)}
             onMouseLeave={() => setShowTip(false)}
             disabled={isLoggingDev}
-            style={{ border: '1px solid rgba(20,34,53,0.16)', background: 'rgba(255,255,255,0.82)', backdropFilter: 'blur(10px)', borderRadius: 12, padding: '8px 12px', fontSize: '0.82rem' }}
+            style={{
+              border: '1px solid rgba(148,163,184,0.24)',
+              background: 'rgba(15,23,42,0.9)',
+              color: '#cbd5e1',
+              backdropFilter: 'blur(10px)',
+              borderRadius: 12,
+              padding: '8px 12px',
+              fontSize: '0.82rem'
+            }}
           >
             {isLoggingDev ? <Loader2 size={15} className="spin" /> : <Terminal size={15} />}
             {isLoggingDev ? 'Ingresando...' : 'Login Dev'}
           </button>
-          {showTip ? (
-            <div style={{ position: 'absolute', right: 0, bottom: 'calc(100% + 8px)', background: '#0f172a', color: '#e2e8f0', borderRadius: 8, padding: '6px 10px', fontSize: '0.75rem', whiteSpace: 'nowrap', border: '1px solid rgba(148,163,184,0.28)' }}>
-              Acceso temporal de desarrollo
-            </div>
-          ) : null}
+          {showTip ? <div className="login-dev-tip">Acceso temporal de desarrollo</div> : null}
         </div>
       ) : null}
     </div>
