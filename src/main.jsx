@@ -2,7 +2,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { AuthProvider as OidcAuthProvider, useAuth as useOidcAuth } from 'react-oidc-context';
-import { cognitoAuthConfig } from './auth/cognitoConfig';
+import { buildCognitoHostedUiLogoutUrl, cognitoAuthConfig } from './auth/cognitoConfig';
 import {
   Menu, X, Bell, Search, ChevronDown, Briefcase, Users, UserCheck, Building2, Phone,
   Activity, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, AlertTriangle,
@@ -2973,7 +2973,7 @@ const SUPERVISOR_LOTS_SEED = listLots();
       };
 
       const handleLogout = async () => {
-        // 1) Cerrar sesion OIDC local (react-oidc-context) para que isAuthenticated pase a false.
+        // 1) Cerrar sesion OIDC local para evitar estado stale en el frontend.
         if (oidcAuth?.removeUser) {
           try {
             await oidcAuth.removeUser();
@@ -2985,6 +2985,8 @@ const SUPERVISOR_LOTS_SEED = listLots();
         await logout();
         setMenuOpen(isDesktop);
         volverAlTrabajo();
+        // 3) Cerrar sesion en Hosted UI de Cognito y volver a logout_uri.
+        window.location.assign(buildCognitoHostedUiLogoutUrl());
       };
 
       const handleOpenProfile = () => {
