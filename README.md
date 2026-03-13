@@ -11,7 +11,7 @@
    - PowerShell: `npm.cmd run dev`
    - CMD/Bash: `npm run dev`
 3. Abrir:
-   - `http://localhost:5173`
+   - `https://rednacrem.tri.uy`
 
 ## Notas
 - Este proyecto es un `index.html` autocontenido (React por CDN), por eso no requiere build.
