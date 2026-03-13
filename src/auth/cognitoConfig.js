@@ -3,7 +3,7 @@ export const cognitoLogoutUri = "https://rednacrem.tri.uy";
 
 export const cognitoAuthConfig = {
   authority: "https://cognito-idp.us-east-2.amazonaws.com/us-east-2_Jy8mPM6NJ",
-  client_id: "40v9so763de3tr5agebi3aha16",
+  client_id: "59ogsft204res3f33i5ov7rm01",
   redirect_uri: "https://rednacrem.tri.uy",
   post_logout_redirect_uri: cognitoLogoutUri,
   response_type: "code",
