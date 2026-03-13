@@ -34,7 +34,7 @@ export default function EstadoNoAutenticado() {
     if (isRedirecting) return;
     setIsRedirecting(true);
     try {
-      await oidcAuth.signinRedirect({ redirect_uri: 'http://localhost:5173' });
+      await oidcAuth.signinRedirect({ redirect_uri: 'https://rednacrem.tri.uy' });
     } finally {
       setIsRedirecting(false);
     }
