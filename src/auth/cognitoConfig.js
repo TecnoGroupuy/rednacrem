@@ -16,5 +16,8 @@ export const cognitoAuthConfig = {
 export const buildCognitoHostedUiLoginUrl = () =>
   `${cognitoHostedUiDomain}/login?client_id=${cognitoAuthConfig.client_id}&response_type=${cognitoAuthConfig.response_type}&scope=${encodeURIComponent(cognitoAuthConfig.scope)}&redirect_uri=${encodeURIComponent(cognitoAuthConfig.redirect_uri)}&lang=es`;
 
+export const buildCognitoHostedUiGoogleLoginUrl = () =>
+  `${cognitoHostedUiDomain}/login?identity_provider=Google&client_id=${cognitoAuthConfig.client_id}&response_type=${cognitoAuthConfig.response_type}&scope=${encodeURIComponent(cognitoAuthConfig.scope)}&redirect_uri=${encodeURIComponent(cognitoAuthConfig.redirect_uri)}`;
+
 export const buildCognitoHostedUiLogoutUrl = () =>
   `${cognitoHostedUiDomain}/logout?client_id=${cognitoAuthConfig.client_id}&logout_uri=${encodeURIComponent(cognitoLogoutUri)}`;

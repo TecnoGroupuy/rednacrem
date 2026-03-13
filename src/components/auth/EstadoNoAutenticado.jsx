@@ -2,7 +2,7 @@
 import { ArrowRight, Check, Loader2, Mail, Shield, Terminal, Zap } from 'lucide-react';
 import { useAuth as useOidcAuth } from 'react-oidc-context';
 import { useAuth as useAppAuth } from '../../auth/AuthProvider.jsx';
-import { buildCognitoHostedUiLoginUrl } from '../../auth/cognitoConfig.js';
+import { buildCognitoHostedUiGoogleLoginUrl, buildCognitoHostedUiLoginUrl } from '../../auth/cognitoConfig.js';
 import './EstadoNoAutenticado.css';
 
 export default function EstadoNoAutenticado() {
@@ -10,8 +10,6 @@ export default function EstadoNoAutenticado() {
   const { login } = useAppAuth();
   const [isLoggingDev, setIsLoggingDev] = React.useState(false);
   const [isRedirecting, setIsRedirecting] = React.useState(false);
-  const [showEmailForm, setShowEmailForm] = React.useState(false);
-  const [isSubmittingEmail, setIsSubmittingEmail] = React.useState(false);
   const [showTip, setShowTip] = React.useState(false);
 
   const handleLoginDev = async () => {
@@ -31,7 +29,18 @@ export default function EstadoNoAutenticado() {
     }
   };
 
-  const handleCognitoLogin = async () => {
+  const handleGoogleLogin = async () => {
+    if (isRedirecting) return;
+    setIsRedirecting(true);
+    try {
+      const loginUrl = buildCognitoHostedUiGoogleLoginUrl();
+      window.location.assign(loginUrl);
+    } finally {
+      setIsRedirecting(false);
+    }
+  };
+
+  const handleEmailLogin = async () => {
     if (isRedirecting) return;
     setIsRedirecting(true);
     try {
@@ -40,15 +49,6 @@ export default function EstadoNoAutenticado() {
     } finally {
       setIsRedirecting(false);
     }
-  };
-
-  const handleEmailSubmit = async (event) => {
-    event.preventDefault();
-    if (isSubmittingEmail || isRedirecting) return;
-    setIsSubmittingEmail(true);
-    await new Promise((resolve) => window.setTimeout(resolve, 450));
-    setIsSubmittingEmail(false);
-    handleCognitoLogin();
   };
 
   return (
@@ -84,7 +84,7 @@ export default function EstadoNoAutenticado() {
             <p>Accede a tu cuenta para continuar</p>
           </div>
 
-          <button type="button" className="login-google-btn btn-hover" onClick={handleCognitoLogin} disabled={isRedirecting}>
+          <button type="button" className="login-google-btn btn-hover" onClick={handleGoogleLogin} disabled={isRedirecting}>
             <svg className="login-google-icon" viewBox="0 0 24 24" aria-hidden="true">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
               <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
@@ -96,30 +96,11 @@ export default function EstadoNoAutenticado() {
 
           <div className="login-divider"><span>O</span></div>
 
-          <button type="button" className="login-email-btn" onClick={() => setShowEmailForm((prev) => !prev)}>
-            <Mail size={16} />Iniciar sesion con email
+          <button type="button" className="login-email-btn" onClick={handleEmailLogin} disabled={isRedirecting}>
+            <Mail size={16} />Acceder con email
           </button>
 
-          {showEmailForm ? (
-            <form className="login-email-form fade-in-up" onSubmit={handleEmailSubmit}>
-              <label>
-                Correo electronico
-                <input type="email" placeholder="nombre@empresa.com" required />
-              </label>
-              <label>
-                Contrasena
-                <input type="password" placeholder="••••••••" required />
-              </label>
-              <div className="login-email-row">
-                <label className="login-check-row"><input type="checkbox" />Recordarme</label>
-                <a href="#">¿Olvidaste tu contrasena?</a>
-              </div>
-              <button type="submit" className="login-submit-btn btn-hover" disabled={isSubmittingEmail || isRedirecting}>
-                {isSubmittingEmail ? <Loader2 size={16} className="spin" /> : null}
-                {isSubmittingEmail ? 'Validando...' : 'Acceder'}
-              </button>
-            </form>
-          ) : null}
+          
 
           {oidcAuth.isLoading ? <p className="login-status">Procesando autenticacion...</p> : null}
           {oidcAuth.activeNavigator ? <p className="login-status">Redirigiendo...</p> : null}
