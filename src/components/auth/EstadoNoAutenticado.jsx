@@ -34,7 +34,7 @@ export default function EstadoNoAutenticado() {
     if (isRedirecting) return;
     setIsRedirecting(true);
     try {
-      const loginUrl = 'https://us-east-2jv8mpm6nj.auth.us-east-2.amazoncognito.com/login?client_id=40v9so763de3tr5agebi3aha16&response_type=code&scope=email+openid+profile&redirect_uri=https://rednacrem.tri.uy&lang=es';
+      const loginUrl = 'https://us-east-2jy8mpm6nj.auth.us-east-2.amazoncognito.com/login?client_id=40v9so763de3tr5agebi3aha16&response_type=code&scope=email+openid+profile&redirect_uri=https://rednacrem.tri.uy&lang=es';
       window.location.assign(loginUrl);
     } finally {
       setIsRedirecting(false);
