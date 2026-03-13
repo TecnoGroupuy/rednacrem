@@ -2,7 +2,6 @@
 import { ArrowRight, Check, Loader2, Mail, Shield, Terminal, Zap } from 'lucide-react';
 import { useAuth as useOidcAuth } from 'react-oidc-context';
 import { useAuth as useAppAuth } from '../../auth/AuthProvider.jsx';
-import { buildCognitoHostedUiGoogleLoginUrl, buildCognitoHostedUiLoginUrl } from '../../auth/cognitoConfig.js';
 import './EstadoNoAutenticado.css';
 
 export default function EstadoNoAutenticado() {
@@ -33,9 +32,10 @@ export default function EstadoNoAutenticado() {
     if (isRedirecting) return;
     setIsRedirecting(true);
     try {
-      const loginUrl = buildCognitoHostedUiGoogleLoginUrl();
-      window.location.assign(loginUrl);
-    } finally {
+      await oidcAuth.signinRedirect({
+        extraQueryParams: { identity_provider: 'Google' }
+      });
+    } catch {
       setIsRedirecting(false);
     }
   };
@@ -44,9 +44,8 @@ export default function EstadoNoAutenticado() {
     if (isRedirecting) return;
     setIsRedirecting(true);
     try {
-      const loginUrl = buildCognitoHostedUiLoginUrl();
-      window.location.assign(loginUrl);
-    } finally {
+      await oidcAuth.signinRedirect();
+    } catch {
       setIsRedirecting(false);
     }
   };
