@@ -211,7 +211,7 @@ const SUPERVISOR_LOTS_SEED = listLots();
 
     const resolveEstadoUsuario = (estadoId) => ESTADOS_USUARIO[estadoId] || ESTADOS_USUARIO.disponible;
 
-    function UserProfileMenu({ user, roleLabel, estadoActual, onEstadoChange, onLogout, onOpenProfile }) {
+    function UserProfileMenu({ user, roleLabel, estadoActual, onEstadoChange, onLogout, onOpenProfile, unreadNotifications = 0, alertPulse = false }) {
       const [menuOpen, setMenuOpen] = React.useState(false);
       const menuRef = React.useRef(null);
       const status = resolveEstadoUsuario(estadoActual);
@@ -234,7 +234,12 @@ const SUPERVISOR_LOTS_SEED = listLots();
 
       return (
         <div className="user-menu" ref={menuRef}>
-          <button className="user-card user-card-button" onClick={() => setMenuOpen((prev) => !prev)}>
+          <button className={'user-card user-card-button ' + (unreadNotifications > 0 ? 'has-alert ' : '') + (alertPulse ? 'is-flashing' : '')} onClick={() => setMenuOpen((prev) => !prev)}>
+            {unreadNotifications > 0 ? (
+              <span className="user-card-alert-badge" title={unreadNotifications + ' notificaciones sin leer'}>
+                {unreadNotifications > 99 ? '99+' : unreadNotifications}
+              </span>
+            ) : null}
             <div style={{ position: 'relative' }}>
               <div className="avatar">{initials(user.name)}</div>
               <span
@@ -379,7 +384,7 @@ const SUPERVISOR_LOTS_SEED = listLots();
       return date.toLocaleDateString('es-UY', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
     };
 
-    function NotificationsDropdown({ userId, onNavigate }) {
+    function NotificationsDropdown({ userId, onNavigate, onUnreadCountChange }) {
       const [open, setOpen] = React.useState(false);
       const [items, setItems] = React.useState(() => listNotifications({ userId, limit: 15 }));
       const panelRef = React.useRef(null);
@@ -417,6 +422,12 @@ const SUPERVISOR_LOTS_SEED = listLots();
       }, [open]);
 
       const unreadCount = getUnreadCount({ userId, limit: 15 });
+
+      React.useEffect(() => {
+        if (typeof onUnreadCountChange === 'function') {
+          onUnreadCountChange(unreadCount);
+        }
+      }, [unreadCount, onUnreadCountChange]);
 
       const handleMarkAllRead = () => {
         markAllAsRead({ userId, limit: 15 });
@@ -2817,6 +2828,10 @@ const SUPERVISOR_LOTS_SEED = listLots();
       const [pausaInicio, setPausaInicio] = React.useState('');
       const [mostrarPausa, setMostrarPausa] = React.useState(false);
       const [showProfileModal, setShowProfileModal] = React.useState(false);
+      const [unreadNotifications, setUnreadNotifications] = React.useState(0);
+      const [sidebarNotificationPulse, setSidebarNotificationPulse] = React.useState(false);
+      const previousUnreadRef = React.useRef(0);
+      const pulseTimerRef = React.useRef(null);
       const [brandLogo, setBrandLogo] = React.useState(() => {
         try {
           return localStorage.getItem('rednacrem_logo') || '';
@@ -2846,6 +2861,12 @@ const SUPERVISOR_LOTS_SEED = listLots();
         };
         window.addEventListener('resize', onResize);
         return () => window.removeEventListener('resize', onResize);
+      }, []);
+
+      React.useEffect(() => {
+        return () => {
+          if (pulseTimerRef.current) window.clearTimeout(pulseTimerRef.current);
+        };
       }, []);
 
       React.useEffect(() => {
@@ -3018,6 +3039,22 @@ const SUPERVISOR_LOTS_SEED = listLots();
         if (!isDesktop) setMenuOpen(false);
       }, [navItems, isDesktop]);
 
+      const handleUnreadCountChange = React.useCallback((nextCount) => {
+        setUnreadNotifications(nextCount);
+        if (nextCount > previousUnreadRef.current) {
+          setSidebarNotificationPulse(true);
+          if (pulseTimerRef.current) window.clearTimeout(pulseTimerRef.current);
+          pulseTimerRef.current = window.setTimeout(() => {
+            setSidebarNotificationPulse(false);
+          }, 4200);
+        }
+        if (nextCount === 0) {
+          setSidebarNotificationPulse(false);
+          if (pulseTimerRef.current) window.clearTimeout(pulseTimerRef.current);
+        }
+        previousUnreadRef.current = nextCount;
+      }, []);
+
       const renderRoute = () => {
         if (SUPERADMIN_ROUTES.includes(route)) {
           return (
@@ -3147,6 +3184,8 @@ const SUPERVISOR_LOTS_SEED = listLots();
                 onEstadoChange={handleEstadoUsuario}
                 onLogout={handleLogout}
                 onOpenProfile={handleOpenProfile}
+                unreadNotifications={unreadNotifications}
+                alertPulse={sidebarNotificationPulse}
               />
             </aside>
 
@@ -3182,7 +3221,11 @@ const SUPERVISOR_LOTS_SEED = listLots();
                   <div className="searchbox"><Search size={18} color="#69788d" /><input placeholder="Buscar clientes, gestiones o servicios..." /><div className="pill">Demo</div></div>
                 </div>
                 <div className="topbar-actions">
-                  <NotificationsDropdown userId={notificationUserId} onNavigate={openNotificationsModule} />
+                  <NotificationsDropdown
+                    userId={notificationUserId}
+                    onNavigate={openNotificationsModule}
+                    onUnreadCountChange={handleUnreadCountChange}
+                  />
                 </div>
               </header>
               {renderRoute()}
