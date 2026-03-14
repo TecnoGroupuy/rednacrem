@@ -82,6 +82,7 @@ import UiRoleGate from './components/UiRoleGate.jsx';
 import RealRoleGate from './components/RealRoleGate.jsx';
 import RequireRole from './components/guards/RequireRole.jsx';
 import { AuthProvider as AppAuthProvider, useAuth } from './auth/AuthProvider.jsx';
+import { getEffectiveRoleForUi, getVisibleNavItemsForRole, hasRealRole } from './auth/authorizationHelpers.js';
 import { useRolEfectivo } from './hooks/useRolEfectivo.js';
 import AuthGate from './components/auth/AuthGate.jsx';
 import {
@@ -2925,7 +2926,7 @@ const SUPERVISOR_LOTS_SEED = listLots();
         () => Object.fromEntries(productsCatalog.map((product) => [product.id, product])),
         [productsCatalog]
       );
-      const hasRealSuperadminAccess = esSuperadmin;
+      const hasRealSuperadminAccess = hasRealRole({ rolReal, allowedRoles: ['superadministrador'] }) && esSuperadmin;
 
       React.useEffect(() => {
         const onResize = () => {
@@ -3086,8 +3087,13 @@ const SUPERVISOR_LOTS_SEED = listLots();
         setShowProfileModal(false);
       };
 
-      const effectiveRoleForUi = role || rolReal || 'atencion_cliente';
-      const navItems = ROLE_NAV.filter((item) => item.roles.includes(effectiveRoleForUi) && isModuleVisible(moduleStates, effectiveRoleForUi, item.path));
+      const effectiveRoleForUi = getEffectiveRoleForUi({ rolEfectivo: role, rolReal, fallback: 'atencion_cliente' });
+      const navItems = getVisibleNavItemsForRole({
+        roleNav: ROLE_NAV,
+        role: effectiveRoleForUi,
+        moduleStates,
+        isModuleVisible
+      });
       const currentMeta = ROLE_META[effectiveRoleForUi] || ROLE_META.atencion_cliente;
       const currentUser = USERS[rolReal] || { name: 'Usuario', email: '' };
       const notificationUserId = user?.id || rolReal || 'anon';

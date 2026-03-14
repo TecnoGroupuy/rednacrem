@@ -41,9 +41,23 @@ const BlockedView = ({ status, onLogout }) => (
 export default function RequireApprovedUser({ children }) {
   const { status, refreshSession, logout } = useAuth();
 
+  if (status === 'approved') return <>{children}</>;
   if (status === 'pending') return <PendingView onRefresh={refreshSession} onLogout={logout} />;
   if (status === 'rejected') return <RejectedView onLogout={logout} />;
   if (status === 'blocked' || status === 'inactive') return <BlockedView status={status} onLogout={logout} />;
 
-  return <>{children}</>;
+  return (
+    <div className="view" style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}>
+      <div className="panel" style={{ width: 'min(560px, 100%)', textAlign: 'center' }}>
+        <h2 className="panel-title" style={{ marginBottom: 8 }}>Sesion operativa no valida</h2>
+        <p className="panel-subtitle" style={{ maxWidth: 460, margin: '0 auto' }}>
+          Tu estado de usuario no fue reconocido por el sistema.
+        </p>
+        <div className="toolbar" style={{ justifyContent: 'center', marginTop: 16 }}>
+          <button className="button secondary" onClick={refreshSession}>Reintentar estado</button>
+          <button className="button ghost" onClick={logout}>Cerrar sesión</button>
+        </div>
+      </div>
+    </div>
+  );
 }

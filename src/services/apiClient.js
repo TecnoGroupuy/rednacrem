@@ -70,3 +70,5 @@ const sharedApiClient = createApiClient({
 export function getApiClient() {
   return sharedApiClient;
 }
+
+export default sharedApiClient;

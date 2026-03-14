@@ -21,6 +21,11 @@ const ROLE_PRECEDENCE = [
   'atencion_cliente'
 ];
 
+const VALID_STATUSES = ['pending', 'approved', 'rejected', 'blocked', 'inactive'];
+const ALLOW_CLAIMS_ROLE_FALLBACK = Boolean(
+  import.meta.env.DEV || String(import.meta.env?.VITE_AUTH_ALLOW_CLAIMS_ROLE_FALLBACK || '').toLowerCase() === 'true'
+);
+
 const DEFAULT_AUTH_SESSION = {
   isAuthenticated: false,
   loading: true,
@@ -63,7 +68,7 @@ const buildFallbackRoleFromClaims = (claims = {}) => {
 
 const normalizeStatus = (status) => {
   const safe = String(status || '').toLowerCase();
-  if (['pending', 'approved', 'rejected', 'blocked', 'inactive'].includes(safe)) return safe;
+  if (VALID_STATUSES.includes(safe)) return safe;
   return null;
 };
 
@@ -120,10 +125,35 @@ export function AuthProvider({ children, fallbackRole = null }) {
       const status = normalizeStatus(me.status);
       const roleFromBackend = me.role || null;
       const roleFallback = buildFallbackRoleFromClaims(claims || {});
-      const role = roleFromBackend || roleFallback || fallbackRole || null;
+      const role = roleFromBackend || (ALLOW_CLAIMS_ROLE_FALLBACK ? (roleFallback || fallbackRole) : null) || null;
 
       if (!role) {
-        clearSession();
+        setAuthSession((prev) => ({
+          ...prev,
+          isAuthenticated: false,
+          loading: false,
+          role: null,
+          status: null,
+          permissions: [],
+          user: null,
+          error: 'Sesion invalida: /me no devolvio un rol valido.'
+        }));
+        setVistaRolState(null);
+        return null;
+      }
+
+      if (!status) {
+        setAuthSession((prev) => ({
+          ...prev,
+          isAuthenticated: false,
+          loading: false,
+          role: null,
+          status: null,
+          permissions: [],
+          user: null,
+          error: 'Sesion invalida: /me no devolvio un estado valido.'
+        }));
+        setVistaRolState(null);
         return null;
       }
 
@@ -164,7 +194,17 @@ export function AuthProvider({ children, fallbackRole = null }) {
           return fallbackSession;
         }
       }
-      setAuthSession((prev) => ({ ...prev, loading: false, error: err?.message || 'No se pudo recuperar la sesión.' }));
+      setAuthSession((prev) => ({
+        ...prev,
+        isAuthenticated: false,
+        loading: false,
+        role: null,
+        status: null,
+        permissions: [],
+        user: null,
+        error: err?.message || 'No se pudo recuperar la sesión.'
+      }));
+      setVistaRolState(null);
       return null;
     }
   }, [clearSession, fallbackRole]);

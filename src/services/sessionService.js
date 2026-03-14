@@ -1,16 +1,34 @@
-﻿import { getApiClient } from './apiClient.js';
+import apiClient from './apiClient.js';
 
-const api = getApiClient();
+const ME_ENDPOINT = import.meta.env.VITE_AUTH_ME_ENDPOINT || '/me';
 
-export const getBusinessSession = async () => {
-  const payload = await api.get('/me');
-  return {
-    id: payload?.id || '',
-    nombre: payload?.nombre || payload?.name || 'Usuario',
-    email: payload?.email || '',
-    role: payload?.role || null,
-    status: payload?.status || null,
-    permissions: Array.isArray(payload?.permissions) ? payload.permissions : [],
-    claims: payload?.claims && typeof payload.claims === 'object' ? payload.claims : {}
-  };
-};
+function normalizeSessionPayload(payload) {
+  if (!payload) return null;
+
+  // caso backend actual
+  if (payload.user) {
+    return {
+      ...payload.user,
+      claims: payload.claims || null
+    };
+  }
+
+  // caso payload plano
+  if (payload.id || payload.role) {
+    return payload;
+  }
+
+  return null;
+}
+
+export async function getBusinessSession() {
+  const response = await apiClient.get(ME_ENDPOINT);
+  const payload = response?.data ?? response;
+  const session = normalizeSessionPayload(payload);
+
+  if (!session) {
+    throw new Error('Invalid /me response format');
+  }
+
+  return session;
+}
