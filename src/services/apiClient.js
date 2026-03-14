@@ -10,8 +10,29 @@ export class ApiError extends Error {
   }
 }
 
-const DEFAULT_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || '';
+const normalizeBaseUrl = (value) => String(value || '').trim().replace(/\/+$/, '');
+const DEFAULT_BASE_URL = normalizeBaseUrl(
+  typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL
+);
 let accessTokenGetter = async () => null;
+
+const isAbsoluteUrl = (path) => /^https?:\/\//i.test(String(path || ''));
+const normalizePath = (path) => {
+  const raw = String(path || '').trim();
+  if (!raw) return '/';
+  if (isAbsoluteUrl(raw)) return raw;
+  return raw.startsWith('/') ? raw : `/${raw}`;
+};
+
+export function buildApiUrl(path, baseUrl = DEFAULT_BASE_URL) {
+  const normalizedPath = normalizePath(path);
+  if (isAbsoluteUrl(normalizedPath)) return normalizedPath;
+  return `${normalizeBaseUrl(baseUrl)}${normalizedPath}`;
+}
+
+export function getApiBaseUrl() {
+  return DEFAULT_BASE_URL;
+}
 
 export function setApiAccessTokenGetter(getter) {
   accessTokenGetter = typeof getter === 'function' ? getter : async () => null;
@@ -19,6 +40,7 @@ export function setApiAccessTokenGetter(getter) {
 
 export function createApiClient({ baseUrl, getAccessToken }) {
   const request = async (path, { method = 'GET', headers = {}, body } = {}) => {
+    const finalUrl = buildApiUrl(path, baseUrl);
     const token = await getAccessToken();
     const hasBody = body !== undefined && body !== null;
 
@@ -31,7 +53,7 @@ export function createApiClient({ baseUrl, getAccessToken }) {
       finalHeaders.Authorization = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${baseUrl}${path}`, {
+    const response = await fetch(finalUrl, {
       method,
       headers: finalHeaders,
       body: hasBody ? JSON.stringify(body) : undefined
