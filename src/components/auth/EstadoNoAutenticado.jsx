@@ -105,13 +105,6 @@ export default function EstadoNoAutenticado() {
           {oidcAuth.activeNavigator ? <p className="login-status">Redirigiendo...</p> : null}
           {oidcAuth.error ? <p className="login-error">Error OIDC: {oidcAuth.error.message}</p> : null}
 
-          <p className="login-help">¿No tienes cuenta? <a href="#">Contacta a tu administrador</a></p>
-        </div>
-
-        <div className="login-legal-links fade-in-delay-2">
-          <a href="#">Privacidad</a>
-          <a href="#">Terminos</a>
-          <a href="#">Soporte</a>
         </div>
 
         <div className="login-right-glow"></div>

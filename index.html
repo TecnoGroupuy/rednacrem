@@ -109,47 +109,6 @@
     .user-card { margin-top: auto; border-radius: 22px; padding: 16px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.08); display: flex; align-items: center; gap: 12px; }
     .user-card-button { width: 100%; margin-top: 0; cursor: pointer; text-align: left; color: inherit; transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease; position: relative; overflow: visible; }
     .user-card-button:hover { background: rgba(255, 255, 255, 0.09); border-color: rgba(255, 255, 255, 0.14); }
-    .user-card.has-alert {
-      border-color: rgba(248, 113, 113, 0.62);
-      box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.38), 0 0 22px rgba(220, 38, 38, 0.34), 0 16px 28px rgba(127, 29, 29, 0.26);
-      background: linear-gradient(180deg, rgba(127, 29, 29, 0.22), rgba(30, 41, 59, 0.46));
-    }
-    .user-card.has-alert:hover {
-      border-color: rgba(252, 165, 165, 0.82);
-      box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.52), 0 0 26px rgba(220, 38, 38, 0.44), 0 18px 30px rgba(127, 29, 29, 0.3);
-    }
-    .user-card.is-flashing {
-      animation: user-alert-pulse 1s ease-in-out infinite;
-    }
-    .user-card-alert-badge {
-      position: absolute;
-      left: -14px;
-      top: 50%;
-      transform: translateY(-50%);
-      min-width: 30px;
-      height: 30px;
-      border-radius: 999px;
-      padding: 0 7px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      background: radial-gradient(circle at 30% 20%, #fca5a5 0%, #ef4444 35%, #b91c1c 100%);
-      border: 2px solid rgba(255, 255, 255, 0.85);
-      color: #fff;
-      font-size: 0.76rem;
-      font-weight: 800;
-      letter-spacing: 0.01em;
-      box-shadow: 0 0 0 2px rgba(127, 29, 29, 0.45), 0 0 18px rgba(220, 38, 38, 0.8);
-      z-index: 5;
-    }
-    @keyframes user-alert-pulse {
-      0%, 100% {
-        box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.36), 0 0 16px rgba(220, 38, 38, 0.32), 0 14px 24px rgba(127, 29, 29, 0.22);
-      }
-      50% {
-        box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.66), 0 0 28px rgba(239, 68, 68, 0.7), 0 16px 32px rgba(127, 29, 29, 0.34);
-      }
-    }
     .user-menu-popup {
       position: absolute;
       left: 0;
@@ -222,6 +181,22 @@
       line-height: 1;
     }
     .notifications-wrap { position: relative; }
+    .notifications-wrap.menu-mode { width: 100%; }
+    .menu-notification-count {
+      min-width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 6px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: #fee2e2;
+      background: rgba(220, 38, 38, 0.2);
+      border: 1px solid rgba(248, 113, 113, 0.45);
+      box-shadow: inset 0 0 8px rgba(220, 38, 38, 0.15);
+    }
     .notifications-panel {
       position: absolute;
       right: 0;
@@ -236,6 +211,14 @@
       transform-origin: top right;
       animation: notifications-drop 180ms ease;
       z-index: 80;
+    }
+    .notifications-panel.menu-anchored {
+      top: auto;
+      bottom: calc(100% + 8px);
+      left: 0;
+      right: 0;
+      width: min(420px, calc(100vw - 48px));
+      z-index: 130;
     }
     @keyframes notifications-drop {
       from { opacity: 0; transform: translateY(-8px) scale(0.98); }
