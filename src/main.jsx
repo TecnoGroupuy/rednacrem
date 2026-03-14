@@ -75,10 +75,12 @@ import {
 } from './services/dashboardService.js';
 import SuperadminWorkbench from './components/SuperadminWorkbench.jsx';
 import SupervisorContractsModule from './components/SupervisorContractsModule.jsx';
+import SupervisorRegistrationRequestsModule from './components/SupervisorRegistrationRequestsModule.jsx';
 import ProfileModal from './components/ProfileModal.jsx';
 import BotonVistaRol from './components/BotonVistaRol.jsx';
 import UiRoleGate from './components/UiRoleGate.jsx';
 import RealRoleGate from './components/RealRoleGate.jsx';
+import RequireRole from './components/guards/RequireRole.jsx';
 import { AuthProvider as AppAuthProvider, useAuth } from './auth/AuthProvider.jsx';
 import { useRolEfectivo } from './hooks/useRolEfectivo.js';
 import AuthGate from './components/auth/AuthGate.jsx';
@@ -147,6 +149,7 @@ const SUPERVISOR_LOTS_SEED = listLots();
       { path: 'lotes', label: 'Lotes', caption: 'Asignacion comercial', roles: ['supervisor'], icon: Layers },
       { path: 'numeros_error', label: 'Numeros con errores', caption: 'Fuera de flujo comercial', roles: ['supervisor'], icon: AlertTriangle },
       { path: 'seguimiento_vendedores', label: 'Seguimiento vendedores', caption: 'Resumen operativo', roles: ['supervisor'], icon: BarChart3 },
+      { path: 'solicitudes_registro', label: 'Solicitudes registro', caption: 'Aprobación vendedores', roles: ['supervisor'], icon: Bell },
       { path: 'agenda', label: 'Agenda', caption: 'Compromisos del día', roles: ['vendedor'], icon: Calendar, badge: 5 },
       { path: 'soporte', label: 'Atención al cliente', caption: 'Tickets y llamadas', roles: ['atencion_cliente'], icon: Headphones, badge: 12 },
       { path: 'contratos', label: 'Contrataciones', caption: 'Altas y renovaciones', roles: ['director', 'supervisor', 'operaciones'], icon: FileText },
@@ -213,9 +216,19 @@ const SUPERVISOR_LOTS_SEED = listLots();
 
     function UserProfileMenu({ user, roleLabel, estadoActual, onEstadoChange, onLogout, onOpenProfile, notificationUserId, onNotificationsNavigate }) {
       const [menuOpen, setMenuOpen] = React.useState(false);
+      const [unreadNotifications, setUnreadNotifications] = React.useState(0);
       const menuRef = React.useRef(null);
       const status = resolveEstadoUsuario(estadoActual);
       const StatusIcon = status.icon;
+
+      React.useEffect(() => {
+        const syncUnread = () => {
+          setUnreadNotifications(listNotifications({ userId: notificationUserId, limit: 15 }).length);
+        };
+        syncUnread();
+        const timer = window.setInterval(syncUnread, 15000);
+        return () => window.clearInterval(timer);
+      }, [notificationUserId]);
 
       React.useEffect(() => {
         const onClickOutside = (event) => {
@@ -234,7 +247,7 @@ const SUPERVISOR_LOTS_SEED = listLots();
 
       return (
         <div className="user-menu" ref={menuRef}>
-          <button className="user-card user-card-button" onClick={() => setMenuOpen((prev) => !prev)}>
+          <button className={'user-card user-card-button ' + (unreadNotifications > 0 ? 'has-alert' : '')} onClick={() => setMenuOpen((prev) => !prev)}>
             <div style={{ position: 'relative' }}>
               <div className="avatar">{initials(user.name)}</div>
               <span
@@ -274,6 +287,7 @@ const SUPERVISOR_LOTS_SEED = listLots();
                   }}
                   variant="menu"
                   menuLabel="Notificaciones"
+                  onUnreadCountChange={setUnreadNotifications}
                 />
               </div>
               <div className="user-menu-separator"></div>
@@ -388,7 +402,7 @@ const SUPERVISOR_LOTS_SEED = listLots();
       return date.toLocaleDateString('es-UY', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
     };
 
-    function NotificationsDropdown({ userId, onNavigate, variant = 'topbar', menuLabel = 'Notificaciones' }) {
+    function NotificationsDropdown({ userId, onNavigate, variant = 'topbar', menuLabel = 'Notificaciones', onUnreadCountChange }) {
       const [open, setOpen] = React.useState(false);
       const [items, setItems] = React.useState(() => listNotifications({ userId, limit: 15 }));
       const panelRef = React.useRef(null);
@@ -426,6 +440,13 @@ const SUPERVISOR_LOTS_SEED = listLots();
       }, [open]);
 
       const unreadCount = getUnreadCount({ userId, limit: 15 });
+      const displayCount = unreadCount > 0 ? unreadCount : items.length;
+
+      React.useEffect(() => {
+        if (typeof onUnreadCountChange === 'function') {
+          onUnreadCountChange(displayCount);
+        }
+      }, [displayCount, onUnreadCountChange]);
 
       const handleMarkAllRead = () => {
         markAllAsRead({ userId, limit: 15 });
@@ -454,7 +475,7 @@ const SUPERVISOR_LOTS_SEED = listLots();
             >
               <Bell size={16} />
               <span style={{ flex: 1, textAlign: 'left' }}>{menuLabel}</span>
-              <span className="menu-notification-count">{unreadCount > 99 ? '99+' : unreadCount}</span>
+              <span className="menu-notification-count">{displayCount > 99 ? '99+' : displayCount}</span>
             </button>
           ) : (
             <button
@@ -469,53 +490,99 @@ const SUPERVISOR_LOTS_SEED = listLots();
           )}
 
           {open ? (
-            <div ref={panelRef} className={'notifications-panel ' + (variant === 'menu' ? 'menu-anchored' : 'topbar-anchored')}>
-              <div className="notifications-header">
-                <h4>Notificaciones</h4>
-                <button className="notifications-mark-all" onClick={handleMarkAllRead} disabled={items.length === 0}>
-                  Marcar todo leído
-                </button>
+            variant === 'menu' ? (
+              <div className="notifications-modal-overlay">
+                <div ref={panelRef} className="notifications-panel modal-centered">
+                  <div className="notifications-header">
+                    <h4>Notificaciones</h4>
+                    <button className="notifications-mark-all" onClick={handleMarkAllRead} disabled={items.length === 0}>
+                      Marcar todo leído
+                    </button>
+                  </div>
+                  <div className="notifications-list">
+                    {items.length === 0 ? (
+                      <div className="notifications-empty">Sin notificaciones recientes.</div>
+                    ) : (
+                      items.map((notification) => {
+                        const typeMeta = notificationTypeMeta[notification.type] || notificationTypeMeta.info;
+                        const TypeIcon = typeMeta.icon;
+                        return (
+                          <button
+                            key={notification.id}
+                            className={'notification-item ' + (notification.read ? 'is-read' : 'is-unread')}
+                            onClick={() => handleNotificationClick(notification)}
+                          >
+                            <div className="notification-leading" style={{ background: typeMeta.background, color: typeMeta.color }}>
+                              <TypeIcon size={15} />
+                            </div>
+                            <div className="notification-body">
+                              <div className="notification-title-row">
+                                <span className="notification-title">{notification.title}</span>
+                                <span className="notification-time">{formatNotificationTime(notification.timestamp)}</span>
+                              </div>
+                              <p className="notification-description">{notification.description}</p>
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                  <div className="notifications-footer modal-footer">
+                    <button className="notifications-view-all" onClick={() => setOpen(false)}>
+                      Volver
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div className="notifications-list">
-                {items.length === 0 ? (
-                  <div className="notifications-empty">Sin notificaciones recientes.</div>
-                ) : (
-                  items.map((notification) => {
-                    const typeMeta = notificationTypeMeta[notification.type] || notificationTypeMeta.info;
-                    const TypeIcon = typeMeta.icon;
-                    return (
-                      <button
-                        key={notification.id}
-                        className={'notification-item ' + (notification.read ? 'is-read' : 'is-unread')}
-                        onClick={() => handleNotificationClick(notification)}
-                      >
-                        <div className="notification-leading" style={{ background: typeMeta.background, color: typeMeta.color }}>
-                          <TypeIcon size={15} />
-                        </div>
-                        <div className="notification-body">
-                          <div className="notification-title-row">
-                            <span className="notification-title">{notification.title}</span>
-                            <span className="notification-time">{formatNotificationTime(notification.timestamp)}</span>
+            ) : (
+              <div ref={panelRef} className="notifications-panel topbar-anchored">
+                <div className="notifications-header">
+                  <h4>Notificaciones</h4>
+                  <button className="notifications-mark-all" onClick={handleMarkAllRead} disabled={items.length === 0}>
+                    Marcar todo leído
+                  </button>
+                </div>
+                <div className="notifications-list">
+                  {items.length === 0 ? (
+                    <div className="notifications-empty">Sin notificaciones recientes.</div>
+                  ) : (
+                    items.map((notification) => {
+                      const typeMeta = notificationTypeMeta[notification.type] || notificationTypeMeta.info;
+                      const TypeIcon = typeMeta.icon;
+                      return (
+                        <button
+                          key={notification.id}
+                          className={'notification-item ' + (notification.read ? 'is-read' : 'is-unread')}
+                          onClick={() => handleNotificationClick(notification)}
+                        >
+                          <div className="notification-leading" style={{ background: typeMeta.background, color: typeMeta.color }}>
+                            <TypeIcon size={15} />
                           </div>
-                          <p className="notification-description">{notification.description}</p>
-                        </div>
-                      </button>
-                    );
-                  })
-                )}
+                          <div className="notification-body">
+                            <div className="notification-title-row">
+                              <span className="notification-title">{notification.title}</span>
+                              <span className="notification-time">{formatNotificationTime(notification.timestamp)}</span>
+                            </div>
+                            <p className="notification-description">{notification.description}</p>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+                <div className="notifications-footer">
+                  <button
+                    className="notifications-view-all"
+                    onClick={() => {
+                      onNavigate('sa_logs_actividad');
+                      setOpen(false);
+                    }}
+                  >
+                    Ver todas
+                  </button>
+                </div>
               </div>
-              <div className="notifications-footer">
-                <button
-                  className="notifications-view-all"
-                  onClick={() => {
-                    onNavigate('sa_logs_actividad');
-                    setOpen(false);
-                  }}
-                >
-                  Ver todas
-                </button>
-              </div>
-            </div>
+            )
           ) : null}
         </div>
       );
@@ -3083,6 +3150,16 @@ const SUPERVISOR_LOTS_SEED = listLots();
               onCloseLot={closeSupervisorLot}
               onReactivateError={reactivateSupervisorError}
             />
+          );
+        }
+        if (role === 'supervisor' && route === 'solicitudes_registro') {
+          return (
+            <RequireRole
+              roles={['supervisor']}
+              fallback={<PlaceholderView title="Solicitudes de registro" subtitle="No tienes permisos para este módulo." cta="Volver al foco" />}
+            >
+              <SupervisorRegistrationRequestsModule Panel={Panel} Button={Button} Tag={Tag} />
+            </RequireRole>
           );
         }
         if (route === 'contactos') {

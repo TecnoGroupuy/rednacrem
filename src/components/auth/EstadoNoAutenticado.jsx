@@ -1,7 +1,8 @@
 ﻿import React from 'react';
-import { ArrowRight, Check, Loader2, Mail, Shield, Terminal, Zap } from 'lucide-react';
+import { Check, Loader2, Mail, Terminal, Zap } from 'lucide-react';
 import { useAuth as useOidcAuth } from 'react-oidc-context';
 import { useAuth as useAppAuth } from '../../auth/AuthProvider.jsx';
+import { submitVendorRegistrationRequest } from '../../services/registrationService.js';
 import './EstadoNoAutenticado.css';
 
 export default function EstadoNoAutenticado() {
@@ -10,6 +11,11 @@ export default function EstadoNoAutenticado() {
   const [isLoggingDev, setIsLoggingDev] = React.useState(false);
   const [isRedirecting, setIsRedirecting] = React.useState(false);
   const [showTip, setShowTip] = React.useState(false);
+  const [showVendorRegister, setShowVendorRegister] = React.useState(false);
+  const [registerDraft, setRegisterDraft] = React.useState({ nombre: '', apellido: '', email: '', telefono: '' });
+  const [registerLoading, setRegisterLoading] = React.useState(false);
+  const [registerError, setRegisterError] = React.useState('');
+  const [registerSuccess, setRegisterSuccess] = React.useState('');
 
   const handleLoginDev = async () => {
     if (!import.meta.env.DEV || isLoggingDev) return;
@@ -47,6 +53,46 @@ export default function EstadoNoAutenticado() {
       await oidcAuth.signinRedirect();
     } catch {
       setIsRedirecting(false);
+    }
+  };
+
+  const updateRegisterField = (field, value) => {
+    setRegisterDraft((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleVendorRegister = async (event) => {
+    event.preventDefault();
+    if (registerLoading) return;
+    setRegisterError('');
+    setRegisterSuccess('');
+
+    if (!registerDraft.nombre.trim() || !registerDraft.apellido.trim() || !registerDraft.email.trim() || !registerDraft.telefono.trim()) {
+      setRegisterError('Completa todos los campos obligatorios.');
+      return;
+    }
+
+    setRegisterLoading(true);
+    try {
+      await submitVendorRegistrationRequest({
+        nombre: registerDraft.nombre.trim(),
+        apellido: registerDraft.apellido.trim(),
+        email: registerDraft.email.trim(),
+        telefono: registerDraft.telefono.trim()
+      });
+      setRegisterSuccess('Tu solicitud fue enviada y está pendiente de aprobación.');
+      setRegisterDraft({ nombre: '', apellido: '', email: '', telefono: '' });
+      setShowVendorRegister(false);
+    } catch (error) {
+      const message = String(error?.message || '');
+      if (message.includes('409')) {
+        setRegisterError('El email ya existe o tiene una solicitud pendiente.');
+      } else if (message.includes('422')) {
+        setRegisterError('Hay datos inválidos. Revisa el formulario.');
+      } else {
+        setRegisterError(message || 'No se pudo enviar la solicitud.');
+      }
+    } finally {
+      setRegisterLoading(false);
     }
   };
 
@@ -99,7 +145,25 @@ export default function EstadoNoAutenticado() {
             <Mail size={16} />Acceder con email
           </button>
 
-          
+          <button type="button" className="login-email-btn" onClick={() => setShowVendorRegister((prev) => !prev)} disabled={registerLoading || isRedirecting}>
+            {showVendorRegister ? 'Cancelar registro vendedor' : 'Registrarme como vendedor'}
+          </button>
+
+          {showVendorRegister ? (
+            <form className="login-email-form fade-in-up" onSubmit={handleVendorRegister}>
+              <label>Nombre<input value={registerDraft.nombre} onChange={(event) => updateRegisterField('nombre', event.target.value)} placeholder="Nombre" required /></label>
+              <label>Apellido<input value={registerDraft.apellido} onChange={(event) => updateRegisterField('apellido', event.target.value)} placeholder="Apellido" required /></label>
+              <label>Email<input type="email" value={registerDraft.email} onChange={(event) => updateRegisterField('email', event.target.value)} placeholder="email@dominio.com" required /></label>
+              <label>Teléfono<input value={registerDraft.telefono} onChange={(event) => updateRegisterField('telefono', event.target.value)} placeholder="099123123" required /></label>
+              <button type="submit" className="login-submit-btn btn-hover" disabled={registerLoading}>
+                {registerLoading ? <Loader2 size={16} className="spin" /> : null}
+                {registerLoading ? 'Enviando...' : 'Enviar solicitud'}
+              </button>
+            </form>
+          ) : null}
+
+          {registerError ? <p className="login-error">{registerError}</p> : null}
+          {registerSuccess ? <p className="login-status" style={{ color: '#34d399' }}>{registerSuccess}</p> : null}
 
           {oidcAuth.isLoading ? <p className="login-status">Procesando autenticacion...</p> : null}
           {oidcAuth.activeNavigator ? <p className="login-status">Redirigiendo...</p> : null}

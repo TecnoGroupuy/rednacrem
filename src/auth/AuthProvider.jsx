@@ -1,4 +1,6 @@
 ﻿import React from 'react';
+import { getBusinessSession } from '../services/sessionService.js';
+import { setApiAccessTokenGetter, ApiError } from '../services/apiClient.js';
 
 const AuthContext = React.createContext(null);
 
@@ -18,6 +20,19 @@ const ROLE_PRECEDENCE = [
   'vendedor',
   'atencion_cliente'
 ];
+
+const DEFAULT_AUTH_SESSION = {
+  isAuthenticated: false,
+  loading: true,
+  user: null,
+  role: null,
+  status: null,
+  permissions: [],
+  accessToken: null,
+  idToken: null,
+  claims: null,
+  error: ''
+};
 
 const findHighestPrecedenceRole = (roles = []) => {
   const normalized = roles.map((item) => String(item).toLowerCase());
@@ -41,168 +56,211 @@ const extractGroupsFromClaims = (claims = {}) => {
   return [];
 };
 
-export function AuthProvider({
-  children,
-  cognitoAdapter = null,
-  backendAdapter = null,
-  fallbackRole = null
-}) {
-  const [user, setUser] = React.useState(null);
-  const [authLoading, setAuthLoading] = React.useState(true);
+const buildFallbackRoleFromClaims = (claims = {}) => {
+  const groups = extractGroupsFromClaims(claims);
+  return mapCognitoGroupsToRol(groups);
+};
 
-  const buildUserFromSession = React.useCallback(async (sessionData, { resetVista = true } = {}) => {
-    const claims = sessionData?.claims || {};
-    const groups = extractGroupsFromClaims(claims);
+const normalizeStatus = (status) => {
+  const safe = String(status || '').toLowerCase();
+  if (['pending', 'approved', 'rejected', 'blocked', 'inactive'].includes(safe)) return safe;
+  return null;
+};
 
-    // Precedencia explicita desde cognito:groups.
-    let rolReal = mapCognitoGroupsToRol(groups);
+const buildDevSessionFallback = ({ sessionData, claims, fallbackRole }) => {
+  const roleFallback = buildFallbackRoleFromClaims(claims || {}) || fallbackRole || null;
+  if (!roleFallback) return null;
+  const nextUser = {
+    id: sessionData?.id || claims?.sub || 'dev-user',
+    nombre: sessionData?.nombre || claims?.name || claims?.email || 'Dev User',
+    email: sessionData?.email || claims?.email || 'dev@test.com',
+    rol: roleFallback,
+    status: 'approved',
+    permissions: []
+  };
+  return {
+    isAuthenticated: true,
+    loading: false,
+    user: nextUser,
+    role: roleFallback,
+    status: 'approved',
+    permissions: [],
+    accessToken: sessionData?.accessToken || null,
+    idToken: sessionData?.idToken || null,
+    claims: claims || {},
+    error: ''
+  };
+};
 
-    // Fallback recomendado: perfil backend (/me) validado por token.
-    if (!rolReal && backendAdapter?.getMe && sessionData?.accessToken) {
-      try {
-        const me = await backendAdapter.getMe(sessionData.accessToken);
-        if (me?.rol) rolReal = me.rol;
-      } catch {
-        // no-op
-      }
-    }
+export function AuthProvider({ children, fallbackRole = null }) {
+  const [authSession, setAuthSession] = React.useState(DEFAULT_AUTH_SESSION);
+  const [vistaRol, setVistaRolState] = React.useState(null);
 
-    // Fallback controlado final (puede ser null para bloquear UI sensible).
-    rolReal = rolReal || fallbackRole;
+  const clearSession = React.useCallback(() => {
+    setApiAccessTokenGetter(async () => null);
+    setVistaRolState(null);
+    setAuthSession({ ...DEFAULT_AUTH_SESSION, loading: false });
+  }, []);
 
-    if (!rolReal) {
+  const hydrateFromSession = React.useCallback(async (sessionData) => {
+    const accessToken = sessionData?.accessToken || null;
+    const idToken = sessionData?.idToken || null;
+    const claims = sessionData?.claims || null;
+
+    if (!accessToken) {
+      clearSession();
       return null;
     }
 
-    return {
-      id: sessionData?.id || claims.sub || '',
-      nombre: sessionData?.nombre || claims.name || claims['cognito:username'] || 'Usuario',
-      email: sessionData?.email || claims.email || '',
-      rol: rolReal,
-      vistaRol: resetVista ? null : sanitizeVistaRol(rolReal, sessionData?.vistaRol || null),
-      // TODO(Cognito): token para Authorization: Bearer <access_token>
-      accessToken: sessionData?.accessToken || null,
-      // TODO(Cognito): opcional para perfil/claims UI.
-      idToken: sessionData?.idToken || null
-    };
-  }, [backendAdapter, fallbackRole]);
+    setAuthSession((prev) => ({ ...prev, loading: true, error: '' }));
+    setApiAccessTokenGetter(async () => accessToken);
 
-  const hydrateFromSession = React.useCallback((sessionData) => {
-    setAuthLoading(true);
-    buildUserFromSession(sessionData, { resetVista: true })
-      .then((nextUser) => {
-        // Limpieza obligatoria en restore de sesion.
-        setUser(nextUser);
-      })
-      .finally(() => setAuthLoading(false));
-  }, [buildUserFromSession]);
+    try {
+      const me = await getBusinessSession();
+      const status = normalizeStatus(me.status);
+      const roleFromBackend = me.role || null;
+      const roleFallback = buildFallbackRoleFromClaims(claims || {});
+      const role = roleFromBackend || roleFallback || fallbackRole || null;
+
+      if (!role) {
+        clearSession();
+        return null;
+      }
+
+      const nextUser = {
+        id: me.id || sessionData?.id || '',
+        nombre: me.nombre || sessionData?.nombre || claims?.name || claims?.email || 'Usuario',
+        email: me.email || sessionData?.email || claims?.email || '',
+        rol: role,
+        status,
+        permissions: me.permissions || []
+      };
+
+      const nextSession = {
+        isAuthenticated: true,
+        loading: false,
+        user: nextUser,
+        role,
+        status,
+        permissions: me.permissions || [],
+        accessToken,
+        idToken,
+        claims: me.claims || claims || {},
+        error: ''
+      };
+
+      setAuthSession(nextSession);
+      return nextSession;
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        clearSession();
+        return null;
+      }
+      // Fallback acotado para Login Dev local sin backend /me.
+      if (import.meta.env.DEV && accessToken === 'dev-token') {
+        const fallbackSession = buildDevSessionFallback({ sessionData, claims, fallbackRole });
+        if (fallbackSession) {
+          setAuthSession(fallbackSession);
+          return fallbackSession;
+        }
+      }
+      setAuthSession((prev) => ({ ...prev, loading: false, error: err?.message || 'No se pudo recuperar la sesión.' }));
+      return null;
+    }
+  }, [clearSession, fallbackRole]);
+
+  const refreshSession = React.useCallback(async () => {
+    if (!authSession.accessToken) return null;
+    return hydrateFromSession({
+      accessToken: authSession.accessToken,
+      idToken: authSession.idToken,
+      claims: authSession.claims,
+      id: authSession.user?.id,
+      nombre: authSession.user?.nombre,
+      email: authSession.user?.email
+    });
+  }, [authSession, hydrateFromSession]);
 
   const rehydrateSessionFromCognito = React.useCallback(async () => {
-    setAuthLoading(true);
-    try {
-      // TODO(Cognito): source of truth de sesion/tokens desde SDK (Amplify/Auth).
-      if (!cognitoAdapter?.getCurrentSession) {
-        setUser(null);
-        return;
-      }
-      const sessionData = await cognitoAdapter.getCurrentSession();
-      if (!sessionData) {
-        setUser(null);
-        return;
-      }
-      const nextUser = await buildUserFromSession(sessionData, { resetVista: true });
-      setUser(nextUser);
-    } finally {
-      setAuthLoading(false);
-    }
-  }, [cognitoAdapter, buildUserFromSession]);
+    // Source of truth de login en esta app: react-oidc-context.
+    // AuthGate llamará hydrateFromSession cuando oidcAuth esté autenticado.
+    setAuthSession((prev) => ({ ...prev, loading: false }));
+  }, []);
 
   const login = React.useCallback(async (payload) => {
-    setAuthLoading(true);
-    try {
-      const nextUser = await buildUserFromSession(payload, { resetVista: true });
-      // Limpieza obligatoria en login.
-      setUser(nextUser);
-    } finally {
-      setAuthLoading(false);
-    }
-  }, [buildUserFromSession]);
+    // Login técnico/dev o puente desde OIDC.
+    setVistaRolState(null);
+    return hydrateFromSession(payload);
+  }, [hydrateFromSession]);
 
   const logout = React.useCallback(async () => {
-    if (cognitoAdapter?.signOut) {
-      try {
-        await cognitoAdapter.signOut();
-      } catch {
-        // no-op
-      }
-    }
-    // Logout seguro: limpiar identidad completa.
-    setUser(null);
-  }, [cognitoAdapter]);
+    clearSession();
+  }, [clearSession]);
 
   const setVistaRol = React.useCallback((nextVistaRol) => {
-    setUser((prev) => {
-      if (!prev) return prev;
-      if (prev.rol !== 'superadministrador') return prev;
-      const safeVistaRol = sanitizeVistaRol(prev.rol, nextVistaRol);
-      return {
-        ...prev,
-        vistaRol: safeVistaRol,
-        _vistaChangedAt: new Date().toISOString()
-      };
-    });
-  }, []);
+    const rolReal = authSession.role;
+    if (rolReal !== 'superadministrador') return;
+    setVistaRolState(sanitizeVistaRol(rolReal, nextVistaRol));
+  }, [authSession.role]);
 
   const restaurarVistaRol = React.useCallback(() => {
-    setUser((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        vistaRol: null,
-        _vistaChangedAt: new Date().toISOString()
-      };
-    });
+    setVistaRolState(null);
   }, []);
 
-  React.useEffect(() => {
-    setUser((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        vistaRol: sanitizeVistaRol(prev.rol, prev.vistaRol)
-      };
-    });
-  }, [user?.rol]);
+  const rolReal = authSession.role;
+  const rolEfectivo = vistaRol || authSession.role;
+  const esModoVista = !!vistaRol;
 
-  const rolReal = user?.rol || null;
-  const rolEfectivo = user?.vistaRol || user?.rol || null;
-  const esModoVista = !!user?.vistaRol;
+  const user = authSession.user
+    ? {
+      ...authSession.user,
+      rol: authSession.role,
+      vistaRol,
+      status: authSession.status,
+      permissions: authSession.permissions,
+      accessToken: authSession.accessToken,
+      idToken: authSession.idToken,
+      claims: authSession.claims
+    }
+    : null;
 
   const value = React.useMemo(() => ({
+    authSession,
     user,
-    setUser,
+    setUser: () => {
+      // Deprecated: mantener compatibilidad temporal.
+      // TODO: eliminar cuando toda la app use authSession.
+    },
     login,
     logout,
     hydrateFromSession,
     rehydrateSessionFromCognito,
+    refreshSession,
+    clearSession,
     setVistaRol,
     restaurarVistaRol,
     rolReal,
     rolEfectivo,
     esModoVista,
-    authLoading
+    authLoading: authSession.loading,
+    authError: authSession.error,
+    isAuthenticated: authSession.isAuthenticated,
+    status: authSession.status,
+    permissions: authSession.permissions
   }), [
+    authSession,
     user,
     login,
     logout,
     hydrateFromSession,
     rehydrateSessionFromCognito,
+    refreshSession,
+    clearSession,
     setVistaRol,
     restaurarVistaRol,
     rolReal,
     rolEfectivo,
-    esModoVista,
-    authLoading
+    esModoVista
   ]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

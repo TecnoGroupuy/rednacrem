@@ -1,12 +1,29 @@
 ﻿// API client base. Authorization real depende de access_token Cognito.
 // Nunca enviar rol/vistaRol como fuente de autorizacion (ej: X-User-Rol).
 
+export class ApiError extends Error {
+  constructor(message, status = 500, details = null) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.details = details;
+  }
+}
+
+const DEFAULT_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || '';
+let accessTokenGetter = async () => null;
+
+export function setApiAccessTokenGetter(getter) {
+  accessTokenGetter = typeof getter === 'function' ? getter : async () => null;
+}
+
 export function createApiClient({ baseUrl, getAccessToken }) {
   const request = async (path, { method = 'GET', headers = {}, body } = {}) => {
     const token = await getAccessToken();
+    const hasBody = body !== undefined && body !== null;
 
     const finalHeaders = {
-      'Content-Type': 'application/json',
+      ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
       ...headers
     };
 
@@ -17,16 +34,23 @@ export function createApiClient({ baseUrl, getAccessToken }) {
     const response = await fetch(`${baseUrl}${path}`, {
       method,
       headers: finalHeaders,
-      body: body ? JSON.stringify(body) : undefined
+      body: hasBody ? JSON.stringify(body) : undefined
     });
 
+    const contentType = response.headers.get('content-type') || '';
+    const isJson = contentType.includes('application/json');
+    const parsed = response.status === 204
+      ? null
+      : (isJson ? await response.json().catch(() => null) : await response.text().catch(() => ''));
+
     if (!response.ok) {
-      const text = await response.text();
-      throw new Error(text || `HTTP ${response.status}`);
+      const message = (parsed && typeof parsed === 'object' && parsed.message)
+        ? parsed.message
+        : (typeof parsed === 'string' && parsed.trim() ? parsed : `HTTP ${response.status}`);
+      throw new ApiError(message, response.status, parsed);
     }
 
-    if (response.status === 204) return null;
-    return response.json();
+    return parsed;
   };
 
   return {
@@ -38,12 +62,11 @@ export function createApiClient({ baseUrl, getAccessToken }) {
   };
 }
 
-// Ejemplo de uso recomendado:
-// const api = createApiClient({
-//   baseUrl: import.meta.env.VITE_API_URL,
-//   getAccessToken: async () => {
-//     // TODO(Cognito): usar fetchAuthSession()/getCurrentSession() del SDK.
-//     // return session.tokens?.accessToken?.toString() || null;
-//     return null;
-//   }
-// });
+const sharedApiClient = createApiClient({
+  baseUrl: DEFAULT_BASE_URL,
+  getAccessToken: async () => accessTokenGetter()
+});
+
+export function getApiClient() {
+  return sharedApiClient;
+}

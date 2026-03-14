@@ -3,28 +3,46 @@ import { Loader2 } from 'lucide-react';
 import { useAuth as useOidcAuth } from 'react-oidc-context';
 import { useAuth as useAppAuth } from '../../auth/AuthProvider.jsx';
 import EstadoNoAutenticado from './EstadoNoAutenticado.jsx';
+import RequireApprovedUser from '../guards/RequireApprovedUser.jsx';
 
 export default function AuthGate({ children }) {
   const oidcAuth = useOidcAuth();
-  const { user, authLoading, rehydrateSessionFromCognito, hydrateFromSession } = useAppAuth();
+  const {
+    authSession,
+    isAuthenticated,
+    authLoading,
+    rehydrateSessionFromCognito,
+    hydrateFromSession,
+    clearSession
+  } = useAppAuth();
 
   React.useEffect(() => {
     rehydrateSessionFromCognito();
   }, [rehydrateSessionFromCognito]);
 
   React.useEffect(() => {
-    if (!oidcAuth.isAuthenticated || user || !oidcAuth.user) return;
+    if (!oidcAuth.isAuthenticated || !oidcAuth.user) return;
+
+    const oidcAccess = oidcAuth.user.access_token || null;
+    const alreadyHydrated = isAuthenticated && authSession?.accessToken === oidcAccess;
+    if (alreadyHydrated) return;
+
     hydrateFromSession({
       id: oidcAuth.user.profile?.sub || oidcAuth.user.profile?.['cognito:username'] || '',
       nombre: oidcAuth.user.profile?.name || oidcAuth.user.profile?.email || 'Usuario',
       email: oidcAuth.user.profile?.email || '',
       claims: oidcAuth.user.profile || {},
-      accessToken: oidcAuth.user.access_token || null,
+      accessToken: oidcAccess,
       idToken: oidcAuth.user.id_token || null
     });
-  }, [oidcAuth.isAuthenticated, oidcAuth.user, user, hydrateFromSession]);
+  }, [oidcAuth.isAuthenticated, oidcAuth.user, isAuthenticated, authSession?.accessToken, hydrateFromSession]);
 
-  const haySesion = oidcAuth.isAuthenticated || !!user;
+  React.useEffect(() => {
+    const isLocalDevSession = authSession?.accessToken === 'dev-token';
+    if (!oidcAuth.isAuthenticated && isAuthenticated && !authLoading && !isLocalDevSession) {
+      clearSession();
+    }
+  }, [oidcAuth.isAuthenticated, isAuthenticated, authLoading, clearSession, authSession?.accessToken]);
 
   if (authLoading || oidcAuth.isLoading || !!oidcAuth.activeNavigator) {
     return (
@@ -39,6 +57,7 @@ export default function AuthGate({ children }) {
     );
   }
 
-  if (!haySesion) return <EstadoNoAutenticado />;
-  return <>{children}</>;
+  if (!isAuthenticated) return <EstadoNoAutenticado />;
+
+  return <RequireApprovedUser>{children}</RequireApprovedUser>;
 }
