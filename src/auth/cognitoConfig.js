@@ -1,5 +1,8 @@
+import { WebStorageStateStore } from 'oidc-client-ts';
+
 export const cognitoHostedUiDomain = "https://us-east-2jy8mpm6nj.auth.us-east-2.amazoncognito.com";
 export const cognitoLogoutUri = "https://rednacrem.tri.uy";
+const inBrowser = typeof window !== 'undefined';
 
 export const cognitoAuthConfig = {
   authority: "https://cognito-idp.us-east-2.amazonaws.com/us-east-2_Jy8mPM6NJ",
@@ -8,6 +11,13 @@ export const cognitoAuthConfig = {
   post_logout_redirect_uri: cognitoLogoutUri,
   response_type: "code",
   scope: "email openid profile",
+  ...(inBrowser
+    ? {
+      // Persistir usuario OIDC de forma explícita para evitar sesiones "solo en memoria".
+      userStore: new WebStorageStateStore({ store: window.localStorage }),
+      stateStore: new WebStorageStateStore({ store: window.sessionStorage })
+    }
+    : {}),
   onSigninCallback: () => {
     window.history.replaceState({}, document.title, window.location.pathname);
   }

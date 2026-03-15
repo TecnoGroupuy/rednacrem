@@ -111,17 +111,32 @@ export function AuthProvider({ children, fallbackRole = null }) {
     const accessToken = sessionData?.accessToken || null;
     const idToken = sessionData?.idToken || null;
     const claims = sessionData?.claims || null;
+    const primaryToken = accessToken || idToken;
 
-    if (!accessToken) {
+    if (!primaryToken) {
       clearSession();
       return null;
     }
 
     setAuthSession((prev) => ({ ...prev, loading: true, error: '' }));
-    setApiAccessTokenGetter(async () => accessToken);
+    setApiAccessTokenGetter(async () => primaryToken);
+
+    const loadSessionFromBackend = async () => {
+      try {
+        return await getBusinessSession();
+      } catch (err) {
+        const canRetryWithIdToken = err instanceof ApiError
+          && err.status === 401
+          && !!idToken
+          && primaryToken !== idToken;
+        if (!canRetryWithIdToken) throw err;
+        setApiAccessTokenGetter(async () => idToken);
+        return await getBusinessSession();
+      }
+    };
 
     try {
-      const me = await getBusinessSession();
+      const me = await loadSessionFromBackend();
       const status = normalizeStatus(me.status);
       const roleFromBackend = me.role || null;
       const roleFallback = buildFallbackRoleFromClaims(claims || {});
