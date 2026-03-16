@@ -7,6 +7,30 @@ import { listProductsAsync, createProduct, updateProduct } from '../services/pro
 import { listUsersAsync, createUser, updateUser } from '../services/usersService.js';
 import { listRecentActivity, listActivityLog, logActivityEvent } from '../services/activityService.js';
 
+const USER_ROLE_OPTIONS = ['superadministrador', 'director', 'supervisor', 'operaciones', 'atencion_cliente'];
+const USER_STATUS_OPTIONS = [
+  { value: 'approved', label: 'Aprobado' },
+  { value: 'inactive', label: 'Inactivo' },
+  { value: 'blocked', label: 'Bloqueado' },
+  { value: 'pending', label: 'Pendiente' },
+  { value: 'rejected', label: 'Rechazado' }
+];
+const DEFAULT_USER_ROLE = 'supervisor';
+const DEFAULT_USER_STATUS = 'approved';
+const DEFAULT_USER_REASON = 'Alta manual desde panel superadmin';
+
+const createUserDraft = (overrides = {}) => ({
+  id: '',
+  nombre: '',
+  apellido: '',
+  email: '',
+  telefono: '',
+  role: DEFAULT_USER_ROLE,
+  status: DEFAULT_USER_STATUS,
+  reason: DEFAULT_USER_REASON,
+  ...overrides
+});
+
 export default function SuperadminWorkbench({
   route,
   onOpenRoute,
@@ -44,8 +68,11 @@ export default function SuperadminWorkbench({
   const [previewError, setPreviewError] = React.useState('');
 
   const [productDraft, setProductDraft] = React.useState({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', observaciones: '', activo: true });
-  const [userDraft, setUserDraft] = React.useState({ id: '', nombre: '', email: '', rol: 'vendedor', activo: true });
+  const [userDraft, setUserDraft] = React.useState(() => createUserDraft());
   const [showUserForm, setShowUserForm] = React.useState(false);
+  const [userFormError, setUserFormError] = React.useState('');
+  const [userFormSuccess, setUserFormSuccess] = React.useState('');
+  const [userFormLoading, setUserFormLoading] = React.useState(false);
 
   const [logoDraft, setLogoDraft] = React.useState(logoUrl || '');
   const [logoError, setLogoError] = React.useState('');
@@ -81,6 +108,11 @@ export default function SuperadminWorkbench({
     setPhoneResultsRows(results);
   }, []);
   const loadActivity = React.useCallback(() => setActivityRows(listActivityLog()), []);
+
+  const splitFullName = (value) => {
+    const parts = String(value || '').trim().split(/\s+/).filter(Boolean);
+    return { firstName: parts[0] || '', lastName: parts.slice(1).join(' ') };
+  };
 
   React.useEffect(() => {
     if (!route.startsWith('sa_') && route !== 'dashboard_global') return;
@@ -166,18 +198,60 @@ export default function SuperadminWorkbench({
   };
 
   const saveUser = async () => {
-    if (!userDraft.nombre.trim() || !userDraft.email.trim()) return;
-    const payload = { nombre: userDraft.nombre.trim(), email: userDraft.email.trim(), rol: userDraft.rol, activo: !!userDraft.activo };
-    if (userDraft.id) {
-      const updated = await updateUser(userDraft.id, payload);
-      logActivityEvent({ entidad: 'usuario', entidadId: updated.id, tipo: 'edicion', descripcion: 'Usuario actualizado: ' + updated.nombre, usuarioId: 'usr-001' });
-    } else {
-      const created = await createUser(payload);
-      logActivityEvent({ entidad: 'usuario', entidadId: created.id, tipo: 'alta', descripcion: 'Usuario creado: ' + created.nombre, usuarioId: 'usr-001' });
+    const nombre = userDraft.nombre.trim();
+    const apellido = userDraft.apellido.trim();
+    const email = userDraft.email.trim();
+    const telefono = userDraft.telefono.trim();
+    const role = userDraft.role;
+    const status = userDraft.status;
+    const reasonValue = userDraft.reason.trim();
+
+    if (!nombre || !apellido || !email || !telefono) {
+      setUserFormError('Nombre, apellido, email y teléfono son obligatorios.');
+      return;
     }
-    setUserDraft({ id: '', nombre: '', email: '', rol: 'vendedor', activo: true });
-    await loadUsers();
-    loadActivity();
+
+    if (role === 'vendedor') {
+      setUserFormError('Los usuarios vendedor deben registrarse por solicitud y ser aprobados por supervisor.');
+      return;
+    }
+
+    setUserFormError('');
+    setUserFormSuccess('');
+    setUserFormLoading(true);
+    const payload = {
+      nombre,
+      apellido,
+      email,
+      telefono,
+      role,
+      status,
+      reason: reasonValue || DEFAULT_USER_REASON
+    };
+
+    try {
+      if (userDraft.id) {
+        const updated = await updateUser(userDraft.id, payload);
+        logActivityEvent({ entidad: 'usuario', entidadId: updated.id, tipo: 'edicion', descripcion: 'Usuario actualizado: ' + updated.nombre, usuarioId: 'usr-001' });
+        setUserFormSuccess('Usuario actualizado correctamente.');
+      } else {
+        const created = await createUser(payload);
+        logActivityEvent({ entidad: 'usuario', entidadId: created.id, tipo: 'alta', descripcion: 'Usuario creado: ' + created.nombre, usuarioId: 'usr-001' });
+        setUserFormSuccess('Usuario creado correctamente.');
+      }
+      setUserDraft(createUserDraft());
+      await loadUsers();
+      loadActivity();
+    } catch (err) {
+      const backendMessage =
+        err?.details?.error?.message ||
+        err?.details?.message ||
+        err?.message ||
+        'No se pudo crear el usuario.';
+      setUserFormError(backendMessage);
+    } finally {
+      setUserFormLoading(false);
+    }
   };
 
   const onLogoFile = async (event) => {
@@ -286,21 +360,26 @@ export default function SuperadminWorkbench({
             action={
               <div className="toolbar">
                 {showUserForm ? (
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      setShowUserForm(false);
-                      setUserDraft({ id: '', nombre: '', email: '', rol: 'vendedor', activo: true });
-                    }}
-                  >
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setShowUserForm(false);
+                    setUserDraft(createUserDraft());
+                    setUserFormError('');
+                    setUserFormSuccess('');
+                    setUserFormLoading(false);
+                  }}
+                >
                     Ocultar formulario
                   </Button>
                 ) : null}
                 <Button
                   icon={<Plus size={16} />}
                   onClick={() => {
-                    setUserDraft({ id: '', nombre: '', email: '', rol: 'vendedor', activo: true });
+                    setUserDraft(createUserDraft());
                     setShowUserForm(true);
+                    setUserFormError('');
+                    setUserFormSuccess('');
                   }}
                 >
                   Nuevo
@@ -336,8 +415,20 @@ export default function SuperadminWorkbench({
                             variant="ghost"
                             icon={<Edit3 size={15} />}
                             onClick={() => {
-                              setUserDraft({ id: item.id, nombre: item.nombre, email: item.email, rol: item.rol, activo: !!item.activo });
+                              const { firstName, lastName } = splitFullName(item.nombre);
+                              setUserDraft(createUserDraft({
+                                id: item.id,
+                                nombre: firstName || item.nombre || '',
+                                apellido: lastName,
+                                email: item.email || '',
+                                telefono: item.telefono || '',
+                                role: item.rol || item.role || DEFAULT_USER_ROLE,
+                                status: item.status || DEFAULT_USER_STATUS,
+                                reason: DEFAULT_USER_REASON
+                              }));
                               setShowUserForm(true);
+                              setUserFormError('');
+                              setUserFormSuccess('');
                             }}
                           >
                             Editar
@@ -363,12 +454,70 @@ export default function SuperadminWorkbench({
           {showUserForm ? (
             <Panel className="span-4" title={userDraft.id ? 'Editar usuario' : 'Crear usuario'} subtitle="Formulario">
               <div className="list">
-                <input className="input" placeholder="Nombre" value={userDraft.nombre} onChange={(event) => setUserDraft((prev) => ({ ...prev, nombre: event.target.value }))} />
-                <input className="input" placeholder="Email / Usuario" value={userDraft.email} onChange={(event) => setUserDraft((prev) => ({ ...prev, email: event.target.value }))} />
-                <select className="input" value={userDraft.rol} onChange={(event) => setUserDraft((prev) => ({ ...prev, rol: event.target.value }))}>
-                  {Object.entries(roleMeta).map(([key, meta]) => <option key={key} value={key}>{meta.label}</option>)}
+                <input
+                  className="input"
+                  placeholder="Nombre"
+                  value={userDraft.nombre}
+                  onChange={(event) => setUserDraft((prev) => ({ ...prev, nombre: event.target.value }))}
+                />
+                <input
+                  className="input"
+                  placeholder="Apellido"
+                  value={userDraft.apellido}
+                  onChange={(event) => setUserDraft((prev) => ({ ...prev, apellido: event.target.value }))}
+                />
+                <input
+                  className="input"
+                  placeholder="Email / Usuario"
+                  value={userDraft.email}
+                  onChange={(event) => setUserDraft((prev) => ({ ...prev, email: event.target.value }))}
+                />
+                <input
+                  className="input"
+                  placeholder="Teléfono"
+                  value={userDraft.telefono}
+                  onChange={(event) => setUserDraft((prev) => ({ ...prev, telefono: event.target.value }))}
+                />
+                <select
+                  className="input"
+                  value={userDraft.role}
+                  onChange={(event) => setUserDraft((prev) => ({ ...prev, role: event.target.value }))}
+                >
+                  {USER_ROLE_OPTIONS.map((roleKey) => (
+                    <option key={roleKey} value={roleKey}>
+                      {roleMeta[roleKey]?.label || roleKey}
+                    </option>
+                  ))}
                 </select>
-                <Button icon={<CheckCircle2 size={16} />} onClick={saveUser}>{userDraft.id ? 'Guardar' : 'Crear'}</Button>
+                <select
+                  className="input"
+                  value={userDraft.status}
+                  onChange={(event) => setUserDraft((prev) => ({ ...prev, status: event.target.value }))}
+                >
+                  {USER_STATUS_OPTIONS.map((status) => (
+                    <option key={status.value} value={status.value}>{status.label}</option>
+                  ))}
+                </select>
+                <textarea
+                  className="input"
+                  rows={3}
+                  placeholder="Motivo / comentario (opcional)"
+                  value={userDraft.reason}
+                  onChange={(event) => setUserDraft((prev) => ({ ...prev, reason: event.target.value }))}
+                ></textarea>
+                <Button icon={<CheckCircle2 size={16} />} onClick={saveUser} disabled={userFormLoading}>
+                  {userFormLoading ? 'Procesando...' : (userDraft.id ? 'Guardar' : 'Crear')}
+                </Button>
+                {userFormError ? (
+                  <div style={{ marginTop: 8, color: '#be123c', fontSize: '0.85rem' }}>
+                    {userFormError}
+                  </div>
+                ) : null}
+                {userFormSuccess ? (
+                  <div style={{ marginTop: 8, color: '#15803d', fontSize: '0.85rem' }}>
+                    {userFormSuccess}
+                  </div>
+                ) : null}
               </div>
             </Panel>
           ) : null}
