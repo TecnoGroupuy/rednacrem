@@ -5,6 +5,7 @@ const api = getApiClient();
 const normalizeUser = (item = {}) => ({
   id: item.id || '',
   nombre: item.nombre || '',
+  apellido: item.apellido || '',
   email: item.email || '',
   telefono: item.telefono || '',
   rol: item.rol || item.role || 'vendedor',

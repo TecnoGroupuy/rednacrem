@@ -114,6 +114,18 @@ export default function SuperadminWorkbench({
     return { firstName: parts[0] || '', lastName: parts.slice(1).join(' ') };
   };
 
+  const buildSafeToggleUserFields = (item) => {
+    const { firstName, lastName } = splitFullName(item.nombre);
+    const apellidoSeguro = String(item.apellido || lastName || '').trim();
+    const nombreSeguro = String(item.nombrePropio || firstName || item.nombre || '').trim();
+
+    return {
+      nombre: nombreSeguro,
+      apellido: apellidoSeguro,
+      canToggle: Boolean(nombreSeguro && apellidoSeguro),
+    };
+  };
+
   React.useEffect(() => {
     if (!route.startsWith('sa_') && route !== 'dashboard_global') return;
     Promise.all([loadProducts(), loadUsers(), loadSpecialBases()]).catch(() => {});
@@ -436,9 +448,28 @@ export default function SuperadminWorkbench({
                           <Button
                             variant="secondary"
                             onClick={async () => {
-                              await updateUser(item.id, { activo: !item.activo });
+                              const safeFields = buildSafeToggleUserFields(item);
+                              if (!safeFields.canToggle) {
+                                setUserFormError('Completá apellido desde Editar antes de cambiar el estado de este usuario.');
+                                setUserFormSuccess('');
+                                return;
+                              }
+
+                              const nextStatus = item.status === 'approved' ? 'blocked' : 'approved';
+                              await updateUser(item.id, {
+                                userId: item.id,
+                                nombre: safeFields.nombre,
+                                apellido: safeFields.apellido,
+                                email: item.email || '',
+                                telefono: item.telefono || '',
+                                role: item.rol || item.role || DEFAULT_USER_ROLE,
+                                status: nextStatus,
+                                reason: nextStatus === 'approved' ? 'Reactivado desde toggle rápido' : 'Bloqueado desde toggle rápido'
+                              });
                               await loadUsers();
                             }}
+                            disabled={!buildSafeToggleUserFields(item).canToggle}
+                            title={!buildSafeToggleUserFields(item).canToggle ? 'Completá apellido desde Editar antes de cambiar estado.' : undefined}
                           >
                             {item.activo ? 'Bloquear' : 'Activar'}
                           </Button>
