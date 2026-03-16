@@ -290,7 +290,7 @@ const SUPERVISOR_LOTS_SEED = listLots();
                   variant="menu"
                   menuLabel="Notificaciones"
                   onUnreadCountChange={setUnreadNotifications}
-                  userRole={role}
+                  userRole={userRole}
                 />
               </div>
               <div className="user-menu-separator"></div>
