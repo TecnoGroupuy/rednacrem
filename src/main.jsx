@@ -216,7 +216,7 @@ const SUPERVISOR_LOTS_SEED = listLots();
 
     const resolveEstadoUsuario = (estadoId) => ESTADOS_USUARIO[estadoId] || ESTADOS_USUARIO.disponible;
 
-    function UserProfileMenu({ user, roleLabel, estadoActual, onEstadoChange, onLogout, onOpenProfile, notificationUserId, onNotificationsNavigate }) {
+    function UserProfileMenu({ user, roleLabel, estadoActual, onEstadoChange, onLogout, onOpenProfile, notificationUserId, onNotificationsNavigate, userRole }) {
       const [menuOpen, setMenuOpen] = React.useState(false);
       const [unreadNotifications, setUnreadNotifications] = React.useState(0);
       const menuRef = React.useRef(null);
@@ -3325,6 +3325,7 @@ const SUPERVISOR_LOTS_SEED = listLots();
                 onOpenProfile={handleOpenProfile}
                 notificationUserId={notificationUserId}
                 onNotificationsNavigate={openNotificationsModule}
+                userRole={role}
               />
             </aside>
 
