@@ -1,12 +1,10 @@
-ï»¿import { activitiesMock } from '../data/mocks/activities.js';
-import { usersMock } from '../data/mocks/users.js';
 import { ROLE_META } from '../domain/roles.js';
 
-let activitiesStore = activitiesMock.map((item) => ({ ...item }));
+let activitiesStore = [];
 const NOTIFICATIONS_READ_KEY = 'rednacrem_notifications_read_v1';
 let notificationsReadStore = {};
 
-const userById = Object.fromEntries(usersMock.map((user) => [user.id, user]));
+const userById = {};
 
 const safeReadStorage = () => {
   if (typeof window === 'undefined') return {};
@@ -67,7 +65,7 @@ const toNotificationTitle = (item) => {
   const entidad = String(item.entidad || 'sistema');
   const tipo = String(item.tipo || 'actualizacion');
   const tipoLabel = tipo.replaceAll('_', ' ');
-  return entidad.charAt(0).toUpperCase() + entidad.slice(1) + ' Â· ' + tipoLabel;
+  return entidad.charAt(0).toUpperCase() + entidad.slice(1) + ' · ' + tipoLabel;
 };
 
 const toNotificationLink = (item) => {
@@ -95,7 +93,7 @@ const toNotification = (item, userId = 'anon') => {
     id: item.id,
     type: toNotificationType(item),
     title: toNotificationTitle(item),
-    description: item.descripcion || 'ActualizaciÃ³n del sistema',
+    description: item.descripcion || 'Actualización del sistema',
     timestamp: item.createdAt,
     read: !!readMap[item.id],
     link: toNotificationLink(item),
@@ -158,3 +156,6 @@ export const logActivityEvent = (payload) => {
   activitiesStore = [record, ...activitiesStore];
   return toUiActivity(record);
 };
+
+
+
