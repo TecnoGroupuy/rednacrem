@@ -3095,7 +3095,15 @@ const SUPERVISOR_LOTS_SEED = listLots();
         isModuleVisible
       });
       const currentMeta = ROLE_META[effectiveRoleForUi] || ROLE_META.atencion_cliente;
-      const currentUser = USERS[rolReal] || { name: 'Usuario', email: '' };
+      const sessionUser = user ? {
+        name: user.nombre || user.name || 'Usuario',
+        email: user.email || user?.username || ''
+      } : null;
+      const fallbackRoleUser = USERS[rolReal] || { name: 'Usuario', email: '' };
+      const currentUser = sessionUser || {
+        name: fallbackRoleUser.name,
+        email: fallbackRoleUser.email || ''
+      };
       const notificationUserId = user?.id || rolReal || 'anon';
       const estadoConfig = resolveEstadoUsuario(estadoUsuario);
       const currentRouteItem = navItems.find((item) => item.path === route);
