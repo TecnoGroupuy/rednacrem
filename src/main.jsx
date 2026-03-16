@@ -8,7 +8,8 @@ import {
   Activity, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, AlertTriangle,
   DollarSign, Target, Download, Layers, Eye, Calendar, PhoneCall, CreditCard, FileText,
   Filter, Plus, CheckCircle2, Clock, Settings, Zap, BarChart3, Edit3, MoreHorizontal,
-  MessageSquare, Send, Headphones, Bot, User, Hash, Upload, LogOut, Coffee, Bath, PersonStanding
+  MessageSquare, Send, Headphones, Bot, User, Hash, Upload, LogOut, Coffee, Bath, PersonStanding,
+  Info, Shield
 } from 'lucide-react';
 import {
   ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip,
@@ -62,9 +63,13 @@ import {
 import { listPendingRegistrationRequests } from './services/supervisorApprovalsService.js';
 import {
   listClients,
+  listPortfolioClients,
   searchPortfolioClients,
   listActiveContactProducts,
-  getContactLifecycle
+  getContactLifecycle,
+  fetchContactsList,
+  fetchClientsDirectory,
+  fetchClientsMetrics
 } from './services/clientsService.js';
 import {
   getAlerts,
@@ -134,7 +139,7 @@ const CLIENTS = listClients();
 const SALES_CONTACTS_SEED = listCommercialContacts();
 const SUPERVISOR_LOTS_SEED = listLots();
 
-    const ROLE_NAV = [
+const ROLE_NAV = [
       { path: 'dashboard_global', label: 'Vista general', caption: 'Control transversal', roles: ['superadministrador'], icon: Activity },
       { path: 'sa_importaciones', label: 'Importaciones', caption: 'CSV por tipo de carga', roles: ['superadministrador'], icon: Upload },
       { path: 'sa_no_llamar', label: 'Base No llamar', caption: 'Bloqueos de contacto', roles: ['superadministrador'], icon: Phone },
@@ -146,7 +151,7 @@ const SUPERVISOR_LOTS_SEED = listLots();
       { path: 'sa_configuracion', label: 'Configuración', caption: 'Identidad y parámetros', roles: ['superadministrador'], icon: Settings },
       { path: 'dashboard', label: 'Dashboard', caption: 'Resumen principal', roles: ['director', 'supervisor', 'vendedor', 'operaciones'], icon: Activity },
       { path: 'contactos', label: 'Contactos', caption: 'Base comercial', roles: ['director', 'vendedor'], icon: Users, badge: 1240 },
-      { path: 'clientes', label: 'Clientes', caption: 'Cartera activa', roles: ['director', 'vendedor', 'operaciones'], icon: UserCheck },
+      { path: 'clientes', label: 'Clientes', caption: 'Cartera activa', roles: ['superadministrador', 'director', 'vendedor', 'operaciones'], icon: UserCheck },
       { path: 'base_general', label: 'Base general', caption: 'Carga y preparacion', roles: ['supervisor'], icon: Users, badge: 1240 },
       { path: 'lotes', label: 'Lotes', caption: 'Asignacion comercial', roles: ['supervisor'], icon: Layers },
       { path: 'numeros_error', label: 'Numeros con errores', caption: 'Fuera de flujo comercial', roles: ['supervisor'], icon: AlertTriangle },
@@ -158,16 +163,60 @@ const SUPERVISOR_LOTS_SEED = listLots();
       { path: 'pagos', label: 'Pagos', caption: 'Cobranza y convenios', roles: ['director', 'operaciones'], icon: CreditCard },
       { path: 'servicios', label: 'Servicios', caption: 'Circuito operativo', roles: ['director', 'operaciones'], icon: Briefcase, badge: 12 },
       { path: 'proveedores', label: 'Proveedores', caption: 'Red de soporte', roles: ['director', 'operaciones'], icon: Building2 },
-      { path: 'equipo', label: 'Equipo', caption: 'Rendimiento comercial', roles: ['director', 'supervisor'], icon: Layers },
+      { path: 'equipo', label: 'Equipo de venta', caption: 'Rendimiento comercial', roles: ['director', 'supervisor'], icon: Layers },
       { path: 'reportes', label: 'Reportes', caption: 'Exportables', roles: ['director', 'supervisor'], icon: BarChart3 },
       { path: 'config', label: 'Configuración', caption: 'Parámetros del sistema', roles: ['director'], icon: Settings }
     ];
 
-    const statusVariant = (label) => {
-      if (['Al día', 'Al dia', 'Gestionado', 'Finalizado', 'Excelente'].includes(label)) return 'success';
-      if (['Pendiente', 'En gestión', 'En gestion', 'Control', 'Atención', 'Atencion'].includes(label)) return 'warning';
-      return 'info';
-    };
+const statusVariant = (label) => {
+  if (['Al día', 'Al dia', 'Gestionado', 'Finalizado', 'Excelente'].includes(label)) return 'success';
+  if (['Pendiente', 'En gestión', 'En gestion', 'Control', 'Atención', 'Atencion'].includes(label)) return 'warning';
+  return 'info';
+};
+
+const formatTeamSinceDateLabel = (value) => {
+  if (!value) return 'Sin registro';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'Sin registro';
+  return parsed.toLocaleDateString('es-UY', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+const formatShortDate = (value) => {
+  if (!value) return 'Sin registro';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'Sin registro';
+  return parsed.toLocaleDateString('es-UY', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+const computeMonthsSince = (value) => {
+  if (!value) return 0;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 0;
+  const now = Date.now();
+  const deltaDays = Math.max(0, now - parsed.getTime()) / (1000 * 60 * 60 * 24);
+  return Math.floor(deltaDays / 30);
+};
+
+const computePaidInstallments = (value) => Math.max(0, computeMonthsSince(value) + 2);
+
+const formatCurrency = (value) => {
+  const numeric = typeof value === 'number' ? value : Number(String(value || '').replace(/[^0-9.-]/g, ''));
+  if (Number.isNaN(numeric)) return value ? String(value) : '$ 0';
+  return `$ ${numeric.toLocaleString('es-UY')}`;
+};
+
+const DEFAULT_CLIENT_METRICS = {
+  activos: 11203,
+  enBaja: 28,
+  cuotaPromedio: 4250,
+  cuotaPromedioLabel: '$ 4.250'
+};
+
+const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
+  { title: 'Activos', value: metrics.activos, change: 2.8, label: 'base viva', trend: 'up', icon: UserCheck, bg: 'rgba(21,128,61,0.12)', color: '#15803d' },
+  { title: 'En baja', value: metrics.enBaja, change: -12.2, label: 'contención', trend: 'up', icon: TrendingDown, bg: 'rgba(190,18,60,0.12)', color: '#be123c' },
+  { title: 'Cuota promedio', value: metrics.cuotaPromedioLabel || `$ ${Number(metrics.cuotaPromedio || 0).toLocaleString('es-UY')}`, change: 1.4, label: 'ticket medio', trend: 'up', icon: DollarSign, bg: 'rgba(217,119,6,0.12)', color: '#d97706' }
+]);
 
     const initials = (name) => name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase();
     const toStatusColor = (hex, alpha = 1) => {
@@ -2527,6 +2576,19 @@ const SUPERVISOR_LOTS_SEED = listLots();
     }
 
     function ContactsView() {
+      const [contactsRows, setContactsRows] = React.useState(CONTACTS);
+
+      React.useEffect(() => {
+        let canceled = false;
+        fetchContactsList()
+          .then((rows) => {
+            if (canceled) return;
+            setContactsRows(rows);
+          })
+          .catch(() => {});
+        return () => { canceled = true; };
+      }, []);
+
       return (
         <div className="view">
           <section className="content-grid">
@@ -2539,7 +2601,16 @@ const SUPERVISOR_LOTS_SEED = listLots();
               <div className="table-wrap">
                 <table>
                   <thead><tr><th>Contacto</th><th>Teléfono</th><th>Ubicación</th><th>Estado</th><th>Última gestión</th><th>Acción</th></tr></thead>
-                  <tbody>{CONTACTS.map((contact) => <tr key={contact.name}><td><div className="person"><div className="person-badge">{initials(contact.name)}</div><strong>{contact.name}</strong></div></td><td>{contact.phone}</td><td>{contact.city}</td><td><Tag variant={statusVariant(contact.status)}>{contact.status}</Tag></td><td>{contact.last}</td><td><div className="toolbar"><Button variant="ghost" icon={<Phone size={16} />}></Button><Button variant="ghost" icon={<Eye size={16} />}></Button><Button variant="ghost" icon={<Edit3 size={16} />}></Button></div></td></tr>)}</tbody>
+                  <tbody>{contactsRows.map((contact) => (
+                    <tr key={contact.id}>
+                      <td><div className="person"><div className="person-badge">{initials(contact.name)}</div><strong>{contact.name}</strong></div></td>
+                      <td>{contact.phone}</td>
+                      <td>{contact.city}</td>
+                      <td><Tag variant={statusVariant(contact.status)}>{contact.status}</Tag></td>
+                      <td>{contact.last}</td>
+                      <td><div className="toolbar"><Button variant="ghost" icon={<Phone size={16} />}></Button><Button variant="ghost" icon={<Eye size={16} />}></Button><Button variant="ghost" icon={<Edit3 size={16} />}></Button></div></td>
+                    </tr>
+                  ))}</tbody>
                 </table>
               </div>
             </Panel>
@@ -2549,15 +2620,47 @@ const SUPERVISOR_LOTS_SEED = listLots();
     }
 
     function ClientsView() {
+      const [clientMetrics, setClientMetrics] = React.useState(() => buildClientMetricCards());
+      const [clientRows, setClientRows] = React.useState(CLIENTS);
+      const [portfolioClients, setPortfolioClients] = React.useState(() => listPortfolioClients());
+      const [selectedClient, setSelectedClient] = React.useState(null);
+
+      React.useEffect(() => {
+        let canceled = false;
+        fetchClientsMetrics()
+          .then((metrics) => {
+            if (canceled) return;
+            setClientMetrics(buildClientMetricCards(metrics));
+          })
+          .catch(() => {});
+        return () => { canceled = true; };
+      }, []);
+
+      React.useEffect(() => {
+        let canceled = false;
+        fetchClientsDirectory()
+          .then(({ table, portfolio }) => {
+            if (canceled) return;
+            setClientRows(table);
+            setPortfolioClients(portfolio);
+          })
+          .catch(() => {});
+        return () => { canceled = true; };
+      }, []);
+
+      const handleViewFicha = React.useCallback((clientId) => {
+        const found = portfolioClients.find((item) => item.id === clientId);
+        if (found) {
+          setSelectedClient(found);
+        }
+      }, [portfolioClients]);
+
+      const handleCloseFicha = () => setSelectedClient(null);
+
       return (
         <div className="view">
           <section className="metrics-grid">
-            {[
-              { title: 'Activos', value: '11.203', change: 2.8, label: 'base viva', trend: 'up', icon: UserCheck, bg: 'rgba(21,128,61,0.12)', color: '#15803d' },
-              { title: 'En proceso', value: '342', change: 5.6, label: 'flujo abierto', trend: 'up', icon: Activity, bg: 'rgba(37,99,235,0.12)', color: '#2563eb' },
-              { title: 'En baja', value: '28', change: -12.2, label: 'contención', trend: 'up', icon: TrendingDown, bg: 'rgba(190,18,60,0.12)', color: '#be123c' },
-              { title: 'Cuota promedio', value: '$ 4.250', change: 1.4, label: 'ticket medio', trend: 'up', icon: DollarSign, bg: 'rgba(217,119,6,0.12)', color: '#d97706' }
-            ].map((item) => <MetricCard key={item.title} item={item} />)}
+            {clientMetrics.map((item) => <MetricCard key={item.title} item={item} />)}
           </section>
           <section className="content-grid">
             <Panel className="span-12" title="Clientes" subtitle="Gestión de cartera activa">
@@ -2565,11 +2668,115 @@ const SUPERVISOR_LOTS_SEED = listLots();
               <div className="table-wrap">
                 <table>
                   <thead><tr><th>Cliente</th><th>Producto</th><th>Plan</th><th>Cuota</th><th>Estado</th><th>Acción</th></tr></thead>
-                  <tbody>{CLIENTS.map((row) => <tr key={row.name}><td><div className="person"><div className="person-badge">{initials(row.name)}</div><strong>{row.name}</strong></div></td><td>{row.product}</td><td>{row.plan}</td><td>{row.fee}</td><td><Tag variant={statusVariant(row.status)}>{row.status}</Tag></td><td><Button variant="ghost" icon={<Eye size={16} />}>Ver ficha</Button></td></tr>)}</tbody>
+                  <tbody>{clientRows.map((row) => (
+                    <tr key={row.id}>
+                      <td><div className="person"><div className="person-badge">{initials(row.name)}</div><strong>{row.name}</strong></div></td>
+                      <td>{row.product}</td>
+                      <td>{row.plan}</td>
+                      <td>{row.fee}</td>
+                      <td><Tag variant={statusVariant(row.status)}>{row.status}</Tag></td>
+                      <td><Button variant="ghost" icon={<Eye size={16} />} onClick={() => handleViewFicha(row.id)}>Ver ficha</Button></td>
+                    </tr>
+                  ))}</tbody>
                 </table>
               </div>
             </Panel>
           </section>
+          {selectedClient ? (
+            <>
+              <div
+                className="fixed inset-0 bg-[#02061773] z-50"
+                onClick={handleCloseFicha}
+              />
+              <div
+                className="fixed top-16 right-0 bottom-0 w-full max-w-md bg-white shadow-2xl rounded-l-2xl p-6 space-y-6 flex flex-col z-60"
+                style={{ animation: 'slide-in 0.32s ease-out forwards' }}
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="text-xs uppercase tracking-[0.2em] text-[#6b7280]">FICHA DEL CLIENTE</div>
+                    <div className="text-xl font-bold text-[#111827]">{selectedClient.nombre || selectedClient.name}</div>
+                    <div className="text-sm text-[#6b7280]">Cliente {selectedClient.numeroCliente}</div>
+                  </div>
+                  <button onClick={handleCloseFicha} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                    <X size={18} />
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[
+                    { label: 'Documento', value: selectedClient.documento },
+                    { label: 'Teléfono', value: selectedClient.telefono },
+                    { label: 'Email', value: selectedClient.email },
+                    { label: 'Dirección', value: selectedClient.direccion }
+                  ].map((field) => (
+                    <div key={field.label}>
+                      <div className="text-xs uppercase tracking-[0.15em] text-[#6b7280]">{field.label}</div>
+                      <div className="text-sm font-medium text-[#111827] flex items-center gap-2">
+                        {field.label === 'Teléfono' ? (
+                          <a href={`tel:${selectedClient.telefono}`} className="p-1 rounded-full bg-[#ecfdf5] text-[#059669] hover:bg-green-100 transition-colors"><Phone size={14} /></a>
+                        ) : null}
+                        <span>{field.value || '—'}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="rounded-2xl bg-[#f0fdf4] p-4 shadow-inner border border-[#d1fae5]">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-[#10b981]"></span>
+                      <span className="text-sm font-semibold text-[#059669]">Activo</span>
+                    </div>
+                    <div className="text-xs text-[#6b7280] flex items-center gap-1"><Shield size={14} /> Estado operativo: {selectedClient.estado === 'activo' ? 'activo' : 'inactivo'}</div>
+                  </div>
+                  <div className="mt-3 text-sm font-semibold text-[#059669]">Alta registrada {formatShortDate(selectedClient.fechaAlta || selectedClient.createdAt)}</div>
+                  <div className="mt-2 text-base font-semibold text-[#111827]">{selectedClient.productoActualNombre}</div>
+                  <div className="text-sm text-[#6b7280]">Contrato #{selectedClient.productoContratoId}</div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                  <div className="space-y-1">
+                    <div className="text-xs uppercase tracking-[0.15em] text-[#6b7280]">Plan contratado</div>
+                    <div className="font-semibold text-[#111827]">{selectedClient.plan}</div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-xs uppercase tracking-[0.15em] text-[#6b7280]">Precio mensual</div>
+                    <div className="flex items-center gap-1 text-[#059669]">
+                      <CreditCard size={16} />
+                      <span className="font-semibold">{selectedClient.fee}</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="text-xs uppercase tracking-[0.15em] text-[#6b7280]">Cuotas pagas</div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-[#111827]">{selectedClient.cuotasPagas} de {selectedClient.carenciaMeses}</span>
+                    </div>
+                    <div className="w-full h-2 bg-[#dcfce7] rounded-full overflow-hidden">
+                      <div className="h-full bg-[#059669]" style={{ width: `${Math.min(100, Math.round((selectedClient.cuotasPagas / Math.max(1, selectedClient.carenciaMeses)) * 100))}%` }}></div>
+                    </div>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-[#e0f2fe] bg-[#ecfeff] p-4 flex items-start gap-3">
+                  <Info size={18} className="text-[#0ea5e9]" />
+                  <div>
+                    <div className="text-sm font-semibold text-[#0f172a]">Carencia: {selectedClient.carenciaMeses} meses sin interrupción para habilitar servicio</div>
+                    <div className="text-xs text-[#6b7280]">Meses cumplidos: {selectedClient.cuotasPagas} de {selectedClient.carenciaMeses}</div>
+                    <div className="w-full h-2 mt-2 bg-[#e0f2fe] rounded-full overflow-hidden">
+                      <div className="h-full bg-[#0ea5e9]" style={{ width: `${Math.min(100, Math.round((selectedClient.cuotasPagas / Math.max(1, selectedClient.carenciaMeses)) * 100))}%` }}></div>
+                    </div>
+                  </div>
+                </div>
+                <div className="border-t pt-4 flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-[#ecfdf5] text-[#059669] flex items-center justify-center font-bold">
+                    {selectedClient.nombre ? selectedClient.nombre.split(' ').map((part) => part[0]).join('').slice(0,2).toUpperCase() : 'VR'}
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase tracking-[0.15em] text-[#6b7280]">Vendedor</div>
+                    <div className="text-sm font-semibold text-[#111827]">{selectedClient.vendedor || 'Carlos Rodriguez'}</div>
+                    <div className="text-xs text-[#6b7280]">Asignado desde <Calendar size={12} /> {formatShortDate(selectedClient.fechaAlta || selectedClient.createdAt)}</div>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : null}
         </div>
       );
     }
@@ -3271,6 +3478,52 @@ const SUPERVISOR_LOTS_SEED = listLots();
             >
               <SupervisorContractsModule Panel={Panel} Button={Button} Tag={Tag} />
             </UiRoleGate>
+          );
+        }
+        if (route === 'equipo') {
+          const teamSinceLabel = formatTeamSinceDateLabel(user?.last_login_at || user?.created_at || user?.createdAt);
+          const teamStatusMeta = resolveEstadoUsuario(estadoUsuario);
+          const displayUserName = currentUser.name || 'Usuario';
+          const displayUserEmail = currentUser.email ? ` · ${currentUser.email}` : '';
+
+          return (
+            <div className="view">
+              <section className="hero">
+                <div className="hero-panel">
+                  <Tag variant="info">Equipo de venta</Tag>
+                  <h1 className="hero-title">Equipo de venta</h1>
+                  <p className="hero-copy">Control rápido del equipo activo, su último ingreso y el estado operativo actual.</p>
+                  <div
+                    style={{
+                      marginTop: 20,
+                      padding: 18,
+                      borderRadius: 18,
+                      border: '1px solid rgba(15,23,42,0.08)',
+                      background: 'rgba(255,255,255,0.9)',
+                      display: 'grid',
+                      gap: 12,
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))'
+                    }}
+                  >
+                    <div>
+                      <div style={{ textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.1em', color: 'var(--muted)', marginBottom: 4 }}>Usuario activo</div>
+                      <div style={{ fontWeight: 700 }}>{displayUserName}{displayUserEmail}</div>
+                    </div>
+                    <div>
+                      <div style={{ textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.1em', color: 'var(--muted)', marginBottom: 4 }}>Desde</div>
+                      <div style={{ fontWeight: 700 }}>{teamSinceLabel}</div>
+                    </div>
+                    <div>
+                      <div style={{ textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.1em', color: 'var(--muted)', marginBottom: 4 }}>Estado</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: teamStatusMeta.color, border: '1px solid rgba(15,23,42,0.15)' }}></span>
+                        <strong>{teamStatusMeta.label}</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
           );
         }
         if (route === 'soporte' && role === 'atencion_cliente') return <CustomerSupportModule />;
