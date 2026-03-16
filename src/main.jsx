@@ -59,6 +59,7 @@ import {
   markAllAsRead,
   getUnreadCount
 } from './services/activityService.js';
+import { listPendingRegistrationRequests } from './services/supervisorApprovalsService.js';
 import {
   listClients,
   searchPortfolioClients,
@@ -403,9 +404,10 @@ const SUPERVISOR_LOTS_SEED = listLots();
       return date.toLocaleDateString('es-UY', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
     };
 
-    function NotificationsDropdown({ userId, onNavigate, variant = 'topbar', menuLabel = 'Notificaciones', onUnreadCountChange }) {
+    function NotificationsDropdown({ userId, onNavigate, variant = 'topbar', menuLabel = 'Notificaciones', onUnreadCountChange, userRole = null }) {
       const [open, setOpen] = React.useState(false);
       const [items, setItems] = React.useState(() => listNotifications({ userId, limit: 15 }));
+      const [vendorAlertCount, setVendorAlertCount] = React.useState(0);
       const panelRef = React.useRef(null);
       const triggerRef = React.useRef(null);
 
@@ -416,6 +418,25 @@ const SUPERVISOR_LOTS_SEED = listLots();
       React.useEffect(() => {
         refreshNotifications();
       }, [refreshNotifications]);
+
+      React.useEffect(() => {
+        let canceled = false;
+        if (userRole === 'supervisor') {
+          (async () => {
+            try {
+              const rows = await listPendingRegistrationRequests();
+              if (!canceled) {
+                setVendorAlertCount(rows.length);
+              }
+            } catch {
+              if (!canceled) setVendorAlertCount(0);
+            }
+          })();
+        } else {
+          setVendorAlertCount(0);
+        }
+        return () => { canceled = true; };
+      }, [userRole]);
 
       React.useEffect(() => {
         const intervalId = window.setInterval(refreshNotifications, 15000);
@@ -441,7 +462,8 @@ const SUPERVISOR_LOTS_SEED = listLots();
       }, [open]);
 
       const unreadCount = getUnreadCount({ userId, limit: 15 });
-      const displayCount = unreadCount > 0 ? unreadCount : items.length;
+      const badgeCount = unreadCount + (vendorAlertCount > 0 ? 1 : 0);
+      const displayCount = badgeCount > 0 ? badgeCount : items.length;
 
       React.useEffect(() => {
         if (typeof onUnreadCountChange === 'function') {
@@ -479,14 +501,14 @@ const SUPERVISOR_LOTS_SEED = listLots();
               <span className="menu-notification-count">{displayCount > 99 ? '99+' : displayCount}</span>
             </button>
           ) : (
-            <button
+          <button
               ref={triggerRef}
               className="icon-button"
               title="Notificaciones"
               onClick={() => setOpen((prev) => !prev)}
             >
               <Bell size={20} color="#152235" />
-              {unreadCount > 0 ? <span className="notification-dot">{unreadCount > 99 ? '99+' : unreadCount}</span> : null}
+              {badgeCount > 0 ? <span className="notification-dot">{badgeCount > 99 ? '99+' : badgeCount}</span> : null}
             </button>
           )}
 
@@ -500,10 +522,30 @@ const SUPERVISOR_LOTS_SEED = listLots();
                       Marcar todo leído
                     </button>
                   </div>
-                  <div className="notifications-list">
-                    {items.length === 0 ? (
-                      <div className="notifications-empty">Sin notificaciones recientes.</div>
-                    ) : (
+              <div className="notifications-list">
+                {vendorAlertCount > 0 ? (
+                  <button
+                    className="notification-item vendor-alert"
+                    onClick={() => {
+                      onNavigate('solicitudes_registro');
+                      setOpen(false);
+                    }}
+                  >
+                    <div className="notification-leading" style={{ background: 'rgba(16,185,129,0.12)', color: '#10b981' }}>
+                      <Bell size={15} />
+                    </div>
+                    <div className="notification-body">
+                      <div className="notification-title-row">
+                        <span className="notification-title">Solicitudes de registro</span>
+                        <span className="notification-time">{vendorAlertCount} pendientes</span>
+                      </div>
+                      <p className="notification-description">Hay {vendorAlertCount} solicitud(es) de vendedores para aprobar.</p>
+                    </div>
+                  </button>
+                ) : null}
+                {items.length === 0 ? (
+                  <div className="notifications-empty">Sin notificaciones recientes.</div>
+                ) : (
                       items.map((notification) => {
                         const typeMeta = notificationTypeMeta[notification.type] || notificationTypeMeta.info;
                         const TypeIcon = typeMeta.icon;
@@ -543,10 +585,30 @@ const SUPERVISOR_LOTS_SEED = listLots();
                     Marcar todo leído
                   </button>
                 </div>
-                <div className="notifications-list">
-                  {items.length === 0 ? (
-                    <div className="notifications-empty">Sin notificaciones recientes.</div>
-                  ) : (
+              <div className="notifications-list">
+                {vendorAlertCount > 0 ? (
+                  <button
+                    className="notification-item vendor-alert"
+                    onClick={() => {
+                      onNavigate('solicitudes_registro');
+                      setOpen(false);
+                    }}
+                  >
+                    <div className="notification-leading" style={{ background: 'rgba(16,185,129,0.12)', color: '#10b981' }}>
+                      <Bell size={15} />
+                    </div>
+                    <div className="notification-body">
+                      <div className="notification-title-row">
+                        <span className="notification-title">Solicitudes de registro</span>
+                        <span className="notification-time">{vendorAlertCount} pendientes</span>
+                      </div>
+                      <p className="notification-description">Hay {vendorAlertCount} solicitud(es) de vendedores para aprobar.</p>
+                    </div>
+                  </button>
+                ) : null}
+                {items.length === 0 ? (
+                  <div className="notifications-empty">Sin notificaciones recientes.</div>
+                ) : (
                     items.map((notification) => {
                       const typeMeta = notificationTypeMeta[notification.type] || notificationTypeMeta.info;
                       const TypeIcon = typeMeta.icon;
