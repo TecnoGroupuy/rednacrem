@@ -17,8 +17,15 @@ const extensionIsValid = (extension) => {
   return /^[0-9]{1,6}$/.test(value);
 };
 
+const buildFullNameFromUser = (user) => {
+  const first = user?.nombre || '';
+  const last = user?.apellido || '';
+  const combined = [first, last].filter(Boolean).join(' ').trim();
+  return combined || user?.name || '';
+};
+
 const initialFormFromUser = (user) => ({
-  fullName: user?.name || '',
+  fullName: buildFullNameFromUser(user),
   email: user?.email || '',
   phone: '',
   extension: '',
