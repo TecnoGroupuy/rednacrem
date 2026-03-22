@@ -122,6 +122,7 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
   const [segmentPreviewTotal, setSegmentPreviewTotal] = React.useState(0);
   const [segmentPreviewLoading, setSegmentPreviewLoading] = React.useState(false);
   const [lotPreviewTotal, setLotPreviewTotal] = React.useState(0);
+  const [cantidadAgregar, setCantidadAgregar] = React.useState(0);
 
   const [previewPage, setPreviewPage] = React.useState(1);
   const previewPageSize = 50;
@@ -207,6 +208,10 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
   }, [segmentDraft, token]);
 
   React.useEffect(() => {
+    setCantidadAgregar(segmentPreviewTotal);
+  }, [segmentPreviewTotal]);
+
+  React.useEffect(() => {
     if (!segments.length) {
       setLotPreviewTotal(0);
       return;
@@ -280,14 +285,16 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
   });
 
   const addSegment = () => {
-    const total = segmentPreviewTotal || 0;
+    const totalDisponible = segmentPreviewTotal || 0;
+    const cantidad = cantidadAgregar > 0 ? Math.min(cantidadAgregar, totalDisponible) : totalDisponible;
     const filtroPayload = { ...segmentDraft };
     setSegments((prev) => [
       ...prev,
-      { id: crypto.randomUUID(), filtros: filtroPayload, total, resumen: summarizeSegment(filtroPayload) }
+      { id: crypto.randomUUID(), filtros: filtroPayload, total: cantidad, totalDisponible, resumen: summarizeSegment(filtroPayload) }
     ]);
     setSegmentDraft(emptySegmentDraft());
     setSegmentPreviewTotal(0);
+    setCantidadAgregar(0);
   };
 
   const removeSegment = (id) => {
@@ -893,13 +900,53 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
             ? 'Calculando...'
             : `${segmentPreviewTotal.toLocaleString()} contactos coinciden`}
         </p>
+        {segmentPreviewTotal > 0 ? (
+          <div style={{ marginBottom: 10 }}>
+            <label style={labelStyle}>
+              ¿Cuántos contactos agregar de este segmento?
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+              <input
+                type="number"
+                min="1"
+                max={segmentPreviewTotal}
+                value={cantidadAgregar}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10);
+                  if (!val || val < 1) setCantidadAgregar(1);
+                  else if (val > segmentPreviewTotal) setCantidadAgregar(segmentPreviewTotal);
+                  else setCantidadAgregar(val);
+                }}
+                style={{ ...inputStyle, width: 100, textAlign: 'center' }}
+              />
+              <span style={{ fontSize: 12, color: '#888' }}>
+                de {segmentPreviewTotal.toLocaleString()} disponibles
+              </span>
+              <button
+                type="button"
+                onClick={() => setCantidadAgregar(segmentPreviewTotal)}
+                style={{
+                  fontSize: 11,
+                  color: '#1A5C4A',
+                  background: 'none',
+                  border: '1px solid #1A5C4A',
+                  borderRadius: 6,
+                  padding: '4px 8px',
+                  cursor: 'pointer'
+                }}
+              >
+                Todos
+              </button>
+            </div>
+          </div>
+        ) : null}
         <button
           type="button"
           onClick={addSegment}
-          disabled={segmentPreviewTotal <= 0 || segmentPreviewLoading || !hasAnyFilter(segmentDraft)}
+          disabled={segmentPreviewTotal <= 0 || segmentPreviewLoading || !hasAnyFilter(segmentDraft) || cantidadAgregar < 1 || cantidadAgregar > segmentPreviewTotal}
           style={{
             width: '100%',
-            ...(segmentPreviewTotal > 0 ? btnPrimary : btnDisabled)
+            ...(segmentPreviewTotal > 0 && cantidadAgregar >= 1 ? btnPrimary : btnDisabled)
           }}
         >
           + Agregar segmento al lote
@@ -962,7 +1009,12 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
                   {segment.resumen}
                 </p>
                 <p style={{ fontSize: 13, fontWeight: 600, color: '#333', margin: 0 }}>
-                  {segment.total.toLocaleString()} contactos
+                  {segment.total.toLocaleString()} contactos seleccionados
+                  {segment.totalDisponible && segment.totalDisponible !== segment.total ? (
+                    <span style={{ fontSize: 11, color: '#888', fontWeight: 400 }}>
+                      {' '}de {segment.totalDisponible.toLocaleString()} disponibles
+                    </span>
+                  ) : null}
                 </p>
               </div>
               <button
