@@ -126,6 +126,7 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
 
   const [previewPage, setPreviewPage] = React.useState(1);
   const previewPageSize = 50;
+  const [allPreviewRows, setAllPreviewRows] = React.useState([]);
   const [previewRows, setPreviewRows] = React.useState([]);
   const [previewTotal, setPreviewTotal] = React.useState(0);
   const [previewSearch, setPreviewSearch] = React.useState('');
@@ -229,27 +230,35 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
   }, [segments, token]);
 
   React.useEffect(() => {
-    if (step !== 3) return;
-    const loadPreview = async () => {
+    if (step !== 3 || !segments.length) return;
+    const loadContacts = async () => {
       setLoading(true);
       try {
-        const filtros = encodeURIComponent(JSON.stringify({ segmentos: segments.map((s) => s.filtros) }));
-        const params = new URLSearchParams({
-          filtros,
-          page: String(previewPage),
-          pageSize: String(previewPageSize),
-          search: previewSearch || ''
-        });
-        const response = await fetchJson(`/datos-para-trabajar/preview?${params.toString()}`, { token });
-        const items = response?.items || [];
-        setPreviewRows(items);
-        setPreviewTotal(response?.data?.total ?? response?.total ?? items.length);
+        const seen = new Set();
+        const combined = [];
+        for (const seg of segments) {
+          const params = new URLSearchParams();
+          if (seg.filtros.nombre) params.set('nombre', seg.filtros.nombre);
+          if (seg.filtros.departamentos?.length) params.set('departamento', seg.filtros.departamentos.join(','));
+          if (seg.filtros.localidades?.length) params.set('localidad', seg.filtros.localidades.join(','));
+          if (seg.filtros.edadDesde) params.set('edad_desde', seg.filtros.edadDesde);
+          if (seg.filtros.edadHasta) params.set('edad_hasta', seg.filtros.edadHasta);
+          if (seg.filtros.fuentes?.length) params.set('origen_dato', seg.filtros.fuentes.join(','));
+          if (seg.filtros.telefonosTipo) params.set('telefono_tipo', seg.filtros.telefonosTipo);
+          if (seg.filtros.diasSinGestion) params.set('dias_sin_gestion', seg.filtros.diasSinGestion);
+          params.set('limite', String(seg.total));
+          const response = await fetchJson(`/datos-para-trabajar/list?${params.toString()}`, { token });
+          const items = response?.data?.items || response?.items || [];
+          for (const item of items) {
+            if (!seen.has(item.id)) {
+              seen.add(item.id);
+              combined.push(item);
+            }
+          }
+        }
+        setAllPreviewRows(combined);
         if (!manualSelection) {
-          setSelectedIds((prev) => {
-            const next = new Set(prev);
-            items.forEach((item) => next.add(item.id));
-            return next;
-          });
+          setSelectedIds(new Set(combined.map((item) => item.id)));
         }
       } catch (error) {
         setToast(error.message || 'No se pudo cargar la previsualización.');
@@ -257,8 +266,20 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
         setLoading(false);
       }
     };
-    loadPreview();
-  }, [step, previewPage, previewSearch, segments, token, manualSelection]);
+    loadContacts();
+  }, [step, segments, token]);
+
+  React.useEffect(() => {
+    const filtered = previewSearch
+      ? allPreviewRows.filter((item) => {
+          const fullName = `${item.nombre || ''} ${item.apellido || ''}`.toLowerCase();
+          return fullName.includes(previewSearch.toLowerCase());
+        })
+      : allPreviewRows;
+    setPreviewTotal(filtered.length);
+    const start = (previewPage - 1) * previewPageSize;
+    setPreviewRows(filtered.slice(start, start + previewPageSize));
+  }, [allPreviewRows, previewSearch, previewPage, previewPageSize]);
 
   const getSellerLabel = (seller) => {
     if (!seller) return '';
