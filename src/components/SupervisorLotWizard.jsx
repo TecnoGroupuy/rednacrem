@@ -64,10 +64,10 @@ const summarizeSegment = (segment) => {
   if (segment.nombre) parts.push(`Nombre: ${segment.nombre}`);
   if (segment.departamentos?.length) parts.push(`Depto: ${segment.departamentos.join(', ')}`);
   if (segment.localidades?.length) parts.push(`Localidad: ${segment.localidades.join(', ')}`);
-  if (segment.edadDesde || segment.edadHasta) parts.push(`Edad: ${segment.edadDesde || ‘0’}-${segment.edadHasta || ‘∞’}`);
-  if (segment.codigosArea?.length) parts.push(`Área: ${segment.codigosArea.join(‘, ‘)}`);
-  if (segment.fuentes?.length) parts.push(`Fuente: ${segment.fuentes.join(‘, ‘)}`);
-  if (segment.fechaDesde || segment.fechaHasta) parts.push(`Ingreso: ${segment.fechaDesde || ‘...’}→${segment.fechaHasta || ‘...’}`);
+  if (segment.edadDesde || segment.edadHasta) parts.push(`Edad: ${segment.edadDesde || '0'}-${segment.edadHasta || '\u221E'}`);
+  if (segment.codigosArea?.length) parts.push(`Área: ${segment.codigosArea.join(', ')}`);
+  if (segment.fuentes?.length) parts.push(`Fuente: ${segment.fuentes.join(', ')}`);
+  if (segment.fechaDesde || segment.fechaHasta) parts.push(`Ingreso: ${segment.fechaDesde || '...'}→${segment.fechaHasta || '...'}`);
   if (segment.diasSinGestion) parts.push(`Sin gestión: +${segment.diasSinGestion} días`);
   if (segment.telefonosTipo) parts.push(`Teléfonos: ${segment.telefonosTipo}`);
   return parts.join(' · ') || 'Sin filtros';
