@@ -227,7 +227,12 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
   }, [segments, token]);
 
   React.useEffect(() => {
-    if (step !== 3 || !segments.length) return;
+    if (step !== 3) return;
+    setAllPreviewRows([]);
+    setSelectedIds(new Set());
+    setManualSelection(false);
+    setPreviewPage(1);
+    if (!segments.length) return;
     const loadContacts = async () => {
       setLoading(true);
       try {
@@ -254,9 +259,7 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
           }
         }
         setAllPreviewRows(combined);
-        if (!manualSelection) {
-          setSelectedIds(new Set(combined.map((item) => item.id)));
-        }
+        setSelectedIds(new Set(combined.map((item) => item.id)));
       } catch (error) {
         setToast(error.message || 'No se pudo cargar la previsualización.');
       } finally {
@@ -1082,6 +1085,11 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
             <div>
               <h3 style={titleStyle}>Previsualización del lote</h3>
               <p style={subtitleStyle}>Revisá y ajustá los contactos antes de activar el lote.</p>
+              {loading ? (
+                <div style={{ textAlign: 'center', padding: '32px 0', color: '#1A5C4A', fontWeight: 600, fontSize: 14 }}>
+                  Cargando contactos...
+                </div>
+              ) : null}
               <div className="toolbar" style={{ marginBottom: 12 }}>
                 <div className="searchbox" style={{ maxWidth: 320 }}>
                   <Search size={16} color="#69788d" />
@@ -1099,7 +1107,7 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
                 }}>Deseleccionar todos</Button>
                 <Button variant="secondary" onClick={() => {
                   setManualSelection(false);
-                  setSelectedIds(new Set(previewRows.map((item) => item.id)));
+                  setSelectedIds(new Set(allPreviewRows.map((item) => item.id)));
                 }}>Seleccionar todos</Button>
               </div>
               <div className="table-wrap">
@@ -1135,7 +1143,7 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
                             style={{ accentColor: '#1A5C4A' }}
                           />
                         </td>
-                        <td><strong>{item.nombre || '-'}</strong></td>
+                        <td><strong>{[item.nombre, item.apellido].filter(Boolean).join(' ') || '-'}</strong></td>
                         <td>{item.departamento || '-'}</td>
                         <td>{item.localidad || '-'}</td>
                         <td>{item.telefono || '-'}</td>
