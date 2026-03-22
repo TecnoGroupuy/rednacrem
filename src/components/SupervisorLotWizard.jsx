@@ -705,15 +705,13 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
   <div style={{
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
-    gap: 20,
-    height: '100%'
+    gap: 24,
+    width: '100%'
   }}>
     <div style={{
       display: 'flex',
       flexDirection: 'column',
-      gap: 12,
-      overflowY: 'auto',
-      paddingRight: 8
+      gap: 12
     }}>
       <div>
         <h3 style={titleStyle}>
@@ -904,8 +902,7 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
     <div style={{
       display: 'flex',
       flexDirection: 'column',
-      gap: 12,
-      overflowY: 'auto'
+      gap: 12
     }}>
       <div>
         <h3 style={titleStyle}>
@@ -981,7 +978,7 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
       )}
 
       <div style={{
-        marginTop: 'auto',
+        marginTop: 8,
         padding: '14px 16px',
         background: segments.length > 0 ? '#1A5C4A' : '#F0F0F0',
         borderRadius: 10,
@@ -1263,21 +1260,22 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
         .wizard-content {
           flex: 1;
           display: flex;
-          align-items: center;
+          align-items: flex-start;
           justify-content: flex-start;
           padding: 20px 32px;
-          overflow: auto;
+          padding-top: 20px;
+          overflow-y: auto;
           min-height: 0;
           width: 100%;
           box-sizing: border-box;
         }
         .wizard-step-card {
           width: 100%;
-          max-width: 900px;
+          max-width: 940px;
           margin: 0 auto;
           background: #FFFFFF;
           border-radius: 16px;
-          padding: 28px 36px;
+          padding: 24px 32px;
           box-shadow: 0 2px 12px rgba(0,0,0,0.06);
           box-sizing: border-box;
         }
