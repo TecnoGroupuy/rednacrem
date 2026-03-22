@@ -135,6 +135,7 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
 
   const [rejectedIds, setRejectedIds] = React.useState([]);
   const [showRejected, setShowRejected] = React.useState(false);
+  const [createdLotId, setCreatedLotId] = React.useState(null);
 
   React.useEffect(() => {
     const loadOptions = async () => {
@@ -226,6 +227,42 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
     return () => window.clearTimeout(handler);
   }, [segments, token]);
 
+  const loadPaso3Page = React.useCallback(async (page) => {
+    if (!segments.length) return;
+    setLoading(true);
+    try {
+      const seen = new Set();
+      const combined = [];
+      for (const seg of segments) {
+        const params = new URLSearchParams();
+        if (seg.filtros.nombre) params.set('nombre', seg.filtros.nombre);
+        if (seg.filtros.departamentos?.length) params.set('departamento', seg.filtros.departamentos.join(','));
+        if (seg.filtros.localidades?.length) params.set('localidad', seg.filtros.localidades.join(','));
+        if (seg.filtros.edadDesde) params.set('edad_desde', seg.filtros.edadDesde);
+        if (seg.filtros.edadHasta) params.set('edad_hasta', seg.filtros.edadHasta);
+        if (seg.filtros.fuentes?.length) params.set('origen_dato', seg.filtros.fuentes.join(','));
+        if (seg.filtros.telefonosTipo) params.set('telefono_tipo', seg.filtros.telefonosTipo);
+        if (seg.filtros.diasSinGestion) params.set('dias_sin_gestion', seg.filtros.diasSinGestion);
+        params.set('limite', String(previewPageSize));
+        params.set('pagina', String(page));
+        const response = await fetchJson(`/datos-para-trabajar/list?${params.toString()}`, { token });
+        const items = response?.data?.contactos || response?.data?.items || response?.items || [];
+        for (const item of items) {
+          if (!seen.has(item.id)) {
+            seen.add(item.id);
+            combined.push(item);
+          }
+        }
+      }
+      setAllPreviewRows(combined);
+      setSelectedIds(new Set(combined.map((item) => item.id)));
+    } catch (error) {
+      setToast(error.message || 'No se pudo cargar la previsualización.');
+    } finally {
+      setLoading(false);
+    }
+  }, [segments, token, previewPageSize]);
+
   React.useEffect(() => {
     if (step !== 3) return;
     setAllPreviewRows([]);
@@ -233,41 +270,8 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
     setManualSelection(false);
     setPreviewPage(1);
     if (!segments.length) return;
-    const loadContacts = async () => {
-      setLoading(true);
-      try {
-        const seen = new Set();
-        const combined = [];
-        for (const seg of segments) {
-          const params = new URLSearchParams();
-          if (seg.filtros.nombre) params.set('nombre', seg.filtros.nombre);
-          if (seg.filtros.departamentos?.length) params.set('departamento', seg.filtros.departamentos.join(','));
-          if (seg.filtros.localidades?.length) params.set('localidad', seg.filtros.localidades.join(','));
-          if (seg.filtros.edadDesde) params.set('edad_desde', seg.filtros.edadDesde);
-          if (seg.filtros.edadHasta) params.set('edad_hasta', seg.filtros.edadHasta);
-          if (seg.filtros.fuentes?.length) params.set('origen_dato', seg.filtros.fuentes.join(','));
-          if (seg.filtros.telefonosTipo) params.set('telefono_tipo', seg.filtros.telefonosTipo);
-          if (seg.filtros.diasSinGestion) params.set('dias_sin_gestion', seg.filtros.diasSinGestion);
-          params.set('limite', String(seg.total));
-          const response = await fetchJson(`/datos-para-trabajar/list?${params.toString()}`, { token });
-          const items = response?.data?.items || response?.items || [];
-          for (const item of items) {
-            if (!seen.has(item.id)) {
-              seen.add(item.id);
-              combined.push(item);
-            }
-          }
-        }
-        setAllPreviewRows(combined);
-        setSelectedIds(new Set(combined.map((item) => item.id)));
-      } catch (error) {
-        setToast(error.message || 'No se pudo cargar la previsualización.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadContacts();
-  }, [step, segments, token]);
+    loadPaso3Page(1);
+  }, [step, segments, token, loadPaso3Page]);
 
   React.useEffect(() => {
     const filtered = previewSearch
@@ -277,9 +281,8 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
         })
       : allPreviewRows;
     setPreviewTotal(filtered.length);
-    const start = (previewPage - 1) * previewPageSize;
-    setPreviewRows(filtered.slice(start, start + previewPageSize));
-  }, [allPreviewRows, previewSearch, previewPage, previewPageSize]);
+    setPreviewRows(filtered);
+  }, [allPreviewRows, previewSearch]);
 
   const getSellerLabel = (seller) => {
     if (!seller) return '';
@@ -335,7 +338,7 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
       return segments.length > 0;
     }
     if (step === 3) {
-      return selectedIds.size > 0;
+      return segments.reduce((acc, seg) => acc + seg.total, 0) > 0;
     }
     return true;
   };
@@ -400,13 +403,15 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
           criterios: segments.map((segment) => segment.filtros)
         }
       });
-      const lotId = created?.id || created?.data?.id || created?.data?.item?.id;
+      const lotId = created?.data?.id || created?.id || created?.data?.item?.id;
+      if (!lotId) throw new Error('No se obtuvo el ID del lote creado');
+      setCreatedLotId(lotId);
       const response = await fetchJson('/lead-batches/assign', {
         method: 'POST',
         token,
         body: {
-          loteId: lotId,
-          contactos: Array.from(selectedIds)
+          batchId: lotId,
+          contactIds: Array.from(selectedIds)
         }
       });
       if (response?.rejectedIds?.length) {
@@ -439,7 +444,8 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
         method: 'POST',
         token,
         body: {
-          contactos: filtered
+          batchId: createdLotId,
+          contactIds: filtered
         }
       });
       setToast('Lote activado sin los rechazados.');
@@ -1085,11 +1091,6 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
             <div>
               <h3 style={titleStyle}>Previsualización del lote</h3>
               <p style={subtitleStyle}>Revisá y ajustá los contactos antes de activar el lote.</p>
-              {loading ? (
-                <div style={{ textAlign: 'center', padding: '32px 0', color: '#1A5C4A', fontWeight: 600, fontSize: 14 }}>
-                  Cargando contactos...
-                </div>
-              ) : null}
               <div className="toolbar" style={{ marginBottom: 12 }}>
                 <div className="searchbox" style={{ maxWidth: 320 }}>
                   <Search size={16} color="#69788d" />
@@ -1100,7 +1101,7 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
                     style={inputStyle}
                   />
                 </div>
-                <span style={badge('#1A5C4A')}>{selectedIds.size.toLocaleString()} seleccionados de {previewTotal.toLocaleString()}</span>
+                <span style={badge('#1A5C4A')}>{segments.reduce((acc, seg) => acc + seg.total, 0).toLocaleString()} seleccionados de {segments.reduce((acc, seg) => acc + seg.total, 0).toLocaleString()}</span>
                 <Button variant="ghost" onClick={() => {
                   setManualSelection(true);
                   setSelectedIds(new Set());
@@ -1110,75 +1111,113 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
                   setSelectedIds(new Set(allPreviewRows.map((item) => item.id)));
                 }}>Seleccionar todos</Button>
               </div>
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th></th>
-                      <th>Nombre completo</th>
-                      <th>Departamento</th>
-                      <th>Localidad</th>
-                      <th>Teléfono fijo</th>
-                      <th>Celular</th>
-                      <th>Fuente</th>
-                      <th>Días sin gestión</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {previewRows.map((item) => (
-                      <tr key={item.id}>
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.has(item.id)}
-                            onChange={() => {
-                              setManualSelection(true);
-                              setSelectedIds((prev) => {
-                                const next = new Set(prev);
-                                if (next.has(item.id)) next.delete(item.id);
-                                else next.add(item.id);
-                                return next;
-                              });
-                            }}
-                            style={{ accentColor: '#1A5C4A' }}
-                          />
-                        </td>
-                        <td><strong>{[item.nombre, item.apellido].filter(Boolean).join(' ') || '-'}</strong></td>
-                        <td>{item.departamento || '-'}</td>
-                        <td>{item.localidad || '-'}</td>
-                        <td>{item.telefono || '-'}</td>
-                        <td>{item.celular || '-'}</td>
-                        <td>{item.origen_dato || '-'}</td>
-                        <td>{item.dias_sin_gestion || '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {!previewRows.length ? (
+              {loading ? (
+                <div style={{ padding: '32px 0', textAlign: 'center' }}>
                   <div style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '32px 16px',
-                    background: '#F9F9F9',
-                    borderRadius: '12px',
-                    border: '2px dashed #E0E0E0',
-                    color: '#aaa',
-                    textAlign: 'center',
-                    minHeight: '120px'
-                  }}>
-                    <p style={{ fontSize: '13px', margin: 0, lineHeight: 1.5 }}>
-                      No hay contactos para esta vista.
-                    </p>
-                  </div>
-                ) : null}
-              </div>
+                    width: 40, height: 40,
+                    border: '3px solid #E0EDE9',
+                    borderTop: '3px solid #1A5C4A',
+                    borderRadius: '50%',
+                    margin: '0 auto 12px',
+                    animation: 'spin 0.8s linear infinite'
+                  }} />
+                  <p style={{ color: '#1A5C4A', fontWeight: 600, fontSize: 14, margin: '0 0 12px' }}>
+                    Cargando contactos...
+                  </p>
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} style={{
+                      height: 36,
+                      background: 'linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)',
+                      borderRadius: 6,
+                      marginBottom: 6,
+                      animation: 'pulse 1.2s ease-in-out infinite',
+                      animationDelay: `${i * 0.1}s`
+                    }} />
+                  ))}
+                  <style>{`
+                    @keyframes spin { to { transform: rotate(360deg) } }
+                    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+                  `}</style>
+                </div>
+              ) : (
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th></th>
+                        <th>Nombre completo</th>
+                        <th>Departamento</th>
+                        <th>Localidad</th>
+                        <th>Teléfono fijo</th>
+                        <th>Celular</th>
+                        <th>Fuente</th>
+                        <th>Días sin gestión</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewRows.map((item) => (
+                        <tr key={item.id}>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.has(item.id)}
+                              onChange={() => {
+                                setManualSelection(true);
+                                setSelectedIds((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(item.id)) next.delete(item.id);
+                                  else next.add(item.id);
+                                  return next;
+                                });
+                              }}
+                              style={{ accentColor: '#1A5C4A' }}
+                            />
+                          </td>
+                          <td><strong>{[item.nombre, item.apellido].filter(Boolean).join(' ') || '-'}</strong></td>
+                          <td>{item.departamento || '-'}</td>
+                          <td>{item.localidad || '-'}</td>
+                          <td>{item.telefono || '-'}</td>
+                          <td>{item.celular || '-'}</td>
+                          <td>{item.origen_dato || '-'}</td>
+                          <td>{item.dias_sin_gestion || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {!previewRows.length ? (
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '32px 16px',
+                      background: '#F9F9F9',
+                      borderRadius: '12px',
+                      border: '2px dashed #E0E0E0',
+                      color: '#aaa',
+                      textAlign: 'center',
+                      minHeight: '120px'
+                    }}>
+                      <p style={{ fontSize: '13px', margin: 0, lineHeight: 1.5 }}>
+                        No hay contactos para esta vista.
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              )}
               <div className="toolbar" style={{ justifyContent: 'space-between', marginTop: 12 }}>
                 <span style={badge('#9E9E9E')}>Página {previewPage}</span>
                 <div className="toolbar">
-                  <Button variant="secondary" onClick={() => setPreviewPage((p) => Math.max(1, p - 1))}>Anterior</Button>
-                  <Button variant="secondary" onClick={() => setPreviewPage((p) => p + 1)}>Siguiente</Button>
+                  <Button variant="secondary" disabled={previewPage <= 1 || loading} onClick={() => {
+                    const newPage = Math.max(1, previewPage - 1);
+                    setPreviewPage(newPage);
+                    loadPaso3Page(newPage);
+                  }}>Anterior</Button>
+                  <Button variant="secondary" disabled={loading || allPreviewRows.length < previewPageSize} onClick={() => {
+                    const newPage = previewPage + 1;
+                    setPreviewPage(newPage);
+                    loadPaso3Page(newPage);
+                  }}>Siguiente</Button>
                 </div>
               </div>
             </div>
