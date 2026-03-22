@@ -185,9 +185,17 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
     const handler = window.setTimeout(async () => {
       setSegmentPreviewLoading(true);
       try {
-        const filtros = encodeURIComponent(JSON.stringify(segmentDraft));
-        const response = await fetchJson(`/datos-para-trabajar/preview?filtros=${filtros}`, { token });
-        setSegmentPreviewTotal(response?.total || response?.count || 0);
+        const params = new URLSearchParams();
+        if (segmentDraft.nombre) params.set('nombre', segmentDraft.nombre);
+        if (segmentDraft.departamentos?.length) params.set('departamento', segmentDraft.departamentos.join(','));
+        if (segmentDraft.localidades?.length) params.set('localidad', segmentDraft.localidades.join(','));
+        if (segmentDraft.edadDesde) params.set('edad_desde', segmentDraft.edadDesde);
+        if (segmentDraft.edadHasta) params.set('edad_hasta', segmentDraft.edadHasta);
+        if (segmentDraft.fuentes?.length) params.set('origen_dato', segmentDraft.fuentes.join(','));
+        if (segmentDraft.telefonosTipo) params.set('telefono_tipo', segmentDraft.telefonosTipo);
+        if (segmentDraft.diasSinGestion) params.set('dias_sin_gestion', segmentDraft.diasSinGestion);
+        const response = await fetchJson(`/datos-para-trabajar/preview?${params.toString()}`, { token });
+        setSegmentPreviewTotal(response?.data?.total ?? response?.total ?? response?.count ?? 0);
       } catch (error) {
         setSegmentPreviewTotal(0);
         setToast(error.message || 'No se pudo previsualizar el segmento.');
@@ -207,7 +215,7 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
       try {
         const filtros = encodeURIComponent(JSON.stringify({ segmentos: segments.map((s) => s.filtros) }));
         const response = await fetchJson(`/datos-para-trabajar/preview?filtros=${filtros}`, { token });
-        setLotPreviewTotal(response?.total || response?.count || segments.reduce((acc, s) => acc + s.total, 0));
+        setLotPreviewTotal(response?.data?.total ?? response?.total ?? response?.count ?? segments.reduce((acc, s) => acc + s.total, 0));
       } catch {
         setLotPreviewTotal(segments.reduce((acc, s) => acc + s.total, 0));
       }
@@ -230,7 +238,7 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
         const response = await fetchJson(`/datos-para-trabajar/preview?${params.toString()}`, { token });
         const items = response?.items || [];
         setPreviewRows(items);
-        setPreviewTotal(response?.total || items.length);
+        setPreviewTotal(response?.data?.total ?? response?.total ?? items.length);
         if (!manualSelection) {
           setSelectedIds((prev) => {
             const next = new Set(prev);
