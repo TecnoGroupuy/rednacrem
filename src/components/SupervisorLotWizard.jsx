@@ -180,10 +180,6 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
   }, [segmentDraft.departamentos, token]);
 
   React.useEffect(() => {
-    if (!hasAnyFilter(segmentDraft)) {
-      setSegmentPreviewTotal(0);
-      return;
-    }
     const handler = window.setTimeout(async () => {
       setSegmentPreviewLoading(true);
       try {
@@ -196,7 +192,8 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
         if (segmentDraft.fuentes?.length) params.set('origen_dato', segmentDraft.fuentes.join(','));
         if (segmentDraft.telefonosTipo) params.set('telefono_tipo', segmentDraft.telefonosTipo);
         if (segmentDraft.diasSinGestion) params.set('dias_sin_gestion', segmentDraft.diasSinGestion);
-        const response = await fetchJson(`/datos-para-trabajar/preview?${params.toString()}`, { token });
+        const qs = params.toString();
+        const response = await fetchJson(`/datos-para-trabajar/preview${qs ? '?' + qs : ''}`, { token });
         setSegmentPreviewTotal(response?.data?.total ?? response?.total ?? response?.count ?? 0);
       } catch (error) {
         setSegmentPreviewTotal(0);
@@ -919,7 +916,9 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
         }}>
           {segmentPreviewLoading
             ? 'Calculando...'
-            : `${segmentPreviewTotal.toLocaleString()} contactos coinciden`}
+            : hasAnyFilter(segmentDraft)
+              ? `${segmentPreviewTotal.toLocaleString()} contactos coinciden con los filtros`
+              : `${segmentPreviewTotal.toLocaleString()} contactos disponibles en total`}
         </p>
         {segmentPreviewTotal > 0 ? (
           <div style={{ marginBottom: 10 }}>
@@ -964,7 +963,7 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
         <button
           type="button"
           onClick={addSegment}
-          disabled={segmentPreviewTotal <= 0 || segmentPreviewLoading || !hasAnyFilter(segmentDraft) || cantidadAgregar < 1 || cantidadAgregar > segmentPreviewTotal}
+          disabled={segmentPreviewTotal <= 0 || segmentPreviewLoading || cantidadAgregar < 1 || cantidadAgregar > segmentPreviewTotal}
           style={{
             width: '100%',
             ...(segmentPreviewTotal > 0 && cantidadAgregar >= 1 ? btnPrimary : btnDisabled)
