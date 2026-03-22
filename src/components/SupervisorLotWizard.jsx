@@ -55,7 +55,7 @@ const emptySegmentDraft = () => ({
   fuentes: [],
   fechaDesde: '',
   fechaHasta: '',
-  diasSinGestion: '',
+  diasSinGestion: 0,
   telefonosTipo: ''
 });
 
@@ -917,47 +917,42 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
           {segmentPreviewLoading
             ? 'Calculando...'
             : hasAnyFilter(segmentDraft)
-              ? `${segmentPreviewTotal.toLocaleString()} contactos coinciden con los filtros`
-              : `${segmentPreviewTotal.toLocaleString()} contactos disponibles en total`}
+              ? `${segmentPreviewTotal.toLocaleString()} coinciden`
+              : `${segmentPreviewTotal.toLocaleString()} disponibles`}
         </p>
         {segmentPreviewTotal > 0 ? (
-          <div style={{ marginBottom: 10 }}>
-            <label style={labelStyle}>
-              ¿Cuántos contactos agregar de este segmento?
-            </label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-              <input
-                type="number"
-                min="1"
-                max={segmentPreviewTotal}
-                value={cantidadAgregar}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value, 10);
-                  if (!val || val < 1) setCantidadAgregar(1);
-                  else if (val > segmentPreviewTotal) setCantidadAgregar(segmentPreviewTotal);
-                  else setCantidadAgregar(val);
-                }}
-                style={{ ...inputStyle, width: 100, textAlign: 'center' }}
-              />
-              <span style={{ fontSize: 12, color: '#888' }}>
-                de {segmentPreviewTotal.toLocaleString()} disponibles
-              </span>
-              <button
-                type="button"
-                onClick={() => setCantidadAgregar(segmentPreviewTotal)}
-                style={{
-                  fontSize: 11,
-                  color: '#1A5C4A',
-                  background: 'none',
-                  border: '1px solid #1A5C4A',
-                  borderRadius: 6,
-                  padding: '4px 8px',
-                  cursor: 'pointer'
-                }}
-              >
-                Todos
-              </button>
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <input
+              type="number"
+              min="1"
+              max={segmentPreviewTotal}
+              value={cantidadAgregar}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10);
+                if (!val || val < 1) setCantidadAgregar(1);
+                else if (val > segmentPreviewTotal) setCantidadAgregar(segmentPreviewTotal);
+                else setCantidadAgregar(val);
+              }}
+              style={{ ...inputStyle, width: 100, textAlign: 'center' }}
+            />
+            <span style={{ fontSize: 12, color: '#888' }}>
+              de {segmentPreviewTotal.toLocaleString()}
+            </span>
+            <button
+              type="button"
+              onClick={() => setCantidadAgregar(segmentPreviewTotal)}
+              style={{
+                fontSize: 11,
+                color: '#1A5C4A',
+                background: 'none',
+                border: '1px solid #1A5C4A',
+                borderRadius: 6,
+                padding: '4px 8px',
+                cursor: 'pointer'
+              }}
+            >
+              Todos
+            </button>
           </div>
         ) : null}
         <button
@@ -1077,7 +1072,7 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
           color: segments.length > 0 ? '#fff' : '#ccc',
           margin: 0
         }}>
-          {lotPreviewTotal.toLocaleString()} contactos
+          {segments.reduce((acc, s) => acc + s.total, 0).toLocaleString()} contactos
         </p>
       </div>
     </div>
