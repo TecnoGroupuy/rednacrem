@@ -41,6 +41,7 @@ export default function EstadoNoAutenticado() {
       id: 'vendedor',
       label: 'Matias Decker (Vendedor)',
       email: 'vendedor@rednacrem.com',
+      sub: 'dev-matias-decker',
       name: 'Matias Decker'
     }
   ];
@@ -49,7 +50,11 @@ export default function EstadoNoAutenticado() {
     try {
       localStorage.setItem('local_dev_user_role', preset.id);
       localStorage.setItem('local_dev_user_email', preset.email);
-      localStorage.removeItem('local_dev_user_sub');
+      if (preset.sub) {
+        localStorage.setItem('local_dev_user_sub', preset.sub);
+      } else {
+        localStorage.removeItem('local_dev_user_sub');
+      }
     } catch {
       // no-op
     }
