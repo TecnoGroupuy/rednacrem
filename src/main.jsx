@@ -1812,39 +1812,30 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             nextAction: fecha_agenda,
             fecha_agenda
           });
+          const itemGuardado = drawerItem;
+          cerrarDrawer();
           if (ESTADOS_FINALES_GESTION.includes(agEstado)) {
-            await agendaApi.patch(`/agenda/${drawerItem.id}/complete`, {}).catch(() => {});
-            setSeguimientos((prev) => prev.filter((s) => s.id !== drawerItem.id));
+            await agendaApi.patch(`/agenda/${itemGuardado.id}/complete`, {}).catch(() => {});
             if (agEstado === 'venta' && onVentaCerrada) {
               try {
                 const borrador = {
-                  contacto_id: String(drawerItem.contact_id),
-                  nombre: drawerItem.nombre || '',
-                  apellido: drawerItem.apellido || '',
-                  documento: drawerItem.documento || '',
-                  fecha_nacimiento: drawerItem.fecha_nacimiento || '',
-                  telefono: drawerItem.telefono || '',
-                  celular: drawerItem.celular || '',
-                  correo_electronico: drawerItem.correo_electronico || '',
-                  batch_id: drawerItem.batch_id || '',
+                  contacto_id: String(itemGuardado.contact_id),
+                  nombre: itemGuardado.nombre || '',
+                  apellido: itemGuardado.apellido || '',
+                  documento: itemGuardado.documento || '',
+                  fecha_nacimiento: itemGuardado.fecha_nacimiento || '',
+                  telefono: itemGuardado.telefono || '',
+                  celular: itemGuardado.celular || '',
+                  correo_electronico: itemGuardado.correo_electronico || '',
+                  batch_id: itemGuardado.batch_id || '',
                   timestamp: new Date().toISOString()
                 };
                 localStorage.setItem('cliente_pendiente_alta', JSON.stringify(borrador));
               } catch {}
-              onVentaCerrada(drawerItem);
+              onVentaCerrada(itemGuardado);
             }
-            cerrarDrawer();
-          } else if (agEstado === 'seguimiento') {
-            setSeguimientos((prev) => prev.map((s) =>
-              s.id === drawerItem.id ? { ...s, fecha_agenda, estado_venta: agEstado } : s
-            ));
-            cerrarDrawer();
-          } else {
-            setSeguimientos((prev) => prev.map((s) =>
-              s.id === drawerItem.id ? { ...s, estado_venta: agEstado } : s
-            ));
-            cerrarDrawer();
           }
+          cargarAgenda();
         } catch (err) {
           setAgError(err?.message || 'No se pudo guardar la gestión.');
         } finally {
