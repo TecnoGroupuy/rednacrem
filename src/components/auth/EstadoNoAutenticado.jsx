@@ -10,23 +10,61 @@ export default function EstadoNoAutenticado() {
   const { login } = useAppAuth();
   const [isLoggingDev, setIsLoggingDev] = React.useState(false);
   const [isRedirecting, setIsRedirecting] = React.useState(false);
-  const [showTip, setShowTip] = React.useState(false);
   const [showVendorRequestForm, setShowVendorRequestForm] = React.useState(false);
   const [requestSubmitted, setRequestSubmitted] = React.useState(false);
   const [registerDraft, setRegisterDraft] = React.useState({ nombre: '', apellido: '', email: '', telefono: '' });
   const [registerLoading, setRegisterLoading] = React.useState(false);
   const [registerError, setRegisterError] = React.useState('');
   const [registerSuccess, setRegisterSuccess] = React.useState('');
+  const isDev = import.meta.env.DEV;
 
-  const handleLoginDev = async () => {
+  const DEV_ROLE_PRESETS = [
+    {
+      id: 'superadministrador',
+      label: 'Superadmin',
+      email: import.meta.env?.VITE_LOCAL_DEV_USER_EMAIL_SUPERADMIN || 'admin@local.test',
+      name: 'Dev Superadmin'
+    },
+    {
+      id: 'supervisor',
+      label: 'Supervisor',
+      email: import.meta.env?.VITE_LOCAL_DEV_USER_EMAIL_SUPERVISOR || 'supervisor@renacrem.com',
+      name: 'Dev Supervisor'
+    },
+    {
+      id: 'vendedor',
+      label: 'Vendedor',
+      email: import.meta.env?.VITE_LOCAL_DEV_USER_EMAIL_VENDEDOR || 'vendedor@rednacrem.com',
+      name: 'Dev Vendedor'
+    },
+    {
+      id: 'vendedor',
+      label: 'Matias Decker (Vendedor)',
+      email: 'vendedor@rednacrem.com',
+      name: 'Matias Decker'
+    }
+  ];
+
+  const setLocalDevOverrides = (preset) => {
+    try {
+      localStorage.setItem('local_dev_user_role', preset.id);
+      localStorage.setItem('local_dev_user_email', preset.email);
+      localStorage.removeItem('local_dev_user_sub');
+    } catch {
+      // no-op
+    }
+  };
+
+  const handleLoginDev = async (preset) => {
     if (!import.meta.env.DEV || isLoggingDev) return;
     setIsLoggingDev(true);
     try {
+      setLocalDevOverrides(preset);
       await login({
         id: 'dev-001',
-        nombre: 'Dev User',
-        email: 'dev@test.com',
-        claims: { 'cognito:groups': ['superadministrador'] },
+        nombre: preset.name,
+        email: preset.email,
+        claims: { 'cognito:groups': [preset.id], email: preset.email },
         accessToken: 'dev-token',
         idToken: 'dev-id'
       });
@@ -137,80 +175,106 @@ export default function EstadoNoAutenticado() {
             <p>Accede a tu cuenta para continuar</p>
           </div>
 
-          <button type="button" className="login-google-btn btn-hover" onClick={handleGoogleLogin} disabled={isRedirecting}>
-            <svg className="login-google-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-            </svg>
-            {isRedirecting ? 'Redirigiendo...' : 'Continuar con Google'}
-          </button>
-
-          <div className="login-divider"><span>O</span></div>
-
-          <button type="button" className="login-email-btn" onClick={handleEmailLogin} disabled={isRedirecting}>
-            <Mail size={16} />Acceder con email
-          </button>
-
-          <div className="login-request-section">
-            <div className="login-request-head">
-              <h3>Solicitud comercial</h3>
-              <p>El acceso para vendedor se solicita y queda pendiente de aprobacion.</p>
+          {isDev ? (
+            <div className="login-dev-card">
+              <div className="login-dev-title">
+                <Terminal size={16} />
+                <span>Acceso rapido local</span>
+              </div>
+              <div className="login-dev-actions">
+                {DEV_ROLE_PRESETS.map((preset) => (
+                  <button
+                    key={preset.name}
+                    type="button"
+                    className="login-dev-primary btn-hover"
+                    onClick={() => handleLoginDev(preset)}
+                    disabled={isLoggingDev}
+                  >
+                    {isLoggingDev ? <Loader2 size={16} className="spin" /> : <Terminal size={16} />}
+                    {isLoggingDev ? 'Ingresando...' : `Entrar como ${preset.label}`}
+                  </button>
+                ))}
+              </div>
+              <p className="login-dev-note">No aplica a produccion.</p>
             </div>
-
-            {!showVendorRequestForm && !requestSubmitted ? (
-              <button
-                type="button"
-                className="login-request-toggle"
-                onClick={() => {
-                  setShowVendorRequestForm(true);
-                  resetRequestState();
-                }}
-                disabled={registerLoading || isRedirecting}
-              >
-                <UserPlus size={16} />
-                Solicitar acceso como vendedor
+          ) : (
+            <>
+              <button type="button" className="login-google-btn btn-hover" onClick={handleGoogleLogin} disabled={isRedirecting}>
+                <svg className="login-google-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                </svg>
+                {isRedirecting ? 'Redirigiendo...' : 'Continuar con Google'}
               </button>
-            ) : null}
 
-            {showVendorRequestForm ? (
-              <form className="login-email-form fade-in-up" onSubmit={handleVendorRequest}>
-                <label>Nombre<input value={registerDraft.nombre} onChange={(event) => updateRegisterField('nombre', event.target.value)} placeholder="Nombre" required /></label>
-                <label>Apellido<input value={registerDraft.apellido} onChange={(event) => updateRegisterField('apellido', event.target.value)} placeholder="Apellido" required /></label>
-                <label>Email<input type="email" value={registerDraft.email} onChange={(event) => updateRegisterField('email', event.target.value)} placeholder="email@dominio.com" required /></label>
-                <label>Telefono<input value={registerDraft.telefono} onChange={(event) => updateRegisterField('telefono', event.target.value)} placeholder="099123123" required /></label>
+              <div className="login-divider"><span>O</span></div>
 
-                <div className="login-request-actions">
+              <button type="button" className="login-email-btn" onClick={handleEmailLogin} disabled={isRedirecting}>
+                <Mail size={16} />Acceder con email
+              </button>
+
+              <div className="login-request-section">
+                <div className="login-request-head">
+                  <h3>Solicitud comercial</h3>
+                  <p>El acceso para vendedor se solicita y queda pendiente de aprobacion.</p>
+                </div>
+
+                {!showVendorRequestForm && !requestSubmitted ? (
                   <button
                     type="button"
-                    className="login-request-cancel"
+                    className="login-request-toggle"
                     onClick={() => {
-                      setShowVendorRequestForm(false);
-                      setRegisterError('');
+                      setShowVendorRequestForm(true);
+                      resetRequestState();
                     }}
-                    disabled={registerLoading}
+                    disabled={registerLoading || isRedirecting}
                   >
-                    Cancelar
+                    <UserPlus size={16} />
+                    Solicitar acceso como vendedor
                   </button>
-                  <button type="submit" className="login-submit-btn btn-hover" disabled={registerLoading}>
-                    {registerLoading ? <Loader2 size={16} className="spin" /> : <Send size={15} />}
-                    {registerLoading ? 'Enviando...' : 'Enviar solicitud'}
-                  </button>
-                </div>
-              </form>
-            ) : null}
+                ) : null}
 
-            {requestSubmitted ? (
-              <div className="login-request-success fade-in-up">
-                <Check size={16} />
-                <div>
-                  <p>Solicitud enviada</p>
-                  <span>Tu solicitud fue enviada y esta pendiente de revision.</span>
-                </div>
+                {showVendorRequestForm ? (
+                  <form className="login-email-form fade-in-up" onSubmit={handleVendorRequest}>
+                    <label>Nombre<input value={registerDraft.nombre} onChange={(event) => updateRegisterField('nombre', event.target.value)} placeholder="Nombre" required /></label>
+                    <label>Apellido<input value={registerDraft.apellido} onChange={(event) => updateRegisterField('apellido', event.target.value)} placeholder="Apellido" required /></label>
+                    <label>Email<input type="email" value={registerDraft.email} onChange={(event) => updateRegisterField('email', event.target.value)} placeholder="email@dominio.com" required /></label>
+                    <label>Telefono<input value={registerDraft.telefono} onChange={(event) => updateRegisterField('telefono', event.target.value)} placeholder="099123123" required /></label>
+
+                    <div className="login-request-actions">
+                      <button
+                        type="button"
+                        className="login-request-cancel"
+                        onClick={() => {
+                          setShowVendorRequestForm(false);
+                          setRegisterError('');
+                        }}
+                        disabled={registerLoading}
+                      >
+                        Cancelar
+                      </button>
+                      <button type="submit" className="login-submit-btn btn-hover" disabled={registerLoading}>
+                        {registerLoading ? <Loader2 size={16} className="spin" /> : <Send size={15} />}
+                        {registerLoading ? 'Enviando...' : 'Enviar solicitud'}
+                      </button>
+                    </div>
+                  </form>
+                ) : null}
+
+                {requestSubmitted ? (
+                  <div className="login-request-success fade-in-up">
+                    <Check size={16} />
+                    <div>
+                      <p>Solicitud enviada</p>
+                      <span>Tu solicitud fue enviada y esta pendiente de revision.</span>
+                    </div>
+                  </div>
+                ) : null}
               </div>
-            ) : null}
-          </div>
+            </>
+          )}
 
           {registerError ? <p className="login-error">{registerError}</p> : null}
           {registerSuccess ? <p className="login-status" style={{ color: '#34d399' }}>{registerSuccess}</p> : null}
@@ -223,31 +287,6 @@ export default function EstadoNoAutenticado() {
         <div className="login-right-glow"></div>
       </div>
 
-      {import.meta.env.DEV ? (
-        <div className="login-dev-wrap">
-          <button
-            type="button"
-            className="button ghost"
-            onClick={handleLoginDev}
-            onMouseEnter={() => setShowTip(true)}
-            onMouseLeave={() => setShowTip(false)}
-            disabled={isLoggingDev}
-            style={{
-              border: '1px solid rgba(148,163,184,0.24)',
-              background: 'rgba(15,23,42,0.9)',
-              color: '#cbd5e1',
-              backdropFilter: 'blur(10px)',
-              borderRadius: 12,
-              padding: '8px 12px',
-              fontSize: '0.82rem'
-            }}
-          >
-            {isLoggingDev ? <Loader2 size={15} className="spin" /> : <Terminal size={15} />}
-            {isLoggingDev ? 'Ingresando...' : 'Login Dev'}
-          </button>
-          {showTip ? <div className="login-dev-tip">Acceso temporal de desarrollo</div> : null}
-        </div>
-      ) : null}
     </div>
   );
 }
