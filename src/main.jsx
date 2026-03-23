@@ -42,7 +42,8 @@ import {
   countSales,
   upsertPrimarySale,
   addFamilySale,
-  removeSalesByContact
+  removeSalesByContact,
+  listSalesBySellerAsync
 } from './services/salesService.js';
 import { listLots, listLotsAsync, createLot, updateLot, listSellersAsync } from './services/lotsService.js';
 import {
@@ -1639,14 +1640,15 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <Panel className="span-12" title="Mis ventas" subtitle="Contactos que convertiste en clientes">
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>Cliente</th><th>Telefono</th><th>Producto</th><th>Cuota</th><th>Tipo</th><th>Estado</th></tr></thead>
+                  <thead><tr><th>Cliente</th><th>Telefono</th><th>Producto</th><th>Cuota</th><th>Fecha</th><th>Tipo</th><th>Estado</th></tr></thead>
                   <tbody>
                     {soldRows.map((sale) => (
                       <tr key={sale.id}>
                         <td><div className="person"><div className="person-badge">{initials(sale.clienteNombre)}</div><strong>{sale.clienteNombre}</strong></div></td>
                         <td>{sale.clienteTelefono}</td>
-                        <td>{productsById[sale.productoId]?.nombre || '-'}</td>
+                        <td>{sale.productoNombre || productsById[sale.productoId]?.nombre || '-'}</td>
                         <td>{sale.cuota ? ('$ ' + Number(sale.cuota).toLocaleString('es-UY')) : '-'}</td>
+                        <td>{formatDateTimeShort(sale.fechaVenta) || '-'}</td>
                         <td>{sale.grupoFamiliar ? ('Familiar · ' + (sale.relacionConTitular || '-')) : 'Venta principal'}</td>
                         <td><SalesStatusBadge status="venta" small /></td>
                       </tr>
@@ -5454,8 +5456,15 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const refreshContactsFromService = React.useCallback(async () => {
         const next = await listCommercialContactsAsync();
         setSalesContacts(next);
-        setSalesRecords((prev) => (prev && prev.length ? prev : seedSalesFromContacts(next)));
         return next;
+      }, []);
+
+      const refreshSalesFromService = React.useCallback(async () => {
+        const nextSales = await listSalesBySellerAsync();
+        if (Array.isArray(nextSales)) {
+          setSalesRecords(nextSales);
+        }
+        return nextSales;
       }, []);
 
       const refreshLotsFromService = React.useCallback(async () => {
@@ -5467,6 +5476,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       React.useEffect(() => {
         Promise.all([refreshContactsFromService(), refreshLotsFromService()]).catch(() => {});
       }, [refreshContactsFromService, refreshLotsFromService]);
+
+      React.useEffect(() => {
+        if (role !== 'vendedor') return;
+        refreshSalesFromService().catch(() => {});
+      }, [role, refreshSalesFromService]);
 
       const registerSalesManagement = async (contactId, payload) => {
         const updated = await registerCommercialManagement(contactId, payload, { sellerName: 'Laura Techera' });
