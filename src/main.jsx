@@ -1125,17 +1125,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 ))}
               </div>
             </Panel>
-            <Panel className="span-4" title="Flujo vendedor" subtitle="Supervisor asigna · vendedor gestiona">
-              <div className="list">
-                <div className="alert"><div><div style={{ fontWeight: 700 }}>1. Lote recibido</div><div style={{ color: 'var(--muted)' }}>No preparas base ni repartes leads.</div></div></div>
-                <div className="alert"><div><div style={{ fontWeight: 700 }}>2. Gestion diaria</div><div style={{ color: 'var(--muted)' }}>Registra estado y accion siguiente.</div></div></div>
-                <div className="alert"><div><div style={{ fontWeight: 700 }}>3. Cierre</div><div style={{ color: 'var(--muted)' }}>Venta pasa directo a clientes.</div></div></div>
-              </div>
-              <div className="toolbar" style={{ marginTop: 14 }}>
-                <Button icon={<Users size={16} />} onClick={() => onGoRoute('contactos')}>Ir a contactos</Button>
-                <Button variant="secondary" icon={<Calendar size={16} />} onClick={() => onGoRoute('agenda')}>Ver agenda</Button>
-              </div>
-            </Panel>
           </section>
         </div>
       );
@@ -1172,7 +1161,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         { key: 'todos', label: 'Todos' },
         { key: 'nuevo', label: 'Nuevos' },
         { key: 'no_contesta', label: 'No contesta' },
-        { key: 'seguimiento', label: 'Seguimiento' },
         { key: 'rechazo', label: 'Rechazos' }
       ];
       const [tabActivo, setTabActivo] = React.useState('todos');
@@ -1369,8 +1357,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setGuardando(true);
         setGestionError('');
         try {
+          const estadosConAgenda = ['seguimiento', 'rellamar'];
           let fecha_agenda;
-          if (estadoGestion === 'seguimiento') {
+          if (estadosConAgenda.includes(estadoGestion)) {
             const fecha = fechaAgenda || fechaAgendaRef.current;
             const hora = horaAgenda || horaAgendaRef.current || '10:00';
             console.log('[gestion] fechaAgenda:', fechaAgenda, 'ref:', fechaAgendaRef.current);
@@ -1405,7 +1394,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             ));
           }
           setStatusOverrides((prev) => ({ ...prev, [contactId]: estadoGestion }));
-          if (estadoGestion === 'seguimiento') {
+          if (estadosConAgenda.includes(estadoGestion)) {
             try { localStorage.setItem('agenda_needs_refresh', 'true'); } catch {}
           }
           closeDrawer();
@@ -1799,7 +1788,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         </div>
                       </div>
 
-                      {estadoGestion === 'seguimiento' && (
+                      {['seguimiento', 'rellamar'].includes(estadoGestion) && (
                         <div style={{ background: '#F8F0FF', border: '1px solid rgba(155,89,182,0.2)', borderRadius: 10, padding: '12px 14px' }}>
                           <p style={{ fontSize: 12, fontWeight: 600, color: '#9B59B6', margin: '0 0 10px 0' }}>Agenda de seguimiento</p>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -1996,8 +1985,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         if (agGuardando || !drawerItem || !agEstado) return;
         setAgGuardando(true); setAgError('');
         try {
+          const estadosConAgenda = ['seguimiento', 'rellamar'];
           let fecha_agenda;
-          if (agEstado === 'seguimiento') {
+          if (estadosConAgenda.includes(agEstado)) {
             const fecha = agFecha || agFechaRef.current;
             const hora = agHora || agHoraRef.current || '10:00';
             if (!fecha) {
@@ -2323,7 +2313,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       </div>
 
                       {/* Agenda rápida seguimiento */}
-                      {agEstado === 'seguimiento' && (
+                      {['seguimiento', 'rellamar'].includes(agEstado) && (
                         <div style={{ background: '#F8F0FF', border: '1px solid rgba(155,89,182,0.2)', borderRadius: 10, padding: '12px 14px' }}>
                           <p style={{ fontSize: 12, fontWeight: 600, color: '#9B59B6', margin: '0 0 10px 0' }}>Agenda de seguimiento</p>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
