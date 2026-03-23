@@ -406,12 +406,38 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
       const lotId = created?.data?.id || created?.id || created?.data?.item?.id;
       if (!lotId) throw new Error('No se obtuvo el ID del lote creado');
       setCreatedLotId(lotId);
+
+      // Obtener TODOS los IDs de los segmentos (no solo la página actual)
+      const seen = new Set();
+      const allContactIds = [];
+      for (const seg of segments) {
+        const params = new URLSearchParams();
+        if (seg.filtros.nombre) params.set('nombre', seg.filtros.nombre);
+        if (seg.filtros.departamentos?.length) params.set('departamento', seg.filtros.departamentos.join(','));
+        if (seg.filtros.localidades?.length) params.set('localidad', seg.filtros.localidades.join(','));
+        if (seg.filtros.edadDesde) params.set('edad_desde', seg.filtros.edadDesde);
+        if (seg.filtros.edadHasta) params.set('edad_hasta', seg.filtros.edadHasta);
+        if (seg.filtros.fuentes?.length) params.set('origen_dato', seg.filtros.fuentes.join(','));
+        if (seg.filtros.telefonosTipo) params.set('telefono_tipo', seg.filtros.telefonosTipo);
+        if (seg.filtros.diasSinGestion) params.set('dias_sin_gestion', seg.filtros.diasSinGestion);
+        params.set('limite', String(seg.total));
+        const segRes = await fetchJson(`/datos-para-trabajar/list?${params.toString()}`, { token });
+        const items = segRes?.data?.contactos || segRes?.data?.items || segRes?.items || [];
+        for (const item of items) {
+          if (!seen.has(item.id)) {
+            seen.add(item.id);
+            allContactIds.push(item.id);
+          }
+        }
+      }
+      if (!allContactIds.length) throw new Error('No se pudieron obtener los contactos de los segmentos');
+
       const response = await fetchJson('/lead-batches/assign', {
         method: 'POST',
         token,
         body: {
           batchId: lotId,
-          contactIds: Array.from(selectedIds)
+          contactIds: allContactIds
         }
       });
       if (response?.rejectedIds?.length) {
@@ -1288,7 +1314,7 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
                       ))}
                     </div>
                   )}
-                  <div style={{ marginTop: 12, fontWeight: 700 }}>Total final: {selectedIds.size.toLocaleString()} contactos</div>
+                  <div style={{ marginTop: 12, fontWeight: 700 }}>Total final: {segments.reduce((acc, seg) => acc + seg.total, 0).toLocaleString()} contactos</div>
                 </div>
               </div>
             </div>
