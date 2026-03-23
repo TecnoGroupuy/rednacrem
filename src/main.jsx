@@ -54,10 +54,10 @@ import {
   updateServiceRequestStatus,
   addTicketNote,
   getTicketById,
-  listTicketsByClientId,
   deriveTicketToOperations,
   closeTicketCase
 } from './services/ticketsService.js';
+import { listTicketsByClientId } from './services/ticketClientService.js';
 import { listOperationsRows } from './services/operationsService.js';
 import { listImports, previewCsvText, createImportFromCsv, getImportRows, getNoCallImportJob } from './services/importsService.js';
 import {
