@@ -1,7 +1,7 @@
 export const IMPORT_SAMPLE_CSV = [
   'documento,nombre,telefono,email,producto,plan,estado',
   '41234567,Maria Gonzalez,099123567,maria.gonzalez@example.com,Familiar Integral,Mensual,activo',
-  '43456789,Juan Perez,094876543,juan.perez@example.com,BÃ¡sico,Semestral,activo',
+  '43456789,Juan Perez,094876543,juan.perez@example.com,Básico,Semestral,activo',
   '40123999,Roberto Silva,095444333,roberto.silva@example.com,Corporativo,Anual,baja'
 ].join('\n');
 
@@ -50,3 +50,4 @@ export const formatFileSize = (bytes = 0) => {
   }
   return `${value.toFixed(value < 10 ? 1 : 0)} ${units[unitIndex]}`;
 };
+
