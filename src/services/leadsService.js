@@ -184,7 +184,7 @@ export const listCommercialContactsAsync = async () => {
       const status = item.estado_venta || 'nuevo';
       const attempts = Number(item.intentos || 0);
       const estadoOperativo = mapResultadoToOperativeStatus(status, attempts);
-      const lastAt = item.last_gestion_at || item.created_at;
+      const lastAt = item.last_gestion_at || null;
       const history = item.last_gestion_at
         ? [{
           at: toEsUyDateTime(item.last_gestion_at),

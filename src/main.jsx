@@ -1198,14 +1198,17 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 <Search size={16} color="#69788d" />
                 <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar por nombre, teléfono o documento..." />
               </div>
-              <button
-                onClick={handleNextContact}
-                disabled={nextLoading}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#1A5C4A', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontWeight: 600, fontSize: 13, cursor: nextLoading ? 'wait' : 'pointer', whiteSpace: 'nowrap', opacity: nextLoading ? 0.7 : 1 }}
-              >
-                <ChevronRight size={15} />
-                {nextLoading ? 'Buscando...' : 'Siguiente contacto'}
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                <button
+                  onClick={handleNextContact}
+                  disabled={nextLoading}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#1A5C4A', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontWeight: 600, fontSize: 13, cursor: nextLoading ? 'wait' : 'pointer', whiteSpace: 'nowrap', opacity: nextLoading ? 0.7 : 1 }}
+                >
+                  <span>▶</span>
+                  {nextLoading ? 'Buscando...' : 'Empezar gestión'}
+                </button>
+                <span style={{ fontSize: 11, color: '#9CA3AF' }}>El sistema te asigna el próximo contacto a llamar</span>
+              </div>
             </div>
           </div>
 
@@ -1239,7 +1242,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     </td>
                     <td>{contact.city}</td>
                     <td><SalesStatusBadge status={statusOverrides[contact.id] || contact.status} small /></td>
-                    <td>{contact.last}</td>
+                    <td>{contact.last ? contact.last : <span style={{ color: '#ccc' }}>—</span>}</td>
                   </tr>
                 ))}
               </tbody>
