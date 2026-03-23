@@ -81,3 +81,17 @@ export const updateLot = async (lotId, patch) => {
   lotsStore[idx] = { ...lotsStore[idx], ...patch };
   return toUiLot(lotsStore[idx]);
 };
+
+export const listSellersAsync = async () => {
+  if (hasApiConfigured()) {
+    const response = await api.get('/sellers');
+    const items = response?.data || response?.items || response || [];
+    return (Array.isArray(items) ? items : []).map((u) => ({
+      id: String(u.id || ''),
+      nombre: u.nombre || '',
+      apellido: u.apellido || '',
+      label: `${u.nombre || ''} ${u.apellido || ''}`.trim() || u.email || ''
+    }));
+  }
+  return [];
+};

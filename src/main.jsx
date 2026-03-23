@@ -42,7 +42,7 @@ import {
   addFamilySale,
   removeSalesByContact
 } from './services/salesService.js';
-import { listLots, listLotsAsync, createLot, updateLot } from './services/lotsService.js';
+import { listLots, listLotsAsync, createLot, updateLot, listSellersAsync } from './services/lotsService.js';
 import {
   listTicketsAsync,
   createManualTicket,
@@ -1636,10 +1636,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         });
       }, [workDataRows, workDataOriginFilter, workDataDeptFilter]);
 
-      const sellers = React.useMemo(() => {
-        const base = contacts.map((contact) => contact.assignedTo).filter(Boolean);
-        return [...new Set([...base, 'Laura Techera', 'Sofia Rojas'])];
-      }, [contacts]);
+      const [apiSellers, setApiSellers] = React.useState([]);
+      React.useEffect(() => {
+        listSellersAsync().then(setApiSellers).catch(() => {});
+      }, []);
+      const sellers = apiSellers;
 
       const activeBase = React.useMemo(
         () => contacts.filter((contact) => !isErrorNumberContact(contact) && !isContactBlockedForNoCall(contact)),
@@ -1829,8 +1830,17 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Cantidad de contactos</span><strong>{selectedLot.count}</strong></div>
                     <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Estado</span><Tag variant={lotStatusMeta(selectedLot.status).variant}>{lotStatusMeta(selectedLot.status).label}</Tag></div>
                     <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Fecha de creacion</span><strong>{selectedLot.createdAt}</strong></div>
-                    <div className="toolbar"><select className="input" style={{ width: '100%' }} value={lotSellerDraft} onChange={(event) => setLotSellerDraft(event.target.value)}><option value="">Asignar vendedor...</option>{sellers.map((seller) => <option key={seller} value={seller}>{seller}</option>)}</select></div>
-                    <div className="toolbar"><Button icon={<UserCheck size={16} />} onClick={assignSellerToLot}>Asignar vendedor</Button><Button variant="secondary" icon={<CheckCircle2 size={16} />} onClick={closeLot}>Cerrar lote</Button></div>
+                    {selectedLot.status === 'borrador' ? (
+                      <>
+                        <div className="toolbar"><select className="input" style={{ width: '100%' }} value={lotSellerDraft} onChange={(event) => setLotSellerDraft(event.target.value)}><option value="">Asignar vendedor...</option>{sellers.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}</select></div>
+                        <div className="toolbar"><Button icon={<UserCheck size={16} />} onClick={assignSellerToLot}>Asignar vendedor</Button><Button variant="secondary" icon={<CheckCircle2 size={16} />} onClick={closeLot}>Cerrar lote</Button></div>
+                      </>
+                    ) : (
+                      <div className="toolbar" style={{ justifyContent: 'space-between' }}>
+                        <p style={{ fontSize: 12, color: '#888', margin: 0 }}>Los vendedores se asignan al crear el lote. Para cambiar vendedores cerrá este lote y creá uno nuevo.</p>
+                        <Button variant="secondary" icon={<CheckCircle2 size={16} />} onClick={closeLot}>Cerrar lote</Button>
+                      </div>
+                    )}
                     <div style={{ borderTop: '1px solid rgba(20,34,53,0.08)', paddingTop: 10 }}>
                       <div style={{ fontWeight: 700, marginBottom: 8 }}>Contactos del lote</div>
                       <div className="list">{selectedLot.contacts.slice(0, 8).map((contact) => <div key={contact.id} className="alert"><div style={{ flex: 1 }}><div style={{ fontWeight: 700 }}>{contact.name}</div><div style={{ color: 'var(--muted)' }}>{contact.phone} · {contact.city}</div></div><SalesStatusBadge status={contact.status} small /></div>)}</div>
