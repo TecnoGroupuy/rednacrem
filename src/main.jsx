@@ -1720,7 +1720,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setLoadingAgenda(true);
         try {
           const data = await agendaApi.get('/agenda');
-          setSeguimientos(data?.data?.items || []);
+          const items = data?.data?.items || [];
+          setSeguimientos(items.filter((item) => !ESTADOS_FINALES_GESTION.includes(item.estado_venta)));
         } catch {
           setSeguimientos([]);
         } finally {
@@ -1816,6 +1817,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           cerrarDrawer();
           if (ESTADOS_FINALES_GESTION.includes(agEstado)) {
             await agendaApi.patch(`/agenda/${itemGuardado.id}/complete`, {}).catch(() => {});
+            setSeguimientos((prev) => prev.filter((s) => s.id !== itemGuardado.id));
             if (agEstado === 'venta' && onVentaCerrada) {
               try {
                 const borrador = {
@@ -1834,8 +1836,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               } catch {}
               onVentaCerrada(itemGuardado);
             }
+          } else {
+            cargarAgenda();
           }
-          cargarAgenda();
         } catch (err) {
           setAgError(err?.message || 'No se pudo guardar la gestión.');
         } finally {
@@ -2071,6 +2074,15 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           );
                         })
                       )}
+                    </div>
+                  ) : ESTADOS_FINALES_GESTION.includes(drawerItem.estado_venta) ? (
+                    <div style={{ textAlign: 'center', padding: '32px 16px', color: '#aaa' }}>
+                      <p style={{ fontSize: 14, fontWeight: 600, color: '#333', margin: '0 0 4px 0' }}>
+                        Gestion finalizada
+                      </p>
+                      <p style={{ fontSize: 12, margin: 0 }}>
+                        Este contacto tiene un resultado final y no puede ser gestionado nuevamente.
+                      </p>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
