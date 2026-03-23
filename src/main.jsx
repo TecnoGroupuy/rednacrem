@@ -1134,7 +1134,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       last: formatLastGestion(raw.ultima_gestion_real)
     });
 
-    function SalesContactsView({ contacts, selectedId, onSelect, onRegister, salesRecords, products, onAssignFamilySale, onUpdateContact }) {
+    function SalesContactsView({ contacts, selectedId, onSelect, onRegister, salesRecords, products, onAssignFamilySale, onUpdateContact, onVentaCerrada }) {
       const [localContacts, setLocalContacts] = React.useState(() => contacts.filter(isSalesActiveContact));
       React.useEffect(() => {
         listAssignedLeadsAsync().then((data) => {
@@ -1242,6 +1242,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           }
           setStatusOverrides((prev) => ({ ...prev, [contactId]: estadoGestion }));
           closeDrawer();
+          if (estadoGestion === 'venta' && onVentaCerrada) {
+            onVentaCerrada(dc);
+          }
         } catch (err) {
           const msg = String(err?.message || '');
           if (msg.includes('409')) {
@@ -3747,7 +3750,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         );
       }
 
-      function ClientsView({ productsCatalog = [] }) {
+      function ClientsView({ productsCatalog = [], prefillContact = null, onPrefillUsed = null }) {
         const { user: authUser } = useAuth();
         const [clientMetrics, setClientMetrics] = React.useState(() => buildClientMetricCards());
         const [clientRows, setClientRows] = React.useState([]);
@@ -3931,19 +3934,19 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           setSelectedClient(null);
           setClientDetailError('');
         };
-        const handleOpenNewClient = () => {
+        const handleOpenNewClient = (prefill = null) => {
           setNewClientDraft({
             contact: {
-              nombre: '',
-              apellido: '',
-              documento: '',
-              fecha_nacimiento: '',
-              telefono: '',
-              celular: '',
-              email: '',
-              direccion: '',
-              departamento: '',
-              pais: 'Uruguay',
+              nombre: prefill?.nombre || prefill?.name?.split(' ')[0] || '',
+              apellido: prefill?.apellido || (prefill?.name?.split(' ').slice(1).join(' ')) || '',
+              documento: prefill?.documento || '',
+              fecha_nacimiento: prefill?.fecha_nacimiento || '',
+              telefono: prefill?.telefono || prefill?.phone || '',
+              celular: prefill?.celular || '',
+              email: prefill?.correo_electronico || prefill?.email || '',
+              direccion: prefill?.direccion || '',
+              departamento: prefill?.departamento || prefill?.city || '',
+              pais: prefill?.pais || 'Uruguay',
               status: 'activo'
             },
             products: [],
@@ -3957,6 +3960,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           setNewClientStep(0);
           setNewClientOpen(true);
         };
+
+        React.useEffect(() => {
+          if (!prefillContact) return;
+          handleOpenNewClient(prefillContact);
+          if (onPrefillUsed) onPrefillUsed();
+        }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
         const handleSaveNewClient = async () => {
           const selectedProducts = productsCatalog.filter((product) => newClientDraft.products.includes(product.id));
@@ -4167,7 +4176,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   value={clientSearch}
                   onChange={(event) => setClientSearch(event.target.value)}
                 />
-                <Button icon={<Plus size={18} />} onClick={handleOpenNewClient}>Nuevo cliente</Button>
+                <Button icon={<Plus size={18} />} onClick={() => handleOpenNewClient()}>Nuevo cliente</Button>
               </div>
               <div className="table-wrap">
                 <table>
@@ -5244,6 +5253,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           return '';
         }
       });
+      const [vendorNewClientPrefill, setVendorNewClientPrefill] = React.useState(null);
       const [salesContacts, setSalesContacts] = React.useState(SALES_CONTACTS_SEED);
       const [supervisorLots, setSupervisorLots] = React.useState(SUPERVISOR_LOTS_SEED);
       const [salesSelectedId, setSalesSelectedId] = React.useState(SALES_CONTACTS_SEED.find(isSalesActiveContact)?.id || null);
@@ -5602,6 +5612,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 products={productsCatalog}
                 onAssignFamilySale={assignFamilySale}
                 onUpdateContact={updateSalesContactProfile}
+                onVentaCerrada={(contactData) => {
+                  setVendorNewClientPrefill(contactData);
+                  setRoute('clientes');
+                }}
               />
             );
           }
@@ -5611,7 +5625,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           if (role === 'vendedor') return <SalesAgendaView contacts={salesContacts} />;
         }
         if (route === 'clientes') {
-          if (role === 'vendedor') return <SalesClientsView salesRecords={salesRecords} productsById={productsById} />;
+          if (role === 'vendedor' && !vendorNewClientPrefill) return <SalesClientsView salesRecords={salesRecords} productsById={productsById} />;
+          if (role === 'vendedor' && vendorNewClientPrefill) return (
+            <ClientsView
+              productsCatalog={productsCatalog}
+              prefillContact={vendorNewClientPrefill}
+              onPrefillUsed={() => setVendorNewClientPrefill(null)}
+            />
+          );
           return <ClientsView productsCatalog={productsCatalog} />;
         }
         if (route === 'contratos') {
