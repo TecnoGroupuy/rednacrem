@@ -5454,6 +5454,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const refreshContactsFromService = React.useCallback(async () => {
         const next = await listCommercialContactsAsync();
         setSalesContacts(next);
+        setSalesRecords((prev) => (prev && prev.length ? prev : seedSalesFromContacts(next)));
         return next;
       }, []);
 
