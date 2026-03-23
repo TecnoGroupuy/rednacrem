@@ -1088,14 +1088,17 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       );
     }
 
+    const ESTADOS_FINALES_GESTION = ['venta', 'rechazo', 'dato_erroneo'];
+
     function SalesContactsView({ contacts, selectedId, onSelect, onRegister, salesRecords, products, onAssignFamilySale, onUpdateContact }) {
-      const activeContacts = contacts.filter(isSalesActiveContact);
+      const [localContacts, setLocalContacts] = React.useState(() => contacts.filter(isSalesActiveContact));
+      React.useEffect(() => { setLocalContacts(contacts.filter(isSalesActiveContact)); }, [contacts]);
       const [searchTerm, setSearchTerm] = React.useState('');
       const [drawerContact, setDrawerContact] = React.useState(null);
       const [nextLoading, setNextLoading] = React.useState(false);
       const [nextMessage, setNextMessage] = React.useState('');
       const [activeTab, setActiveTab] = React.useState('datos');
-      const [estadoGestion, setEstadoGestion] = React.useState('no_contesta');
+      const [estadoGestion, setEstadoGestion] = React.useState('');
       const [notaGestion, setNotaGestion] = React.useState('');
       const [fechaAgenda, setFechaAgenda] = React.useState('');
       const [horaAgenda, setHoraAgenda] = React.useState('');
@@ -1103,7 +1106,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [gestionError, setGestionError] = React.useState('');
       const [statusOverrides, setStatusOverrides] = React.useState({});
 
-      const filteredContacts = React.useMemo(() => activeContacts.filter((contact) => {
+      const filteredContacts = React.useMemo(() => localContacts.filter((contact) => {
         const haystack = [
           contact.name,
           contact.phone,
@@ -1113,22 +1116,27 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           contact.email || ''
         ].join(' ').toLowerCase();
         return haystack.includes(searchTerm.toLowerCase());
-      }), [activeContacts, searchTerm]);
+      }), [localContacts, searchTerm]);
 
-      const openDrawer = (c) => {
-        setDrawerContact(c);
-        setNextMessage('');
+      const resetForm = () => {
         setActiveTab('datos');
-        setEstadoGestion('no_contesta');
+        setEstadoGestion('');
         setNotaGestion('');
         setFechaAgenda('');
         setHoraAgenda('');
         setGestionError('');
+      };
+
+      const openDrawer = (c) => {
+        setDrawerContact(c);
+        setNextMessage('');
+        resetForm();
         onSelect(c.id || null);
       };
 
       const closeDrawer = () => {
         setDrawerContact(null);
+        resetForm();
         onSelect(null);
       };
 
@@ -1151,7 +1159,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       };
 
       const handleGuardarGestion = async () => {
-        if (guardando || !dc) return;
+        if (guardando || !dc || !estadoGestion) return;
         setGuardando(true);
         setGestionError('');
         try {
@@ -1163,7 +1171,19 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             note: notaGestion.trim() || undefined,
             nextAction
           });
-          setStatusOverrides((prev) => ({ ...prev, [dc.id]: estadoGestion }));
+          const contactId = dc.id;
+          if (ESTADOS_FINALES_GESTION.includes(estadoGestion)) {
+            setLocalContacts((prev) => {
+              const found = prev.find((c) => String(c.id) === String(contactId));
+              const resto = prev.filter((c) => String(c.id) !== String(contactId));
+              return found ? [...resto, { ...found, status: estadoGestion }] : prev;
+            });
+          } else {
+            setLocalContacts((prev) => prev.map((c) =>
+              String(c.id) === String(contactId) ? { ...c, status: estadoGestion } : c
+            ));
+          }
+          setStatusOverrides((prev) => ({ ...prev, [contactId]: estadoGestion }));
           closeDrawer();
         } catch (err) {
           const msg = String(err?.message || '');
@@ -1430,8 +1450,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
                       <button
                         onClick={handleGuardarGestion}
-                        disabled={guardando}
-                        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: '#1A5C4A', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 18px', fontWeight: 600, fontSize: 13, cursor: guardando ? 'wait' : 'pointer', opacity: guardando ? 0.7 : 1 }}
+                        disabled={guardando || !estadoGestion}
+                        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: '#1A5C4A', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 18px', fontWeight: 600, fontSize: 13, cursor: (guardando || !estadoGestion) ? 'not-allowed' : 'pointer', opacity: (guardando || !estadoGestion) ? 0.5 : 1 }}
                       >
                         {guardando ? 'Guardando...' : 'Guardar gestión'}
                       </button>
