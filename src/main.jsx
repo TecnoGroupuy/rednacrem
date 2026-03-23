@@ -32,7 +32,8 @@ import {
   bulkAssignCommercialContacts,
   assignSellerByLot,
   reactivateErrorContact,
-  listDatosParaTrabajar
+  listDatosParaTrabajar,
+  listAssignedLeadsAsync
 } from './services/leadsService.js';
 import {
   seedSalesFromContacts,
@@ -1038,13 +1039,17 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
     const isSalesActiveContact = (contact) => isCommercialContactActive(contact);
 
     function SalesDashboard({ contacts, salesRecords, onGoRoute }) {
-      const activeContacts = contacts.filter(isSalesActiveContact);
       const pendingAgenda = contacts.filter((contact) => shouldAppearInSalesAgenda(contact));
-      const totalSales = countSales(salesRecords);
+      const [assignedData, setAssignedData] = React.useState({ contactos: [], total: 0 });
+      React.useEffect(() => {
+        listAssignedLeadsAsync().then(setAssignedData).catch(() => {});
+      }, []);
+      const ventasCerradas = assignedData.contactos.filter((c) => c.estado_venta === 'venta').length;
+      const seguimientosPendientes = assignedData.contactos.filter((c) => c.estado_venta === 'seguimiento').length;
       const metrics = [
-        { title: 'Contactos asignados', value: String(activeContacts.length), change: 0, label: 'lote recibido', trend: 'up', icon: Users, bg: 'rgba(37,99,235,0.12)', color: '#2563eb' },
-        { title: 'Ventas cerradas', value: String(totalSales), change: 0, label: 'incluye familiares', trend: 'up', icon: CheckCircle2, bg: 'rgba(22,163,74,0.12)', color: '#15803d' },
-        { title: 'Seguimientos pendientes', value: String(pendingAgenda.length), change: 0, label: 'agenda comercial', trend: 'up', icon: Calendar, bg: 'rgba(245,158,11,0.12)', color: '#b45309' }
+        { title: 'Contactos asignados', value: String(assignedData.total), change: 0, label: 'lote recibido', trend: 'up', icon: Users, bg: 'rgba(37,99,235,0.12)', color: '#2563eb' },
+        { title: 'Ventas cerradas', value: String(ventasCerradas), change: 0, label: 'incluye familiares', trend: 'up', icon: CheckCircle2, bg: 'rgba(22,163,74,0.12)', color: '#15803d' },
+        { title: 'Seguimientos pendientes', value: String(seguimientosPendientes), change: 0, label: 'agenda comercial', trend: 'up', icon: Calendar, bg: 'rgba(245,158,11,0.12)', color: '#b45309' }
       ];
 
       return (

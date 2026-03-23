@@ -3,12 +3,18 @@ import { salesManagementMock } from '../data/mocks/salesManagement.js';
 import { usersMock } from '../data/mocks/users.js';
 import { toEsUyDateTime } from '../utils/dateFormat.js';
 import { delay, maybeThrow } from './fakeApi.js';
+import { getApiClient } from './apiClient.js';
 
 const userById = Object.fromEntries(usersMock.map((user) => [user.id, user]));
 const userIdByName = Object.fromEntries(usersMock.map((user) => [user.nombre, user.id]));
 let leadsStore = leadsMock.map((item) => ({ ...item }));
 let noCallStore = [];
 let phoneResultsStore = [];
+const api = getApiClient();
+const hasApiConfigured = () => {
+  const baseUrl = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_API_URL : '';
+  return Boolean(String(baseUrl || '').trim());
+};
 
 export const MAX_NO_CONTESTA_ATTEMPTS = 3;
 
@@ -170,11 +176,92 @@ const toUiLead = (lead) => {
 export const listCommercialContacts = () => leadsStore.map(toUiLead);
 
 export const listCommercialContactsAsync = async () => {
+  if (hasApiConfigured()) {
+    const response = await api.get('/leads?segment=mixto');
+    const items = response?.items || [];
+    return items.map((item) => {
+      const fullName = [item.nombre, item.apellido].filter(Boolean).join(' ').trim();
+      const status = item.estado_venta || 'nuevo';
+      const attempts = Number(item.intentos || 0);
+      const estadoOperativo = mapResultadoToOperativeStatus(status, attempts);
+      const lastAt = item.last_gestion_at || item.created_at;
+      const history = item.last_gestion_at
+        ? [{
+          at: toEsUyDateTime(item.last_gestion_at),
+          status: item.last_resultado || status,
+          note: item.last_nota || '-',
+          by: item.last_by || 'Sistema'
+        }]
+        : [];
+      return {
+        id: item.id,
+        name: fullName || item.nombre || '',
+        phone: item.celular || item.telefono || '',
+        city: item.departamento || '',
+        documento: item.documento || '',
+        email: item.email || '',
+        direccion: item.direccion || '',
+        source: 'import',
+        productId: '',
+        assignedTo: item.assigned_to_name || '',
+        loadedAt: (item.created_at || '').slice(0, 10),
+        lotId: item.batch_id || '',
+        status,
+        resultadoGestion: status,
+        estadoOperativo,
+        bloqueadoNoLlamar: !!item.bloqueado_no_llamar,
+        last: lastAt ? toEsUyDateTime(lastAt) : '',
+        nextAction: item.proxima_accion ? String(item.proxima_accion).slice(0, 16) : '',
+        attempts,
+        notes: history.map((h) => h.note),
+        history
+      };
+    });
+  }
   await delay(160);
   return listCommercialContacts();
 };
 
 export const getCommercialContactById = async (id) => {
+  if (hasApiConfigured()) {
+    const response = await api.get(`/leads/${id}`);
+    const lead = response?.lead || null;
+    maybeThrow(!lead, 'Contacto no encontrado.');
+    const fullName = [lead.nombre, lead.apellido].filter(Boolean).join(' ').trim();
+    const status = lead.estado_venta || 'nuevo';
+    const attempts = Number(lead.intentos || 0);
+    const estadoOperativo = mapResultadoToOperativeStatus(status, attempts);
+    const history = (lead.history || []).map((item) => ({
+      at: toEsUyDateTime(item.at),
+      status: item.status,
+      note: item.note,
+      by: item.by || 'Sistema'
+    }));
+    const lastAt = history[0]?.at || toEsUyDateTime(lead.created_at);
+    return {
+      id: lead.id,
+      name: fullName || lead.nombre || '',
+      phone: lead.celular || lead.telefono || '',
+      city: lead.departamento || '',
+      documento: lead.documento || '',
+      email: lead.email || '',
+      direccion: lead.direccion || '',
+      source: 'import',
+      productId: '',
+      assignedTo: lead.assigned_to_name || '',
+      loadedAt: (lead.created_at || '').slice(0, 10),
+      lotId: lead.batch_id || '',
+      status,
+      resultadoGestion: status,
+      estadoOperativo,
+      bloqueadoNoLlamar: false,
+      last: lastAt || '',
+      nextAction: lead.proxima_accion ? String(lead.proxima_accion).slice(0, 16) : '',
+      attempts,
+      notes: history.map((h) => h.note),
+      history
+    };
+  }
   await delay(120);
   const rawId = String(id).startsWith('lead-') ? String(id) : 'lead-' + String(id);
   const found = leadsStore.find((item) => item.id === rawId || toUiLeadId(item.id) === Number(id));
@@ -191,6 +278,14 @@ export const updateCommercialContact = async (id, patch) => {
 };
 
 export const registerCommercialManagement = async (contactId, payload, { sellerName = 'Laura Techera' } = {}) => {
+  if (hasApiConfigured()) {
+    await api.post(`/leads/${contactId}/management`, {
+      status: payload.status,
+      note: payload.note,
+      nextAction: payload.nextAction
+    });
+    return getCommercialContactById(contactId);
+  }
   await delay(130);
   const idx = getLeadIndexByUiId(contactId);
   maybeThrow(idx < 0, 'Contacto no encontrado.');
@@ -222,6 +317,17 @@ export const registerCommercialManagement = async (contactId, payload, { sellerN
 };
 
 export const updateCommercialContactProfile = async (contactId, patch) => {
+  if (hasApiConfigured()) {
+    await api.put(`/leads/${contactId}`, {
+      nombre: patch.name,
+      telefono: patch.phone,
+      departamento: patch.city,
+      documento: patch.documento,
+      email: patch.email,
+      direccion: patch.direccion
+    });
+    return getCommercialContactById(contactId);
+  }
   await delay(120);
   const idx = getLeadIndexByUiId(contactId);
   maybeThrow(idx < 0, 'Contacto no encontrado.');
@@ -239,6 +345,14 @@ export const updateCommercialContactProfile = async (contactId, patch) => {
 };
 
 export const bulkAssignCommercialContacts = async (contactIds, { lotId = '', sellerName = '' } = {}) => {
+  if (hasApiConfigured()) {
+    await api.post('/lead-batches/assign', {
+      contactIds,
+      batchId: lotId,
+      sellerName
+    });
+    return listCommercialContactsAsync();
+  }
   await delay(150);
   const idSet = new Set((contactIds || []).map((item) => Number(item)));
   const rawLotId = toRawLotId(lotId);
@@ -258,6 +372,10 @@ export const bulkAssignCommercialContacts = async (contactIds, { lotId = '', sel
 };
 
 export const assignSellerByLot = async (lotId, sellerName) => {
+  if (hasApiConfigured()) {
+    await api.post(`/lead-batches/${lotId}/assign`, { sellerName });
+    return listCommercialContactsAsync();
+  }
   await delay(130);
   const rawLotId = toRawLotId(lotId);
   const sellerId = resolveUserId(sellerName, '');
@@ -273,6 +391,13 @@ export const assignSellerByLot = async (lotId, sellerName) => {
 };
 
 export const reactivateErrorContact = async (contactId, { sellerName = 'Supervisor' } = {}) => {
+  if (hasApiConfigured()) {
+    await api.post(`/leads/${contactId}/management`, {
+      status: 'seguimiento',
+      note: 'Reactivado por Supervisor'
+    });
+    return getCommercialContactById(contactId);
+  }
   await delay(130);
   const idx = getLeadIndexByUiId(contactId);
   maybeThrow(idx < 0, 'Contacto no encontrado.');
@@ -298,12 +423,84 @@ export const reactivateErrorContact = async (contactId, { sellerName = 'Supervis
   return toUiLead(leadsStore[idx]);
 };
 
-export const listNoCallEntries = async () => {
+export const listNoCallEntries = async ({ page = 1, pageSize = 20, search = '', fuente = '', departamento = '', localidad = '' } = {}) => {
+  if (hasApiConfigured()) {
+    const params = new URLSearchParams({
+      page: String(page || 1),
+      pageSize: String(pageSize || 20),
+      search: String(search || ''),
+      fuente: String(fuente || ''),
+      departamento: String(departamento || ''),
+      localidad: String(localidad || '')
+    });
+    const response = await api.get(`/no-llamar?${params.toString()}`);
+    return response;
+  }
   await delay(80);
-  return noCallStore
+  const normalizedSearch = String(search || '').trim().toLowerCase();
+  const normalizedFuente = String(fuente || '').trim().toLowerCase();
+  const normalizedDepartamento = String(departamento || '').trim().toLowerCase();
+  const normalizedLocalidad = String(localidad || '').trim().toLowerCase();
+  const filtered = noCallStore
     .slice()
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .filter((item) => {
+      if (!normalizedSearch) return true;
+      const values = [
+        item.telefono,
+        item.documento,
+        item.nombre,
+        item.motivo,
+        item.origen,
+        item.estado
+      ]
+        .filter(Boolean)
+        .map((value) => String(value).toLowerCase());
+      return values.some((value) => value.includes(normalizedSearch));
+    })
+    .filter((item) => {
+      if (normalizedFuente && String(item.origen || item.fuente || '').toLowerCase() !== normalizedFuente) return false;
+      if (normalizedDepartamento && !String(item.departamento || item.departamento_residencia || '').toLowerCase().includes(normalizedDepartamento)) return false;
+      if (normalizedLocalidad && !String(item.localidad || item.ciudad || '').toLowerCase().includes(normalizedLocalidad)) return false;
+      return true;
+    })
     .map((item) => ({ ...item }));
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const start = (page - 1) * pageSize;
+  const items = filtered.slice(start, start + pageSize);
+  return { items, page, pageSize, total, totalPages };
+};
+
+export const listDatosParaTrabajar = async ({ page = 1, pageSize = 20, search = '', estado, departamento, origen_dato } = {}) => {
+  if (hasApiConfigured()) {
+    const params = new URLSearchParams({
+      page: String(page || 1),
+      pageSize: String(pageSize || 20),
+      search: String(search || '')
+    });
+    if (estado) {
+      params.set('estado', String(estado));
+    }
+    if (departamento) {
+      params.set('departamento', String(departamento));
+    }
+    if (origen_dato) {
+      params.set('origen_dato', String(origen_dato));
+    }
+    const response = await api.get(`/datos-para-trabajar?${params.toString()}`);
+    return response;
+  }
+  await delay(80);
+  return { items: [], page, pageSize, total: 0, totalPages: 1 };
+};
+
+export const getNoCallStats = async () => {
+  if (hasApiConfigured()) {
+    const response = await api.get('/no-llamar/stats');
+    return response || { total: 0, celulares: 0, montevideo: 0, interior: 0 };
+  }
+  return { total: 0, celulares: 0, montevideo: 0, interior: 0 };
 };
 
 export const importNoCallEntries = async (entries, { source = 'CSV', userId = 'usr-001' } = {}) => {
@@ -408,5 +605,13 @@ export const importPhoneResultsEntries = async (entries, { source = 'CSV', userI
 
   phoneResultsStore = [...results, ...phoneResultsStore];
   return results;
+};
+
+export const listAssignedLeadsAsync = async () => {
+  if (hasApiConfigured()) {
+    const response = await api.get('/leads/assigned');
+    return response?.data || { contactos: [], total: 0 };
+  }
+  return { contactos: [], total: 0 };
 };
 
