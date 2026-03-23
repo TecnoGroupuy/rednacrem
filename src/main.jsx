@@ -1704,7 +1704,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [seguimientos, setSeguimientos] = React.useState([]);
       const [loadingAgenda, setLoadingAgenda] = React.useState(true);
       const [drawerItem, setDrawerItem] = React.useState(null);
-      const [agendaTab, setAgendaTab] = React.useState('historial');
+      const [agendaTab, setAgendaTab] = React.useState('datos');
       const [agEstado, setAgEstado] = React.useState('');
       const [agNota, setAgNota] = React.useState('');
       const [agFecha, setAgFecha] = React.useState('');
@@ -1771,7 +1771,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setAgError('');
       };
 
-      const abrirDrawer = (row) => { setDrawerItem(row); setAgendaTab('historial'); agResetForm(); };
+      const abrirDrawer = (row) => { setDrawerItem(row); setAgendaTab('datos'); agResetForm(); };
       const cerrarDrawer = () => { setDrawerItem(null); agResetForm(); };
 
       const handleForzarRechazo = async (row) => {
@@ -1972,7 +1972,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   </div>
                   {/* Tabs */}
                   <div style={{ display: 'flex', gap: 0, marginTop: 4 }}>
-                    {[{ key: 'historial', label: 'Historial' }, { key: 'gestion', label: 'Gestión' }].map((t) => (
+                    {[{ key: 'datos', label: 'Datos' }, { key: 'historial', label: 'Historial' }, { key: 'gestion', label: 'Gestión' }].map((t) => (
                       <button
                         key={t.key}
                         type="button"
@@ -1990,7 +1990,79 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
                 {/* Body */}
                 <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
-                  {agendaTab === 'historial' ? (
+                  {agendaTab === 'datos' ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, padding: '16px 0' }}>
+                      <div>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px 0' }}>Teléfonos</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {drawerItem.telefono && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div>
+                                <p style={{ fontSize: 11, color: '#888', margin: 0 }}>Fijo</p>
+                                <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>{drawerItem.telefono}</p>
+                              </div>
+                              <a href={`tel:${drawerItem.telefono.replace(/\s/g, '')}`} style={{ background: '#1A5C4A', color: '#FFF', borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>Llamar</a>
+                            </div>
+                          )}
+                          {drawerItem.celular && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div>
+                                <p style={{ fontSize: 11, color: '#888', margin: 0 }}>Celular</p>
+                                <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>{drawerItem.celular}</p>
+                              </div>
+                              <a href={`tel:${drawerItem.celular.replace(/\s/g, '')}`} style={{ background: '#1A5C4A', color: '#FFF', borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>Llamar</a>
+                            </div>
+                          )}
+                          {!drawerItem.telefono && !drawerItem.celular && (
+                            <p style={{ fontSize: 13, color: '#aaa' }}>Sin teléfonos registrados</p>
+                          )}
+                        </div>
+                      </div>
+                      {(drawerItem.documento || drawerItem.fecha_nacimiento || drawerItem.departamento || drawerItem.localidad || drawerItem.correo_electronico) && (
+                        <>
+                          <hr style={{ border: 'none', borderTop: '1px solid #F0F0F0', margin: 0 }} />
+                          <div>
+                            <p style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px 0' }}>Datos personales</p>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                              {drawerItem.documento && (
+                                <div>
+                                  <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Documento</p>
+                                  <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{drawerItem.documento}</p>
+                                </div>
+                              )}
+                              {drawerItem.fecha_nacimiento && (
+                                <div>
+                                  <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Nacimiento</p>
+                                  <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>
+                                    {new Date(drawerItem.fecha_nacimiento).toLocaleDateString('es-UY')}
+                                    {drawerItem.edad ? ` (${drawerItem.edad} años)` : ''}
+                                  </p>
+                                </div>
+                              )}
+                              {drawerItem.departamento && (
+                                <div>
+                                  <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Departamento</p>
+                                  <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{drawerItem.departamento}</p>
+                                </div>
+                              )}
+                              {drawerItem.localidad && (
+                                <div>
+                                  <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Localidad</p>
+                                  <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{drawerItem.localidad}</p>
+                                </div>
+                              )}
+                            </div>
+                            {drawerItem.correo_electronico && (
+                              <div style={{ marginTop: 12 }}>
+                                <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Email</p>
+                                <a href={`mailto:${drawerItem.correo_electronico}`} style={{ fontSize: 13, color: '#1A5C4A', fontWeight: 500 }}>{drawerItem.correo_electronico}</a>
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ) : agendaTab === 'historial' ? (
                     <div>
                       {(drawerItem.historial || []).length === 0 ? (
                         <p style={{ color: '#aaa', fontSize: 13, textAlign: 'center', marginTop: 24 }}>Sin gestiones registradas aún</p>
