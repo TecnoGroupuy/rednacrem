@@ -9,7 +9,7 @@ import {
   DollarSign, Target, Download, Layers, Eye, Calendar, PhoneCall, CreditCard, FileText,
   Filter, Plus, CheckCircle2, Clock, Settings, Zap, BarChart3, Edit3, MoreHorizontal, Trash2,
   MessageSquare, Send, Headphones, Bot, User, Hash, Upload, LogOut, Coffee, Bath, PersonStanding,
-  Info, Shield
+  Info, Shield, ChevronRight
 } from 'lucide-react';
 import {
   ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip,
@@ -33,7 +33,8 @@ import {
   assignSellerByLot,
   reactivateErrorContact,
   listDatosParaTrabajar,
-  listAssignedLeadsAsync
+  listAssignedLeadsAsync,
+  fetchNextLeadAsync
 } from './services/leadsService.js';
 import {
   seedSalesFromContacts,
@@ -1011,14 +1012,15 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
     }
     const salesStatusMeta = (status) => {
       const map = {
-        venta: { label: 'Venta', bg: 'rgba(22,163,74,0.12)', color: '#15803d', border: 'rgba(22,163,74,0.3)' },
-        seguimiento: { label: 'Seguimiento', bg: 'rgba(245,158,11,0.14)', color: '#b45309', border: 'rgba(245,158,11,0.3)' },
-        no_contesta: { label: 'No contesta', bg: 'rgba(37,99,235,0.12)', color: '#1d4ed8', border: 'rgba(37,99,235,0.3)' },
-        rechazo: { label: 'Rechazo', bg: 'rgba(100,116,139,0.16)', color: '#475569', border: 'rgba(100,116,139,0.3)' },
-        rellamar: { label: 'Rellamar', bg: 'rgba(124,58,237,0.12)', color: '#7c3aed', border: 'rgba(124,58,237,0.3)' },
-        dato_erroneo: { label: 'Dato erroneo', bg: 'rgba(190,24,93,0.12)', color: '#be185d', border: 'rgba(190,24,93,0.32)' }
+        nuevo:        { label: 'Nuevo',        bg: 'rgba(158,158,158,0.12)', color: '#9E9E9E', border: 'rgba(158,158,158,0.3)' },
+        no_contesta:  { label: 'No contesta',  bg: 'rgba(245,166,35,0.12)',  color: '#F5A623', border: 'rgba(245,166,35,0.3)'  },
+        rellamar:     { label: 'Rellamar',     bg: 'rgba(74,144,217,0.12)',  color: '#4A90D9', border: 'rgba(74,144,217,0.3)'  },
+        seguimiento:  { label: 'Seguimiento',  bg: 'rgba(155,89,182,0.12)', color: '#9B59B6', border: 'rgba(155,89,182,0.3)'  },
+        rechazo:      { label: 'Rechazo',      bg: 'rgba(229,62,62,0.12)',  color: '#E53E3E', border: 'rgba(229,62,62,0.3)'   },
+        dato_erroneo: { label: 'Dato erroneo', bg: 'rgba(230,126,34,0.12)', color: '#E67E22', border: 'rgba(230,126,34,0.3)'  },
+        venta:        { label: 'Venta',        bg: 'rgba(39,174,96,0.12)',  color: '#27AE60', border: 'rgba(39,174,96,0.3)'   }
       };
-      return map[status] || map.seguimiento;
+      return map[status] || map.nuevo;
     };
 
     function SalesStatusBadge({ status, small = false }) {
@@ -1088,8 +1090,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
     function SalesContactsView({ contacts, selectedId, onSelect, onRegister, salesRecords, products, onAssignFamilySale, onUpdateContact }) {
       const activeContacts = contacts.filter(isSalesActiveContact);
-      const selected = selectedId == null ? null : (contacts.find((contact) => contact.id === selectedId) || null);
       const [searchTerm, setSearchTerm] = React.useState('');
+      const [drawerContact, setDrawerContact] = React.useState(null);
+      const [nextLoading, setNextLoading] = React.useState(false);
+      const [nextMessage, setNextMessage] = React.useState('');
 
       const filteredContacts = React.useMemo(() => activeContacts.filter((contact) => {
         const haystack = [
@@ -1103,97 +1107,175 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return haystack.includes(searchTerm.toLowerCase());
       }), [activeContacts, searchTerm]);
 
+      const openDrawer = (c) => {
+        setDrawerContact(c);
+        setNextMessage('');
+        onSelect(c.id || null);
+      };
+
+      const closeDrawer = () => {
+        setDrawerContact(null);
+        onSelect(null);
+      };
+
+      const handleNextContact = async () => {
+        if (nextLoading) return;
+        setNextLoading(true);
+        setNextMessage('');
+        try {
+          const res = await fetchNextLeadAsync();
+          if (res?.data) {
+            openDrawer(res.data);
+          } else {
+            setNextMessage(res?.message || 'No hay contactos disponibles en esta franja horaria.');
+          }
+        } catch {
+          setNextMessage('No se pudo obtener el siguiente contacto.');
+        } finally {
+          setNextLoading(false);
+        }
+      };
+
+      const dc = drawerContact;
+      const drawerNombre = dc ? (dc.name || [dc.nombre, dc.apellido].filter(Boolean).join(' ') || '-') : '';
+      const drawerTelefono = dc ? (dc.phone || dc.telefono || '-') : '';
+      const drawerCelular = dc ? (pickCellular(dc) || dc.celular || '-') : '';
+      const drawerUbicacion = dc ? (dc.city || [dc.localidad, dc.departamento].filter(Boolean).join(', ') || '-') : '';
+      const drawerFuente = dc ? (dc.source || dc.origen_dato || null) : null;
+      const drawerLote = dc ? (dc.lotId || dc.batch_id || null) : null;
+      const drawerEstado = dc ? (dc.status || dc.estado_venta || 'nuevo') : 'nuevo';
+
       return (
         <div className="view sales-contacts-view">
-          <div className="sales-workspace">
-            <section className="sales-list-card">
-              <div className="sales-block-header">
-                <h2>Contactos asignados</h2>
-                <p>Gestiona solo tu lote operativo</p>
+          <div style={{ marginBottom: 12, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+            <div>
+              <h2 style={{ margin: '0 0 2px', fontWeight: 700, fontSize: 17 }}>Contactos asignados</h2>
+              <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.85rem' }}>Gestiona solo tu lote operativo</p>
+            </div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div className="searchbox" style={{ width: 280 }}>
+                <Search size={16} color="#69788d" />
+                <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar por nombre, teléfono o documento..." />
               </div>
-              <div style={{ padding: '0 20px 12px' }}>
-                <div className="searchbox" style={{ maxWidth: '100%' }}>
-                  <Search size={18} color="#69788d" />
-                  <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Buscar por nombre, teléfono o documento..." />
+              <button
+                onClick={handleNextContact}
+                disabled={nextLoading}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#1A5C4A', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontWeight: 600, fontSize: 13, cursor: nextLoading ? 'wait' : 'pointer', whiteSpace: 'nowrap', opacity: nextLoading ? 0.7 : 1 }}
+              >
+                <ChevronRight size={15} />
+                {nextLoading ? 'Buscando...' : 'Siguiente contacto'}
+              </button>
+            </div>
+          </div>
+
+          {nextMessage ? (
+            <div style={{ background: '#FFF8E1', border: '1px solid #FFD54F', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#795548', marginBottom: 12 }}>
+              {nextMessage}
+            </div>
+          ) : null}
+
+          <div className="table-wrap">
+            <table className="sales-contacts-table">
+              <thead>
+                <tr>
+                  <th>Contacto</th><th>Teléfono</th><th>Ubicación</th>
+                  <th>Estado</th><th>Última gestión</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredContacts.map((contact) => (
+                  <tr key={contact.id} className="support-row" onClick={() => openDrawer(contact)} style={{ cursor: 'pointer' }}>
+                    <td>
+                      <div className="person">
+                        <div className="person-badge">{initials(contact.name)}</div>
+                        <strong>{contact.name}</strong>
+                      </div>
+                    </td>
+                    <td>
+                      <a href={'tel:' + contact.phone.replace(/\s/g, '')} onClick={(e) => e.stopPropagation()} style={{ color: '#0f766e', fontWeight: 700, textDecoration: 'none' }}>
+                        {contact.phone}
+                      </a>
+                    </td>
+                    <td>{contact.city}</td>
+                    <td><SalesStatusBadge status={contact.status} small /></td>
+                    <td>{contact.last}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!filteredContacts.length ? <div style={{ padding: 16, color: 'var(--muted)' }}>No hay contactos activos para la búsqueda aplicada.</div> : null}
+          </div>
+
+          {dc ? (
+            <>
+              <div onClick={closeDrawer} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 200 }} />
+              <div style={{ position: 'fixed', top: 0, right: 0, width: 'min(400px, 100vw)', height: '100%', background: '#fff', boxShadow: '-4px 0 32px rgba(0,0,0,0.15)', zIndex: 201, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '20px 24px 16px', borderBottom: '1px solid #F0F0F0', gap: 12 }}>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 18, color: '#1A2235', marginBottom: 8 }}>{drawerNombre}</div>
+                    <SalesStatusBadge status={drawerEstado} small />
+                  </div>
+                  <button onClick={closeDrawer} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#666', padding: 4, borderRadius: 6, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div style={{ padding: '20px 24px', flex: 1, display: 'flex', flexDirection: 'column', gap: 18 }}>
+                  <div style={{ display: 'grid', gap: 14 }}>
+                    <div>
+                      <div style={{ fontSize: 11, color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 5 }}>Teléfono fijo</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ fontWeight: 600, fontSize: 15 }}>{drawerTelefono}</span>
+                        {drawerTelefono !== '-' && (
+                          <a href={'tel:' + drawerTelefono.replace(/\s/g, '')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#1A5C4A', color: '#fff', borderRadius: 6, padding: '4px 10px', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>
+                            <PhoneCall size={12} />Llamar
+                          </a>
+                        )}
+                      </div>
+                    </div>
+
+                    {drawerCelular !== '-' && (
+                      <div>
+                        <div style={{ fontSize: 11, color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 5 }}>Celular</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{ fontWeight: 600, fontSize: 15 }}>{drawerCelular}</span>
+                          <a href={'tel:' + drawerCelular.replace(/\s/g, '')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#1A5C4A', color: '#fff', borderRadius: 6, padding: '4px 10px', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>
+                            <PhoneCall size={12} />Llamar
+                          </a>
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <div style={{ fontSize: 11, color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 5 }}>Ubicación</div>
+                      <div style={{ fontWeight: 500, fontSize: 14 }}>{drawerUbicacion}</div>
+                    </div>
+
+                    {drawerFuente && (
+                      <div>
+                        <div style={{ fontSize: 11, color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 5 }}>Fuente</div>
+                        <div style={{ fontWeight: 500, fontSize: 14 }}>{drawerFuente}</div>
+                      </div>
+                    )}
+
+                    {drawerLote && (
+                      <div style={{ fontSize: 12, color: '#aaa' }}>
+                        Lote: <span style={{ color: '#1A5C4A', fontWeight: 600 }}>{drawerLote}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ borderTop: '1px solid #F0F0F0', paddingTop: 16 }}>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+                      <span style={{ padding: '7px 14px', borderRadius: 6, background: '#1A5C4A', color: '#fff', fontWeight: 600, fontSize: 13 }}>Datos</span>
+                      <span style={{ padding: '7px 14px', borderRadius: 6, background: '#F5F5F5', color: '#BDBDBD', fontWeight: 600, fontSize: 13, cursor: 'not-allowed' }}>Gestión</span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>La tipificación estará disponible próximamente.</p>
+                  </div>
                 </div>
               </div>
-              <div className="table-wrap sales-table-wrap">
-                <table className="sales-contacts-table">
-                  <thead>
-                    <tr>
-                      <th>Contacto</th><th>Teléfono</th><th>Celular</th>
-                      <th>Ubicación</th>
-                      <th>Estado de gestión</th>
-                      <th>Última gestión</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredContacts.map((contact) => (
-                      <tr
-                        key={contact.id}
-                        className={'support-row ' + (selected?.id === contact.id ? 'active' : '')}
-                        onClick={() => onSelect(contact.id)}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        <td>
-                          <div className="person">
-                            <div className="person-badge">{initials(contact.name)}</div>
-                            <strong>{contact.name}</strong>
-                          </div>
-                        </td>
-                        <td>
-                          <a
-                            href={'tel:' + contact.phone.replace(/\s/g, '')}
-                            onClick={(event) => event.stopPropagation()}
-                            style={{ color: '#0f766e', fontWeight: 700, textDecoration: 'none' }}
-                          >
-                            {contact.phone}
-                          </a>
-                        </td>
-                        <td>
-                          {pickCellular(contact) ? (
-                            <a
-                              href={'tel:' + pickCellular(contact).replace(/\s/g, '')}
-                              onClick={(event) => event.stopPropagation()}
-                              style={{ color: '#0f766e', fontWeight: 700, textDecoration: 'none' }}
-                            >
-                              {pickCellular(contact)}
-                            </a>
-                          ) : (
-                            <span style={{ color: 'var(--muted)' }}>—</span>
-                          )}
-                        </td>
-                        <td>{contact.city}</td>
-                        <td><SalesStatusBadge status={contact.status} small /></td>
-                        <td>{contact.last}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {!filteredContacts.length ? <div style={{ padding: 16, color: 'var(--muted)' }}>No hay contactos activos para la búsqueda aplicada.</div> : null}
-              </div>
-            </section>
-
-            <aside className={'sales-detail-card' + (selected ? ' open' : '')}>
-              <div className="sales-block-header">
-                <h2>Detalle del contacto</h2>
-                <p>{selected ? selected.name : 'Sin contacto seleccionado'}</p>
-              </div>
-              {selected ? (
-                <SalesContactDetail
-                  contact={selected}
-                  onRegister={onRegister}
-                  onBack={() => onSelect(null)}
-                  salesRecords={salesRecords}
-                  products={products}
-                  onAssignFamilySale={onAssignFamilySale}
-                  onUpdateContact={onUpdateContact}
-                />
-              ) : (
-                <div style={{ color: 'var(--muted)', padding: '0 20px 20px' }}>Selecciona un contacto para registrar gestión.</div>
-              )}
-            </aside>
-          </div>
+            </>
+          ) : null}
         </div>
       );
     }

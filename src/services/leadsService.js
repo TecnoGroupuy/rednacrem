@@ -615,3 +615,10 @@ export const listAssignedLeadsAsync = async () => {
   return { contactos: [], total: 0 };
 };
 
+export const fetchNextLeadAsync = async () => {
+  if (hasApiConfigured()) {
+    return await api.get('/leads/next');
+  }
+  return { data: null, message: 'API no configurada' };
+};
+
