@@ -7,7 +7,7 @@ import {
   Menu, X, Bell, Search, ChevronDown, Briefcase, Users, UserCheck, Building2, Phone,
   Activity, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, AlertTriangle,
   DollarSign, Target, Download, Layers, Eye, Calendar, PhoneCall, CreditCard, FileText,
-  Filter, Plus, CheckCircle2, Clock, Settings, Zap, BarChart3, Edit3, MoreHorizontal,
+  Filter, Plus, CheckCircle2, Clock, Settings, Zap, BarChart3, Edit3, MoreHorizontal, Trash2,
   MessageSquare, Send, Headphones, Bot, User, Hash, Upload, LogOut, Coffee, Bath, PersonStanding,
   Info, Shield
 } from 'lucide-react';
@@ -17,7 +17,7 @@ import {
 } from 'recharts';
 import { ROLE_META as ROLE_META_BASE } from './domain/roles.js';
 import { getRoleUsersDictionary } from './services/usersService.js';
-import { listProducts } from './services/productsService.js';
+import { listProducts, listProductsAsync, createProduct, updateProduct } from './services/productsService.js';
 import {
   listCommercialContacts,
   listCommercialContactsAsync,
@@ -31,7 +31,8 @@ import {
   updateCommercialContactProfile,
   bulkAssignCommercialContacts,
   assignSellerByLot,
-  reactivateErrorContact
+  reactivateErrorContact,
+  listDatosParaTrabajar
 } from './services/leadsService.js';
 import {
   seedSalesFromContacts,
@@ -45,14 +46,17 @@ import { listLots, listLotsAsync, createLot, updateLot } from './services/lotsSe
 import {
   listTicketsAsync,
   createManualTicket,
+  updateTicket,
   updateTicketStatus,
   updateServiceRequestStatus,
   addTicketNote,
+  getTicketById,
+  listTicketsByClientId,
   deriveTicketToOperations,
   closeTicketCase
 } from './services/ticketsService.js';
 import { listOperationsRows } from './services/operationsService.js';
-import { listImports, previewCsvText, createImportFromCsv } from './services/importsService.js';
+import { listImports, previewCsvText, createImportFromCsv, getImportRows, getNoCallImportJob } from './services/importsService.js';
 import {
   listRecentActivity,
   listNotifications,
@@ -62,14 +66,15 @@ import {
 } from './services/activityService.js';
 import { listPendingRegistrationRequests } from './services/supervisorApprovalsService.js';
 import {
-  listClients,
-  listPortfolioClients,
   searchPortfolioClients,
   listActiveContactProducts,
   getContactLifecycle,
   fetchContactsList,
   fetchClientsDirectory,
-  fetchClientsMetrics
+  fetchClientDetail,
+  createContactWithProducts,
+  fetchClientsMetrics,
+  deleteClient
 } from './services/clientsService.js';
 import {
   getAlerts,
@@ -80,8 +85,11 @@ import {
   getContactsDirectory
 } from './services/dashboardService.js';
 import SuperadminWorkbench from './components/SuperadminWorkbench.jsx';
+import SupervisorLotWizard from './components/SupervisorLotWizard.jsx';
+import ContactDetailModal from './components/ContactDetailModal.jsx';
 import SupervisorContractsModule from './components/SupervisorContractsModule.jsx';
 import SupervisorRegistrationRequestsModule from './components/SupervisorRegistrationRequestsModule.jsx';
+import ClienteFichaForm from './components/ClienteFichaForm.jsx';
 import ProfileModal from './components/ProfileModal.jsx';
 import BotonVistaRol from './components/BotonVistaRol.jsx';
 import UiRoleGate from './components/UiRoleGate.jsx';
@@ -91,6 +99,8 @@ import { AuthProvider as AppAuthProvider, useAuth } from './auth/AuthProvider.js
 import { getEffectiveRoleForUi, getVisibleNavItemsForRole, hasRealRole } from './auth/authorizationHelpers.js';
 import { useRolEfectivo } from './hooks/useRolEfectivo.js';
 import AuthGate from './components/auth/AuthGate.jsx';
+import { downloadCsvFile } from './utils/importWizardHelpers.js';
+import { getApiClient } from './services/apiClient.js';
 import {
   createInitialModuleStates,
   persistModuleStates,
@@ -113,7 +123,7 @@ const ROLE_META = Object.fromEntries(
 );
 
 const USERS = getRoleUsersDictionary();
-const SUPERADMIN_ROUTES = ['dashboard_global', 'sa_importaciones', 'sa_no_llamar', 'sa_resultados', 'sa_productos', 'sa_usuarios', 'sa_logs_actividad', 'sa_estado_modulos', 'sa_configuracion'];
+const SUPERADMIN_ROUTES = ['dashboard_global', 'sa_importaciones', 'sa_no_llamar', 'sa_resultados', 'sa_datos_trabajar', 'sa_productos', 'sa_usuarios', 'sa_logs_actividad', 'sa_estado_modulos', 'sa_configuracion'];
 
 const metricIconByName = {
   Users,
@@ -134,8 +144,6 @@ const DIRECTOR_METRICS = mapMetricIcons(getDirectorMetrics());
 const PORTFOLIO_TREND = getPortfolioTrend();
 const PRODUCT_SPLIT = getProductSplit();
 const TEAM_ROWS = getTeamRows();
-const CONTACTS = getContactsDirectory();
-const CLIENTS = listClients();
 const SALES_CONTACTS_SEED = listCommercialContacts();
 const SUPERVISOR_LOTS_SEED = listLots();
 
@@ -144,6 +152,7 @@ const ROLE_NAV = [
       { path: 'sa_importaciones', label: 'Importaciones', caption: 'CSV por tipo de carga', roles: ['superadministrador'], icon: Upload },
       { path: 'sa_no_llamar', label: 'Base No llamar', caption: 'Bloqueos de contacto', roles: ['superadministrador'], icon: Phone },
       { path: 'sa_resultados', label: 'Resultados telefónicos', caption: 'Historial de gestiones', roles: ['superadministrador'], icon: PhoneCall },
+      { path: 'sa_datos_trabajar', label: 'Datos para trabajar', caption: 'Preparación operativa', roles: ['superadministrador'], icon: FileText },
       { path: 'sa_productos', label: 'Productos', caption: 'Catálogo comercial', roles: ['superadministrador'], icon: Briefcase },
       { path: 'sa_usuarios', label: 'Usuarios y roles', caption: 'Accesos del sistema', roles: ['superadministrador'], icon: UserCheck },
       { path: 'sa_logs_actividad', label: 'Logs y actividad', caption: 'Monitoreo e inactividad', roles: ['superadministrador'], icon: Zap },
@@ -152,7 +161,7 @@ const ROLE_NAV = [
       { path: 'dashboard', label: 'Dashboard', caption: 'Resumen principal', roles: ['director', 'supervisor', 'vendedor', 'operaciones'], icon: Activity },
       { path: 'contactos', label: 'Contactos', caption: 'Base comercial', roles: ['director', 'vendedor'], icon: Users, badge: 1240 },
       { path: 'clientes', label: 'Clientes', caption: 'Cartera activa', roles: ['superadministrador', 'director', 'vendedor', 'operaciones'], icon: UserCheck },
-      { path: 'base_general', label: 'Base general', caption: 'Carga y preparacion', roles: ['supervisor'], icon: Users, badge: 1240 },
+      { path: 'base_general', label: 'Base general', caption: 'Carga y preparacion', roles: ['supervisor'], icon: Users },
       { path: 'lotes', label: 'Lotes', caption: 'Asignacion comercial', roles: ['supervisor'], icon: Layers },
       { path: 'numeros_error', label: 'Numeros con errores', caption: 'Fuera de flujo comercial', roles: ['supervisor'], icon: AlertTriangle },
       { path: 'seguimiento_vendedores', label: 'Seguimiento vendedores', caption: 'Resumen operativo', roles: ['supervisor'], icon: BarChart3 },
@@ -217,8 +226,95 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
   { title: 'En baja', value: metrics.enBaja, change: -12.2, label: 'contención', trend: 'up', icon: TrendingDown, bg: 'rgba(190,18,60,0.12)', color: '#be123c' },
   { title: 'Cuota promedio', value: metrics.cuotaPromedioLabel || `$ ${Number(metrics.cuotaPromedio || 0).toLocaleString('es-UY')}`, change: 1.4, label: 'ticket medio', trend: 'up', icon: DollarSign, bg: 'rgba(217,119,6,0.12)', color: '#d97706' }
 ]);
-
+    const normalizePaymentMethod = (value) => {
+      const raw = String(value || '').trim();
+      if (!raw) return '';
+      const normalized = raw
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (['debito', 'debit'].includes(normalized)) return 'debito';
+      if (['credito', 'credit'].includes(normalized)) return 'credito';
+      if (['efectivo', 'cash'].includes(normalized)) return 'efectivo';
+      if (['transferencia', 'transfer', 'transferencia bancaria'].includes(normalized)) return 'transferencia';
+      if (['mi dinero', 'mi_dinero', 'midinero'].includes(normalized)) return 'mi_dinero';
+      if (['ajupen'].includes(normalized)) return 'ajupen';
+      if (['ajupen anp', 'ajupen_anp'].includes(normalized)) return 'ajupen_anp';
+      if (['visa'].includes(normalized)) return 'visa';
+      if (['pass card', 'pass_card', 'passcard'].includes(normalized)) return 'pass_card';
+      if (['mastercard', 'master card'].includes(normalized)) return 'mastercard';
+      if (['creditel'].includes(normalized)) return 'creditel';
+      if (['cabal'].includes(normalized)) return 'cabal';
+      if (['oca'].includes(normalized)) return 'oca';
+      if (['antel'].includes(normalized)) return 'antel';
+      if (['abitab'].includes(normalized)) return 'abitab';
+      if (['master'].includes(normalized)) return 'master';
+      if (['anjuped', 'anjuped'].includes(normalized)) return 'anjuped';
+      if (['mercado pago', 'mercado_pago', 'mercadopago'].includes(normalized)) return 'mercado_pago';
+      return normalized.replace(/\s/g, '_');
+    };
+    const paymentMethodLabel = (value) => {
+      const normalized = normalizePaymentMethod(value);
+      if (!normalized) return '';
+      const labels = {
+        debito: 'Débito',
+        credito: 'Crédito',
+        efectivo: 'Efectivo',
+        transferencia: 'Transferencia',
+        mi_dinero: 'Mi dinero',
+        ajupen: 'AJUPEN',
+        ajupen_anp: 'AJUPEN ANP',
+        visa: 'VISA',
+        pass_card: 'PASS CARD',
+        mastercard: 'MASTERCARD',
+        creditel: 'Creditel',
+        cabal: 'Cabal',
+        oca: 'OCA',
+        antel: 'ANTEL',
+        abitab: 'ABITAB',
+        master: 'MASTER',
+        anjuped: 'ANJUPED',
+        mercado_pago: 'Mercado Pago'
+      };
+      return labels[normalized] || normalized;
+    };
+    const formatDateShort = (value) => {
+      if (!value) return '';
+      const text = String(value).trim();
+      if (!text) return '';
+      const parsed = new Date(text);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed.toLocaleDateString('es-UY', { timeZone: 'America/Montevideo' });
+      }
+      const iso = text.includes('T') ? text.split('T')[0] : text;
+      const parts = iso.split('-');
+      if (parts.length === 3) {
+        const [year, month, day] = parts;
+        if (year && month && day) return `${Number(day)}/${Number(month)}/${year}`;
+      }
+      return text;
+    };
+    const formatDateTimeShort = (value) => {
+      if (!value) return '';
+      const text = String(value).trim();
+      if (!text) return '';
+      const parsed = new Date(text);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed.toLocaleString('es-UY', {
+          timeZone: 'America/Montevideo',
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      }
+      return text;
+    };
     const initials = (name) => name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase();
+    const pickCellular = (contact) => (contact?.celular || contact?.cellphone || contact?.telefono_celular || contact?.telefonoCelular || '');
     const toStatusColor = (hex, alpha = 1) => {
       const clean = String(hex || '').replace('#', '');
       if (clean.length !== 6) return 'rgba(15, 23, 42, 0.4)';
@@ -994,6 +1090,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const haystack = [
           contact.name,
           contact.phone,
+          pickCellular(contact),
           contact.city,
           contact.documento || '',
           contact.email || ''
@@ -1019,8 +1116,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 <table className="sales-contacts-table">
                   <thead>
                     <tr>
-                      <th>Contacto</th>
-                      <th>Teléfono</th>
+                      <th>Contacto</th><th>Teléfono</th><th>Celular</th>
                       <th>Ubicación</th>
                       <th>Estado de gestión</th>
                       <th>Última gestión</th>
@@ -1048,6 +1144,19 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           >
                             {contact.phone}
                           </a>
+                        </td>
+                        <td>
+                          {pickCellular(contact) ? (
+                            <a
+                              href={'tel:' + pickCellular(contact).replace(/\s/g, '')}
+                              onClick={(event) => event.stopPropagation()}
+                              style={{ color: '#0f766e', fontWeight: 700, textDecoration: 'none' }}
+                            >
+                              {pickCellular(contact)}
+                            </a>
+                          ) : (
+                            <span style={{ color: 'var(--muted)' }}>—</span>
+                          )}
                         </td>
                         <td>{contact.city}</td>
                         <td><SalesStatusBadge status={contact.status} small /></td>
@@ -1423,6 +1532,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
     const lotStatusMeta = (status) => {
       const map = {
+        activo: { label: 'Activo', variant: 'success' },
+        borrador: { label: 'Borrador', variant: 'default' },
+        cerrado: { label: 'Cerrado', variant: 'danger' },
         sin_asignar: { label: 'Sin asignar', variant: 'warning' },
         asignado: { label: 'Asignado', variant: 'info' },
         en_gestion: { label: 'En gestion', variant: 'success' },
@@ -1431,7 +1543,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       return map[status] || map.sin_asignar;
     };
 
-    function SupervisorModule({ route, contacts, lots, onBulkAssignContacts, onCreateLot, onAssignLotSeller, onCloseLot, onReactivateError }) {
+    function SupervisorModule({ route, contacts, lots, onBulkAssignContacts, onCreateLot, onAssignLotSeller, onCloseLot, onReactivateError, onOpenRoute }) {
       const [search, setSearch] = React.useState('');
       const [sourceFilter, setSourceFilter] = React.useState('todos');
       const [cityFilter, setCityFilter] = React.useState('todos');
@@ -1453,6 +1565,76 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [wizardError, setWizardError] = React.useState('');
       const [basePage, setBasePage] = React.useState(1);
       const basePageSize = 12;
+      const [workDataRows, setWorkDataRows] = React.useState([]);
+      const [workDataLoading, setWorkDataLoading] = React.useState(false);
+      const [workDataError, setWorkDataError] = React.useState('');
+      const [workDataSearch, setWorkDataSearch] = React.useState('');
+      const [workDataSelected, setWorkDataSelected] = React.useState(null);
+      const [workDataPage, setWorkDataPage] = React.useState(1);
+      const [workDataPageSize, setWorkDataPageSize] = React.useState(10);
+      const [workDataMeta, setWorkDataMeta] = React.useState({ page: 1, pageSize: 10, total: 0, totalPages: 1 });
+      const [workDataOriginFilter, setWorkDataOriginFilter] = React.useState('todos');
+      const [workDataDeptFilter, setWorkDataDeptFilter] = React.useState('todos');
+      const [workDataTab, setWorkDataTab] = React.useState('nuevo');
+
+      const loadWorkData = React.useCallback(async () => {
+        setWorkDataLoading(true);
+        setWorkDataError('');
+        try {
+          const result = await listDatosParaTrabajar({
+            page: workDataPage,
+            pageSize: workDataPageSize,
+            search: workDataSearch,
+            estado: workDataTab
+          });
+          const rows = result?.items || [];
+          setWorkDataRows(Array.isArray(rows) ? rows : []);
+          setWorkDataMeta({
+            page: result?.page || workDataPage,
+            pageSize: result?.pageSize || workDataPageSize,
+            total: result?.total || 0,
+            totalPages: result?.totalPages || 1
+          });
+        } catch (err) {
+          setWorkDataError(err?.message || 'No se pudo cargar la base de trabajo.');
+          setWorkDataRows([]);
+        } finally {
+          setWorkDataLoading(false);
+        }
+      }, [workDataPage, workDataPageSize, workDataSearch, workDataTab]);
+
+      React.useEffect(() => {
+        if (route === 'base_general') {
+          loadWorkData();
+        }
+      }, [route, loadWorkData]);
+
+      React.useEffect(() => {
+        if (route !== 'base_general') return;
+        setWorkDataPage(1);
+      }, [route, workDataTab]);
+
+      const workDataOriginOptions = React.useMemo(() => {
+        const values = workDataRows
+          .map((item) => (item.origen_dato || '').toString().trim())
+          .filter(Boolean);
+        return ['todos', ...new Set(values)];
+      }, [workDataRows]);
+
+      const workDataDeptOptions = React.useMemo(() => {
+        const values = workDataRows
+          .map((item) => (item.departamento || '').toString().trim())
+          .filter(Boolean);
+        return ['todos', ...new Set(values)];
+      }, [workDataRows]);
+
+      const filteredWorkDataRows = React.useMemo(() => {
+        return workDataRows.filter((item) => {
+          const originMatch = workDataOriginFilter === 'todos' || (item.origen_dato || '').toString().trim() === workDataOriginFilter;
+          const deptMatch = workDataDeptFilter === 'todos' || (item.departamento || '').toString().trim() === workDataDeptFilter;
+          return originMatch && deptMatch;
+        });
+      }, [workDataRows, workDataOriginFilter, workDataDeptFilter]);
 
       const sellers = React.useMemo(() => {
         const base = contacts.map((contact) => contact.assignedTo).filter(Boolean);
@@ -1492,7 +1674,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const closed = lotContacts.filter((contact) => !isCommercialContactActive(contact)).length;
         const progress = lotContacts.length ? Math.round((closed / lotContacts.length) * 100) : 0;
         const finalizable = isLotFinalizableFromContacts(lotContacts);
-        return { ...lot, contacts: lotContacts, count: lotContacts.length, progress, finalizable };
+        return { ...lot, contacts: lotContacts, count: lotContacts.length || lot.count || 0, progress, finalizable };
       }), [lots, contacts]);
 
       const selectedLot = lotSummaries.find((lot) => lot.id === selectedLotId) || lotSummaries[0] || null;
@@ -1620,11 +1802,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return (
           <div className="view">
             <section className="content-grid">
-              <Panel className="span-7" title="Gestion de lotes" subtitle="Crea, asigna y controla el avance por lote" action={<Button icon={<Plus size={16} />} onClick={createLot}>Crear lote</Button>}>
-                <div className="toolbar" style={{ marginBottom: 12 }}>
-                  <input className="input" style={{ maxWidth: 280 }} placeholder="Nombre de lote" value={lotNameDraft} onChange={(event) => setLotNameDraft(event.target.value)} />
-                  <Button variant="secondary" icon={<Layers size={16} />} onClick={createLot}>Guardar lote</Button>
-                </div>
+              <Panel className="span-7" title="Gestion de lotes" subtitle="Crea, asigna y controla el avance por lote" action={<Button icon={<Plus size={16} />} onClick={() => onOpenRoute('lotes_crear')}>Crear lote</Button>}>
                 <div className="table-wrap">
                   <table>
                     <thead><tr><th>Lote</th><th>Contactos</th><th>Estado</th><th>Vendedor</th><th>Creacion</th><th>Progreso</th></tr></thead>
@@ -1634,7 +1812,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           <td><strong>{lot.name}</strong><div style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>{lot.id}</div></td>
                           <td>{lot.count}</td>
                           <td><Tag variant={lotStatusMeta(lot.status).variant}>{lotStatusMeta(lot.status).label}</Tag></td>
-                          <td>{lot.seller || '-'}</td>
+                          <td>{lot.vendedores?.length ? lot.vendedores.map((v) => `${v.nombre || ''} ${v.apellido || ''}`.trim()).join(', ') : lot.seller || '-'}</td>
                           <td>{lot.createdAt}</td>
                           <td><div style={{ minWidth: 120 }}><div className="progress"><span style={{ width: lot.progress + '%' }}></span></div><div style={{ marginTop: 6, color: 'var(--muted)', fontSize: '0.8rem' }}>{lot.progress}%</div></div></td>
                         </tr>
@@ -1647,7 +1825,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 {selectedLot ? (
                   <div className="list">
                     <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Nombre</span><strong>{selectedLot.name}</strong></div>
-                    <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Vendedor asignado</span><strong>{selectedLot.seller || '-'}</strong></div>
+                    <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Vendedores</span><strong>{selectedLot.vendedores?.length ? selectedLot.vendedores.map((v) => `${v.nombre || ''} ${v.apellido || ''}`.trim()).join(', ') : selectedLot.seller || '-'}</strong></div>
                     <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Cantidad de contactos</span><strong>{selectedLot.count}</strong></div>
                     <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Estado</span><Tag variant={lotStatusMeta(selectedLot.status).variant}>{lotStatusMeta(selectedLot.status).label}</Tag></div>
                     <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Fecha de creacion</span><strong>{selectedLot.createdAt}</strong></div>
@@ -1672,9 +1850,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               <Panel className="span-12" title="Numeros con errores" subtitle="Registros fuera de flujo comercial" action={<Button icon={<Download size={16} />} onClick={exportErrors}>Exportar</Button>}>
                 <div className="table-wrap">
                   <table>
-                    <thead><tr><th>Contacto</th><th>Telefono</th><th>Vendedor</th><th>Fecha</th><th>Motivo</th><th>Accion</th></tr></thead>
+                    <thead><tr><th>Contacto</th><th>Telefono</th><th>Celular</th><th>Vendedor</th><th>Fecha</th><th>Motivo</th><th>Accion</th></tr></thead>
                     <tbody>
-                      {errorNumbers.map((contact) => <tr key={contact.id}><td><strong>{contact.name}</strong></td><td>{contact.phone}</td><td>{contact.assignedTo || '-'}</td><td>{contact.last}</td><td>{contact.history?.[0]?.note || 'Dato incorrecto'}</td><td><div className="toolbar"><Button variant="ghost" icon={<Eye size={16} />}>Revisar</Button><Button variant="secondary" icon={<Edit3 size={16} />}>Corregir</Button><Button icon={<Activity size={16} />} onClick={() => reactivateErrorNumber(contact.id)}>Reactivar</Button></div></td></tr>)}
+                      {errorNumbers.map((contact) => <tr key={contact.id}><td><strong>{contact.name}</strong></td><td>{contact.phone}</td><td>{pickCellular(contact) || '-'}</td><td>{contact.assignedTo || '-'}</td><td>{contact.last}</td><td>{contact.history?.[0]?.note || 'Dato incorrecto'}</td><td><div className="toolbar"><Button variant="ghost" icon={<Eye size={16} />}>Revisar</Button><Button variant="secondary" icon={<Edit3 size={16} />}>Corregir</Button><Button icon={<Activity size={16} />} onClick={() => reactivateErrorNumber(contact.id)}>Reactivar</Button></div></td></tr>)}
                     </tbody>
                   </table>
                 </div>
@@ -1706,134 +1884,141 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       return (
         <div className="view">
           <section className="content-grid">
-            <Panel className="span-12" title="Base general" subtitle="Importa, revisa y asigna contactos">
-              <div className="toolbar" style={{ marginBottom: 12 }}>
-                <div className="searchbox" style={{ maxWidth: 360 }}><Search size={18} color="#69788d" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar contacto, telefono o vendedor..." /></div>
-                <select className="input" style={{ width: 180 }} value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}>{sourceOptions.map((source) => <option key={source} value={source}>{source === 'todos' ? 'Todas las fuentes' : source}</option>)}</select>
-                <select className="input" style={{ width: 160 }} value={cityFilter} onChange={(event) => setCityFilter(event.target.value)}>{cityOptions.map((city) => <option key={city} value={city}>{city === 'todos' ? 'Todas las zonas' : city}</option>)}</select>
-                <select className="input" style={{ width: 180 }} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-                  {statusOptions.map((status) => <option key={status} value={status}>{status === 'todos' ? 'Todos los estados' : salesStatusMeta(status).label}</option>)}
-                </select>
-                <select className="input" style={{ width: 155 }} value={dateFilter} onChange={(event) => setDateFilter(event.target.value)}>{dateOptions.map((date) => <option key={date} value={date}>{date === 'todos' ? 'Todas las fechas' : date}</option>)}</select>
-                <Button variant="secondary" icon={<Filter size={16} />}>Filtrar</Button>
-                <Button icon={<Upload size={16} />} onClick={() => setShowImport((value) => !value)}>Importar base</Button>
-                <Button variant="secondary" icon={<Plus size={16} />} onClick={openWizard} disabled={!selectedIds.length}>Crear lote</Button>
-                <div className="pill">{selectedIds.length} seleccionados</div>
+            <Panel className="span-12" title="Base general" subtitle="Listado completo de registros cargados">
+              <div className="toolbar" style={{ marginBottom: 8 }}>
+                <Button
+                  variant={workDataTab === 'nuevo' ? 'secondary' : 'ghost'}
+                  onClick={() => setWorkDataTab('nuevo')}
+                >
+                  Nuevos
+                </Button>
+                <Button
+                  variant={workDataTab === 'trabajado' ? 'secondary' : 'ghost'}
+                  onClick={() => setWorkDataTab('trabajado')}
+                >
+                  Trabajados
+                </Button>
+                <Button
+                  variant={workDataTab === 'bloqueado' ? 'secondary' : 'ghost'}
+                  onClick={() => setWorkDataTab('bloqueado')}
+                >
+                  Bloqueados
+                </Button>
               </div>
-
-              {showImport ? (
-                <div style={{ marginBottom: 12, borderRadius: 16, padding: 12, background: 'rgba(20,34,53,0.04)', border: '1px solid rgba(20,34,53,0.08)' }}>
-                  <div style={{ fontWeight: 700, marginBottom: 8 }}>Importacion de base</div>
-                  <div className="toolbar">
-                    <input className="input" style={{ maxWidth: 260 }} placeholder="Archivo CSV o XLSX" value={importFile} onChange={(event) => setImportFile(event.target.value)} />
-                    <select className="input" style={{ maxWidth: 220 }}><option>Mapeo: Nombre / Telefono / Ciudad</option></select>
-                    <Button icon={<CheckCircle2 size={16} />} onClick={() => setShowImport(false)}>Confirmar importacion</Button>
-                  </div>
+              <div className="toolbar" style={{ marginBottom: 12 }}>
+                <div className="searchbox" style={{ maxWidth: 360 }}>
+                  <Search size={18} color="#69788d" />
+                  <input
+                    value={workDataSearch}
+                    onChange={(event) => { setWorkDataPage(1); setWorkDataSearch(event.target.value); }}
+                    placeholder="Buscar por nombre, teléfono o documento..."
+                  />
                 </div>
-              ) : null}
-
+                <select
+                  className="input"
+                  style={{ width: 180 }}
+                  value={workDataOriginFilter}
+                  onChange={(event) => setWorkDataOriginFilter(event.target.value)}
+                >
+                  {workDataOriginOptions.map((origin) => (
+                    <option key={origin} value={origin}>
+                      {origin === 'todos' ? 'Todos los orígenes' : origin}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="input"
+                  style={{ width: 180 }}
+                  value={workDataDeptFilter}
+                  onChange={(event) => setWorkDataDeptFilter(event.target.value)}
+                >
+                  {workDataDeptOptions.map((dept) => (
+                    <option key={dept} value={dept}>
+                      {dept === 'todos' ? 'Todos los departamentos' : dept}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="input"
+                  style={{ width: 120 }}
+                  value={workDataPageSize}
+                  onChange={(event) => { setWorkDataPage(1); setWorkDataPageSize(Number(event.target.value)); }}
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+                <Button variant="secondary" icon={<Filter size={16} />} onClick={loadWorkData}>Aplicar</Button>
+                <span className="pill" style={{ marginLeft: 'auto' }}>
+                  Total: {workDataMeta.total}
+                </span>
+              </div>
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th></th><th>Contacto</th><th>Telefono</th><th>Ubicacion</th><th>Fuente</th><th>Estado general</th><th>Asignado a</th><th>Fecha de carga</th><th>Accion</th></tr></thead>
+                  <thead>
+                    <tr>
+                      <th>Nombre</th>
+                      <th>Teléfono</th>
+                      <th>Departamento</th>
+                      <th>Origen del dato</th>
+                      <th>Estado</th>
+                      <th>Última gestión</th>
+                      <th>Próxima acción</th>
+                      <th style={{ minWidth: 140 }}>Acción</th>
+                    </tr>
+                  </thead>
                   <tbody>
-                    {pagedFilteredBase.map((contact) => (
-                      <tr key={contact.id}>
-                        <td><input type="checkbox" checked={selectedIds.includes(contact.id)} onChange={() => toggleSelection(contact.id)} /></td>
-                        <td><strong>{contact.name}</strong></td>
-                        <td>{contact.phone}</td>
-                        <td>{contact.city}</td>
-                        <td>{contact.source}</td>
-                        <td><SalesStatusBadge status={contact.status} small /></td>
-                        <td>{contact.assignedTo || '-'}</td>
-                        <td>{contact.loadedAt}</td>
-                        <td><div className="toolbar"><Button variant="ghost" icon={<Edit3 size={15} />}>Reasignar</Button><Button variant="ghost" icon={<Layers size={15} />}>Mover lote</Button></div></td>
+                    {filteredWorkDataRows.map((item) => (
+                      <tr key={item.id}>
+                        <td>
+                          <strong>{[item.nombre, item.apellido].filter(Boolean).join(' ') || item.nombre || '-'}</strong>
+                          {item.bloqueado_no_llamar ? (
+                            <span
+                              style={{
+                                marginLeft: 8,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                padding: '2px 8px',
+                                borderRadius: 999,
+                                fontSize: 11,
+                                fontWeight: 700,
+                                background: 'rgba(239, 68, 68, 0.12)',
+                                color: '#b91c1c',
+                                border: '1px solid rgba(239, 68, 68, 0.3)'
+                              }}
+                            >
+                              No llamar
+                            </span>
+                          ) : null}
+                        </td>
+                        <td>{item.telefono || item.celular || '-'}</td>
+                        <td>{item.departamento || '-'}</td>
+                        <td>{(item.origen_dato && String(item.origen_dato).trim()) ? item.origen_dato : '-'}</td>
+                        <td>{item.estado_label || item.estado || '-'}</td>
+                        <td>{item.ultima_gestion || '-'}</td>
+                        <td>{item.proxima_accion || '-'}</td>
+                        <td style={{ whiteSpace: 'nowrap' }}>
+                          <Button variant="ghost" icon={<Eye size={16} />} onClick={() => setWorkDataSelected(item)}>Ver detalles</Button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                {!filteredBase.length ? <div style={{ padding: 16, color: 'var(--muted)' }}>No hay contactos para los filtros aplicados.</div> : null}
+                {workDataLoading ? <div style={{ padding: 16, color: 'var(--muted)' }}>Cargando registros...</div> : null}
+                {workDataError ? <div style={{ padding: 16, color: '#be123c', fontWeight: 700 }}>{workDataError}</div> : null}
+                {!workDataLoading && !workDataError && !filteredWorkDataRows.length ? (
+                  <div style={{ padding: 16, color: 'var(--muted)' }}>No hay datos cargados aún.</div>
+                ) : null}
               </div>
-              {filteredBase.length ? (
-                <div className="toolbar" style={{ justifyContent: 'space-between', marginTop: 12 }}>
-                  <span className="pill">Página {safeBasePage} de {baseTotalPages} · {filteredBase.length} contactos</span>
-                  <div className="toolbar">
-                    <Button variant="ghost" onClick={() => setBasePage((p) => Math.max(1, p - 1))} disabled={safeBasePage <= 1}>Anterior</Button>
-                    <Button variant="ghost" onClick={() => setBasePage((p) => Math.min(baseTotalPages, p + 1))} disabled={safeBasePage >= baseTotalPages}>Siguiente</Button>
-                  </div>
+              <div className="toolbar" style={{ justifyContent: 'space-between', marginTop: 12 }}>
+                <span className="pill">Página {workDataMeta.page} de {workDataMeta.totalPages}</span>
+                <div className="toolbar">
+                  <Button variant="ghost" onClick={() => setWorkDataPage((p) => Math.max(1, p - 1))} disabled={workDataMeta.page <= 1}>Anterior</Button>
+                  <Button variant="ghost" onClick={() => setWorkDataPage((p) => Math.min(workDataMeta.totalPages, p + 1))} disabled={workDataMeta.page >= workDataMeta.totalPages}>Siguiente</Button>
                 </div>
-              ) : null}
-
-              {showLotWizard ? (
-                <div className="lot-wizard-overlay" onClick={() => setShowLotWizard(false)}>
-                  <div className="lot-wizard" onClick={(event) => event.stopPropagation()}>
-                    <div className="lot-wizard-header">
-                      <div>
-                        <h3>Crear y asignar lote</h3>
-                        <p>Proceso en 3 pasos con {selectedIds.length} contactos seleccionados.</p>
-                      </div>
-                      <button className="icon-button" style={{ width: 36, height: 36 }} onClick={() => setShowLotWizard(false)}><X size={16} color="#152235" /></button>
-                    </div>
-
-                    <div className="lot-step">
-                      <span className="lot-step-index">1</span>
-                      <div>
-                        <h4>Contactos seleccionados</h4>
-                        <p>Ya tienes la selección lista desde la base general.</p>
-                      </div>
-                    </div>
-
-                    <div className="lot-step">
-                      <span className="lot-step-index">2</span>
-                      <div style={{ flex: 1 }}>
-                        <h4>Datos del lote</h4>
-                        <div className="list" style={{ gap: 8, marginTop: 8 }}>
-                          <input className="input" placeholder="Nombre del lote (ej. Campaña Marzo - Litoral)" value={wizardLotName} onChange={(event) => setWizardLotName(event.target.value)} />
-                          <div className="toolbar">
-                            <input className="input" type="date" value={wizardDeadline} onChange={(event) => setWizardDeadline(event.target.value)} style={{ maxWidth: 200 }} />
-                            <select className="input" value={wizardPriority} onChange={(event) => setWizardPriority(event.target.value)} style={{ maxWidth: 180 }}>
-                              <option value="normal">Prioridad normal</option>
-                              <option value="urgente">Prioridad urgente</option>
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="lot-step">
-                      <span className="lot-step-index">3</span>
-                      <div style={{ flex: 1 }}>
-                        <h4>Asignación</h4>
-                        <div className="toolbar" style={{ marginTop: 8 }}>
-                          <button className={'button ' + (wizardAssignMode === 'individual' ? 'primary' : 'secondary')} onClick={() => setWizardAssignMode('individual')}>Individual</button>
-                          <button className={'button ' + (wizardAssignMode === 'grupo' ? 'primary' : 'secondary')} onClick={() => setWizardAssignMode('grupo')}>Distribuir entre grupo</button>
-                        </div>
-                        {wizardAssignMode === 'individual' ? (
-                          <select className="input" style={{ marginTop: 8 }} value={wizardSeller} onChange={(event) => setWizardSeller(event.target.value)}>
-                            <option value="">Selecciona vendedor...</option>
-                            {sellers.map((seller) => <option key={seller} value={seller}>{seller}</option>)}
-                          </select>
-                        ) : (
-                          <div className="lot-seller-grid">
-                            {sellers.map((seller) => (
-                              <label key={seller} className="lot-seller-item">
-                                <input type="checkbox" checked={wizardGroupSellers.includes(seller)} onChange={() => toggleWizardGroupSeller(seller)} />
-                                <span>{seller}</span>
-                              </label>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {wizardError ? <div style={{ color: '#be123c', fontWeight: 700, fontSize: '0.85rem' }}>{wizardError}</div> : null}
-
-                    <div className="toolbar" style={{ justifyContent: 'flex-end', marginTop: 8 }}>
-                      <Button variant="ghost" onClick={() => setShowLotWizard(false)}>Cancelar</Button>
-                      <Button icon={<CheckCircle2 size={16} />} onClick={createLotFromSelection}>Confirmar lote</Button>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
+              </div>
+              {workDataSelected ? <ContactDetailModal contact={workDataSelected} onClose={() => setWorkDataSelected(null)} /> : null}
             </Panel>
           </section>
         </div>
@@ -1868,10 +2053,16 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
     const supportTicketDisplayStatus = (ticket) => ticket.estadoBandeja || ticket.estado;
 
     function SupportClientSearchView({ onCreateManualTicket, onAfterCreate }) {
+      const { user: authUser } = useAuth();
       const [clientSearch, setClientSearch] = React.useState('');
       const [lookupLoading, setLookupLoading] = React.useState(false);
       const [lookupError, setLookupError] = React.useState('');
       const [lookupResults, setLookupResults] = React.useState([]);
+      const [supportClients, setSupportClients] = React.useState([]);
+      const [supportClientsLoading, setSupportClientsLoading] = React.useState(false);
+      const [supportClientsError, setSupportClientsError] = React.useState('');
+      const [supportFichaClient, setSupportFichaClient] = React.useState(null);
+      const [supportDetailError, setSupportDetailError] = React.useState('');
       const [showManualForm, setShowManualForm] = React.useState(false);
       const [selectedClient, setSelectedClient] = React.useState(null);
       const [availableProducts, setAvailableProducts] = React.useState([]);
@@ -1882,8 +2073,66 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         tipoSolicitudManual: '',
         resumen: '',
         prioridad: 'media',
-        productoContratoId: ''
+        productoContratoId: '',
+        estadoGestion: 'nueva'
       });
+      const calcAge = (value) => {
+        if (!value) return '';
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) return '';
+        const now = new Date();
+        let years = now.getFullYear() - parsed.getFullYear();
+        const monthDelta = now.getMonth() - parsed.getMonth();
+        if (monthDelta < 0 || (monthDelta === 0 && now.getDate() < parsed.getDate())) {
+          years -= 1;
+        }
+        return years >= 0 ? `${years} años` : '';
+      };
+      const formatDateShort = (value) => {
+        if (!value) return '';
+        const text = String(value).trim();
+        if (!text) return '';
+        const iso = text.includes('T') ? text.split('T')[0] : text;
+        const parts = iso.split('-');
+        if (parts.length === 3) {
+          const [year, month, day] = parts;
+          if (year && month && day) return `${day}/${month}/${year}`;
+        }
+        return text;
+      };
+      const normalizeDetailProducts = (detail) => {
+        if (!detail) return [];
+        const source = Array.isArray(detail.products) && detail.products.length
+          ? detail.products
+          : (detail.product && typeof detail.product === 'object' ? [detail.product] : []);
+        return source.map((product) => ({
+          ...product,
+          estadoProducto: product.estadoProducto || product.estado || product.estado_producto || ''
+        }));
+      };
+
+      const productStatusBadge = (status) => {
+        if (!status) return null;
+        const text = String(status).trim();
+        if (!text) return null;
+        const normalized = text.toLowerCase();
+        const isBaja = normalized.includes('baja');
+        const label = isBaja ? 'Baja' : text;
+        return (
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            padding: '2px 8px',
+            borderRadius: 999,
+            fontSize: '0.72rem',
+            fontWeight: 700,
+            background: isBaja ? 'rgba(248,113,113,0.18)' : 'rgba(34,197,94,0.18)',
+            color: isBaja ? '#b91c1c' : '#15803d'
+          }}>
+            {label}
+          </span>
+        );
+      };
 
       React.useEffect(() => {
         const term = clientSearch.trim();
@@ -1913,14 +2162,48 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         };
       }, [clientSearch]);
 
-      const openManualForm = (client, forcedType = null) => {
-        const nextType = forcedType || 'info_servicio';
-        const activeProducts = listActiveContactProducts(client.id);
-        const autoSelectedProductId = nextType === 'solicitud_baja' && activeProducts.length === 1
-          ? activeProducts[0].id
-          : '';
+      React.useEffect(() => {
+        let active = true;
+        setSupportClientsLoading(true);
+        setSupportClientsError('');
+        fetchClientsDirectory()
+          .then(({ table }) => {
+            if (!active) return;
+            setSupportClients(table || []);
+          })
+          .catch(() => {
+            if (!active) return;
+            setSupportClientsError('No se pudo cargar la cartera de clientes.');
+          })
+          .finally(() => {
+            if (!active) return;
+            setSupportClientsLoading(false);
+          });
+        return () => {
+          active = false;
+        };
+      }, []);
+
+      const handleViewSupportFicha = React.useCallback(async (client) => {
+        if (!client?.id) return;
+        setSupportFichaClient(client);
+        setSupportDetailError('');
+        try {
+          const detail = await fetchClientDetail(client.id);
+          if (detail) setSupportFichaClient(detail);
+        } catch (err) {
+          const status = err?.status;
+          const backendMessage = err?.details?.message || err?.details?.error || err?.message || '';
+          const statusLabel = status ? ` (HTTP ${status})` : '';
+          const detailLabel = backendMessage ? ` · ${backendMessage}` : '';
+          setSupportDetailError(`No se pudo cargar el detalle del cliente${statusLabel}${detailLabel}.`);
+        }
+      }, []);
+
+      const openManualForm = async (client, forcedType = null) => {
+        let nextType = forcedType || 'info_servicio';
         setSelectedClient(client);
-        setAvailableProducts(activeProducts);
+        setAvailableProducts([]);
         setShowManualForm(true);
         setManualError('');
         setManualDraft({
@@ -1928,13 +2211,68 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           tipoSolicitudManual: '',
           resumen: '',
           prioridad: 'media',
-          productoContratoId: autoSelectedProductId
+          productoContratoId: '',
+          estadoGestion: 'nueva',
+          solicitanteNombre: '',
+          solicitanteDocumento: '',
+          solicitanteTelefono: '',
+          solicitanteRelacion: '',
+          cuerpoUbicacion: '',
+          requiereTraslado: 'no',
+          trasladoOrigen: '',
+          trasladoDestino: '',
+          servicioTipo: '',
+          velatorioLugar: '',
+          servicioFechaHora: '',
+          crematorio: ''
         });
+        try {
+          const detail = await fetchClientDetail(client.id);
+          if (detail) {
+            const products = normalizeDetailProducts(detail);
+            const hasBajaProduct = products.some((product) => String(product.estadoProducto || '').toLowerCase() === 'baja');
+            if (hasBajaProduct && nextType === 'solicitud_baja') {
+              nextType = 'info_servicio';
+              setManualError('El producto ya está en baja. Solo se permite una solicitud informativa.');
+            }
+            const autoSelectedProductId = nextType === 'solicitud_baja' && products.length === 1
+              ? products[0].id
+              : '';
+            setSelectedClient(detail);
+            setAvailableProducts(products);
+            setManualDraft((prev) => ({ ...prev, tipoSolicitud: nextType, productoContratoId: autoSelectedProductId }));
+          }
+        } catch {
+          // Mantener datos básicos si falla el detalle.
+        }
+      };
+
+      const buildServiceResumen = () => {
+        return manualDraft.resumen.trim();
+      };
+
+      const buildServiceRequestPayload = () => {
+        if (manualDraft.tipoSolicitud !== 'solicitud_servicio') return null;
+        return {
+          solicitanteNombre: manualDraft.solicitanteNombre,
+          solicitanteDocumento: manualDraft.solicitanteDocumento,
+          solicitanteTelefono: manualDraft.solicitanteTelefono,
+          solicitanteRelacion: manualDraft.solicitanteRelacion,
+          cuerpoUbicacion: manualDraft.cuerpoUbicacion,
+          requiereTraslado: manualDraft.requiereTraslado === 'si',
+          trasladoOrigen: manualDraft.requiereTraslado === 'si' ? manualDraft.trasladoOrigen : '',
+          trasladoDestino: manualDraft.requiereTraslado === 'si' ? manualDraft.trasladoDestino : '',
+          servicioTipo: manualDraft.servicioTipo,
+          velatorioLugar: manualDraft.velatorioLugar,
+          servicioFechaHora: manualDraft.servicioFechaHora,
+          crematorio: manualDraft.crematorio
+        };
       };
 
       const submitManualTicket = async () => {
         if (!selectedClient) return;
-        if (!manualDraft.resumen.trim()) {
+        const resumenFinal = buildServiceResumen();
+        if (!resumenFinal.trim()) {
           setManualError('Debes agregar un detalle de la solicitud.');
           return;
         }
@@ -1959,9 +2297,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             clienteId: selectedClient.id,
             tipoSolicitud: manualDraft.tipoSolicitud,
             tipoSolicitudManual: manualDraft.tipoSolicitudManual.trim(),
-            resumen: manualDraft.resumen.trim(),
+            resumen: resumenFinal,
             prioridad: manualDraft.prioridad,
-            productoContratoId: manualDraft.productoContratoId || ''
+            productoContratoId: manualDraft.productoContratoId || '',
+            estado: manualDraft.estadoGestion,
+            serviceRequest: buildServiceRequestPayload()
           });
           setShowManualForm(false);
           setSelectedClient(null);
@@ -1979,96 +2319,220 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       return (
         <div className="view">
           <section className="content-grid">
-            <Panel className="span-12" title="Buscar cliente" subtitle="Busca en cartera y genera nuevas solicitudes manuales">
-              <div style={{ marginBottom: 14, borderRadius: 16, padding: 12, background: 'rgba(20,34,53,0.04)', border: '1px solid rgba(20,34,53,0.08)' }}>
-                <div style={{ fontWeight: 700, marginBottom: 8 }}>Busqueda de clientes en cartera</div>
-                <div className="toolbar" style={{ alignItems: 'stretch' }}>
-                  <div className="searchbox" style={{ maxWidth: 460 }}><Search size={18} color="#69788d" /><input value={clientSearch} onChange={(event) => setClientSearch(event.target.value)} placeholder="Buscar por documento, nombre, telefono o numero de cliente..." /></div>
-                  <div className="pill">{lookupLoading ? 'Buscando...' : `${lookupResults.length} encontrados`}</div>
-                </div>
-                {lookupError ? <div style={{ marginTop: 8, color: '#be123c', fontWeight: 700 }}>{lookupError}</div> : null}
-                {lookupResults.length ? (
-                  <div className="list" style={{ marginTop: 10 }}>
-                    {lookupResults.slice(0, 6).map((client) => (
-                      <div key={client.id} className="status-item" style={{ alignItems: 'center' }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 700 }}>{client.nombre}</div>
-                          <div style={{ color: 'var(--muted)', fontSize: '0.86rem' }}>{client.numeroCliente} · CI {client.documento} · {client.telefono} · {client.productoActualNombre}</div>
-                        </div>
-                        <div className="toolbar">
-                          <Button variant="secondary" icon={<Plus size={15} />} onClick={() => openManualForm(client)}>Nueva gestión</Button>
-                          <Button icon={<Briefcase size={15} />} onClick={() => openManualForm(client, 'solicitud_servicio')}>Nueva solicitud de servicio</Button>
-                        </div>
+            <Panel className="span-12">
+              <div style={{ position: 'relative' }}>
+                {!showManualForm ? (
+                  <div style={{ marginBottom: 14, borderRadius: 16, padding: 12, background: 'rgba(20,34,53,0.04)', border: '1px solid rgba(20,34,53,0.08)' }}>
+                    <div className="toolbar" style={{ alignItems: 'stretch' }}>
+                      <div className="searchbox" style={{ maxWidth: 460 }}>
+                        <Search size={18} color="#69788d" />
+                        <input
+                          value={clientSearch}
+                          onChange={(event) => setClientSearch(event.target.value)}
+                          placeholder="Buscar por documento, nombre, telefono o numero de cliente..."
+                        />
                       </div>
-                    ))}
+                    </div>
+                    {lookupError ? <div style={{ marginTop: 8, color: '#be123c', fontWeight: 700 }}>{lookupError}</div> : null}
+                    {lookupResults.length ? (
+                      <div className="list" style={{ marginTop: 10 }}>
+                        {lookupResults.slice(0, 6).map((client) => (
+                          <div key={client.id} className="status-item" style={{ alignItems: 'center' }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 700 }}>{client.nombre}</div>
+                              <div style={{ color: 'var(--muted)', fontSize: '0.86rem', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                                <span>CI {client.documento} · {client.telefono} · {client.productoActualNombre}</span>
+                                {productStatusBadge(client.status || client.estado || client.estadoProducto)}
+                              </div>
+                            </div>
+                            <div className="toolbar">
+                              <Button variant="ghost" icon={<Eye size={15} />} onClick={() => handleViewSupportFicha(client)}>Ver</Button>
+                              <Button variant="secondary" icon={<Plus size={15} />} onClick={(event) => { event.stopPropagation(); openManualForm(client); }}>Nueva gestión</Button>
+                              <Button
+                                icon={<Briefcase size={15} />}
+                                disabled={String(client.status || client.estado || client.estadoProducto || '').toLowerCase().includes('baja')}
+                                onClick={(event) => { event.stopPropagation(); openManualForm(client, 'solicitud_servicio'); }}
+                              >
+                                Nueva solicitud de servicio
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {!clientSearch.trim() ? (
+                      <div style={{ marginTop: 10 }}>
+                        {supportClientsLoading ? (
+                          <div style={{ color: 'var(--muted)' }}>Cargando clientes...</div>
+                        ) : supportClientsError ? (
+                          <div style={{ color: '#be123c', fontWeight: 700 }}>{supportClientsError}</div>
+                        ) : (
+                          <div className="list">
+                            {supportClients.slice(0, 6).map((client) => (
+                              <div key={client.id} className="status-item" style={{ alignItems: 'center' }}>
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontWeight: 700 }}>{client.name || 'Cliente'}</div>
+                              <div style={{ color: 'var(--muted)', fontSize: '0.86rem', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                                <span>CI {client.documento || '—'} · {client.phone || '—'} · {client.product || 'Sin producto'}</span>
+                                {productStatusBadge(client.status || client.estado || client.estadoProducto)}
+                              </div>
+                                </div>
+                                <div className="toolbar">
+                                  <Button variant="ghost" icon={<Eye size={15} />} onClick={() => handleViewSupportFicha(client)}>Ver</Button>
+                                  <Button variant="secondary" icon={<Plus size={15} />} onClick={(event) => { event.stopPropagation(); openManualForm(client); }}>Nueva gestión</Button>
+                                  <Button
+                                    icon={<Briefcase size={15} />}
+                                    disabled={String(client.status || client.estado || client.estadoProducto || '').toLowerCase().includes('baja')}
+                                    onClick={(event) => { event.stopPropagation(); openManualForm(client, 'solicitud_servicio'); }}
+                                  >
+                                    Nueva solicitud de servicio
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                            {!supportClients.length ? <div style={{ color: 'var(--muted)' }}>No hay clientes cargados.</div> : null}
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
 
                 {showManualForm && selectedClient ? (
-                  <div style={{ marginTop: 12, borderTop: '1px solid rgba(20,34,53,0.08)', paddingTop: 12 }}>
-                    <div style={{ fontWeight: 700, marginBottom: 8 }}>Crear solicitud para {selectedClient.nombre}</div>
-                    <div className="toolbar">
-                      <select
-                        className="input"
-                        style={{ width: 240 }}
-                        value={manualDraft.tipoSolicitud}
-                        onChange={(event) => {
-                          const nextType = event.target.value;
-                          setManualDraft((prev) => ({
-                            ...prev,
-                            tipoSolicitud: nextType,
-                            productoContratoId: nextType === 'solicitud_baja' && availableProducts.length === 1 ? availableProducts[0].id : ''
-                          }));
-                        }}
-                      >
-                        <option value="info_servicio">Consulta informativa</option>
-                        <option value="solicitud_baja">Solicitud de baja</option>
-                        <option value="cambio_metodo_pago">Cambio de método de pago</option>
-                        <option value="reclamo">Reclamo</option>
-                        <option value="solicitud_servicio">Solicitud de servicio</option>
-                        <option value="otro">Otro</option>
-                      </select>
-                      <select className="input" style={{ width: 180 }} value={manualDraft.prioridad} onChange={(event) => setManualDraft((prev) => ({ ...prev, prioridad: event.target.value }))}>
-                        <option value="baja">Prioridad baja</option>
-                        <option value="media">Prioridad media</option>
-                        <option value="alta">Prioridad alta</option>
-                      </select>
+                  <div style={{ marginTop: 12 }}>
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', color: '#64748b' }}>Formulario de gestión</div>
+                      <div style={{ fontWeight: 700, fontSize: 18 }}>Crear solicitud para {selectedClient.nombre}</div>
                     </div>
-                    {manualDraft.tipoSolicitud === 'solicitud_baja' ? (
-                      <div style={{ marginTop: 8 }}>
-                        {availableProducts.length > 1 ? (
-                          <>
-                            <div style={{ fontWeight: 700, marginBottom: 6 }}>¿Sobre qué producto quiere dar la baja?</div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+                      <div style={{ borderRadius: 16, border: '1px solid rgba(148,163,184,0.25)', padding: 14, background: '#f8fafc' }}>
+                        <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#64748b' }}>Información del cliente</div>
+                        <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
+                          <div><strong>Nombre completo:</strong> {`${selectedClient.nombre || selectedClient.name || ''} ${selectedClient.apellido || ''}`.trim() || '—'}</div>
+                          <div><strong>Numero de documento:</strong> {selectedClient.documento || '—'}</div>
+                          <div><strong>Fecha de nacimiento:</strong> {formatDateShort(selectedClient.fechaNacimiento || selectedClient.fecha_nacimiento) || '—'}</div>
+                          <div><strong>Edad:</strong> {calcAge(selectedClient.fechaNacimiento || selectedClient.fecha_nacimiento) || '—'}</div>
+                          <div><strong>Telefono:</strong> {selectedClient.telefono || selectedClient.phone || '—'}</div>
+                          <div><strong>Celular:</strong> {selectedClient.celular || selectedClient.cellphone || '—'}</div>
+                          <div><strong>Dirección:</strong> {selectedClient.direccion || '—'}</div>
+                          <div><strong>Departamento:</strong> {selectedClient.departamento || '—'}</div>
+                        </div>
+                      </div>
+
+                      <div style={{ borderRadius: 16, border: '1px solid rgba(148,163,184,0.25)', padding: 14 }}>
+                        <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#64748b' }}>Servicio</div>
+                        <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
+                          <div><strong>Fecha de alta:</strong> {formatDateShort((availableProducts[0]?.fechaAlta || selectedClient.fechaVenta || selectedClient.createdAt)) || '—'}</div>
+                          <div><strong>Estado:</strong> {String(availableProducts[0]?.estadoProducto || availableProducts[0]?.estado || '—')}</div>
+                          <div><strong>Nombre del producto:</strong> {String(availableProducts[0]?.productoNombre || availableProducts[0]?.nombreProducto || availableProducts[0]?.nombre_producto || selectedClient.productoActualNombre || selectedClient.product?.nombreProducto || selectedClient.product?.nombre || selectedClient.productoNombre || selectedClient.producto_nombre || selectedClient.product || '—')}</div>
+                          <div><strong>Precio:</strong> {availableProducts[0]?.precio ? `$ ${Number(String(availableProducts[0].precio).replace(/[^0-9.-]/g, '')).toLocaleString('es-UY')}` : (selectedClient.fee || '—')}</div>
+                          <div><strong>Carencia:</strong> {String(availableProducts[0]?.carenciaCuotas ?? availableProducts[0]?.carencia_cuotas ?? '—')}</div>
+                        </div>
+                      </div>
+
+                      <div style={{ borderRadius: 16, border: '1px solid rgba(148,163,184,0.25)', padding: 14 }}>
+                        <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#64748b' }}>Datos del producto</div>
+                        <div style={{ marginTop: 8 }}>
+                          <div style={{ fontWeight: 700, marginBottom: 6 }}>Producto a gestionar</div>
+                          <select
+                            className="input"
+                            value={manualDraft.productoContratoId}
+                            onChange={(event) => setManualDraft((prev) => ({ ...prev, productoContratoId: event.target.value }))}
+                          >
+                            <option value="">Seleccionar producto</option>
+                            {availableProducts.map((product) => (
+                              <option key={product.id} value={product.id}>
+                                {(product.productoNombre || product.nombreProducto || product.nombre_producto || product.nombre || 'Producto')} · Alta {product.fechaAlta ? new Date(product.fechaAlta).toLocaleDateString('es-UY') : 's/f'}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div style={{ borderRadius: 16, border: '1px solid rgba(148,163,184,0.25)', padding: 14, gridColumn: '1 / -1' }}>
+                        <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#64748b' }}>Motivo de la gestión</div>
+                        <div className="toolbar" style={{ marginTop: 8, flexWrap: 'wrap' }}>
+                          {manualDraft.tipoSolicitud !== 'solicitud_servicio' ? (
                             <select
                               className="input"
-                              value={manualDraft.productoContratoId}
-                              onChange={(event) => setManualDraft((prev) => ({ ...prev, productoContratoId: event.target.value }))}
+                              style={{ width: 240 }}
+                              value={manualDraft.tipoSolicitud}
+                              onChange={(event) => {
+                                const nextType = event.target.value;
+                                setManualDraft((prev) => ({
+                                  ...prev,
+                                  tipoSolicitud: nextType,
+                                  productoContratoId: nextType === 'solicitud_baja' && availableProducts.length === 1 ? availableProducts[0].id : ''
+                                }));
+                              }}
                             >
-                              <option value="">Seleccionar producto</option>
-                              {availableProducts.map((product) => (
-                                <option key={product.id} value={product.id}>
-                                  {product.productoNombre} · Alta {product.fechaAlta ? new Date(product.fechaAlta).toLocaleDateString('es-UY') : 's/f'}
-                                </option>
-                              ))}
+                              <option value="info_servicio">Consulta informativa</option>
+                              {!availableProducts.some((product) => String(product.estadoProducto || '').toLowerCase() === 'baja') ? (
+                                <option value="solicitud_baja">Solicitud de baja</option>
+                              ) : null}
+                              <option value="cambio_metodo_pago">Cambio de método de pago</option>
+                              <option value="reclamo">Reclamo</option>
+                              <option value="otro">Otro</option>
                             </select>
-                          </>
-                        ) : null}
-                        {availableProducts.length === 1 ? (
-                          <div className="pill">
-                            Producto seleccionado: {availableProducts[0].productoNombre}
-                          </div>
-                        ) : null}
-                        {!availableProducts.length ? (
-                          <div style={{ color: '#be123c', fontWeight: 700 }}>
-                            Este contacto no tiene productos activos para solicitar baja.
-                          </div>
-                        ) : null}
+                          ) : (
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#0f766e', padding: '10px 12px', borderRadius: 12, background: 'rgba(15,118,110,0.08)', border: '1px solid rgba(15,118,110,0.2)' }}>
+                              Solicitud de servicio
+                            </div>
+                          )}
+                          <select className="input" style={{ width: 180 }} value={manualDraft.prioridad} onChange={(event) => setManualDraft((prev) => ({ ...prev, prioridad: event.target.value }))}>
+                            <option value="baja">Prioridad baja</option>
+                            <option value="media">Prioridad media</option>
+                            <option value="alta">Prioridad alta</option>
+                          </select>
+                        </div>
+                        {manualDraft.tipoSolicitud === 'otro' ? <input className="input" style={{ marginTop: 8 }} placeholder="Tipo de solicitud manual" value={manualDraft.tipoSolicitudManual} onChange={(event) => setManualDraft((prev) => ({ ...prev, tipoSolicitudManual: event.target.value }))} /> : null}
+                        <textarea className="input" rows="4" style={{ marginTop: 8 }} placeholder="Detalle de la solicitud" value={manualDraft.resumen} onChange={(event) => setManualDraft((prev) => ({ ...prev, resumen: event.target.value }))}></textarea>
                       </div>
-                    ) : null}
-                    {manualDraft.tipoSolicitud === 'otro' ? <input className="input" style={{ marginTop: 8 }} placeholder="Tipo de solicitud manual" value={manualDraft.tipoSolicitudManual} onChange={(event) => setManualDraft((prev) => ({ ...prev, tipoSolicitudManual: event.target.value }))} /> : null}
-                    <textarea className="input" rows="3" style={{ marginTop: 8 }} placeholder="Detalle de la solicitud" value={manualDraft.resumen} onChange={(event) => setManualDraft((prev) => ({ ...prev, resumen: event.target.value }))}></textarea>
+
+                      {manualDraft.tipoSolicitud === 'solicitud_servicio' ? (
+                        <div style={{ borderRadius: 16, border: '1px solid rgba(148,163,184,0.25)', padding: 14, gridColumn: '1 / -1' }}>
+                          <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#64748b' }}>Datos del solicitante / responsable</div>
+                          <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+                            <input className="input" placeholder="Nombre completo" value={manualDraft.solicitanteNombre} onChange={(event) => setManualDraft((prev) => ({ ...prev, solicitanteNombre: event.target.value }))} />
+                            <input className="input" placeholder="Documento de identidad" value={manualDraft.solicitanteDocumento} onChange={(event) => setManualDraft((prev) => ({ ...prev, solicitanteDocumento: event.target.value }))} />
+                            <input className="input" placeholder="Teléfono de contacto" value={manualDraft.solicitanteTelefono} onChange={(event) => setManualDraft((prev) => ({ ...prev, solicitanteTelefono: event.target.value }))} />
+                            <input className="input" placeholder="Relación con el fallecido" value={manualDraft.solicitanteRelacion} onChange={(event) => setManualDraft((prev) => ({ ...prev, solicitanteRelacion: event.target.value }))} />
+                          </div>
+
+                          <div style={{ marginTop: 10, display: 'grid', gap: 10 }}>
+                            <input className="input" placeholder="¿Dónde se encuentra el cuerpo actualmente? (hospital, domicilio, morgue)" value={manualDraft.cuerpoUbicacion} onChange={(event) => setManualDraft((prev) => ({ ...prev, cuerpoUbicacion: event.target.value }))} />
+                            <div className="toolbar" style={{ flexWrap: 'wrap' }}>
+                              <select className="input" style={{ width: 220 }} value={manualDraft.requiereTraslado} onChange={(event) => setManualDraft((prev) => ({ ...prev, requiereTraslado: event.target.value }))}>
+                                <option value="no">No requiere traslado</option>
+                                <option value="si">Requiere traslado</option>
+                              </select>
+                              {manualDraft.requiereTraslado === 'si' ? (
+                                <>
+                                  <input className="input" style={{ minWidth: 220 }} placeholder="Origen" value={manualDraft.trasladoOrigen} onChange={(event) => setManualDraft((prev) => ({ ...prev, trasladoOrigen: event.target.value }))} />
+                                  <input className="input" style={{ minWidth: 220 }} placeholder="Destino" value={manualDraft.trasladoDestino} onChange={(event) => setManualDraft((prev) => ({ ...prev, trasladoDestino: event.target.value }))} />
+                                </>
+                              ) : null}
+                            </div>
+                          </div>
+
+                          <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+                            <select className="input" value={manualDraft.servicioTipo} onChange={(event) => setManualDraft((prev) => ({ ...prev, servicioTipo: event.target.value }))}>
+                              <option value="">Tipo de servicio</option>
+                              <option value="Directo (sin velatorio)">Directo (sin velatorio)</option>
+                              <option value="Con velatorio previo">Con velatorio previo</option>
+                            </select>
+                            <input className="input" placeholder="Lugar del velatorio (si aplica)" value={manualDraft.velatorioLugar} onChange={(event) => setManualDraft((prev) => ({ ...prev, velatorioLugar: event.target.value }))} />
+                            <input className="input" type="datetime-local" value={manualDraft.servicioFechaHora} onChange={(event) => setManualDraft((prev) => ({ ...prev, servicioFechaHora: event.target.value }))} />
+                            <input className="input" placeholder="Crematorio seleccionado" value={manualDraft.crematorio} onChange={(event) => setManualDraft((prev) => ({ ...prev, crematorio: event.target.value }))} />
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+
                     {manualError ? <div style={{ marginTop: 8, color: '#be123c', fontWeight: 700 }}>{manualError}</div> : null}
-                    <div className="toolbar" style={{ marginTop: 10 }}>
+                    <div className="toolbar" style={{ marginTop: 12 }}>
                       <Button
                         variant="ghost"
                         onClick={() => {
@@ -2085,6 +2549,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               </div>
             </Panel>
           </section>
+          <ClienteFichaForm
+            open={Boolean(supportFichaClient)}
+            client={supportFichaClient}
+            onClose={() => { setSupportFichaClient(null); setSupportDetailError(''); }}
+            onUpdated={() => {}}
+            detailError={supportDetailError}
+          />
         </div>
       );
     }
@@ -2149,17 +2620,16 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>ID</th><th>Cliente</th><th>Telefono</th><th>Tipo de solicitud</th><th>Resumen</th><th>Estado</th><th>Hora</th></tr></thead>
+                  <thead><tr><th>ID</th><th>Cliente</th><th>Telefono</th><th>Tipo de solicitud</th><th>Estado</th><th>Hora</th></tr></thead>
                   <tbody>
                     {visibleTickets.map((ticket) => (
                       <tr key={ticket.id} className="support-row" onClick={() => onSelect(ticket.id)} style={{ cursor: 'pointer', background: selectedId === ticket.id ? 'rgba(15,118,110,0.08)' : 'transparent' }}>
-                        <td><div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Hash size={14} /><strong>{ticket.id}</strong></div></td>
+                        <td><div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Hash size={14} /><strong>{String(ticket.numero || ticket.id).padStart(6, '0')}</strong></div></td>
                         <td><div><div style={{ fontWeight: 700 }}>{ticket.cliente}</div><div style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>{ticket.agente}</div></div></td>
                         <td><a href={'tel:' + ticket.telefono.replace(/\s/g, '')} onClick={(event) => event.stopPropagation()} style={{ color: '#0f766e', fontWeight: 700, textDecoration: 'none' }}>{ticket.telefono}</a></td>
                         <td><span style={{ display: 'inline-block', padding: '4px 8px', borderRadius: 999, fontSize: '0.78rem', fontWeight: 700, background: 'rgba(20,34,53,0.06)', color: '#334155' }}>{supportRequestTypeLabel(ticket)}</span></td>
-                        <td style={{ maxWidth: 330, overflow: 'hidden', textOverflow: 'ellipsis' }}>{ticket.resumen}</td>
                         <td><SupportStatusBadge status={supportTicketDisplayStatus(ticket)} pulse={supportTicketDisplayStatus(ticket) === 'nuevo' || supportTicketDisplayStatus(ticket) === 'servicio_iniciado'} small /></td>
-                        <td>{ticket.hora}</td>
+                        <td>{formatDateTimeShort(ticket.hora) || ticket.hora}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -2186,15 +2656,70 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [statusDraft, setStatusDraft] = React.useState(ticket.esSolicitudServicio ? ticket.estadoServicio : ticket.estado);
       const [closeOutcome, setCloseOutcome] = React.useState(ticket.resultadoRetencion || '');
       const [closeError, setCloseError] = React.useState('');
+      const [closingTicket, setClosingTicket] = React.useState(false);
+      const [showClosePanel, setShowClosePanel] = React.useState(false);
+      const [editingServiceRequest, setEditingServiceRequest] = React.useState(false);
+      const [serviceRequestDraft, setServiceRequestDraft] = React.useState({
+        solicitanteNombre: '',
+        solicitanteDocumento: '',
+        solicitanteTelefono: '',
+        solicitanteRelacion: '',
+        cuerpoUbicacion: '',
+        requiereTraslado: false,
+        trasladoOrigen: '',
+        trasladoDestino: '',
+        servicioTipo: '',
+        velatorioLugar: '',
+        servicioFechaHora: '',
+        crematorio: ''
+      });
+      const [savingServiceRequest, setSavingServiceRequest] = React.useState(false);
+      const [clientDetail, setClientDetail] = React.useState(null);
+      const [clientDetailError, setClientDetailError] = React.useState('');
 
       React.useEffect(() => {
         setStatusDraft(ticket.esSolicitudServicio ? ticket.estadoServicio : ticket.estado);
         setNote('');
         setCloseOutcome(ticket.resultadoRetencion || '');
         setCloseError('');
+        setShowClosePanel(false);
+        setEditingServiceRequest(false);
+        setServiceRequestDraft({
+          solicitanteNombre: ticket.serviceRequest?.solicitanteNombre || '',
+          solicitanteDocumento: ticket.serviceRequest?.solicitanteDocumento || '',
+          solicitanteTelefono: ticket.serviceRequest?.solicitanteTelefono || '',
+          solicitanteRelacion: ticket.serviceRequest?.solicitanteRelacion || '',
+          cuerpoUbicacion: ticket.serviceRequest?.cuerpoUbicacion || '',
+          requiereTraslado: Boolean(ticket.serviceRequest?.requiereTraslado),
+          trasladoOrigen: ticket.serviceRequest?.trasladoOrigen || '',
+          trasladoDestino: ticket.serviceRequest?.trasladoDestino || '',
+          servicioTipo: ticket.serviceRequest?.servicioTipo || '',
+          velatorioLugar: ticket.serviceRequest?.velatorioLugar || '',
+          servicioFechaHora: ticket.serviceRequest?.servicioFechaHora || '',
+          crematorio: ticket.serviceRequest?.crematorio || ''
+        });
       }, [ticket.id, ticket.estado, ticket.estadoServicio, ticket.esSolicitudServicio, ticket.resultadoRetencion]);
 
+      React.useEffect(() => {
+        let canceled = false;
+        setClientDetail(null);
+        setClientDetailError('');
+        if (!ticket.clienteId) return () => { canceled = true; };
+        (async () => {
+          try {
+            const detail = await fetchClientDetail(ticket.clienteId);
+            if (!canceled) setClientDetail(detail);
+          } catch (err) {
+            if (!canceled) {
+              setClientDetailError(err?.message || 'No se pudo cargar el cliente.');
+            }
+          }
+        })();
+        return () => { canceled = true; };
+      }, [ticket.clienteId]);
+
       const pushNote = () => {
+        if (isClosedTicket) return;
         if (!note.trim()) return;
         onAddNote(note.trim());
         setNote('');
@@ -2214,14 +2739,61 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       };
       const isCancellationTicket = ticket.tipoRaw === 'solicitud_baja';
       const canCloseCancellation = [ 'retenido', 'baja_confirmada' ].includes(closeOutcome);
+      const isClosedTicket = ticket.estado === 'cerrado' || ticket.estado === 'resuelto' || ticket.estadoServicio === 'finalizado';
+      const hasServiceRequestData = ticket.serviceRequest && Object.values(ticket.serviceRequest).some((value) => {
+        if (typeof value === 'boolean') return value;
+        return value !== null && value !== undefined && String(value).trim() !== '';
+      });
 
-      const closeCurrentTicket = () => {
+      const saveServiceRequest = async () => {
+        if (!ticket.esSolicitudServicio) return;
+        setSavingServiceRequest(true);
+        try {
+          const updated = await updateTicket(ticket.id, { serviceRequest: serviceRequestDraft });
+          const fresh = await getTicketById(updated.id);
+          setEditingServiceRequest(false);
+          setServiceRequestDraft({
+            solicitanteNombre: fresh.serviceRequest?.solicitanteNombre || '',
+            solicitanteDocumento: fresh.serviceRequest?.solicitanteDocumento || '',
+            solicitanteTelefono: fresh.serviceRequest?.solicitanteTelefono || '',
+            solicitanteRelacion: fresh.serviceRequest?.solicitanteRelacion || '',
+            cuerpoUbicacion: fresh.serviceRequest?.cuerpoUbicacion || '',
+            requiereTraslado: Boolean(fresh.serviceRequest?.requiereTraslado),
+            trasladoOrigen: fresh.serviceRequest?.trasladoOrigen || '',
+            trasladoDestino: fresh.serviceRequest?.trasladoDestino || '',
+            servicioTipo: fresh.serviceRequest?.servicioTipo || '',
+            velatorioLugar: fresh.serviceRequest?.velatorioLugar || '',
+            servicioFechaHora: fresh.serviceRequest?.servicioFechaHora || '',
+            crematorio: fresh.serviceRequest?.crematorio || ''
+          });
+          onOpenTicket(fresh.id);
+        } catch (err) {
+          setCloseError(err?.message || 'No se pudo guardar la solicitud de servicio.');
+        } finally {
+          setSavingServiceRequest(false);
+        }
+      };
+
+      const closeCurrentTicket = async () => {
+        if (isClosedTicket) return;
+        if (isCancellationTicket && !showClosePanel) {
+          setShowClosePanel(true);
+          return;
+        }
         if (isCancellationTicket && !canCloseCancellation) {
           setCloseError('Debes elegir si el resultado fue retenido o baja confirmada.');
           return;
         }
         setCloseError('');
-        onCloseTicket({ outcome: closeOutcome });
+        setClosingTicket(true);
+        try {
+          await onCloseTicket({ outcome: closeOutcome });
+          setShowClosePanel(false);
+        } catch (err) {
+          setCloseError(err?.message || 'No se pudo cerrar el ticket.');
+        } finally {
+          setClosingTicket(false);
+        }
       };
 
       const timeline = ticket.timeline || [];
@@ -2239,34 +2811,19 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           <section className="content-grid">
             <Panel
               className="span-8"
-              title={'Solicitud #' + ticket.id}
-              subtitle={'Tipo: ' + supportRequestTypeLabel(ticket) + ' · Creado ' + ticket.hora + ' por ' + ticket.agente}
-              action={<div className="toolbar"><Button variant="ghost" icon={<ArrowDownRight size={16} />} onClick={onBack}>Volver</Button></div>}
+              title={'Solicitud #' + String(ticket.numero || ticket.id).padStart(6, '0')}
+              subtitle={'Tipo: ' + supportRequestTypeLabel(ticket) + ' · Creado ' + (formatDateTimeShort(ticket.hora) || ticket.hora) + ' por ' + ticket.agente}
+              action={<div className="toolbar"><button type="button" className="button ghost" onClick={(event) => { event.stopPropagation(); onBack(); }}><ArrowDownRight size={16} />Volver</button></div>}
             >
               <div className="toolbar" style={{ marginBottom: 14 }}>
-                <select className="input" style={{ width: 190 }} value={statusDraft} onChange={(event) => setStatusDraft(event.target.value)}>
-                  {ticket.esSolicitudServicio ? (
-                    <>
-                      <option value="iniciado">Iniciado</option>
-                      <option value="en_gestion">En gestión</option>
-                      <option value="finalizado">Finalizado</option>
-                    </>
-                  ) : (
-                    <>
-                      <option value="nuevo">Nuevo</option>
-                      <option value="gestion">En gestión</option>
-                      <option value="derivado">Derivado</option>
-                      <option value="resuelto">Resuelto</option>
-                      <option value="cerrado">Cerrado</option>
-                    </>
-                  )}
-                </select>
-                <Button variant="secondary" icon={<Activity size={16} />} onClick={() => onStatusChange(statusDraft)}>Cambiar estado</Button>
+                <div className="pill" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <SupportStatusBadge status={supportTicketDisplayStatus(ticket)} pulse={supportTicketDisplayStatus(ticket) === 'nuevo' || supportTicketDisplayStatus(ticket) === 'servicio_iniciado'} small />
+                  <span>Estado</span>
+                </div>
                 <a className="button ghost" href={'tel:' + ticket.telefono.replace(/\s/g, '')}><PhoneCall size={16} />Llamar cliente</a>
-                {!ticket.esSolicitudServicio ? <Button variant="ghost" icon={<Briefcase size={16} />} onClick={onDerive}>Derivar a operaciones</Button> : null}
-                <Button icon={<CheckCircle2 size={16} />} onClick={closeCurrentTicket}>Cerrar ticket</Button>
+                <Button icon={<CheckCircle2 size={16} />} onClick={closeCurrentTicket} disabled={closingTicket || isClosedTicket}>{isClosedTicket ? 'Ticket cerrado' : 'Cerrar ticket'}</Button>
               </div>
-              {isCancellationTicket ? (
+              {isCancellationTicket && showClosePanel && !isClosedTicket ? (
                 <div style={{ marginTop: -4, marginBottom: 14, borderRadius: 14, padding: 10, border: '1px solid rgba(15,118,110,0.2)', background: 'rgba(15,118,110,0.06)' }}>
                   <div style={{ fontWeight: 700, marginBottom: 6 }}>Resultado de cierre de solicitud de baja</div>
                   <div className="toolbar">
@@ -2276,83 +2833,206 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       <option value="baja_confirmada">Baja confirmada</option>
                     </select>
                     <div className="pill">{ticket.productoNombre || 'Sin producto'}</div>
+                    <Button icon={<CheckCircle2 size={16} />} onClick={closeCurrentTicket} disabled={closingTicket}>Confirmar cierre</Button>
                   </div>
                   {closeError ? <div style={{ marginTop: 8, color: '#be123c', fontWeight: 700 }}>{closeError}</div> : null}
                 </div>
               ) : null}
 
               <div className="list">
-                <div className="status-item"><div className="status-ring" style={{ background: 'rgba(37,99,235,0.12)', color: '#2563eb' }}><User size={18} /></div><div><div style={{ fontWeight: 700 }}>{ticket.cliente}</div><a href={'tel:' + ticket.telefono.replace(/\s/g, '')} style={{ color: '#0f766e', fontWeight: 700, textDecoration: 'none' }}>{ticket.telefono}</a></div></div>
-                <div className="status-item"><div className="status-ring" style={{ background: 'rgba(15,118,110,0.12)', color: '#0f766e' }}><Bot size={18} /></div><div><div style={{ fontWeight: 700, marginBottom: 4 }}>{ticket.esSolicitudServicio ? 'Detalle de solicitud' : 'Resumen IA'}</div><div style={{ color: 'var(--muted)' }}>{ticket.resumen}</div></div></div>
-              </div>
+                <div className="alert" style={{ border: '1px solid rgba(20,34,53,0.08)', background: 'rgba(20,34,53,0.03)' }}>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                    <div className="status-ring" style={{ background: 'rgba(37,99,235,0.12)', color: '#2563eb' }}><User size={18} /></div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 800, marginBottom: 8 }}>Cliente</div>
+                      {clientDetailError ? <div style={{ color: '#be123c', fontWeight: 700 }}>{clientDetailError}</div> : null}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>
+                        <div><strong>Nombre:</strong> {clientDetail?.name || `${clientDetail?.nombre || ''} ${clientDetail?.apellido || ''}`.trim() || ticket.cliente || '—'}</div>
+                        <div><strong>Documento:</strong> {clientDetail?.documento || '—'}</div>
+                        <div><strong>Teléfono:</strong> {clientDetail?.telefono || clientDetail?.phone || ticket.telefono || '—'}</div>
+                        <div><strong>Celular:</strong> {clientDetail?.celular || clientDetail?.cellphone || '—'}</div>
+                        <div><strong>Email:</strong> {clientDetail?.email || '—'}</div>
+                        <div><strong>Dirección:</strong> {clientDetail?.direccion || '—'}</div>
+                        <div><strong>Departamento:</strong> {clientDetail?.departamento || '—'}</div>
+                        <div><strong>País:</strong> {clientDetail?.pais || '—'}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-              <div style={{ marginTop: 16 }}>
-                <button className="button secondary" onClick={() => setShowTranscript((value) => !value)}><FileText size={16} />{showTranscript ? 'Ocultar transcripción' : 'Ver transcripción'}</button>
-                {showTranscript ? <div style={{ marginTop: 12, borderRadius: 16, padding: 14, background: 'rgba(20,34,53,0.04)', border: '1px solid rgba(20,34,53,0.08)' }}>{transcript.map((line) => <div key={line} style={{ marginBottom: 8, color: line.startsWith('IA:') ? '#0f766e' : 'var(--muted)', fontSize: '0.9rem' }}>{line}</div>)}</div> : null}
+                <div className="alert" style={{ border: '1px solid rgba(20,34,53,0.08)', background: 'rgba(20,34,53,0.03)' }}>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                    <div className="status-ring" style={{ background: 'rgba(15,118,110,0.12)', color: '#0f766e' }}><Briefcase size={18} /></div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 800, marginBottom: 8 }}>Producto</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>
+                        <div><strong>Nombre:</strong> {clientDetail?.product?.nombreProducto || clientDetail?.product?.nombre_producto || clientDetail?.product?.nombre || ticket.productoNombre || '—'}</div>
+                        <div><strong>Estado:</strong> {clientDetail?.product?.estado || clientDetail?.product?.estadoProducto || '—'}</div>
+                        <div><strong>Fecha de alta:</strong> {formatDateShort(clientDetail?.product?.fechaAlta || clientDetail?.product?.fecha_alta || '') || '—'}</div>
+                        <div><strong>Precio:</strong> {clientDetail?.product?.precio ? `$ ${Number(String(clientDetail.product.precio).replace(/[^0-9.-]/g, '')).toLocaleString('es-UY')}` : '—'}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {ticket.esSolicitudServicio ? (
+                  <>
+                    <div className="alert" style={{ border: '1px solid rgba(20,34,53,0.08)', background: 'rgba(20,34,53,0.03)' }}>
+                      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                        <div className="status-ring" style={{ background: 'rgba(14,116,144,0.12)', color: '#0e7490' }}><FileText size={18} /></div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                            <div style={{ fontWeight: 800 }}>Datos del solicitante</div>
+                            {!hasServiceRequestData && !editingServiceRequest ? (
+                              <Button variant="secondary" icon={<Plus size={16} />} onClick={() => setEditingServiceRequest(true)}>Completar datos</Button>
+                            ) : null}
+                          </div>
+
+                          {!editingServiceRequest ? (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, marginTop: 6 }}>
+                              <div><strong>Nombre completo:</strong> {ticket.serviceRequest?.solicitanteNombre || '—'}</div>
+                              <div><strong>Documento de identidad:</strong> {ticket.serviceRequest?.solicitanteDocumento || '—'}</div>
+                              <div><strong>Teléfono de contacto:</strong> {ticket.serviceRequest?.solicitanteTelefono || '—'}</div>
+                              <div><strong>Relación con el fallecido:</strong> {ticket.serviceRequest?.solicitanteRelacion || '—'}</div>
+                            </div>
+                          ) : (
+                            <>
+                              <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+                                <input className="input" placeholder="Nombre completo" value={serviceRequestDraft.solicitanteNombre} onChange={(event) => setServiceRequestDraft((prev) => ({ ...prev, solicitanteNombre: event.target.value }))} />
+                                <input className="input" placeholder="Documento de identidad" value={serviceRequestDraft.solicitanteDocumento} onChange={(event) => setServiceRequestDraft((prev) => ({ ...prev, solicitanteDocumento: event.target.value }))} />
+                                <input className="input" placeholder="Teléfono de contacto" value={serviceRequestDraft.solicitanteTelefono} onChange={(event) => setServiceRequestDraft((prev) => ({ ...prev, solicitanteTelefono: event.target.value }))} />
+                                <input className="input" placeholder="Relación con el fallecido" value={serviceRequestDraft.solicitanteRelacion} onChange={(event) => setServiceRequestDraft((prev) => ({ ...prev, solicitanteRelacion: event.target.value }))} />
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="alert" style={{ border: '1px solid rgba(20,34,53,0.08)', background: 'rgba(20,34,53,0.03)' }}>
+                      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                        <div className="status-ring" style={{ background: 'rgba(16,185,129,0.12)', color: '#059669' }}><Briefcase size={18} /></div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 800 }}>Datos del servicio</div>
+                          {!editingServiceRequest ? (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, marginTop: 6 }}>
+                              <div><strong>Ubicación del cuerpo:</strong> {ticket.serviceRequest?.cuerpoUbicacion || '—'}</div>
+                              <div><strong>Traslado:</strong> {ticket.serviceRequest?.requiereTraslado ? 'Sí' : 'No'}</div>
+                              {ticket.serviceRequest?.requiereTraslado ? (
+                                <>
+                                  <div><strong>Origen:</strong> {ticket.serviceRequest?.trasladoOrigen || '—'}</div>
+                                  <div><strong>Destino:</strong> {ticket.serviceRequest?.trasladoDestino || '—'}</div>
+                                </>
+                              ) : null}
+                              <div><strong>Tipo de servicio:</strong> {ticket.serviceRequest?.servicioTipo || '—'}</div>
+                              <div><strong>Lugar del velatorio:</strong> {ticket.serviceRequest?.velatorioLugar || '—'}</div>
+                              <div><strong>Fecha y hora estimada:</strong> {formatDateTimeShort(ticket.serviceRequest?.servicioFechaHora) || ticket.serviceRequest?.servicioFechaHora || '—'}</div>
+                              <div><strong>Crematorio seleccionado:</strong> {ticket.serviceRequest?.crematorio || '—'}</div>
+                            </div>
+                          ) : (
+                            <>
+                              <div style={{ marginTop: 8, display: 'grid', gap: 10 }}>
+                                <input className="input" placeholder="¿Dónde se encuentra el cuerpo actualmente?" value={serviceRequestDraft.cuerpoUbicacion} onChange={(event) => setServiceRequestDraft((prev) => ({ ...prev, cuerpoUbicacion: event.target.value }))} />
+                                <div className="toolbar" style={{ flexWrap: 'wrap' }}>
+                                  <select className="input" style={{ width: 220 }} value={serviceRequestDraft.requiereTraslado ? 'si' : 'no'} onChange={(event) => setServiceRequestDraft((prev) => ({ ...prev, requiereTraslado: event.target.value === 'si' }))}>
+                                    <option value="no">No requiere traslado</option>
+                                    <option value="si">Requiere traslado</option>
+                                  </select>
+                                  {serviceRequestDraft.requiereTraslado ? (
+                                    <>
+                                      <input className="input" style={{ minWidth: 220 }} placeholder="Origen" value={serviceRequestDraft.trasladoOrigen} onChange={(event) => setServiceRequestDraft((prev) => ({ ...prev, trasladoOrigen: event.target.value }))} />
+                                      <input className="input" style={{ minWidth: 220 }} placeholder="Destino" value={serviceRequestDraft.trasladoDestino} onChange={(event) => setServiceRequestDraft((prev) => ({ ...prev, trasladoDestino: event.target.value }))} />
+                                    </>
+                                  ) : null}
+                                </div>
+                              </div>
+                              <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+                                <select className="input" value={serviceRequestDraft.servicioTipo} onChange={(event) => setServiceRequestDraft((prev) => ({ ...prev, servicioTipo: event.target.value }))}>
+                                  <option value="">Tipo de servicio</option>
+                                  <option value="Directo (sin velatorio)">Directo (sin velatorio)</option>
+                                  <option value="Con velatorio previo">Con velatorio previo</option>
+                                </select>
+                                <input className="input" placeholder="Lugar del velatorio (si aplica)" value={serviceRequestDraft.velatorioLugar} onChange={(event) => setServiceRequestDraft((prev) => ({ ...prev, velatorioLugar: event.target.value }))} />
+                                <input className="input" type="datetime-local" value={serviceRequestDraft.servicioFechaHora} onChange={(event) => setServiceRequestDraft((prev) => ({ ...prev, servicioFechaHora: event.target.value }))} />
+                                <input className="input" placeholder="Crematorio seleccionado" value={serviceRequestDraft.crematorio} onChange={(event) => setServiceRequestDraft((prev) => ({ ...prev, crematorio: event.target.value }))} />
+                              </div>
+                            </>
+                          )}
+                          {editingServiceRequest ? (
+                            <div className="toolbar" style={{ marginTop: 10 }}>
+                              <Button variant="ghost" onClick={() => setEditingServiceRequest(false)}>Cancelar</Button>
+                              <Button icon={<CheckCircle2 size={16} />} onClick={saveServiceRequest} disabled={savingServiceRequest}>{savingServiceRequest ? 'Guardando...' : 'Guardar datos'}</Button>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : null}
+
+                <div className="alert" style={{ border: '1px solid rgba(20,34,53,0.08)', background: 'rgba(20,34,53,0.03)' }}>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                    <div className="status-ring" style={{ background: 'rgba(14,116,144,0.12)', color: '#0e7490' }}><FileText size={18} /></div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 800, marginBottom: 8 }}>Resumen</div>
+                      <div style={{ color: 'var(--muted)' }}>{ticket.resumen || '—'}</div>
+                    </div>
+                  </div>
+                </div>
+
               </div>
 
               <div style={{ marginTop: 18 }}>
                 <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, marginBottom: 10 }}>Notas internas</div>
                 <div className="list" style={{ marginBottom: 12 }}>
-                  {(ticket.notas || []).map((item) => <div key={item.autor + item.hora + item.texto} className="alert"><div><div style={{ fontWeight: 700 }}>{item.autor} <span style={{ color: 'var(--muted)', fontWeight: 500 }}>· {item.hora}</span></div><div style={{ color: 'var(--muted)' }}>{item.texto}</div></div></div>)}
+                  {(ticket.notas || []).map((item) => (
+                    <div key={(item.autor || '') + (item.hora || item.createdAt || '') + item.texto} className="alert">
+                      <div>
+                        <div style={{ fontWeight: 700 }}>
+                          {item.autor}
+                          <span style={{ color: 'var(--muted)', fontWeight: 500 }}>
+                            {' · '}
+                            {item.hora || formatDateTimeShort(item.createdAt) || ''}
+                          </span>
+                        </div>
+                        <div style={{ color: 'var(--muted)' }}>{item.texto}</div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="toolbar"><input className="input" value={note} onChange={(event) => setNote(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') pushNote(); }} placeholder="Agregar nota rápida..." /><Button icon={<Send size={16} />} onClick={pushNote}>Guardar</Button></div>
+                <div className="toolbar">
+                  <input className="input" value={note} disabled={isClosedTicket} onChange={(event) => setNote(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') pushNote(); }} placeholder={isClosedTicket ? 'Ticket cerrado' : 'Agregar nota rápida...'} />
+                  <Button icon={<Send size={16} />} onClick={pushNote} disabled={isClosedTicket}>Guardar</Button>
+                </div>
               </div>
 
-              <div style={{ marginTop: 18, borderTop: '1px solid rgba(20,34,53,0.08)', paddingTop: 14 }}>
-                <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, marginBottom: 10 }}>Historial del ticket</div>
-                <div className="list">
-                  {timeline.length ? timeline.map((event) => <div key={event.at + event.event} className="alert"><div><div style={{ fontWeight: 700 }}>{event.event}</div><div style={{ color: 'var(--muted)' }}>{event.at}</div></div></div>) : <div style={{ color: 'var(--muted)' }}>Sin eventos para este ticket.</div>}
+              {ticket.cierreHistory?.length ? (
+                <div style={{ marginTop: 18 }}>
+                  <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, marginBottom: 10 }}>Historial de cierre</div>
+                  <div className="list">
+                    {ticket.cierreHistory.map((entry, idx) => (
+                      <div key={(entry.at || '') + (entry.resultado || '') + idx} className="alert">
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8 }}>
+                          <div><strong>Fecha y hora:</strong> {formatDateTimeShort(entry.at) || entry.at || '—'}</div>
+                          <div><strong>Usuario:</strong> {entry.user || '—'}</div>
+                          <div><strong>Resultado:</strong> {entry.resultado || '—'}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              ) : null}
+
             </Panel>
 
-            <div className="span-4" style={{ display: 'grid', gap: 14 }}>
-              <Panel title="Historial real del contacto" subtitle="Productos asociados y su ciclo de vida">
-                {lifecycle?.productos?.length ? (
-                  <div className="list">
-                    {lifecycle.productos.map((product) => {
-                      const statusStyles = product.estadoProducto === 'baja'
-                        ? { bg: 'rgba(190,24,93,0.12)', color: '#be185d', border: 'rgba(190,24,93,0.25)' }
-                        : { bg: 'rgba(22,163,74,0.12)', color: '#15803d', border: 'rgba(22,163,74,0.25)' };
-                      return (
-                        <div key={product.id} className="alert" style={{ border: '1px solid rgba(20,34,53,0.08)', background: 'rgba(20,34,53,0.03)' }}>
-                          <div style={{ width: '100%' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-                              <strong>{product.productoNombre}</strong>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, fontSize: '0.76rem', fontWeight: 700, background: statusStyles.bg, color: statusStyles.color, border: '1px solid ' + statusStyles.border }}>
-                                {product.estadoProducto}
-                              </span>
-                            </div>
-                            <div style={{ color: 'var(--muted)', fontSize: '0.84rem', marginTop: 6 }}>
-                              Alta: {formatLifecycleDate(product.fechaAlta)} · Baja: {formatLifecycleDate(product.fechaBaja)}
-                            </div>
-                            {product.tickets?.length ? (
-                              <div style={{ marginTop: 8 }}>
-                                {product.tickets.slice(0, 3).map((relatedTicket) => (
-                                  <div key={relatedTicket.id} style={{ fontSize: '0.82rem', color: '#475569', marginTop: 3 }}>
-                                    #{relatedTicket.id} · {supportRequestTypeLabel(relatedTicket)} · {relatedTicket.resultadoRetencion || supportTicketDisplayStatus(relatedTicket)}
-                                  </div>
-                                ))}
-                              </div>
-                            ) : null}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div style={{ color: 'var(--muted)' }}>Sin productos asociados en historial.</div>
-                )}
-              </Panel>
-
+            <div className="span-4" style={{ display: 'grid', gap: 12, alignSelf: 'start' }}>
               <Panel title="Historial del cliente" subtitle="Solicitudes anteriores del mismo cliente">
                 {clientHistory.length ? (
-                  <div className="list">
+                  <div className="list" style={{ gap: 8, maxHeight: 'calc(100vh - 260px)', overflowY: 'auto', paddingRight: 4 }}>
                     {clientHistory.map((item) => (
-                      <button key={item.id} className="alert" style={{ textAlign: 'left', border: '1px solid rgba(20,34,53,0.08)', background: 'rgba(20,34,53,0.03)' }} onClick={() => onOpenTicket(item.id)}>
+                      <button key={item.id} className="alert" style={{ textAlign: 'left', border: '1px solid rgba(20,34,53,0.08)', background: 'rgba(20,34,53,0.03)', padding: '10px 12px' }} onClick={() => onOpenTicket(item.id)}>
                         <div style={{ width: '100%' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}><strong>Solicitud #{item.id}</strong><SupportStatusBadge status={supportTicketDisplayStatus(item)} small /></div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}><strong>Solicitud #{String(item.numero || item.id).padStart(6, '0')}</strong><SupportStatusBadge status={supportTicketDisplayStatus(item)} small /></div>
                           <div style={{ color: 'var(--muted)', marginTop: 4 }}>{supportRequestTypeLabel(item)}</div>
                           <div style={{ color: 'var(--muted)', fontSize: '0.85rem', marginTop: 4 }}>{item.resumen}</div>
                           <div style={{ color: '#64748b', fontSize: '0.82rem', marginTop: 6 }}>{item.hora}</div>
@@ -2401,9 +3081,36 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const openTicket = (id) => {
         setSelectedId(id);
         setView('detalle');
+        getTicketById(id)
+          .then((fresh) => {
+            setTickets((prev) => prev.map((ticket) => ticket.id === fresh.id ? fresh : ticket));
+          })
+          .catch(() => {});
       };
 
-      const backToInbox = () => setView('listado');
+      React.useEffect(() => {
+        if (view !== 'detalle' || !selectedId) return undefined;
+        const intervalId = setInterval(() => {
+          getTicketById(selectedId)
+            .then((fresh) => {
+              if (!fresh) return;
+              setTickets((prev) => prev.map((ticket) => ticket.id === fresh.id ? fresh : ticket));
+            })
+            .catch(() => {});
+        }, 30000);
+        return () => clearInterval(intervalId);
+      }, [view, selectedId]);
+
+      const backToInbox = () => {
+        setView('listado');
+        listTicketsAsync()
+          .then((data) => {
+            console.log('[manual-tickets] refresh', data?.length, data?.[0]);
+            setTickets(data);
+            setSelectedId(data[0]?.id || null);
+          })
+          .catch(() => {});
+      };
 
       const updateStatus = async (status) => {
         if (!selectedTicket) return;
@@ -2417,8 +3124,15 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const appendNote = async (text) => {
         if (!selectedTicket) return;
         const updated = await addTicketNote(selectedTicket.id, text, { authorName: 'Agente' });
-        setTickets((prev) => prev.map((ticket) => ticket.id === updated.id ? updated : ticket));
-        setSelectedId(updated.id);
+        let finalTicket = updated;
+        try {
+          const fresh = await getTicketById(updated.id);
+          if (fresh) finalTicket = { ...fresh, notas: fresh.notas || updated.notas, timeline: fresh.timeline || updated.timeline };
+        } catch {
+          // keep local update
+        }
+        setTickets((prev) => prev.map((ticket) => ticket.id === finalTicket.id ? finalTicket : ticket));
+        setSelectedId(finalTicket.id);
       };
 
       const deriveTicket = async () => {
@@ -2430,13 +3144,52 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
       const closeTicket = async ({ outcome = '', note = '' } = {}) => {
         if (!selectedTicket) return;
-        const updated = await closeTicketCase(selectedTicket.id, {
-          outcome,
-          note,
-          actorName: 'Agente'
-        });
-        setTickets((prev) => prev.map((ticket) => ticket.id === updated.id ? updated : ticket));
-        setSelectedId(updated.id);
+        try {
+          const updated = await closeTicketCase(selectedTicket.id, {
+            outcome,
+            note,
+            actorName: 'Agente'
+          });
+          const outcomeLabel = outcome === 'baja_confirmada' ? 'Baja confirmada' : outcome === 'retenido' ? 'Retenido' : (updated.resultadoRetencion || outcome || '');
+          const cierreEntry = {
+            at: formatDateTimeShort(new Date().toISOString()) || new Date().toISOString(),
+            user: 'Agente',
+            resultado: outcomeLabel || '—'
+          };
+          const cierreHistory = Array.isArray(updated.cierreHistory)
+            ? [cierreEntry, ...updated.cierreHistory]
+            : [cierreEntry];
+          const withHistory = { ...updated, cierreHistory };
+          setTickets((prev) => prev.map((ticket) => {
+            if (ticket.id !== withHistory.id) return ticket;
+            return {
+              ...ticket,
+              ...withHistory,
+              cliente: withHistory.cliente && withHistory.cliente !== 'Cliente' ? withHistory.cliente : ticket.cliente,
+              telefono: withHistory.telefono || ticket.telefono,
+              productoNombre: withHistory.productoNombre || ticket.productoNombre
+            };
+          }));
+          setSelectedId(withHistory.id);
+          // Refrescar lista para mantener nombre/telefono hidratados
+          listTicketsAsync()
+            .then((data) => {
+              setTickets((prev) => {
+                const byId = Object.fromEntries(prev.map((t) => [t.id, t]));
+                return data.map((item) => ({
+                  ...byId[item.id],
+                  ...item,
+                  cliente: item.cliente && item.cliente !== 'Cliente' ? item.cliente : (byId[item.id]?.cliente || item.cliente),
+                  telefono: item.telefono || byId[item.id]?.telefono || '',
+                  productoNombre: item.productoNombre || byId[item.id]?.productoNombre || ''
+                }));
+              });
+            })
+            .catch(() => {});
+          return withHistory;
+        } catch (err) {
+          throw err;
+        }
       };
 
       const createSupportTicket = React.useCallback(async (payload) => {
@@ -2476,40 +3229,30 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         );
       }
 
-      if (error) {
-        return (
-          <div className="view">
-            <section className="content-grid">
-              <Panel className="span-12" title="Atención al cliente" subtitle="Error de carga">
-                <div className="toolbar">
-                  <span style={{ color: '#be123c', fontWeight: 700 }}>{error}</span>
-                  <Button variant="secondary" onClick={loadTickets}>Reintentar</Button>
-                </div>
-              </Panel>
-            </section>
-          </div>
-        );
-      }
-
       if (view === 'detalle' && selectedTicket) {
         return <SupportDetail ticket={selectedTicket} tickets={tickets} onBack={backToInbox} onStatusChange={updateStatus} onAddNote={appendNote} onOpenTicket={openTicket} onDerive={deriveTicket} onCloseTicket={closeTicket} />;
       }
       return (
         <div className="view">
           <section className="content-grid">
-            <Panel
-              className="span-12"
-              title="Atención al cliente"
-              subtitle="Mesa de ayuda telefónica"
-              action={<Tag variant="info">{tickets.filter((ticket) => ['nuevo', 'servicio_iniciado'].includes(supportTicketDisplayStatus(ticket))).length} nuevos</Tag>}
-            >
-              <div className="toolbar">
-                <Button variant={section === 'buscar_cliente' ? 'primary' : 'secondary'} onClick={() => setSection('buscar_cliente')}>Buscar cliente</Button>
-                <Button variant={section === 'gestiones_clientes' ? 'primary' : 'secondary'} onClick={() => setSection('gestiones_clientes')}>Gestiones con clientes</Button>
-                <Button variant={section === 'solicitudes_servicio' ? 'primary' : 'secondary'} onClick={() => setSection('solicitudes_servicio')}>Solicitudes de servicio</Button>
+            <Panel className="span-12" style={{ padding: '10px 14px' }}>
+              <div className="toolbar" style={{ gap: 12 }}>
+                <Button style={{ minWidth: 170 }} variant={section === 'buscar_cliente' ? 'primary' : 'secondary'} onClick={() => setSection('buscar_cliente')}>Buscar cliente</Button>
+                <Button style={{ minWidth: 210 }} variant={section === 'gestiones_clientes' ? 'primary' : 'secondary'} onClick={() => setSection('gestiones_clientes')}>Gestiones con clientes</Button>
+                <Button style={{ minWidth: 220 }} variant={section === 'solicitudes_servicio' ? 'primary' : 'secondary'} onClick={() => setSection('solicitudes_servicio')}>Solicitudes de servicio</Button>
               </div>
             </Panel>
           </section>
+          {error ? (
+            <section className="content-grid">
+              <Panel className="span-12">
+                <div className="toolbar">
+                  <span style={{ color: '#be123c', fontWeight: 700 }}>{error}</span>
+                  <Button variant="secondary" onClick={loadTickets}>Reintentar</Button>
+                </div>
+              </Panel>
+            </section>
+          ) : null}
           {section === 'buscar_cliente' ? <SupportClientSearchView onCreateManualTicket={createSupportTicket} onAfterCreate={handleAfterCreateFromClient} /> : null}
           {section === 'gestiones_clientes' ? (
             <SupportTicketsView
@@ -2575,55 +3318,131 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       );
     }
 
-    function ContactsView() {
-      const [contactsRows, setContactsRows] = React.useState(CONTACTS);
+      function ContactsView() {
+        const [contactsRows, setContactsRows] = React.useState([]);
+        const [contactsLoading, setContactsLoading] = React.useState(true);
+        const [contactsError, setContactsError] = React.useState('');
 
-      React.useEffect(() => {
-        let canceled = false;
-        fetchContactsList()
-          .then((rows) => {
-            if (canceled) return;
-            setContactsRows(rows);
-          })
-          .catch(() => {});
-        return () => { canceled = true; };
-      }, []);
+        React.useEffect(() => {
+          let canceled = false;
+          setContactsLoading(true);
+          setContactsError('');
+          fetchContactsList()
+            .then((rows) => {
+              if (canceled) return;
+              setContactsRows(rows);
+            })
+            .catch(() => {
+              if (canceled) return;
+              setContactsError('No se pudieron cargar los contactos.');
+            })
+            .finally(() => {
+              if (canceled) return;
+              setContactsLoading(false);
+            });
+          return () => { canceled = true; };
+        }, []);
 
-      return (
-        <div className="view">
-          <section className="content-grid">
-            <Panel className="span-12" title="Base de contactos" subtitle="1.240 registros listos para gestión" action={<Button icon={<Plus size={18} />}>Nuevo contacto</Button>}>
-              <div className="toolbar" style={{ marginBottom: 16 }}>
-                <div className="searchbox"><Search size={18} color="#69788d" /><input placeholder="Buscar por nombre, teléfono o documento..." /></div>
-                <Button variant="secondary" icon={<Filter size={18} />}>Filtros</Button>
-                <Button variant="ghost" icon={<Layers size={18} />}>Ver segmentos</Button>
-              </div>
-              <div className="table-wrap">
-                <table>
-                  <thead><tr><th>Contacto</th><th>Teléfono</th><th>Ubicación</th><th>Estado</th><th>Última gestión</th><th>Acción</th></tr></thead>
-                  <tbody>{contactsRows.map((contact) => (
-                    <tr key={contact.id}>
-                      <td><div className="person"><div className="person-badge">{initials(contact.name)}</div><strong>{contact.name}</strong></div></td>
-                      <td>{contact.phone}</td>
-                      <td>{contact.city}</td>
-                      <td><Tag variant={statusVariant(contact.status)}>{contact.status}</Tag></td>
-                      <td>{contact.last}</td>
-                      <td><div className="toolbar"><Button variant="ghost" icon={<Phone size={16} />}></Button><Button variant="ghost" icon={<Eye size={16} />}></Button><Button variant="ghost" icon={<Edit3 size={16} />}></Button></div></td>
-                    </tr>
-                  ))}</tbody>
-                </table>
-              </div>
-            </Panel>
-          </section>
-        </div>
-      );
-    }
+        const renderContactsBody = () => {
+          if (contactsLoading) {
+            return (
+              <tr>
+                <td colSpan={7} style={{ textAlign: 'center', padding: 20, color: '#6b7280' }}>Cargando contactos...</td>
+              </tr>
+            );
+          }
+          if (contactsError) {
+            return (
+              <tr>
+                <td colSpan={7} style={{ textAlign: 'center', padding: 20, color: '#be123c' }}>{contactsError}</td>
+              </tr>
+            );
+          }
+          if (!contactsRows.length) {
+            return (
+              <tr>
+                <td colSpan={7} style={{ textAlign: 'center', padding: 20, color: '#6b7280' }}>No hay contactos disponibles.</td>
+              </tr>
+            );
+          }
+          return contactsRows.map((contact, index) => (
+            <tr key={contact.id || `contact-${index}`}>
+              <td>
+                <div className="person">
+                  <div className="person-badge">{initials(contact.name || 'Contacto')}</div>
+                  <strong>{contact.name || 'Sin dato'}</strong>
+                </div>
+              </td>
+              <td>{contact.phone || 'Sin dato'}</td><td>{pickCellular(contact) || 'Sin dato'}</td><td>{contact.city || 'Sin dato'}</td>
+              <td><Tag variant={statusVariant(contact.status)}>{contact.status || 'Sin dato'}</Tag></td>
+              <td>{contact.last || 'Sin registro'}</td>
+              <td>
+                <div className="toolbar">
+                  <Button variant="ghost" icon={<Phone size={16} />} />
+                  <Button variant="ghost" icon={<Eye size={16} />} />
+                  <Button variant="ghost" icon={<Edit3 size={16} />} />
+                </div>
+              </td>
+            </tr>
+          ));
+        };
 
-    function ClientsView() {
-      const [clientMetrics, setClientMetrics] = React.useState(() => buildClientMetricCards());
-      const [clientRows, setClientRows] = React.useState(CLIENTS);
-      const [portfolioClients, setPortfolioClients] = React.useState(() => listPortfolioClients());
-      const [selectedClient, setSelectedClient] = React.useState(null);
+        return (
+          <div className="view">
+            <section className="content-grid">
+              <Panel className="span-12" title="Base de contactos" subtitle="1.240 registros listos para gestión" action={<Button icon={<Plus size={18} />}>Nuevo contacto</Button>}>
+                <div className="toolbar" style={{ marginBottom: 16 }}>
+                  <div className="searchbox"><Search size={18} color="#69788d" /><input placeholder="Buscar por nombre, teléfono o documento..." /></div>
+                  <Button variant="secondary" icon={<Filter size={18} />}>Filtros</Button>
+                  <Button variant="ghost" icon={<Layers size={18} />}>Ver segmentos</Button>
+                </div>
+                <div className="table-wrap">
+                  <table>
+                    <thead><tr><th>Contacto</th><th>Teléfono</th><th>Celular</th><th>Ubicación</th><th>Estado</th><th>Última gestión</th><th>Acción</th></tr></thead>
+                    <tbody>{renderContactsBody()}</tbody>
+                  </table>
+                </div>
+              </Panel>
+            </section>
+          </div>
+        );
+      }
+
+      function ClientsView({ productsCatalog = [] }) {
+        const { user: authUser } = useAuth();
+        const [clientMetrics, setClientMetrics] = React.useState(() => buildClientMetricCards());
+        const [clientRows, setClientRows] = React.useState([]);
+        const [clientSearch, setClientSearch] = React.useState('');
+        const [clientsLoading, setClientsLoading] = React.useState(true);
+        const [clientsError, setClientsError] = React.useState('');
+        const [selectedClient, setSelectedClient] = React.useState(null);
+        const [clientDetailError, setClientDetailError] = React.useState('');
+        const [newClientOpen, setNewClientOpen] = React.useState(false);
+        const [newClientError, setNewClientError] = React.useState('');
+        const [newClientSaving, setNewClientSaving] = React.useState(false);
+        const [newClientStep, setNewClientStep] = React.useState(0);
+        const [newClientDraft, setNewClientDraft] = React.useState({
+          contact: {
+            nombre: '',
+            apellido: '',
+            documento: '',
+            fecha_nacimiento: '',
+            telefono: '',
+            celular: '',
+            email: '',
+            direccion: '',
+            departamento: '',
+            pais: 'Uruguay',
+            status: 'activo'
+          },
+          products: [],
+          sale: {
+            mode: 'logged',
+            externalName: '',
+            medioPago: 'debito'
+          }
+        });
+        const [isCompactForm, setIsCompactForm] = React.useState(window.innerWidth < 768);
 
       React.useEffect(() => {
         let canceled = false;
@@ -2632,30 +3451,367 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             if (canceled) return;
             setClientMetrics(buildClientMetricCards(metrics));
           })
-          .catch(() => {});
+          .catch(() => {})
+          .finally(() => {
+            if (canceled) return;
+          });
         return () => { canceled = true; };
       }, []);
 
       React.useEffect(() => {
+        const onResize = () => setIsCompactForm(window.innerWidth < 768);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+      }, []);
+
+      React.useEffect(() => {
         let canceled = false;
+        setClientsLoading(true);
+        setClientsError('');
         fetchClientsDirectory()
-          .then(({ table, portfolio }) => {
+          .then(({ table }) => {
             if (canceled) return;
             setClientRows(table);
-            setPortfolioClients(portfolio);
           })
-          .catch(() => {});
+          .catch(() => {
+            if (canceled) return;
+            setClientsError('No se pudo cargar la cartera de clientes.');
+          })
+          .finally(() => {
+            if (canceled) return;
+            setClientsLoading(false);
+          });
         return () => { canceled = true; };
       }, []);
 
-      const handleViewFicha = React.useCallback((clientId) => {
-        const found = portfolioClients.find((item) => item.id === clientId);
+      const filteredClients = React.useMemo(() => {
+        const term = String(clientSearch || '').trim().toLowerCase();
+        if (!term) return clientRows;
+        return clientRows.filter((row) => {
+          const values = [
+            row.name,
+            row.documento,
+            row.email,
+            row.phone,
+            row.celular,
+            row.product,
+            row.plan
+          ]
+            .filter(Boolean)
+            .map((value) => String(value).toLowerCase());
+          return values.some((value) => value.includes(term));
+        });
+      }, [clientRows, clientSearch]);
+
+      const handleViewFicha = React.useCallback(async (clientId) => {
+        const found = clientRows.find((item) => item.id === clientId);
         if (found) {
           setSelectedClient(found);
         }
-      }, [portfolioClients]);
+        setClientDetailError('');
+        try {
+          const detail = await fetchClientDetail(clientId);
+          if (detail) {
+            setSelectedClient(detail);
+          }
+          try {
+            const tickets = await listTicketsByClientId(clientId);
+            if (tickets?.length) {
+              setSelectedClient((prev) => (prev && prev.id === clientId ? { ...prev, ticketsHistory: tickets } : prev));
+            }
+          } catch {
+            // no-op: avoid blocking ficha
+          }
+        } catch (err) {
+          console.error('No se pudo cargar el detalle del cliente.', err);
+          const status = err?.status;
+          const backendMessage =
+            err?.details?.message || err?.details?.error || err?.message || '';
+          const statusLabel = status ? ` (HTTP ${status})` : '';
+          const detailLabel = backendMessage ? ` · ${backendMessage}` : '';
+          setClientDetailError(`No se pudo cargar el detalle del cliente${statusLabel}${detailLabel}.`);
+        }
+      }, [clientRows]);
 
-      const handleCloseFicha = () => setSelectedClient(null);
+      const handleClientUpdated = React.useCallback((updated) => {
+        if (!updated) return;
+        const updatedId = updated.id;
+        const productLabel = typeof updated.product === 'string'
+          ? updated.product
+          : (updated.product?.nombre || updated.product?.name || '');
+        const planLabel = updated.plan || updated.product?.plan || '';
+        const feeLabel = updated.fee || updated.product?.fee || updated.product?.precio || '';
+        setSelectedClient((prev) => (prev && prev.id === updatedId ? { ...prev, ...updated } : updated));
+        setClientRows((prev) => prev.map((row) => {
+          if (row.id !== updatedId) return row;
+          return {
+            ...row,
+            name: updated.name || `${updated.nombre || ''} ${updated.apellido || ''}`.trim() || row.name,
+            product: productLabel || row.product,
+            plan: planLabel || row.plan,
+            fee: feeLabel || row.fee,
+            status: updated.status || updated.contactoEstado || row.status,
+            email: updated.email || row.email,
+            phone: updated.phone || updated.telefono || row.phone,
+            celular: updated.celular || updated.cellphone || row.celular,
+            documento: updated.documento || row.documento
+          };
+        }));
+        fetchClientDetail(updatedId)
+          .then((detail) => {
+            if (!detail) return;
+            setSelectedClient((prev) => (prev && prev.id === updatedId ? { ...prev, ...detail } : detail));
+          })
+          .catch(() => {});
+        fetchClientsDirectory()
+          .then(({ table }) => setClientRows(table))
+          .catch(() => {});
+      }, []);
+
+      const handleDeleteClient = React.useCallback(async (clientId, clientName) => {
+        if (!clientId) return;
+        const label = clientName || 'este cliente';
+        const confirmed = window.confirm(`¿Seguro que querés eliminar a ${label}? Esta acción es definitiva.`);
+        if (!confirmed) return;
+        try {
+          await deleteClient(clientId);
+          const [directory, metrics] = await Promise.all([
+            fetchClientsDirectory(),
+            fetchClientsMetrics()
+          ]);
+          setClientRows(directory.table);
+          setClientMetrics(buildClientMetricCards(metrics));
+          setSelectedClient((prev) => (prev && prev.id === clientId ? null : prev));
+        } catch (err) {
+          const message = err?.message || 'No se pudo eliminar el cliente.';
+          setClientsError(message);
+        }
+      }, []);
+
+        const handleCloseFicha = () => {
+          setSelectedClient(null);
+          setClientDetailError('');
+        };
+        const handleOpenNewClient = () => {
+          setNewClientDraft({
+            contact: {
+              nombre: '',
+              apellido: '',
+              documento: '',
+              fecha_nacimiento: '',
+              telefono: '',
+              celular: '',
+              email: '',
+              direccion: '',
+              departamento: '',
+              pais: 'Uruguay',
+              status: 'activo'
+            },
+            products: [],
+            sale: {
+              mode: 'logged',
+              externalName: '',
+              medioPago: 'debito'
+            }
+          });
+          setNewClientError('');
+          setNewClientStep(0);
+          setNewClientOpen(true);
+        };
+
+        const handleSaveNewClient = async () => {
+          const selectedProducts = productsCatalog.filter((product) => newClientDraft.products.includes(product.id));
+          if (!selectedProducts.length) {
+            setNewClientError('Selecciona al menos un producto para continuar.');
+            return;
+          }
+          const loggedName = authUser?.nombre || authUser?.email || '';
+          const saleMode = newClientDraft.sale?.mode || 'logged';
+          const saleName = saleMode === 'external'
+            ? String(newClientDraft.sale?.externalName || '').trim()
+            : loggedName;
+          if (saleMode === 'external' && !saleName) {
+            setNewClientError('Ingresa el nombre del vendedor externo.');
+            setNewClientStep(2);
+            return;
+          }
+          const contactPayload = {
+            ...newClientDraft.contact,
+            fechaNacimiento: newClientDraft.contact.fechaNacimiento || newClientDraft.contact.fecha_nacimiento || '',
+            fecha_nacimiento: newClientDraft.contact.fecha_nacimiento || newClientDraft.contact.fechaNacimiento || '',
+            direccion: newClientDraft.contact.direccion || '',
+            departamento: newClientDraft.contact.departamento || '',
+            pais: newClientDraft.contact.pais || '',
+            telefono: newClientDraft.contact.telefono || '',
+            celular: newClientDraft.contact.celular || ''
+          };
+          const payload = {
+            contact: contactPayload,
+            products: selectedProducts.map((product) => ({
+              nombreProducto: product.nombre || product.nombreProducto || product.nombre_producto,
+              nombre_producto: product.nombre || product.nombreProducto || product.nombre_producto,
+              plan: product.plan || product.categoria || 'Plan estándar',
+              precio: product.precio,
+              medioPago: normalizePaymentMethod(newClientDraft.sale?.medioPago || product.medioPago || product.medio_pago || 'debito'),
+              medio_pago: normalizePaymentMethod(newClientDraft.sale?.medioPago || product.medioPago || product.medio_pago || 'debito'),
+              fechaAlta: new Date().toISOString().slice(0, 10),
+              estado: 'alta',
+              sellerName: saleName || loggedName || 'Usuario'
+            }))
+          };
+          setNewClientSaving(true);
+          setNewClientError('');
+          try {
+            await createContactWithProducts(payload);
+            const [directory, metrics] = await Promise.all([
+              fetchClientsDirectory(),
+              fetchClientsMetrics()
+            ]);
+            setClientRows(directory.table);
+            setClientMetrics(buildClientMetricCards(metrics));
+            setNewClientOpen(false);
+          } catch (err) {
+            const status = err?.status;
+            if (status === 409) {
+              setNewClientError('Ya existe un contacto con ese documento o email.');
+            } else if (status === 422) {
+              try {
+                const directory = await fetchClientsDirectory();
+                const match = directory?.table?.find((row) => {
+                  const doc = newClientDraft.contact.documento || '';
+                  const email = newClientDraft.contact.email || '';
+                  return (doc && row.documento === doc) || (email && row.email === email);
+                });
+                if (match) {
+                  const metrics = await fetchClientsMetrics().catch(() => null);
+                  setClientRows(directory.table);
+                  if (metrics) setClientMetrics(buildClientMetricCards(metrics));
+                  setNewClientOpen(false);
+                  return;
+                }
+              } catch {}
+              setNewClientError(err?.details?.message || 'Hay errores de validación en el formulario.');
+            } else {
+              try {
+                const directory = await fetchClientsDirectory();
+                const match = directory?.table?.find((row) => {
+                  const doc = newClientDraft.contact.documento || '';
+                  const email = newClientDraft.contact.email || '';
+                  return (doc && row.documento === doc) || (email && row.email === email);
+                });
+                if (match) {
+                  const metrics = await fetchClientsMetrics().catch(() => null);
+                  setClientRows(directory.table);
+                  if (metrics) setClientMetrics(buildClientMetricCards(metrics));
+                  setNewClientOpen(false);
+                  return;
+                }
+              } catch {}
+              setNewClientError(err?.message || 'No se pudo guardar el cliente.');
+            }
+          } finally {
+            setNewClientSaving(false);
+          }
+        };
+
+        const handleNewClientContactChange = (field, value) => {
+          setNewClientDraft((prev) => ({
+            ...prev,
+            contact: {
+              ...prev.contact,
+              [field]: value
+            }
+          }));
+        };
+        const handleToggleProduct = (productId) => {
+          setNewClientDraft((prev) => {
+            const selected = new Set(prev.products);
+            if (selected.has(productId)) {
+              selected.delete(productId);
+            } else {
+              selected.add(productId);
+            }
+            return { ...prev, products: Array.from(selected) };
+          });
+          setNewClientError('');
+        };
+
+        const handleSaleModeChange = (mode) => {
+          setNewClientDraft((prev) => ({
+            ...prev,
+            sale: {
+              ...prev.sale,
+              mode
+            }
+          }));
+          setNewClientError('');
+        };
+
+        const handleSaleExternalNameChange = (value) => {
+          setNewClientDraft((prev) => ({
+            ...prev,
+            sale: {
+              ...prev.sale,
+              externalName: value
+            }
+          }));
+          setNewClientError('');
+        };
+
+        const handleSalePaymentChange = (value) => {
+          setNewClientDraft((prev) => ({
+            ...prev,
+            sale: {
+              ...prev.sale,
+              medioPago: normalizePaymentMethod(value)
+            }
+          }));
+          setNewClientError('');
+        };
+
+      const renderClientRows = () => {
+        if (clientsLoading) {
+          return (
+            <tr>
+              <td colSpan={6} style={{ textAlign: 'center', padding: 20, color: '#6b7280' }}>Cargando clientes...</td>
+            </tr>
+          );
+        }
+        if (clientsError) {
+          return (
+            <tr>
+              <td colSpan={6} style={{ textAlign: 'center', padding: 20, color: '#be123c' }}>{clientsError}</td>
+            </tr>
+          );
+        }
+        if (!filteredClients.length) {
+          return (
+            <tr>
+              <td colSpan={6} style={{ textAlign: 'center', padding: 20, color: '#6b7280' }}>No hay clientes en cartera.</td>
+            </tr>
+          );
+        }
+        return filteredClients.map((row, index) => (
+          <tr key={row.id || `client-${index}`}>
+            <td>
+              <div className="person">
+                <div className="person-badge">{initials(row.name || 'Cliente')}</div>
+                <strong>{row.name || 'Sin dato'}</strong>
+              </div>
+            </td>
+            <td>{formatDateShort(row.fechaVenta || row.createdAt) || 'Sin dato'}</td>
+            <td>{row.product || 'Sin dato'}</td>
+            <td>{row.fee || 'Sin dato'}</td>
+            <td><Tag variant={statusVariant(row.status)}>{row.status || 'Sin dato'}</Tag></td>
+            <td>
+              <div className="toolbar">
+                <Button variant="ghost" icon={<Eye size={16} />} onClick={() => handleViewFicha(row.id)}>Ver ficha</Button>
+                <Button variant="ghost" icon={<Trash2 size={16} />} onClick={() => handleDeleteClient(row.id, row.name)}>Eliminar</Button>
+              </div>
+            </td>
+          </tr>
+        ));
+      };
 
       return (
         <div className="view">
@@ -2664,138 +3820,439 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           </section>
           <section className="content-grid">
             <Panel className="span-12" title="Clientes" subtitle="Gestión de cartera activa">
-              <div className="toolbar" style={{ marginBottom: 16 }}><input className="input" style={{ maxWidth: 360 }} placeholder="Buscar cliente..." /><Button icon={<Plus size={18} />}>Nuevo cliente</Button></div>
+              <div className="toolbar" style={{ marginBottom: 16 }}>
+                <input
+                  className="input"
+                  style={{ maxWidth: 360 }}
+                  placeholder="Buscar cliente..."
+                  value={clientSearch}
+                  onChange={(event) => setClientSearch(event.target.value)}
+                />
+                <Button icon={<Plus size={18} />} onClick={handleOpenNewClient}>Nuevo cliente</Button>
+              </div>
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>Cliente</th><th>Producto</th><th>Plan</th><th>Cuota</th><th>Estado</th><th>Acción</th></tr></thead>
-                  <tbody>{clientRows.map((row) => (
-                    <tr key={row.id}>
-                      <td><div className="person"><div className="person-badge">{initials(row.name)}</div><strong>{row.name}</strong></div></td>
-                      <td>{row.product}</td>
-                      <td>{row.plan}</td>
-                      <td>{row.fee}</td>
-                      <td><Tag variant={statusVariant(row.status)}>{row.status}</Tag></td>
-                      <td><Button variant="ghost" icon={<Eye size={16} />} onClick={() => handleViewFicha(row.id)}>Ver ficha</Button></td>
-                    </tr>
-                  ))}</tbody>
+                  <thead><tr><th>Cliente</th><th>Fecha de alta</th><th>Producto</th><th>Cuota</th><th>Estado</th><th>Acción</th></tr></thead>
+                  <tbody>{renderClientRows()}</tbody>
                 </table>
               </div>
             </Panel>
           </section>
-          {selectedClient ? (
+          <ClienteFichaForm
+            open={Boolean(selectedClient)}
+            client={selectedClient}
+            onClose={handleCloseFicha}
+            onUpdated={handleClientUpdated}
+            detailError={clientDetailError}
+          />
+          {newClientOpen && (
             <>
               <div
-                className="fixed inset-0 bg-[#02061773] z-50"
-                onClick={handleCloseFicha}
+                style={{
+                  position: 'fixed',
+                  inset: 0,
+                  backgroundColor: 'rgba(15, 23, 42, 0.5)',
+                  zIndex: 45
+                }}
+                onClick={() => setNewClientOpen(false)}
               />
               <div
-                className="fixed top-16 right-0 bottom-0 w-full max-w-md bg-white shadow-2xl rounded-l-2xl p-6 space-y-6 flex flex-col z-60"
-                style={{ animation: 'slide-in 0.32s ease-out forwards' }}
+                style={{
+                  position: 'fixed',
+                  right: 24,
+                  top: 32,
+                  bottom: 32,
+                  width: 'min(520px, calc(100% - 48px))',
+                  backgroundColor: '#fff',
+                  borderRadius: 24,
+                  boxShadow: '0 24px 60px rgba(15, 23, 42, 0.25)',
+                  padding: 24,
+                  zIndex: 46,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 12,
+                  maxHeight: 'calc(100vh - 64px)',
+                  overflow: 'hidden'
+                }}
+                className="new-client-modal"
               >
-                <div className="flex items-start justify-between">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
-                    <div className="text-xs uppercase tracking-[0.2em] text-[#6b7280]">FICHA DEL CLIENTE</div>
-                    <div className="text-xl font-bold text-[#111827]">{selectedClient.nombre || selectedClient.name}</div>
-                    <div className="text-sm text-[#6b7280]">Cliente {selectedClient.numeroCliente}</div>
+                    <p style={{ fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: '#6b7280' }}>Datos del contacto</p>
+                    <h3 style={{ margin: '6px 0', fontSize: 20, fontWeight: 600 }}>Nuevo cliente</h3>
                   </div>
-                  <button onClick={handleCloseFicha} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
-                    <X size={18} />
+                  <button
+                    type="button"
+                    onClick={() => setNewClientOpen(false)}
+                    style={{
+                      border: 'none',
+                      background: '#f3f4f6',
+                      borderRadius: '50%',
+                      width: 32,
+                      height: 32,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <X size={16} color="#475569" />
                   </button>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {[
-                    { label: 'Documento', value: selectedClient.documento },
-                    { label: 'Teléfono', value: selectedClient.telefono },
-                    { label: 'Email', value: selectedClient.email },
-                    { label: 'Dirección', value: selectedClient.direccion }
-                  ].map((field) => (
-                    <div key={field.label}>
-                      <div className="text-xs uppercase tracking-[0.15em] text-[#6b7280]">{field.label}</div>
-                      <div className="text-sm font-medium text-[#111827] flex items-center gap-2">
-                        {field.label === 'Teléfono' ? (
-                          <a href={`tel:${selectedClient.telefono}`} className="p-1 rounded-full bg-[#ecfdf5] text-[#059669] hover:bg-green-100 transition-colors"><Phone size={14} /></a>
-                        ) : null}
-                        <span>{field.value || '—'}</span>
+                <div className="new-client-steps">
+                  <button
+                    type="button"
+                    className={`new-client-step ${newClientStep === 0 ? 'active' : ''}`}
+                    onClick={() => setNewClientStep(0)}
+                  >
+                    Datos
+                  </button>
+                  <button
+                    type="button"
+                    className={`new-client-step ${newClientStep === 1 ? 'active' : ''}`}
+                    onClick={() => setNewClientStep(1)}
+                  >
+                    Productos
+                  </button>
+                  <button
+                    type="button"
+                    className={`new-client-step ${newClientStep === 2 ? 'active' : ''}`}
+                    onClick={() => setNewClientStep(2)}
+                  >
+                    Venta
+                  </button>
+                </div>
+
+                <div className="new-client-body">
+                  {newClientStep === 0 ? (
+                    <div>
+                    <h4 style={{ margin: '0 0 12px 0', fontSize: 14, fontWeight: 600 }}>Datos del contacto</h4>
+                    <div className="new-client-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
+                      {[
+                        { label: 'Nombre', field: 'nombre' },
+                        { label: 'Apellido', field: 'apellido' },
+                        { label: 'Documento', field: 'documento' },
+                        { label: 'Fecha de nacimiento', field: 'fecha_nacimiento', type: 'date' },
+                        { label: 'Teléfono', field: 'telefono' },
+                        { label: 'Celular', field: 'celular' },
+                        { label: 'Email', field: 'email' },
+                        { label: 'Dirección', field: 'direccion', full: true },
+                        { label: 'Departamento', field: 'departamento' },
+                        { label: 'País', field: 'pais' }
+                      ].map(({ label, field, type, full }) => (
+                        <label key={field} style={{ fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, gridColumn: full ? '1 / -1' : 'auto' }}>
+                          {label}
+                          <input
+                            type={type || 'text'}
+                            value={newClientDraft.contact[field] || ''}
+                            onChange={(event) => handleNewClientContactChange(field, event.target.value)}
+                            style={{
+                              marginTop: 6,
+                              width: '100%',
+                              padding: '10px 12px',
+                              borderRadius: 12,
+                              border: '1px solid #e5e7eb'
+                            }}
+                          />
+                        </label>
+                      ))}
+                      <label style={{ gridColumn: '1 / -1', fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1 }}>
+                        Estado del contacto
+                        <select
+                          value={newClientDraft.contact.status}
+                          onChange={(event) => handleNewClientContactChange('status', event.target.value)}
+                          style={{
+                            marginTop: 6,
+                            width: '100%',
+                            padding: '10px 12px',
+                            borderRadius: 12,
+                            border: '1px solid #e5e7eb'
+                          }}
+                        >
+                          <option value="activo">Activo</option>
+                          <option value="bloqueado">Bloqueado</option>
+                        </select>
+                      </label>
+                    </div>
+                    </div>
+                  ) : newClientStep === 1 ? (
+                    <div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+                      <h4 style={{ margin: '0 0 12px 0', fontSize: 14, fontWeight: 600 }}>Productos asociados</h4>
+                      <span style={{ fontSize: 12, color: '#64748b' }}>
+                        {newClientDraft.products.length} seleccionados
+                      </span>
+                    </div>
+                    <div style={{ display: 'grid', gap: 10 }}>
+                      {productsCatalog.map((product) => {
+                        const checked = newClientDraft.products.includes(product.id);
+                        return (
+                          <label
+                            key={product.id}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              gap: 12,
+                              padding: '12px 14px',
+                              borderRadius: 16,
+                              border: checked ? '1px solid rgba(15, 118, 110, 0.65)' : '1px solid #e5e7eb',
+                              background: checked ? 'rgba(15, 118, 110, 0.08)' : '#fff',
+                              cursor: 'pointer',
+                              boxShadow: checked ? '0 10px 24px rgba(15, 118, 110, 0.12)' : 'none'
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => handleToggleProduct(product.id)}
+                              style={{ marginTop: 4 }}
+                            />
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                                <strong style={{ fontSize: 14 }}>{product.nombre}</strong>
+                                <span
+                                  style={{
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    color: product.activo ? '#047857' : '#b91c1c',
+                                    background: product.activo ? '#ecfdf5' : '#fee2e2',
+                                    borderRadius: 999,
+                                    padding: '3px 8px'
+                                  }}
+                                >
+                                  {product.activo ? 'Activo' : 'Inactivo'}
+                                </span>
+                              </div>
+                              <div style={{ marginTop: 6, fontSize: 12, color: '#64748b' }}>
+                                {product.categoria || 'General'} · {formatCurrency(product.precio || 0)} {product.moneda || 'UYU'}
+                              </div>
+                              {product.descripcion ? (
+                                <div style={{ marginTop: 6, fontSize: 12, color: '#94a3b8' }}>{product.descripcion}</div>
+                              ) : null}
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {newClientError ? (
+                      <p style={{ marginTop: 10, color: '#b91c1c', fontSize: 12 }}>{newClientError}</p>
+                    ) : null}
+                    </div>
+                  ) : (
+                    <div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+                      <h4 style={{ margin: '0 0 12px 0', fontSize: 14, fontWeight: 600 }}>Registro de venta</h4>
+                      <span style={{ fontSize: 12, color: '#64748b' }}>Asignar vendedor</span>
+                    </div>
+                    <div style={{ display: 'grid', gap: 12 }}>
+                      <label style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 12,
+                        padding: '12px 14px',
+                        borderRadius: 14,
+                        border: newClientDraft.sale.mode === 'logged' ? '1px solid rgba(15, 118, 110, 0.65)' : '1px solid #e5e7eb',
+                        background: newClientDraft.sale.mode === 'logged' ? 'rgba(15, 118, 110, 0.08)' : '#fff',
+                        cursor: 'pointer'
+                      }}>
+                        <div>
+                          <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#64748b' }}>Usuario logueado</div>
+                          <div style={{ fontSize: 14, fontWeight: 600 }}>{authUser?.nombre || authUser?.email || 'Usuario'}</div>
+                          {authUser?.email ? <div style={{ fontSize: 12, color: '#94a3b8' }}>{authUser.email}</div> : null}
+                        </div>
+                        <input
+                          type="radio"
+                          name="sale-mode"
+                          checked={newClientDraft.sale.mode === 'logged'}
+                          onChange={() => handleSaleModeChange('logged')}
+                        />
+                      </label>
+
+                      <label style={{
+                        display: 'grid',
+                        gap: 8,
+                        padding: '12px 14px',
+                        borderRadius: 14,
+                        border: newClientDraft.sale.mode === 'external' ? '1px solid rgba(15, 118, 110, 0.65)' : '1px solid #e5e7eb',
+                        background: newClientDraft.sale.mode === 'external' ? 'rgba(15, 118, 110, 0.08)' : '#fff',
+                        cursor: 'pointer'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                          <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#64748b' }}>Vendedor externo</div>
+                          <input
+                            type="radio"
+                            name="sale-mode"
+                            checked={newClientDraft.sale.mode === 'external'}
+                            onChange={() => handleSaleModeChange('external')}
+                          />
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="Escribe el nombre del vendedor"
+                          value={newClientDraft.sale.externalName}
+                          onChange={(event) => handleSaleExternalNameChange(event.target.value)}
+                          disabled={newClientDraft.sale.mode !== 'external'}
+                          style={{
+                            width: '100%',
+                            padding: '10px 12px',
+                            borderRadius: 12,
+                            border: '1px solid #e5e7eb'
+                          }}
+                        />
+                      </label>
+
+                      <div style={{
+                        display: 'grid',
+                        gap: 8,
+                        padding: '12px 14px',
+                        borderRadius: 14,
+                        border: '1px solid #e5e7eb',
+                        background: '#fff'
+                      }}>
+                        <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#64748b' }}>Medio de pago</div>
+                        <select
+                          value={newClientDraft.sale.medioPago}
+                          onChange={(event) => handleSalePaymentChange(event.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '10px 12px',
+                            borderRadius: 12,
+                            border: '1px solid #e5e7eb',
+                            background: '#fff'
+                          }}
+                        >
+                          {[
+                            { value: 'abitab', label: 'ABITAB' },
+                            { value: 'ajupen', label: 'AJUPEN' },
+                            { value: 'ajupen_anp', label: 'AJUPEN ANP' },
+                            { value: 'anjuped', label: 'ANJUPED' },
+                            { value: 'antel', label: 'ANTEL' },
+                            { value: 'cabal', label: 'Cabal' },
+                            { value: 'creditel', label: 'Creditel' },
+                            { value: 'credito', label: 'Crédito' },
+                            { value: 'debito', label: 'Débito' },
+                            { value: 'efectivo', label: 'Efectivo' },
+                            { value: 'master', label: 'MASTER' },
+                            { value: 'mastercard', label: 'MASTERCARD' },
+                            { value: 'mercado_pago', label: 'Mercado Pago' },
+                            { value: 'mi_dinero', label: 'Mi dinero' },
+                            { value: 'oca', label: 'OCA' },
+                            { value: 'pass_card', label: 'PASS CARD' },
+                            { value: 'transferencia', label: 'Transferencia' },
+                            { value: 'visa', label: 'VISA' }
+                          ].map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
                       </div>
                     </div>
-                  ))}
+                    {newClientError ? (
+                      <p style={{ marginTop: 10, color: '#b91c1c', fontSize: 12 }}>{newClientError}</p>
+                    ) : null}
+                    </div>
+                  )}
                 </div>
-                <div className="rounded-2xl bg-[#f0fdf4] p-4 shadow-inner border border-[#d1fae5]">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-[#10b981]"></span>
-                      <span className="text-sm font-semibold text-[#059669]">Activo</span>
-                    </div>
-                    <div className="text-xs text-[#6b7280] flex items-center gap-1"><Shield size={14} /> Estado operativo: {selectedClient.estado === 'activo' ? 'activo' : 'inactivo'}</div>
-                  </div>
-                  <div className="mt-3 text-sm font-semibold text-[#059669]">Alta registrada {formatShortDate(selectedClient.fechaAlta || selectedClient.createdAt)}</div>
-                  <div className="mt-2 text-base font-semibold text-[#111827]">{selectedClient.productoActualNombre}</div>
-                  <div className="text-sm text-[#6b7280]">Contrato #{selectedClient.productoContratoId}</div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-                  <div className="space-y-1">
-                    <div className="text-xs uppercase tracking-[0.15em] text-[#6b7280]">Plan contratado</div>
-                    <div className="font-semibold text-[#111827]">{selectedClient.plan}</div>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-xs uppercase tracking-[0.15em] text-[#6b7280]">Precio mensual</div>
-                    <div className="flex items-center gap-1 text-[#059669]">
-                      <CreditCard size={16} />
-                      <span className="font-semibold">{selectedClient.fee}</span>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="text-xs uppercase tracking-[0.15em] text-[#6b7280]">Cuotas pagas</div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-[#111827]">{selectedClient.cuotasPagas} de {selectedClient.carenciaMeses}</span>
-                    </div>
-                    <div className="w-full h-2 bg-[#dcfce7] rounded-full overflow-hidden">
-                      <div className="h-full bg-[#059669]" style={{ width: `${Math.min(100, Math.round((selectedClient.cuotasPagas / Math.max(1, selectedClient.carenciaMeses)) * 100))}%` }}></div>
-                    </div>
-                  </div>
-                </div>
-                <div className="rounded-xl border border-[#e0f2fe] bg-[#ecfeff] p-4 flex items-start gap-3">
-                  <Info size={18} className="text-[#0ea5e9]" />
-                  <div>
-                    <div className="text-sm font-semibold text-[#0f172a]">Carencia: {selectedClient.carenciaMeses} meses sin interrupción para habilitar servicio</div>
-                    <div className="text-xs text-[#6b7280]">Meses cumplidos: {selectedClient.cuotasPagas} de {selectedClient.carenciaMeses}</div>
-                    <div className="w-full h-2 mt-2 bg-[#e0f2fe] rounded-full overflow-hidden">
-                      <div className="h-full bg-[#0ea5e9]" style={{ width: `${Math.min(100, Math.round((selectedClient.cuotasPagas / Math.max(1, selectedClient.carenciaMeses)) * 100))}%` }}></div>
-                    </div>
-                  </div>
-                </div>
-                <div className="border-t pt-4 flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-[#ecfdf5] text-[#059669] flex items-center justify-center font-bold">
-                    {selectedClient.nombre ? selectedClient.nombre.split(' ').map((part) => part[0]).join('').slice(0,2).toUpperCase() : 'VR'}
-                  </div>
-                  <div>
-                    <div className="text-xs uppercase tracking-[0.15em] text-[#6b7280]">Vendedor</div>
-                    <div className="text-sm font-semibold text-[#111827]">{selectedClient.vendedor || 'Carlos Rodriguez'}</div>
-                    <div className="text-xs text-[#6b7280]">Asignado desde <Calendar size={12} /> {formatShortDate(selectedClient.fechaAlta || selectedClient.createdAt)}</div>
-                  </div>
+
+                <div className="new-client-actions new-client-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+                  {newClientStep > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setNewClientStep((prev) => Math.max(0, prev - 1))}
+                      className="new-client-action"
+                      style={{
+                        border: '1px solid #e2e8f0',
+                        background: '#fff',
+                        padding: '10px 18px',
+                        borderRadius: 999,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Atrás
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => setNewClientOpen(false)}
+                    className="new-client-action"
+                    style={{
+                      border: '1px solid #cbd5f5',
+                      background: '#fff',
+                      padding: '10px 18px',
+                      borderRadius: 999,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (newClientStep < 2) {
+                        setNewClientStep((prev) => Math.min(2, prev + 1));
+                        return;
+                      }
+                      handleSaveNewClient();
+                    }}
+                    disabled={newClientSaving || (newClientStep === 1 && !newClientDraft.products.length)}
+                    className="new-client-action"
+                    style={{
+                      border: 'none',
+                      backgroundColor: '#059669',
+                      color: '#fff',
+                      padding: '10px 22px',
+                      borderRadius: 999,
+                      cursor: newClientSaving || (newClientStep === 1 && !newClientDraft.products.length) ? 'not-allowed' : 'pointer',
+                      opacity: newClientSaving || (newClientStep === 1 && !newClientDraft.products.length) ? 0.65 : 1
+                    }}
+                  >
+                    {newClientStep < 2 ? 'Siguiente' : (newClientSaving ? 'Guardando...' : 'Guardar contacto')}
+                  </button>
                 </div>
               </div>
             </>
-          ) : null}
+          )}
         </div>
       );
     }
 
-    function SuperadminModule({ route }) {
-      const [imports, setImports] = React.useState([]);
-      const [importsPage, setImportsPage] = React.useState(1);
-      const [importsSearch, setImportsSearch] = React.useState('');
-      const [importsMeta, setImportsMeta] = React.useState({ page: 1, totalPages: 1, total: 0, pageSize: 8 });
-      const [importsLoading, setImportsLoading] = React.useState(false);
-      const [importsError, setImportsError] = React.useState('');
-      const [importSuccess, setImportSuccess] = React.useState('');
-      const [products, setProducts] = React.useState(SUPERADMIN_PRODUCTS_SEED);
-      const [users, setUsers] = React.useState(SUPERADMIN_USERS_SEED);
-      const [showImportFlow, setShowImportFlow] = React.useState(false);
+      function SuperadminModule({ route }) {
+        const [imports, setImports] = React.useState([]);
+        const [importsPage, setImportsPage] = React.useState(1);
+        const [importsSearch, setImportsSearch] = React.useState('');
+        const [importsMeta, setImportsMeta] = React.useState({ page: 1, totalPages: 1, total: 0, pageSize: 8 });
+        const [importsLoading, setImportsLoading] = React.useState(false);
+        const [importsError, setImportsError] = React.useState('');
+        const [importSuccess, setImportSuccess] = React.useState('');
+        const [importReport, setImportReport] = React.useState(null);
+        const [showImportRows, setShowImportRows] = React.useState(false);
+        const [importRows, setImportRows] = React.useState([]);
+        const [importRowsLoading, setImportRowsLoading] = React.useState(false);
+        const [importRowsError, setImportRowsError] = React.useState('');
+      const [importRowsBatchId, setImportRowsBatchId] = React.useState(null);
+      const [noCallJob, setNoCallJob] = React.useState(null);
+        const [products, setProducts] = React.useState([]);
+        const [productsLoading, setProductsLoading] = React.useState(false);
+        const [productsError, setProductsError] = React.useState('');
+        const [productDraft, setProductDraft] = React.useState({
+          nombre: '',
+          categoria: '',
+          descripcion: '',
+          observaciones: '',
+          precio: '',
+          activo: true
+        });
+        const [users, setUsers] = React.useState(SUPERADMIN_USERS_SEED);
+        const [showImportFlow, setShowImportFlow] = React.useState(false);
       const [importDraft, setImportDraft] = React.useState({ fileName: '', csvText: '' });
       const [preview, setPreview] = React.useState(null);
       const [previewLoading, setPreviewLoading] = React.useState(false);
-      const [previewError, setPreviewError] = React.useState('');
+      const [previewBatchId, setPreviewBatchId] = React.useState(null);
+      const [createProductsOnImport, setCreateProductsOnImport] = React.useState(false);
+
+      const resolvedBatchId = previewBatchId || preview?.batchId || preview?.batch_id || null;
+
+      React.useEffect(() => {
+        const nextBatchId = preview?.batchId || preview?.batch_id || null;
+        if (nextBatchId) setPreviewBatchId(nextBatchId);
+      }, [preview]);
 
       const loadImports = React.useCallback(async () => {
         setImportsLoading(true);
@@ -2816,11 +4273,131 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         loadImports();
       }, [route, loadImports]);
 
+      React.useEffect(() => {
+        if (!importReport) return undefined;
+        const timer = window.setTimeout(() => {
+          setImportReport(null);
+        }, 9000);
+        return () => window.clearTimeout(timer);
+      }, [importReport]);
+
+      React.useEffect(() => {
+        if (!noCallJob?.jobId) return undefined;
+        let cancelled = false;
+        const poll = async () => {
+          try {
+            const job = await getNoCallImportJob(noCallJob.jobId);
+            if (!job || cancelled) return;
+            setNoCallJob((prev) => ({ ...prev, ...job }));
+            if (job.status === 'completed' || job.status === 'failed') {
+              setNoCallJob(null);
+              setImportSuccess(job.status === 'completed' ? 'Importación No llamar completada.' : 'Importación No llamar fallida.');
+              setImportReport({
+                productosDetectados: 0,
+                productosCreados: 0,
+                vendedoresDetectados: 0,
+                mediosPagoDetectados: 0,
+                clientesNuevos: 0,
+                noCall: {
+                  total: job.total,
+                  inserted: job.inserted,
+                  skipped: job.skipped
+                }
+              });
+              await loadImports();
+            }
+          } catch (err) {
+            console.error('NO_CALL_JOB_POLL_ERROR', err);
+          }
+        };
+
+        const timer = window.setInterval(poll, 1500);
+        poll();
+        return () => {
+          cancelled = true;
+          window.clearInterval(timer);
+        };
+      }, [noCallJob?.jobId, loadImports]);
+
+      const openImportRows = async (batchId) => {
+        if (!batchId) return;
+        setShowImportRows(true);
+        setImportRowsBatchId(batchId);
+        setImportRows([]);
+        setImportRowsError('');
+        setImportRowsLoading(true);
+        try {
+          const items = await getImportRows(batchId);
+          setImportRows(items);
+        } catch (err) {
+          setImportRowsError(err?.message || 'No se pudo cargar el detalle del batch.');
+        } finally {
+          setImportRowsLoading(false);
+        }
+      };
+
+      const loadProducts = React.useCallback(async () => {
+        setProductsLoading(true);
+        setProductsError('');
+        try {
+          const items = await listProductsAsync();
+          setProducts(items);
+        } catch (err) {
+          setProductsError(err.message || 'No se pudo cargar el catálogo de productos.');
+        } finally {
+          setProductsLoading(false);
+        }
+      }, []);
+
+      React.useEffect(() => {
+        if (route !== 'sa_productos') return;
+        loadProducts();
+      }, [route, loadProducts]);
+
+      const handleProductDraftChange = (field, value) => {
+        setProductDraft((prev) => ({ ...prev, [field]: value }));
+      };
+
+      const handleSaveProduct = async () => {
+        if (!productDraft.nombre.trim()) {
+          setProductsError('El nombre del producto es obligatorio.');
+          return;
+        }
+        setProductsError('');
+        try {
+          const payload = {
+            nombre: productDraft.nombre.trim(),
+            categoria: productDraft.categoria.trim(),
+            descripcion: productDraft.descripcion.trim(),
+            observaciones: productDraft.observaciones.trim(),
+            precio: Number(productDraft.precio || 0),
+            activo: productDraft.activo
+          };
+          const created = await createProduct(payload);
+          setProducts((prev) => [created, ...prev]);
+          setProductDraft({ nombre: '', categoria: '', descripcion: '', observaciones: '', precio: '', activo: true });
+        } catch (err) {
+          setProductsError(err.message || 'No se pudo guardar el producto.');
+        }
+      };
+
+      const toggleProductState = async (id) => {
+        const current = products.find((item) => item.id === id);
+        if (!current) return;
+        try {
+          const updated = await updateProduct(id, { activo: !current.activo });
+          setProducts((prev) => prev.map((item) => (item.id === id ? updated : item)));
+        } catch (err) {
+          setProductsError(err.message || 'No se pudo actualizar el producto.');
+        }
+      };
+
       const resetImportFlow = () => {
         setImportDraft({ fileName: '', csvText: '' });
         setPreview(null);
-        setPreviewError('');
         setPreviewLoading(false);
+        setPreviewBatchId(null);
+        setCreateProductsOnImport(false);
       };
 
       const handleCsvFile = async (event) => {
@@ -2830,41 +4407,81 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           const csvText = await file.text();
           setImportDraft({ fileName: file.name, csvText });
           setPreview(null);
-          setPreviewError('');
+          setPreviewBatchId(null);
+          setCreateProductsOnImport(false);
         } catch (err) {
-          setPreviewError('No se pudo leer el archivo seleccionado.');
+          // No-op: evitar mensajes pegados en UI; revisar consola si falla lectura.
+          console.error('CSV_READ_ERROR', err);
         }
       };
 
+      const downloadImportExampleCsv = React.useCallback(() => {
+        setImportsError('');
+        getApiClient()
+          .get('/imports/sample?type=clientes')
+          .then((csvText) => {
+            if (!csvText || typeof csvText !== 'string') {
+              throw new Error('Respuesta inválida del servidor.');
+            }
+            downloadCsvFile(csvText, 'importacion-clientes-ejemplo.csv');
+          })
+          .catch((err) => {
+            setImportsError(err?.message || 'No se pudo descargar el CSV de ejemplo.');
+          });
+      }, []);
+
       const validatePreview = async () => {
-        setPreviewError('');
         setPreview(null);
         setPreviewLoading(true);
         try {
-          const result = await previewCsvText(importDraft.csvText);
+          const result = await previewCsvText(importDraft.csvText, { fileName: importDraft.fileName });
           setPreview(result);
+          setPreviewBatchId(result?.batchId || result?.batch_id || null);
+          setCreateProductsOnImport(false);
+          console.log('[import-preview]', {
+            batchId: result?.batchId,
+            usesBackend: result?.usesBackend,
+            summary: result?.summary
+          });
         } catch (err) {
-          setPreviewError(err.message || 'Error validando el CSV.');
+          console.error('CSV_VALIDATE_ERROR', err);
         } finally {
           setPreviewLoading(false);
         }
       };
 
       const confirmImport = async () => {
-        setPreviewError('');
         try {
-          await createImportFromCsv({
+          let batchIdToUse = resolvedBatchId;
+          if (preview?.usesBackend && !batchIdToUse) {
+            const fresh = await previewCsvText(importDraft.csvText, { fileName: importDraft.fileName });
+            setPreview(fresh);
+            batchIdToUse = fresh?.batchId || fresh?.batch_id || null;
+            if (batchIdToUse) setPreviewBatchId(batchIdToUse);
+          }
+          const result = await createImportFromCsv({
             fileName: importDraft.fileName,
             csvText: importDraft.csvText,
-            userId: 'usr-001'
+            userId: 'usr-001',
+            batchId: batchIdToUse,
+            createProducts: createProductsOnImport
           });
+          if (result?.asyncJob && result?.jobId) {
+            setNoCallJob({ jobId: result.jobId, status: 'queued' });
+            setImportSuccess('Importación No llamar en proceso...');
+            setShowImportFlow(false);
+            resetImportFlow();
+            setImportsPage(1);
+            return;
+          }
+          if (result?.report) setImportReport(result.report);
           setImportSuccess('Importación registrada correctamente.');
           setShowImportFlow(false);
           resetImportFlow();
           setImportsPage(1);
           await loadImports();
         } catch (err) {
-          setPreviewError(err.message || 'No se pudo completar la importación.');
+          console.error('CSV_IMPORT_ERROR', err);
         }
       };
 
@@ -2877,10 +4494,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         { title: 'Lotes activos', value: '6', change: 0.0, label: 'en gestión', trend: 'up', icon: Layers, bg: 'rgba(20,34,53,0.12)', color: '#1f2937' }
       ];
 
-      const toggleProductState = (id) => {
-        setProducts((prev) => prev.map((item) => item.id === id ? { ...item, estado: item.estado === 'Activo' ? 'Inactivo' : 'Activo' } : item));
-      };
-
       const toggleUserState = (email) => {
         setUsers((prev) => prev.map((item) => item.email === email ? { ...item, estado: item.estado === 'Activo' ? 'Inactivo' : 'Activo' } : item));
       };
@@ -2889,7 +4502,21 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return (
           <div className="view">
             <section className="content-grid">
-              <Panel className="span-12" title="Importaciones" subtitle="Carga masiva de clientes por CSV" action={<Button icon={<Upload size={16} />} onClick={() => { setShowImportFlow(true); setImportSuccess(''); resetImportFlow(); }}>Importar CSV</Button>}>
+              <Panel
+                className="span-12"
+                title="Importaciones"
+                subtitle="Carga masiva de clientes por CSV"
+                action={
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <Button variant="ghost" icon={<Download size={16} />} onClick={downloadImportExampleCsv}>
+                      Descargar ejemplo CSV
+                    </Button>
+                    <Button icon={<Upload size={16} />} onClick={() => { setShowImportFlow(true); setImportSuccess(''); resetImportFlow(); }}>
+                      Importar CSV
+                    </Button>
+                  </div>
+                }
+              >
                 <div className="toolbar" style={{ marginBottom: 12 }}>
                   <div className="searchbox" style={{ maxWidth: 360 }}>
                     <Search size={18} color="#69788d" />
@@ -2902,6 +4529,18 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   <Button variant="secondary" icon={<Filter size={16} />} onClick={loadImports}>Aplicar</Button>
                   {importSuccess ? <span className="pill" style={{ color: '#15803d' }}>{importSuccess}</span> : null}
                 </div>
+                {importReport ? (
+                  <div style={{ marginBottom: 12, padding: 12, borderRadius: 12, border: '1px solid rgba(15,23,42,0.12)', background: 'rgba(248,250,252,0.9)' }}>
+                    <div style={{ fontWeight: 700, marginBottom: 6 }}>Informe final</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8, fontSize: '0.9rem' }}>
+                      <div>Productos detectados: <strong>{importReport.productosDetectados ?? 0}</strong></div>
+                      <div>Productos creados: <strong>{importReport.productosCreados ?? 0}</strong></div>
+                      <div>Vendedores detectados: <strong>{importReport.vendedoresDetectados ?? 0}</strong></div>
+                      <div>Medios de pago detectados: <strong>{importReport.mediosPagoDetectados ?? 0}</strong></div>
+                      <div>Clientes nuevos: <strong>{importReport.clientesNuevos ?? 0}</strong></div>
+                    </div>
+                  </div>
+                ) : null}
                 {importsLoading ? <div style={{ marginBottom: 12, color: 'var(--muted)' }}>Cargando historial de importaciones...</div> : null}
                 {importsError ? (
                   <div className="toolbar" style={{ marginBottom: 12 }}>
@@ -2911,7 +4550,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 ) : null}
                 <div className="table-wrap">
                   <table>
-                    <thead><tr><th>Archivo</th><th>Fecha</th><th>Total registros</th><th>Importados</th><th>Rechazados</th><th>Estado</th><th>Usuario</th></tr></thead>
+                    <thead><tr><th>Archivo</th><th>Fecha</th><th>Total registros</th><th>Importados</th><th>Rechazados</th><th>Estado</th><th>Usuario</th><th>Detalle</th></tr></thead>
                     <tbody>
                       {imports.map((row) => (
                         <tr key={row.id}>
@@ -2922,6 +4561,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           <td style={{ color: row.rechazados ? '#b45309' : 'var(--muted)', fontWeight: 700 }}>{row.rechazados}</td>
                           <td><Tag variant={row.estado === 'Completada' ? 'success' : row.estado === 'Fallida' ? 'danger' : 'warning'}>{row.estado}</Tag></td>
                           <td>{row.usuario}</td>
+                          <td>
+                            <Button variant="ghost" onClick={() => openImportRows(row.id)}>Ver detalles</Button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -2955,7 +4597,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         <span className="lot-step-index">2</span>
                         <div style={{ flex: 1 }}>
                           <h4>Validación previa</h4>
-                          <p>Columnas obligatorias: <strong>nombre, telefono, ubicacion, fuente</strong>.</p>
+                          <p>Columnas obligatorias: <strong>documento</strong>.</p>
                           <div className="toolbar" style={{ marginTop: 8 }}>
                             <Button variant="secondary" onClick={validatePreview} disabled={!importDraft.csvText || previewLoading}>
                               {previewLoading ? 'Validando...' : 'Validar archivo'}
@@ -2967,6 +4609,39 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                               <div style={{ color: 'var(--muted)' }}>
                                 Total: {preview.summary.total} · Importables: {preview.summary.importados} · Rechazados: {preview.summary.rechazados}
                               </div>
+                              {preview.skippedEmptyRows ? (
+                                <div style={{ marginTop: 6, color: '#64748b', fontSize: '0.85rem' }}>
+                                  Filas vacías ignoradas: {preview.skippedEmptyRows}
+                                </div>
+                              ) : null}
+                              {preview.rejectedMissingDocumento ? (
+                                <div style={{ marginTop: 6, color: '#b45309', fontSize: '0.85rem' }}>
+                                  Rechazados por documento vacío: {preview.rejectedMissingDocumento}
+                                </div>
+                              ) : null}
+                              {preview.newProductsCount ? (
+                                <div style={{ marginTop: 8, padding: 10, borderRadius: 10, border: '1px solid rgba(15,23,42,0.12)', background: '#fff7ed' }}>
+                                  <div style={{ fontWeight: 700, color: '#9a3412' }}>
+                                    Productos nuevos detectados: {preview.newProductsCount}
+                                  </div>
+                                  <div style={{ marginTop: 6, color: '#7c2d12', fontSize: '0.85rem' }}>
+                                    {preview.newProducts.slice(0, 6).join(', ')}{preview.newProducts.length > 6 ? '…' : ''}
+                                  </div>
+                                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, fontSize: '0.85rem', color: '#7c2d12' }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={createProductsOnImport}
+                                      onChange={(event) => setCreateProductsOnImport(event.target.checked)}
+                                    />
+                                    Crear productos faltantes al importar
+                                  </label>
+                                </div>
+                              ) : null}
+                              {preview.usesBackend && !(previewBatchId || preview?.batchId || preview?.batch_id) ? (
+                                <div style={{ marginTop: 8, color: '#b91c1c', fontWeight: 700 }}>
+                                  La validación no devolvió `batchId`. Revisá que el backend sea el correcto y esté actualizado.
+                                </div>
+                              ) : null}
                               {preview.rowErrors.length ? (
                                 <div style={{ marginTop: 8, maxHeight: 120, overflow: 'auto' }}>
                                   {preview.rowErrors.slice(0, 5).map((err) => (
@@ -2975,17 +4650,57 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                     </div>
                                   ))}
                                 </div>
-                              ) : <div style={{ marginTop: 8, color: '#15803d', fontWeight: 700 }}>Sin errores de validación.</div>}
+                              ) : preview.summary.rechazados ? (
+                                <div style={{ marginTop: 8, color: '#b45309', fontWeight: 700 }}>
+                                  Hay filas rechazadas. Revisa el detalle en el backend.
+                                </div>
+                              ) : (
+                                <div style={{ marginTop: 8, color: '#15803d', fontWeight: 700 }}>Sin errores de validación.</div>
+                              )}
                             </div>
                           ) : null}
                         </div>
                       </div>
                       <div className="lot-step"><span className="lot-step-index">3</span><div><h4>Confirmar importación</h4><p>Se registrará en el historial con resultado final.</p></div></div>
-                      {previewError ? <div style={{ color: '#be123c', fontWeight: 700 }}>{previewError}</div> : null}
                       <div className="toolbar" style={{ justifyContent: 'flex-end' }}>
                         <Button variant="ghost" onClick={() => setShowImportFlow(false)}>Cancelar</Button>
-                        <Button icon={<CheckCircle2 size={16} />} onClick={confirmImport} disabled={!preview || !importDraft.fileName}>Confirmar importación</Button>
+                        <Button
+                          icon={<CheckCircle2 size={16} />}
+                          onClick={confirmImport}
+                          disabled={!importDraft.fileName || !importDraft.csvText}
+                        >
+                          Confirmar importación
+                        </Button>
                       </div>
+                    </div>
+                  </div>
+                ) : null}
+                {showImportRows ? (
+                  <div className="lot-wizard-overlay" onClick={() => setShowImportRows(false)}>
+                    <div className="lot-wizard" onClick={(event) => event.stopPropagation()}>
+                      <div className="lot-wizard-header">
+                        <div><h3>Detalle de importación</h3><p>Batch: {importRowsBatchId}</p></div>
+                        <button className="icon-button" style={{ width: 36, height: 36 }} onClick={() => setShowImportRows(false)}><X size={16} color="#152235" /></button>
+                      </div>
+                      {importRowsLoading ? <div style={{ color: 'var(--muted)' }}>Cargando filas...</div> : null}
+                      {importRowsError ? <div style={{ color: '#be123c', fontWeight: 700 }}>{importRowsError}</div> : null}
+                      {!importRowsLoading && !importRowsError ? (
+                        <div className="table-wrap">
+                          <table>
+                            <thead><tr><th>Fila</th><th>Estado</th><th>Error</th></tr></thead>
+                            <tbody>
+                              {importRows.map((row) => (
+                                <tr key={row.id || row.row_number}>
+                                  <td>{row.row_number}</td>
+                                  <td>{row.import_status}</td>
+                                  <td style={{ color: row.error_detail ? '#b45309' : 'var(--muted)' }}>{row.error_detail || '—'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          {!importRows.length ? <div style={{ padding: 12, color: 'var(--muted)' }}>No hay filas para este batch.</div> : null}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 ) : null}
@@ -3007,27 +4722,32 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       {products.map((item) => (
                         <tr key={item.id}>
                           <td><strong>{item.nombre}</strong></td>
-                          <td>{item.categoria}</td>
-                          <td>{item.precio}</td>
-                          <td><Tag variant={item.estado === 'Activo' ? 'success' : 'warning'}>{item.estado}</Tag></td>
-                          <td>{item.actualizacion}</td>
-                          <td><div className="toolbar"><Button variant="ghost" icon={<Edit3 size={15} />}>Editar</Button><Button variant="secondary" onClick={() => toggleProductState(item.id)}>{item.estado === 'Activo' ? 'Desactivar' : 'Activar'}</Button></div></td>
+                          <td>{item.categoria || 'General'}</td>
+                          <td>{formatCurrency(item.precio || 0)}</td>
+                          <td><Tag variant={item.activo ? 'success' : 'warning'}>{item.activo ? 'Activo' : 'Inactivo'}</Tag></td>
+                          <td>{formatShortDate(item.updatedAt || item.createdAt)}</td>
+                          <td><div className="toolbar"><Button variant="ghost" icon={<Edit3 size={15} />}>Editar</Button><Button variant="secondary" onClick={() => toggleProductState(item.id)}>{item.activo ? 'Desactivar' : 'Activar'}</Button></div></td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                  {!products.length ? <div style={{ padding: 16, color: 'var(--muted)' }}>No hay productos cargados.</div> : null}
+                  {productsLoading ? <div style={{ padding: 16, color: 'var(--muted)' }}>Cargando productos...</div> : null}
+                  {!productsLoading && !products.length ? <div style={{ padding: 16, color: 'var(--muted)' }}>No hay productos cargados.</div> : null}
+                  {productsError ? <div style={{ padding: 16, color: '#be123c' }}>{productsError}</div> : null}
                 </div>
               </Panel>
               <Panel className="span-4" title="Formulario de producto" subtitle="Estructura lista para backend">
                 <div className="list">
-                  <input className="input" placeholder="Nombre" />
-                  <input className="input" placeholder="Categoría" />
-                  <textarea className="input" rows="3" placeholder="Descripción"></textarea>
-                  <input className="input" placeholder="Precio" />
-                  <select className="input"><option>Activo</option><option>Inactivo</option></select>
-                  <textarea className="input" rows="3" placeholder="Observaciones"></textarea>
-                  <Button icon={<CheckCircle2 size={16} />}>Guardar producto</Button>
+                  <input className="input" placeholder="Nombre" value={productDraft.nombre} onChange={(event) => handleProductDraftChange('nombre', event.target.value)} />
+                  <input className="input" placeholder="Categoría" value={productDraft.categoria} onChange={(event) => handleProductDraftChange('categoria', event.target.value)} />
+                  <textarea className="input" rows="3" placeholder="Descripción" value={productDraft.descripcion} onChange={(event) => handleProductDraftChange('descripcion', event.target.value)}></textarea>
+                  <input className="input" placeholder="Precio" value={productDraft.precio} onChange={(event) => handleProductDraftChange('precio', event.target.value)} />
+                  <select className="input" value={productDraft.activo ? 'activo' : 'inactivo'} onChange={(event) => handleProductDraftChange('activo', event.target.value === 'activo')}>
+                    <option value="activo">Activo</option>
+                    <option value="inactivo">Inactivo</option>
+                  </select>
+                  <textarea className="input" rows="3" placeholder="Observaciones" value={productDraft.observaciones} onChange={(event) => handleProductDraftChange('observaciones', event.target.value)}></textarea>
+                  <Button icon={<CheckCircle2 size={16} />} onClick={handleSaveProduct}>Guardar producto</Button>
                 </div>
               </Panel>
             </section>
@@ -3177,6 +4897,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [pausaInicio, setPausaInicio] = React.useState('');
       const [mostrarPausa, setMostrarPausa] = React.useState(false);
       const [showProfileModal, setShowProfileModal] = React.useState(false);
+      const [supportNewTickets, setSupportNewTickets] = React.useState(0);
       const [brandLogo, setBrandLogo] = React.useState(() => {
         try {
           return localStorage.getItem('rednacrem_logo') || '';
@@ -3191,12 +4912,23 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [moduleStates, setModuleStates] = React.useState(() =>
         createInitialModuleStates({ roleNav: ROLE_NAV, roles: Object.keys(ROLE_META) })
       );
-      const productsCatalog = React.useMemo(() => listProducts(), []);
+      const topbarRef = React.useRef(null);
+      const [productsCatalog, setProductsCatalog] = React.useState([]);
       const productsById = React.useMemo(
         () => Object.fromEntries(productsCatalog.map((product) => [product.id, product])),
         [productsCatalog]
       );
       const hasRealSuperadminAccess = hasRealRole({ rolReal, allowedRoles: ['superadministrador'] }) && esSuperadmin;
+      const roleNavWithBadges = React.useMemo(
+        () => ROLE_NAV.map((item) => {
+          if (item.path !== 'soporte') return item;
+          return {
+            ...item,
+            badge: supportNewTickets > 0 ? supportNewTickets : null
+          };
+        }),
+        [supportNewTickets]
+      );
 
       React.useEffect(() => {
         const onResize = () => {
@@ -3209,15 +4941,74 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, []);
 
       React.useEffect(() => {
-        const visible = ROLE_NAV
+        const visible = roleNavWithBadges
           .filter((item) => item.roles.includes(role) && isModuleVisible(moduleStates, role, item.path))
           .map((item) => item.path);
+        if (route === 'lotes_crear') return;
         if (!visible.includes(route)) setRoute(visible[0] || 'dashboard');
-      }, [role, route, moduleStates]);
+      }, [role, route, moduleStates, roleNavWithBadges]);
 
       React.useEffect(() => {
         persistModuleStates(moduleStates);
       }, [moduleStates]);
+
+      React.useEffect(() => {
+        let active = true;
+        listProductsAsync()
+          .then((items) => {
+            if (!active) return;
+            setProductsCatalog(items);
+          })
+          .catch(() => {
+            if (!active) return;
+            setProductsCatalog([]);
+          });
+        return () => { active = false; };
+      }, []);
+
+      React.useEffect(() => {
+        if (role !== 'atencion_cliente') return;
+        let active = true;
+        const refreshSupportBadge = async () => {
+          try {
+            const items = await listTicketsAsync();
+            if (!active) return;
+            const count = items.filter((ticket) => ticket.estado === 'nuevo').length;
+            setSupportNewTickets(count);
+          } catch {
+            if (!active) return;
+            setSupportNewTickets(0);
+          }
+        };
+        refreshSupportBadge();
+        const intervalId = window.setInterval(refreshSupportBadge, 30000);
+        return () => {
+          active = false;
+          window.clearInterval(intervalId);
+        };
+      }, [role]);
+
+      React.useEffect(() => {
+        if (!topbarRef.current) return;
+        const root = document.documentElement;
+        const update = () => {
+          if (!topbarRef.current) return;
+          const rect = topbarRef.current.getBoundingClientRect();
+          const offset = Math.round(Math.min(Math.max(rect.bottom + 12, 72), 180));
+          root.style.setProperty('--topbar-offset', `${offset}px`);
+        };
+        update();
+        let observer = null;
+        if (typeof ResizeObserver !== 'undefined') {
+          observer = new ResizeObserver(update);
+          observer.observe(topbarRef.current);
+        }
+        window.addEventListener('resize', update);
+        return () => {
+          window.removeEventListener('resize', update);
+          if (observer) observer.disconnect();
+        };
+      }, []);
 
       React.useEffect(() => {
         try {
@@ -3359,7 +5150,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
       const effectiveRoleForUi = getEffectiveRoleForUi({ rolEfectivo: role, rolReal, fallback: 'atencion_cliente' });
       const navItems = getVisibleNavItemsForRole({
-        roleNav: ROLE_NAV,
+        roleNav: roleNavWithBadges,
         role: effectiveRoleForUi,
         moduleStates,
         isModuleVisible
@@ -3433,6 +5224,20 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               onAssignLotSeller={assignSupervisorLotSeller}
               onCloseLot={closeSupervisorLot}
               onReactivateError={reactivateSupervisorError}
+              onOpenRoute={setRoute}
+            />
+          );
+        }
+        if (role === 'supervisor' && route === 'lotes_crear') {
+          return (
+            <SupervisorLotWizard
+              Panel={Panel}
+              Button={Button}
+              onExit={() => setRoute('lotes')}
+              onCreated={async () => {
+                await refreshLotsFromService();
+                setRoute('lotes');
+              }}
             />
           );
         }
@@ -3468,7 +5273,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         }
         if (route === 'clientes') {
           if (role === 'vendedor') return <SalesClientsView salesRecords={salesRecords} productsById={productsById} />;
-          return <ClientsView />;
+          return <ClientsView productsCatalog={productsCatalog} />;
         }
         if (route === 'contratos') {
           return (
@@ -3583,7 +5388,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             </aside>
 
             <main className="main">
-              <header className="topbar">
+              <header className="topbar" ref={topbarRef}>
                 <div className="topbar-card glass">
                   <button className="icon-button mobile-toggle" onClick={() => setMenuOpen(true)}><Menu size={20} color="#152235" /></button>
                   <div style={{ minWidth: 0, flex: 1 }}>
@@ -3619,8 +5424,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           </div>
 
           {mostrarPausa ? <PauseOverlay status={estadoConfig} startedAt={pausaInicio} onResume={volverAlTrabajo} /> : null}
-          <ProfileModal isOpen={showProfileModal} onClose={handleCloseProfile} user={currentUser} />
-          <BotonVistaRol roleMeta={ROLE_META} />
+          <ProfileModal isOpen={showProfileModal} onClose={handleCloseProfile} user={currentUser} roleMeta={ROLE_META} />
         </>
       );
     }
@@ -3637,3 +5441,13 @@ createRoot(document.getElementById('root')).render(
   </React.StrictMode>
 );
   
+
+
+
+
+
+
+
+
+
+
