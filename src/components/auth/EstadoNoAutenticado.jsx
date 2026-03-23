@@ -40,7 +40,7 @@ export default function EstadoNoAutenticado() {
     {
       id: 'vendedor',
       label: 'Matias Decker (Vendedor)',
-      email: 'vendedor@rednacrem.com',
+      email: import.meta.env?.VITE_LOCAL_DEV_USER_EMAIL_VENDEDOR || 'vendedor@rednacrem.com',
       sub: 'dev-matias-decker',
       name: 'Matias Decker'
     }
