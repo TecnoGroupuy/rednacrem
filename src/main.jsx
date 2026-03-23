@@ -74,11 +74,11 @@ import {
   getContactLifecycle,
   fetchContactsList,
   fetchClientsDirectory,
-  createContactWithProducts,
   fetchClientsMetrics
 } from './services/clientsService.js';
 import { fetchClientDetail } from './services/clientDetailService.js';
 import { deleteClient } from './services/clientAdminService.js';
+import { createContactWithProducts } from './services/clientCreateService.js';
 import {
   getAlerts,
   getDirectorMetrics,
