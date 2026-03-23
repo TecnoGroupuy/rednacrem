@@ -1164,6 +1164,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
     });
 
     function SalesContactsView({ contacts, selectedId, onSelect, onRegister, salesRecords, products, onAssignFamilySale, onUpdateContact, onVentaCerrada }) {
+      const api = getApiClient();
       const [localContacts, setLocalContacts] = React.useState(() => contacts.filter(isSalesActiveContact));
       const [loadingContacts, setLoadingContacts] = React.useState(true);
       const [stats, setStats] = React.useState(null);
@@ -1180,28 +1181,31 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [totalContactos, setTotalContactos] = React.useState(0);
       const LIMIT = 50;
 
-      const loadStats = React.useCallback(() => {
-        fetch('/leads/daily-stats')
-          .then((r) => r.json())
-          .then((d) => { if (d.success) setStats(d.data); })
-          .catch(() => {});
-      }, []);
+      const loadStats = React.useCallback(async () => {
+        try {
+          const d = await api.get('/leads/daily-stats');
+          console.log('[daily-stats]:', d);
+          if (d?.success || d?.ok) setStats(d.data);
+        } catch (err) {
+          console.error('[daily-stats] error:', err);
+        }
+      }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
       const cargarContactos = React.useCallback(async () => {
         setLoadingContacts(true);
         try {
           const params = new URLSearchParams({
-            page,
-            limit: LIMIT,
+            page: String(page),
+            limit: String(LIMIT),
             tab: tabActivo
           });
-          const res = await fetch(`/leads/assigned?${params}`);
-          const data = await res.json();
-          if (data.success) {
-            const items = data?.data?.contactos || [];
+          const d = await api.get(`/leads/assigned?${params}`);
+          console.log('[assigned] params:', params.toString(), 'resp:', d);
+          if (d?.success || d?.ok) {
+            const items = d?.data?.contactos || [];
             setLocalContacts(items.map(normalizeAssignedContact));
-            setTotalPages(data?.data?.totalPages || 1);
-            setTotalContactos(data?.data?.total || 0);
+            setTotalPages(d?.data?.totalPages || 1);
+            setTotalContactos(d?.data?.total || 0);
           }
         } catch {
           const fallback = contacts.filter(isSalesActiveContact);
@@ -1211,7 +1215,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         } finally {
           setLoadingContacts(false);
         }
-      }, [contacts, page, tabActivo]);
+      }, [contacts, page, tabActivo]); // eslint-disable-line react-hooks/exhaustive-deps
 
       React.useEffect(() => {
         loadStats();
@@ -1219,7 +1223,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
       React.useEffect(() => {
         cargarContactos();
-      }, [cargarContactos]);
+      }, [page, tabActivo]); // eslint-disable-line react-hooks/exhaustive-deps
       const [searchTerm, setSearchTerm] = React.useState('');
       const [drawerContact, setDrawerContact] = React.useState(null);
       const [nextLoading, setNextLoading] = React.useState(false);
@@ -1531,7 +1535,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             {tabs.map((t) => (
               <button
                 key={t.key}
-                onClick={() => { setTabActivo(t.key); setPage(1); }}
+                onClick={() => { console.log('[tabs] click:', t.key); setTabActivo(t.key); setPage(1); }}
                 style={{
                   padding: '8px 16px',
                   background: 'transparent',
