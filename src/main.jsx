@@ -75,10 +75,10 @@ import {
   fetchContactsList,
   fetchClientsDirectory,
   createContactWithProducts,
-  fetchClientsMetrics,
-  deleteClient
+  fetchClientsMetrics
 } from './services/clientsService.js';
 import { fetchClientDetail } from './services/clientDetailService.js';
+import { deleteClient } from './services/clientAdminService.js';
 import {
   getAlerts,
   getDirectorMetrics,
