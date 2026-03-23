@@ -1094,6 +1094,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [drawerContact, setDrawerContact] = React.useState(null);
       const [nextLoading, setNextLoading] = React.useState(false);
       const [nextMessage, setNextMessage] = React.useState('');
+      const [activeTab, setActiveTab] = React.useState('datos');
+      const [estadoGestion, setEstadoGestion] = React.useState('no_contesta');
+      const [notaGestion, setNotaGestion] = React.useState('');
+      const [fechaAgenda, setFechaAgenda] = React.useState('');
+      const [horaAgenda, setHoraAgenda] = React.useState('');
+      const [guardando, setGuardando] = React.useState(false);
+      const [gestionError, setGestionError] = React.useState('');
+      const [statusOverrides, setStatusOverrides] = React.useState({});
 
       const filteredContacts = React.useMemo(() => activeContacts.filter((contact) => {
         const haystack = [
@@ -1110,6 +1118,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const openDrawer = (c) => {
         setDrawerContact(c);
         setNextMessage('');
+        setActiveTab('datos');
+        setEstadoGestion('no_contesta');
+        setNotaGestion('');
+        setFechaAgenda('');
+        setHoraAgenda('');
+        setGestionError('');
         onSelect(c.id || null);
       };
 
@@ -1136,6 +1150,33 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         }
       };
 
+      const handleGuardarGestion = async () => {
+        if (guardando || !dc) return;
+        setGuardando(true);
+        setGestionError('');
+        try {
+          const nextAction = estadoGestion === 'seguimiento' && fechaAgenda
+            ? [fechaAgenda, horaAgenda].filter(Boolean).join(' ')
+            : undefined;
+          await registerCommercialManagement(dc.id, {
+            status: estadoGestion,
+            note: notaGestion.trim() || undefined,
+            nextAction
+          });
+          setStatusOverrides((prev) => ({ ...prev, [dc.id]: estadoGestion }));
+          closeDrawer();
+        } catch (err) {
+          const msg = String(err?.message || '');
+          if (msg.includes('409')) {
+            setGestionError('Este contacto ya fue gestionado recientemente. Intenta más tarde.');
+          } else {
+            setGestionError(msg || 'No se pudo guardar la gestión.');
+          }
+        } finally {
+          setGuardando(false);
+        }
+      };
+
       const dc = drawerContact;
       const drawerNombre = dc ? (dc.name || [dc.nombre, dc.apellido].filter(Boolean).join(' ') || '-') : '';
       const drawerTelefono = dc ? (dc.phone || dc.telefono || '-') : '';
@@ -1143,7 +1184,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const drawerUbicacion = dc ? (dc.city || [dc.localidad, dc.departamento].filter(Boolean).join(', ') || '-') : '';
       const drawerFuente = dc ? (dc.source || dc.origen_dato || null) : null;
       const drawerLote = dc ? (dc.lotId || dc.batch_id || null) : null;
-      const drawerEstado = dc ? (dc.status || dc.estado_venta || 'nuevo') : 'nuevo';
+      const drawerEstado = dc ? (statusOverrides[dc.id] || dc.status || dc.estado_venta || 'nuevo') : 'nuevo';
 
       return (
         <div className="view sales-contacts-view">
@@ -1197,7 +1238,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       </a>
                     </td>
                     <td>{contact.city}</td>
-                    <td><SalesStatusBadge status={contact.status} small /></td>
+                    <td><SalesStatusBadge status={statusOverrides[contact.id] || contact.status} small /></td>
                     <td>{contact.last}</td>
                   </tr>
                 ))}
@@ -1221,57 +1262,178 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 </div>
 
                 <div style={{ padding: '20px 24px', flex: 1, display: 'flex', flexDirection: 'column', gap: 18 }}>
-                  <div style={{ display: 'grid', gap: 14 }}>
-                    <div>
-                      <div style={{ fontSize: 11, color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 5 }}>Teléfono fijo</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ fontWeight: 600, fontSize: 15 }}>{drawerTelefono}</span>
-                        {drawerTelefono !== '-' && (
-                          <a href={'tel:' + drawerTelefono.replace(/\s/g, '')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#1A5C4A', color: '#fff', borderRadius: 6, padding: '4px 10px', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>
-                            <PhoneCall size={12} />Llamar
-                          </a>
-                        )}
-                      </div>
-                    </div>
+                  <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid #F0F0F0', marginBottom: 18 }}>
+                    {[{ key: 'datos', label: 'Datos' }, { key: 'gestion', label: 'Gestión' }].map((tab) => (
+                      <button
+                        key={tab.key}
+                        onClick={() => { setActiveTab(tab.key); setGestionError(''); }}
+                        style={{ padding: '8px 18px', border: 'none', background: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', color: activeTab === tab.key ? '#1A5C4A' : '#888', borderBottom: activeTab === tab.key ? '2px solid #1A5C4A' : '2px solid transparent', marginBottom: -2 }}
+                      >{tab.label}</button>
+                    ))}
+                  </div>
 
-                    {drawerCelular !== '-' && (
+                  {activeTab === 'datos' ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, padding: '16px 0' }}>
                       <div>
-                        <div style={{ fontSize: 11, color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 5 }}>Celular</div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <span style={{ fontWeight: 600, fontSize: 15 }}>{drawerCelular}</span>
-                          <a href={'tel:' + drawerCelular.replace(/\s/g, '')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#1A5C4A', color: '#fff', borderRadius: 6, padding: '4px 10px', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>
-                            <PhoneCall size={12} />Llamar
-                          </a>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px 0' }}>Teléfonos</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {(dc.telefono || dc.phone) && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div>
+                                <p style={{ fontSize: 11, color: '#888', margin: 0 }}>Fijo</p>
+                                <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>{dc.telefono || dc.phone}</p>
+                              </div>
+                              <a href={`tel:${(dc.telefono || dc.phone).replace(/\s/g, '')}`} style={{ background: '#1A5C4A', color: '#FFF', borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>📞 Llamar</a>
+                            </div>
+                          )}
+                          {(dc.celular || pickCellular(dc)) && (dc.celular || pickCellular(dc)) !== (dc.telefono || dc.phone) && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div>
+                                <p style={{ fontSize: 11, color: '#888', margin: 0 }}>Celular</p>
+                                <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>{dc.celular || pickCellular(dc)}</p>
+                              </div>
+                              <a href={`tel:${(dc.celular || pickCellular(dc)).replace(/\s/g, '')}`} style={{ background: '#1A5C4A', color: '#FFF', borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>📞 Llamar</a>
+                            </div>
+                          )}
+                          {(dc.correo_electronico || dc.email) && (
+                            <div>
+                              <p style={{ fontSize: 11, color: '#888', margin: 0 }}>Email</p>
+                              <a href={`mailto:${dc.correo_electronico || dc.email}`} style={{ fontSize: 13, color: '#1A5C4A', fontWeight: 500 }}>{dc.correo_electronico || dc.email}</a>
+                            </div>
+                          )}
                         </div>
                       </div>
-                    )}
 
-                    <div>
-                      <div style={{ fontSize: 11, color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 5 }}>Ubicación</div>
-                      <div style={{ fontWeight: 500, fontSize: 14 }}>{drawerUbicacion}</div>
+                      {(dc.documento || dc.fecha_nacimiento) && (
+                        <>
+                          <hr style={{ border: 'none', borderTop: '1px solid #F0F0F0', margin: 0 }} />
+                          <div>
+                            <p style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px 0' }}>Datos personales</p>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                              {dc.documento && (
+                                <div>
+                                  <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Documento</p>
+                                  <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{dc.documento}</p>
+                                </div>
+                              )}
+                              {dc.fecha_nacimiento && (
+                                <div>
+                                  <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Nacimiento</p>
+                                  <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>
+                                    {new Date(dc.fecha_nacimiento).toLocaleDateString('es-UY')}
+                                    {dc.edad ? ` (${dc.edad} años)` : ''}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </>
+                      )}
+
+                      {(dc.departamento || dc.city || dc.localidad || dc.direccion) && (
+                        <>
+                          <hr style={{ border: 'none', borderTop: '1px solid #F0F0F0', margin: 0 }} />
+                          <div>
+                            <p style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px 0' }}>Ubicación</p>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                              {(dc.departamento || dc.city) && (
+                                <div>
+                                  <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Departamento</p>
+                                  <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{dc.departamento || dc.city}</p>
+                                </div>
+                              )}
+                              {dc.localidad && (
+                                <div>
+                                  <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Localidad</p>
+                                  <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{dc.localidad}</p>
+                                </div>
+                              )}
+                              {dc.direccion && (
+                                <div style={{ gridColumn: '1 / -1' }}>
+                                  <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Dirección</p>
+                                  <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{dc.direccion}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
-
-                    {drawerFuente && (
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                       <div>
-                        <div style={{ fontSize: 11, color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 5 }}>Fuente</div>
-                        <div style={{ fontWeight: 500, fontSize: 14 }}>{drawerFuente}</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 10 }}>Resultado de la gestión</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {[
+                            { value: 'no_contesta', label: 'No contesta' },
+                            { value: 'rellamar', label: 'Rellamar' },
+                            { value: 'seguimiento', label: 'Seguimiento' },
+                            { value: 'rechazo', label: 'Rechazo' },
+                            { value: 'dato_erroneo', label: 'Dato erróneo' },
+                            { value: 'venta', label: 'Venta' }
+                          ].map((opt) => (
+                            <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '8px 10px', borderRadius: 6, border: estadoGestion === opt.value ? '1.5px solid #1A5C4A' : '1.5px solid #E8E8E8', background: estadoGestion === opt.value ? '#F0FAF6' : '#fff', fontSize: 13, fontWeight: estadoGestion === opt.value ? 600 : 400 }}>
+                              <input
+                                type="radio"
+                                name="estadoGestion"
+                                value={opt.value}
+                                checked={estadoGestion === opt.value}
+                                onChange={() => setEstadoGestion(opt.value)}
+                                style={{ accentColor: '#1A5C4A' }}
+                              />
+                              {opt.label}
+                            </label>
+                          ))}
+                        </div>
                       </div>
-                    )}
 
-                    {drawerLote && (
-                      <div style={{ fontSize: 12, color: '#aaa' }}>
-                        Lote: <span style={{ color: '#1A5C4A', fontWeight: 600 }}>{drawerLote}</span>
+                      {estadoGestion === 'seguimiento' && (
+                        <div style={{ display: 'flex', gap: 10 }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 11, color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 5 }}>Fecha agenda</div>
+                            <input
+                              type="date"
+                              value={fechaAgenda}
+                              onChange={(e) => setFechaAgenda(e.target.value)}
+                              style={{ width: '100%', padding: '7px 10px', border: '1px solid #ddd', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }}
+                            />
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 11, color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 5 }}>Hora (opc.)</div>
+                            <input
+                              type="time"
+                              value={horaAgenda}
+                              onChange={(e) => setHoraAgenda(e.target.value)}
+                              style={{ width: '100%', padding: '7px 10px', border: '1px solid #ddd', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div>
+                        <div style={{ fontSize: 11, color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 5 }}>Nota (opcional)</div>
+                        <textarea
+                          value={notaGestion}
+                          onChange={(e) => setNotaGestion(e.target.value)}
+                          placeholder="Observaciones..."
+                          rows={3}
+                          style={{ width: '100%', padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6, fontSize: 13, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                        />
                       </div>
-                    )}
-                  </div>
 
-                  <div style={{ borderTop: '1px solid #F0F0F0', paddingTop: 16 }}>
-                    <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-                      <span style={{ padding: '7px 14px', borderRadius: 6, background: '#1A5C4A', color: '#fff', fontWeight: 600, fontSize: 13 }}>Datos</span>
-                      <span style={{ padding: '7px 14px', borderRadius: 6, background: '#F5F5F5', color: '#BDBDBD', fontWeight: 600, fontSize: 13, cursor: 'not-allowed' }}>Gestión</span>
+                      {gestionError ? (
+                        <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 6, padding: '8px 12px', fontSize: 13, color: '#B91C1C' }}>{gestionError}</div>
+                      ) : null}
+
+                      <button
+                        onClick={handleGuardarGestion}
+                        disabled={guardando}
+                        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: '#1A5C4A', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 18px', fontWeight: 600, fontSize: 13, cursor: guardando ? 'wait' : 'pointer', opacity: guardando ? 0.7 : 1 }}
+                      >
+                        {guardando ? 'Guardando...' : 'Guardar gestión'}
+                      </button>
                     </div>
-                    <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>La tipificación estará disponible próximamente.</p>
-                  </div>
+                  )}
                 </div>
               </div>
             </>
