@@ -1190,6 +1190,27 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           console.error('[daily-stats] error:', err);
         }
       }, []); // eslint-disable-line react-hooks/exhaustive-deps
+      const refreshSilencioso = React.useCallback(async () => {
+        try {
+          const params = new URLSearchParams({
+            page: String(page),
+            limit: String(LIMIT),
+            tab: tabActivo
+          });
+          const contactosData = await api.get(`/leads/assigned?${params}`);
+          if (contactosData?.success || contactosData?.ok) {
+            const items = contactosData?.data?.contactos || [];
+            setLocalContacts(items.map(normalizeAssignedContact));
+            setTotalPages(contactosData?.data?.totalPages || 1);
+            setTotalContactos(contactosData?.data?.total || 0);
+          }
+
+          const statsData = await api.get('/leads/daily-stats');
+          if (statsData?.success || statsData?.ok) setStats(statsData.data);
+        } catch (err) {
+          console.error('[refresh] error silencioso:', err);
+        }
+      }, [page, tabActivo]); // eslint-disable-line react-hooks/exhaustive-deps
 
       const cargarContactos = React.useCallback(async () => {
         setLoadingContacts(true);
@@ -1409,7 +1430,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             } catch {}
             onVentaCerrada(dc);
           }
-          loadStats();
+          await refreshSilencioso();
         } catch (err) {
           const msg = String(err?.message || '');
           if (msg.includes('409')) {
