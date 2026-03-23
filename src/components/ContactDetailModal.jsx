@@ -52,7 +52,7 @@ const resolveGestionMeta = (contact) => {
     '';
   const normalized = String(rawStatus || '').toLowerCase();
   if (normalized.includes('venta') || normalized.includes('exito') || normalized.includes('cerrada')) {
-    return { label: '脡xito', color: '#15803d' };
+    return { label: '蓌ito', color: '#15803d' };
   }
   if (normalized.includes('no_contesta') || normalized.includes('no_contact') || normalized.includes('rech')) {
     return { label: 'No contactado', color: '#be123c' };
@@ -114,7 +114,7 @@ export default function ContactDetailModal({ contact, onClose }) {
                 Detalle del contacto
               </h2>
               <p style={{ fontFamily: 'IBM Plex Sans, sans-serif', fontSize: 12, color: 'var(--muted)', margin: '4px 0 0' }}>
-                Datos completos y 煤ltima gesti贸n registrada.
+                Datos completos y 鷏tima gesti髇 registrada.
               </p>
             </div>
             <button
@@ -166,9 +166,9 @@ export default function ContactDetailModal({ contact, onClose }) {
           <div style={sectionTitleStyle}>Contacto</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 24px' }}>
             {[
-              { label: 'Tel茅fono', value: contact.telefono },
+              { label: 'Tel閒ono', value: contact.telefono },
               { label: 'Celular', value: contact.celular },
-              { label: 'Correo electr贸nico', value: contact.correo_electronico, span: 2 },
+              { label: 'Correo electr髇ico', value: contact.correo_electronico, span: 2 },
               { label: 'Origen del dato', value: contact.origen_dato, span: 2 },
               { label: 'Fuente', value: contact.fuente || contact.origen || 'Import', span: 2 }
             ].map((item, idx, arr) => (
@@ -180,13 +180,13 @@ export default function ContactDetailModal({ contact, onClose }) {
           </div>
 
           <hr style={{ border: 'none', borderTop: '1px solid var(--line)', margin: '14px 0 12px' }} />
-          <div style={sectionTitleStyle}>Ubicaci贸n</div>
+          <div style={sectionTitleStyle}>Ubicaci髇</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 24px' }}>
             {[
-              { label: 'Direcci贸n', value: contact.direccion, span: 2 },
+              { label: 'Direcci髇', value: contact.direccion, span: 2 },
               { label: 'Departamento', value: contact.departamento },
               { label: 'Localidad', value: contact.localidad },
-              { label: 'Pa铆s', value: contact.pais }
+              { label: 'Pa韘', value: contact.pais }
             ].map((item, idx, arr) => (
               <div key={item.label} style={{ ...fieldContainer(idx === arr.length - 1), gridColumn: item.span ? 'span 2' : 'auto' }}>
                 <div style={labelStyle}>{item.label}</div>
@@ -196,7 +196,7 @@ export default function ContactDetailModal({ contact, onClose }) {
           </div>
 
           <hr style={{ border: 'none', borderTop: '1px solid var(--line)', margin: '14px 0 12px' }} />
-          <div style={sectionTitleStyle}>脷ltima gesti贸n</div>
+          <div style={sectionTitleStyle}>趌tima gesti髇</div>
           {!gestionTexto && !contact?.proxima_accion ? (
             <div style={{ textAlign: 'center', padding: '28px 16px', background: 'rgba(20,34,53,0.04)', borderRadius: 16, border: '1px dashed var(--line)' }}>
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
@@ -220,12 +220,12 @@ export default function ContactDetailModal({ contact, onClose }) {
                 </span>
               </div>
               <div style={{ fontFamily: 'Manrope, sans-serif', fontSize: 14, marginTop: 10 }}>
-                {gestionTexto || 'Gesti贸n registrada'}
+                {gestionTexto || 'Gesti髇 registrada'}
               </div>
               {contact?.proxima_accion ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, color: 'var(--info)' }}>
                   <ArrowRight size={14} />
-                  <span style={{ fontFamily: 'IBM Plex Sans, sans-serif', fontSize: 12 }}>Pr贸xima acci贸n: {contact.proxima_accion}</span>
+                  <span style={{ fontFamily: 'IBM Plex Sans, sans-serif', fontSize: 12 }}>Pr髕ima acci髇: {contact.proxima_accion}</span>
                 </div>
               ) : null}
             </div>
@@ -241,4 +241,5 @@ export default function ContactDetailModal({ contact, onClose }) {
     </div>
   );
 }
+
 
