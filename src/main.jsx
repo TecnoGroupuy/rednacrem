@@ -162,7 +162,8 @@ const ROLE_NAV = [
       { path: 'sa_configuracion', label: 'Configuración', caption: 'Identidad y parámetros', roles: ['superadministrador'], icon: Settings },
       { path: 'dashboard', label: 'Dashboard', caption: 'Resumen principal', roles: ['director', 'supervisor', 'vendedor', 'operaciones'], icon: Activity },
       { path: 'contactos', label: 'Contactos', caption: 'Base comercial', roles: ['director', 'vendedor'], icon: Users },
-      { path: 'clientes', label: 'Clientes', caption: 'Cartera activa', roles: ['superadministrador', 'director', 'vendedor', 'operaciones'], icon: UserCheck },
+      { path: 'clientes', label: 'Clientes', caption: 'Cartera activa', roles: ['superadministrador', 'director', 'operaciones'], icon: UserCheck },
+      { path: 'clientes', label: 'Mis ventas', caption: 'Clientes que cerré', roles: ['vendedor'], icon: UserCheck },
       { path: 'base_general', label: 'Base general', caption: 'Carga y preparacion', roles: ['supervisor'], icon: Users },
       { path: 'lotes', label: 'Lotes', caption: 'Asignacion comercial', roles: ['supervisor'], icon: Layers },
       { path: 'numeros_error', label: 'Numeros con errores', caption: 'Fuera de flujo comercial', roles: ['supervisor'], icon: AlertTriangle },
@@ -1635,7 +1636,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       return (
         <div className="view">
           <section className="content-grid">
-            <Panel className="span-12" title="Clientes cerrados en venta" subtitle="Incluye titular y familiares asignados">
+            <Panel className="span-12" title="Mis ventas" subtitle="Contactos que convertiste en clientes">
               <div className="table-wrap">
                 <table>
                   <thead><tr><th>Cliente</th><th>Telefono</th><th>Producto</th><th>Cuota</th><th>Tipo</th><th>Estado</th></tr></thead>
@@ -4037,10 +4038,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           setNewClientOpen(true);
         };
 
+        const handleCloseNewClient = () => {
+          setNewClientOpen(false);
+          if (onPrefillUsed) onPrefillUsed();
+        };
+
         React.useEffect(() => {
           if (!prefillContact) return;
           handleOpenNewClient(prefillContact);
-          if (onPrefillUsed) onPrefillUsed();
         }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
         const handleSaveNewClient = async () => {
@@ -4049,7 +4054,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             setNewClientError('Selecciona al menos un producto para continuar.');
             return;
           }
-          const loggedName = authUser?.nombre || authUser?.email || '';
+          const loggedName = [authUser?.nombre, authUser?.apellido].filter(Boolean).join(' ') || authUser?.email || '';
           const saleMode = newClientDraft.sale?.mode || 'logged';
           const saleName = saleMode === 'external'
             ? String(newClientDraft.sale?.externalName || '').trim()
@@ -4093,7 +4098,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             ]);
             setClientRows(directory.table);
             setClientMetrics(buildClientMetricCards(metrics));
-            setNewClientOpen(false);
+            handleCloseNewClient();
             try { localStorage.removeItem('cliente_pendiente_alta'); } catch {}
           } catch (err) {
             const status = err?.status;
@@ -4111,7 +4116,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   const metrics = await fetchClientsMetrics().catch(() => null);
                   setClientRows(directory.table);
                   if (metrics) setClientMetrics(buildClientMetricCards(metrics));
-                  setNewClientOpen(false);
+                  handleCloseNewClient();
                   return;
                 }
               } catch {}
@@ -4128,7 +4133,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   const metrics = await fetchClientsMetrics().catch(() => null);
                   setClientRows(directory.table);
                   if (metrics) setClientMetrics(buildClientMetricCards(metrics));
-                  setNewClientOpen(false);
+                  handleCloseNewClient();
                   return;
                 }
               } catch {}
@@ -4279,7 +4284,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   backgroundColor: 'rgba(15, 23, 42, 0.5)',
                   zIndex: 45
                 }}
-                onClick={() => setNewClientOpen(false)}
+                onClick={() => handleCloseNewClient()}
               />
               <div
                 style={{
@@ -4308,7 +4313,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   </div>
                   <button
                     type="button"
-                    onClick={() => setNewClientOpen(false)}
+                    onClick={() => handleCloseNewClient()}
                     style={{
                       border: 'none',
                       background: '#f3f4f6',
@@ -4480,7 +4485,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       }}>
                         <div>
                           <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#64748b' }}>Usuario logueado</div>
-                          <div style={{ fontSize: 14, fontWeight: 600 }}>{authUser?.nombre || authUser?.email || 'Usuario'}</div>
+                          <div style={{ fontSize: 14, fontWeight: 600 }}>{[authUser?.nombre, authUser?.apellido].filter(Boolean).join(' ') || authUser?.email || 'Usuario'}</div>
                           {authUser?.email ? <div style={{ fontSize: 12, color: '#94a3b8' }}>{authUser.email}</div> : null}
                         </div>
                         <input
@@ -4595,7 +4600,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   ) : null}
                   <button
                     type="button"
-                    onClick={() => setNewClientOpen(false)}
+                    onClick={() => handleCloseNewClient()}
                     className="new-client-action"
                     style={{
                       border: '1px solid #cbd5f5',

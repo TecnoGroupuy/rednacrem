@@ -140,7 +140,10 @@ export function AuthProvider({ children, fallbackRole = null }) {
       const status = normalizeStatus(me.status);
       const roleFromBackend = me.role || null;
       const roleFallback = buildFallbackRoleFromClaims(claims || {});
-      const role = roleFromBackend || (ALLOW_CLAIMS_ROLE_FALLBACK ? (roleFallback || fallbackRole) : null) || null;
+      const isDevToken = import.meta.env.DEV && accessToken === 'dev-token';
+      const role = isDevToken
+        ? (roleFallback || roleFromBackend || fallbackRole || null)
+        : (roleFromBackend || (ALLOW_CLAIMS_ROLE_FALLBACK ? (roleFallback || fallbackRole) : null) || null);
 
       if (!role) {
         setAuthSession((prev) => ({
@@ -175,6 +178,7 @@ export function AuthProvider({ children, fallbackRole = null }) {
       const nextUser = {
         id: me.id || sessionData?.id || '',
         nombre: me.nombre || sessionData?.nombre || claims?.name || claims?.email || 'Usuario',
+        apellido: me.apellido || sessionData?.apellido || '',
         email: me.email || sessionData?.email || claims?.email || '',
         rol: role,
         status,
