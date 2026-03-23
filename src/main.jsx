@@ -2068,7 +2068,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         <p style={{ color: '#aaa', fontSize: 13, textAlign: 'center', marginTop: 24 }}>Sin gestiones registradas aún</p>
                       ) : (
                         (drawerItem.historial || []).map((h, i) => {
-                          const hMeta = salesStatusMeta(h.estado);
+                          const hMeta = salesStatusMeta(h.resultado || h.estado);
                           return (
                             <div key={i} style={{ padding: '10px 0', borderBottom: '1px solid #F0F0F0' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
