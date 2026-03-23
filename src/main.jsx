@@ -1043,12 +1043,42 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
     const isSalesActiveContact = (contact) => isCommercialContactActive(contact);
 
     function SalesDashboard({ contacts, salesRecords, onGoRoute, onVentaCerrada }) {
-      const pendingAgenda = contacts.filter((contact) => shouldAppearInSalesAgenda(contact));
       const [assignedData, setAssignedData] = React.useState({ contactos: [], total: 0 });
+      const [stats, setStats] = React.useState(null);
+      const [agendaHoy, setAgendaHoy] = React.useState([]);
+      const [loadingDash, setLoadingDash] = React.useState(true);
       const [clientePendiente, setClientePendiente] = React.useState(null);
       const [showBannerPendiente, setShowBannerPendiente] = React.useState(false);
       React.useEffect(() => {
-        listAssignedLeadsAsync().then(setAssignedData).catch(() => {});
+        const cargar = async () => {
+          setLoadingDash(true);
+          try {
+            const api = getApiClient();
+
+            const contactosData = await api.get('/leads/assigned?page=1&limit=200&tab=todos');
+            if (contactosData.success || contactosData.ok) {
+              setAssignedData({
+                contactos: contactosData.data.contactos || [],
+                total: contactosData.data.total || 0
+              });
+            }
+
+            const statsData = await api.get('/leads/daily-stats');
+            if (statsData.success || statsData.ok) {
+              setStats(statsData.data);
+            }
+
+            const agendaData = await api.get('/agenda');
+            if (agendaData.success || agendaData.ok) {
+              setAgendaHoy(agendaData.data.items || []);
+            }
+          } catch (err) {
+            console.error('[dashboard] error:', err);
+          } finally {
+            setLoadingDash(false);
+          }
+        };
+        cargar();
         try {
           const stored = localStorage.getItem('cliente_pendiente_alta');
           if (stored) {
@@ -1061,13 +1091,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         }
       }, []);
       const contactosAsignados = assignedData.total;
-      const ventasCerradas = assignedData.contactos.filter((c) => c.estado_venta === 'venta').length;
-      const seguimientosPendientes = assignedData.contactos.filter((c) => c.estado_venta === 'seguimiento').length;
-      const gestionados = assignedData.contactos.filter((c) => c.estado_venta && c.estado_venta !== 'nuevo').length;
+      const gestionados = stats?.tocados || 0;
+      const ventasCerradas = stats?.ventas || 0;
+      const seguimientosPendientes = stats?.seguimiento || 0;
       const metricsRow1 = [
         { title: 'Contactos asignados', value: String(contactosAsignados), change: 0, label: 'lote recibido', trend: 'up', icon: Users, bg: 'rgba(37,99,235,0.12)', color: '#2563eb' },
-        { title: 'Ventas cerradas', value: String(ventasCerradas), change: 0, label: 'incluye familiares', trend: 'up', icon: CheckCircle2, bg: 'rgba(22,163,74,0.12)', color: '#15803d' },
-        { title: 'Seguimientos pendientes', value: String(seguimientosPendientes), change: 0, label: 'agenda comercial', trend: 'up', icon: Calendar, bg: 'rgba(245,158,11,0.12)', color: '#b45309' }
+        { title: 'Ventas cerradas', value: String(ventasCerradas), change: 0, label: `efectividad ${stats?.pct_efectividad ?? 0}%`, trend: 'up', icon: CheckCircle2, bg: 'rgba(22,163,74,0.12)', color: '#15803d' },
+        { title: 'En agenda hoy', value: String(seguimientosPendientes), change: 0, label: `${stats?.seguimiento ?? 0} activos`, trend: 'up', icon: Calendar, bg: 'rgba(245,158,11,0.12)', color: '#b45309' }
       ];
 
       return (
@@ -1098,7 +1128,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <div className="trend up">
                       <span style={{ fontWeight: 500, opacity: 0.7 }}>
                         {contactosAsignados > 0
-                          ? `${Math.round(gestionados / contactosAsignados * 100)}% del lote`
+                          ? `${Math.round(gestionados / Math.max(contactosAsignados, 1) * 100)}% del lote`
                           : '0% del lote'}
                       </span>
                     </div>
@@ -1113,16 +1143,28 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           <section className="content-grid">
             <Panel className="span-8" title="Operacion del dia" subtitle="Trabaja solo tus contactos asignados">
               <div className="list">
-                {pendingAgenda.slice(0, 4).map((contact) => (
-                  <div key={contact.id} className="status-item">
+                {agendaHoy.slice(0, 4).map((item) => (
+                  <div key={item.id} className="status-item">
                     <div className="status-ring" style={{ background: 'rgba(15,118,110,0.12)', color: '#0f766e' }}><PhoneCall size={16} /></div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 700 }}>{contact.name}</div>
-                      <div style={{ color: 'var(--muted)' }}>Proxima accion: {formatNextAction(contact.nextAction)}</div>
+                      <div style={{ fontWeight: 700 }}>
+                        {item.nombre} {item.apellido}
+                      </div>
+                      <div style={{ color: 'var(--muted)' }}>
+                        Agendado: {new Date(item.fecha_agenda).toLocaleString('es-UY', {
+                          day: 'numeric', month: 'numeric',
+                          hour: '2-digit', minute: '2-digit'
+                        })}
+                      </div>
                     </div>
-                    <SalesStatusBadge status={contact.status} small />
+                    <SalesStatusBadge status={item.estado_venta} small />
                   </div>
                 ))}
+                {agendaHoy.length === 0 && (
+                  <p style={{ color: '#aaa', fontSize: 13, padding: '16px 0' }}>
+                    Sin seguimientos para hoy
+                  </p>
+                )}
               </div>
             </Panel>
           </section>
@@ -1157,6 +1199,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [localContacts, setLocalContacts] = React.useState(() => contacts.filter(isSalesActiveContact));
       const [loadingContacts, setLoadingContacts] = React.useState(true);
       const [stats, setStats] = React.useState(null);
+      const [vistaMetricas, setVistaMetricas] = React.useState('hoy');
       const tabs = [
         { key: 'todos', label: 'Todos' },
         { key: 'nuevo', label: 'Nuevos' },
@@ -1173,6 +1216,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         try {
           const d = await api.get('/leads/daily-stats');
           console.log('[daily-stats]:', d);
+          console.log('[daily-stats] respuesta completa:', JSON.stringify(d.data));
           if (d?.success || d?.ok) setStats(d.data);
         } catch (err) {
           console.error('[daily-stats] error:', err);
@@ -1489,54 +1533,104 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             </div>
           ) : null}
 
-          {stats && (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(8, 1fr)',
-              gap: 8,
-              marginBottom: 16,
-              background: '#FFFFFF',
-              borderRadius: 12,
-              padding: '12px 16px',
-              boxShadow: '0 1px 6px rgba(0,0,0,0.06)'
-            }}>
-              {[
-                { label: 'Tocados hoy', value: stats.gestiones_hoy, color: '#1A5C4A' },
-                { label: 'Nuevos', value: stats.nuevos, color: '#9E9E9E' },
-                { label: 'No contesta', value: stats.no_contesta, color: '#F5A623' },
-                { label: 'Seguimiento', value: stats.seguimiento, color: '#9B59B6' },
-                { label: 'Rechazos', value: stats.rechazos, color: '#E53E3E' },
-                { label: 'Ventas', value: stats.ventas, color: '#27AE60' },
-                {
-                  label: 'Contacto',
-                  value: `${stats.pct_contacto}%`,
-                  color: '#4A90D9',
-                  tooltip: 'Seguimientos + Ventas / Total'
-                },
-                {
-                  label: 'Efectividad',
-                  value: `${stats.pct_efectividad}%`,
-                  color: '#27AE60',
-                  tooltip: 'Ventas / Total asignados'
-                }
-              ].map((m) => (
-                <div key={m.label} style={{ textAlign: 'center' }} title={m.tooltip || undefined}>
-                  <p style={{
-                    fontSize: 18, fontWeight: 700,
-                    color: m.color, margin: '0 0 2px 0'
-                  }}>
-                    {m.value}
-                  </p>
-                  <p style={{
-                    fontSize: 10, color: '#888',
-                    margin: 0, lineHeight: 1.2
-                  }}>
-                    {m.label}
-                  </p>
+          {stats && (() => {
+            const metricas = vistaMetricas === 'hoy' ? [
+              { label: 'Tocados', value: stats?.gestiones_hoy, color: '#1A5C4A' },
+              { label: 'No contesta', value: stats?.no_contesta_hoy, color: '#F5A623' },
+              { label: 'Rellamar', value: stats?.rellamar_hoy, color: '#4A90D9' },
+              { label: 'Seguimiento', value: stats?.tipificados_seguimiento_hoy, color: '#9B59B6' },
+              { label: 'Rechazos', value: stats?.rechazos_hoy, color: '#E53E3E' },
+              { label: 'Ventas', value: stats?.ventas_hoy, color: '#27AE60' },
+              { label: 'Contacto', value: `${stats?.pct_contacto_hoy ?? 0}%`, color: '#4A90D9' },
+              { label: 'Efectividad', value: `${stats?.pct_efectividad_hoy ?? 0}%`, color: '#27AE60' }
+            ] : [
+              { label: 'Asignados', value: stats?.total_asignados, color: '#333' },
+              { label: 'Nuevos', value: stats?.nuevos, color: '#9E9E9E' },
+              { label: 'No contesta', value: stats?.no_contesta, color: '#F5A623' },
+              { label: 'En agenda', value: stats?.seguimiento, color: '#9B59B6' },
+              { label: 'Rechazos', value: stats?.rechazos, color: '#E53E3E' },
+              { label: 'Ventas', value: stats?.ventas, color: '#27AE60' },
+              { label: 'Contacto', value: `${stats?.pct_contacto ?? 0}%`, color: '#4A90D9' },
+              { label: 'Efectividad', value: `${stats?.pct_efectividad ?? 0}%`, color: '#27AE60' }
+            ];
+
+            return (
+              <div style={{
+                background: '#FFFFFF',
+                borderRadius: 10,
+                padding: '10px 16px',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                marginBottom: 12,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8
+              }}>
+                <div style={{
+                  display: 'flex',
+                  background: '#F5F5F5',
+                  borderRadius: 6,
+                  padding: 2,
+                  gap: 2,
+                  flexShrink: 0,
+                  marginRight: 8
+                }}>
+                  {['hoy', 'lote'].map((v) => (
+                    <button
+                      key={v}
+                      onClick={() => setVistaMetricas(v)}
+                      style={{
+                        padding: '3px 10px',
+                        borderRadius: 4,
+                        border: 'none',
+                        fontSize: 11,
+                        fontWeight: vistaMetricas === v ? 600 : 400,
+                        background: vistaMetricas === v ? '#1A5C4A' : 'transparent',
+                        color: vistaMetricas === v ? '#FFF' : '#888',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {v === 'hoy' ? 'Hoy' : 'Lote'}
+                    </button>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
+
+                <div style={{
+                  width: 1, height: 32,
+                  background: '#E0E0E0',
+                  flexShrink: 0
+                }} />
+
+                <div style={{
+                  display: 'flex',
+                  flex: 1,
+                  justifyContent: 'space-around',
+                  alignItems: 'center'
+                }}>
+                  {metricas.map((m) => (
+                    <div key={m.label} style={{
+                      textAlign: 'center',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 1
+                    }} title={m.tooltip || undefined}>
+                      <span style={{
+                        fontSize: 16, fontWeight: 700,
+                        color: m.color, lineHeight: 1
+                      }}>
+                        {m.value ?? 0}
+                      </span>
+                      <span style={{
+                        fontSize: 10, color: '#aaa',
+                        lineHeight: 1, whiteSpace: 'nowrap'
+                      }}>
+                        {m.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           <div style={{
             display: 'flex', gap: 4, marginBottom: 12,
@@ -2043,6 +2137,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           return new Date(iso).toLocaleString('es-UY', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
         } catch { return iso; }
       };
+      const labelPorResultado = (estado) => {
+        if (!estado) return '';
+        const meta = salesStatusMeta(estado);
+        return meta?.label || estado;
+      };
 
       return (
         <div className="view">
@@ -2081,7 +2180,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           ? { bg: 'rgba(245,166,35,0.15)', color: '#F5A623', label: `${intentos} intentos` }
                           : { bg: 'rgba(158,158,158,0.12)', color: '#9E9E9E', label: `${intentos} intentos` };
                         const notaText = row.nota ? (row.nota.length > 40 ? row.nota.slice(0, 40) + '…' : row.nota) : null;
-                        const estadoMeta = salesStatusMeta(row.estado_venta);
+                        const tipoAgenda = row.tipo_agenda || row.estado_venta;
                         return (
                           <tr
                             key={row.id}
@@ -2108,7 +2207,51 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                               </span>
                             </td>
                             <td style={{ color: notaText ? '#888' : '#ccc', fontSize: 13 }}>{notaText || '—'}</td>
-                            <td><SalesStatusBadge status={row.estado_venta} small /></td>
+                            <td>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                <span style={{
+                                  display: 'inline-block',
+                                  padding: '3px 8px',
+                                  borderRadius: 20,
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                  background: tipoAgenda === 'seguimiento'
+                                    ? '#F8F0FF' : '#F0F7FF',
+                                  color: tipoAgenda === 'seguimiento'
+                                    ? '#9B59B6' : '#4A90D9',
+                                  border: `1px solid ${tipoAgenda === 'seguimiento'
+                                    ? '#9B59B640' : '#4A90D940'}`
+                                }}>
+                                  {tipoAgenda === 'seguimiento' ? '● Seguimiento' : '● Rellamar'}
+                                </span>
+
+                                {row.estado_venta && row.estado_venta !== tipoAgenda && (
+                                  <span style={{
+                                    display: 'inline-block',
+                                    padding: '2px 6px',
+                                    borderRadius: 20,
+                                    fontSize: 10,
+                                    fontWeight: 500,
+                                    background: {
+                                      'no_contesta': '#FFF8EE',
+                                      'rellamar': '#F0F7FF',
+                                      'seguimiento': '#F8F0FF',
+                                      'rechazo': '#FFF3F3',
+                                      'venta': '#F0FFF4'
+                                    }[row.estado_venta] || '#F5F5F5',
+                                    color: {
+                                      'no_contesta': '#F5A623',
+                                      'rellamar': '#4A90D9',
+                                      'seguimiento': '#9B59B6',
+                                      'rechazo': '#E53E3E',
+                                      'venta': '#27AE60'
+                                    }[row.estado_venta] || '#888'
+                                  }}>
+                                    {labelPorResultado(row.estado_venta)}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
                           </tr>
                         );
                       })}
@@ -2369,30 +2512,82 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       );
     }
 
-    function SalesClientsView({ salesRecords, productsById }) {
-      const soldRows = salesRecords.slice().sort((a, b) => b.fechaVenta.localeCompare(a.fechaVenta));
+    function SalesClientsView() {
+      const [ventas, setVentas] = React.useState([]);
+      const [loadingVentas, setLoadingVentas] = React.useState(true);
+
+      React.useEffect(() => {
+        const cargar = async () => {
+          setLoadingVentas(true);
+          try {
+            const api = getApiClient();
+            const data = await api.get('/clients/my-sales');
+            if (data.success || data.ok) {
+              setVentas(Array.isArray(data.data) ? data.data : []);
+            }
+          } catch (err) {
+            console.error('[my-sales] error:', err);
+          } finally {
+            setLoadingVentas(false);
+          }
+        };
+        cargar();
+      }, []);
+
+      const formatFechaVenta = (iso) => {
+        if (!iso) return '—';
+        try {
+          return new Date(iso).toLocaleString('es-UY', {
+            day: 'numeric', month: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+          });
+        } catch {
+          return iso;
+        }
+      };
       return (
         <div className="view">
           <section className="content-grid">
             <Panel className="span-12" title="Mis ventas" subtitle="Contactos que convertiste en clientes">
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>Cliente</th><th>Telefono</th><th>Producto</th><th>Cuota</th><th>Fecha</th><th>Tipo</th><th>Estado</th></tr></thead>
+                  <thead><tr><th>Contacto</th><th>Teléfono</th><th>Ubicación</th><th>Lote</th><th>Nota</th><th>Fecha</th></tr></thead>
                   <tbody>
-                    {soldRows.map((sale) => (
-                      <tr key={sale.id}>
-                        <td><div className="person"><div className="person-badge">{initials(sale.clienteNombre)}</div><strong>{sale.clienteNombre}</strong></div></td>
-                        <td>{sale.clienteTelefono}</td>
-                        <td>{sale.productoNombre || productsById[sale.productoId]?.nombre || '-'}</td>
-                        <td>{sale.cuota ? ('$ ' + Number(sale.cuota).toLocaleString('es-UY')) : '-'}</td>
-                        <td>{formatDateTimeShort(sale.fechaVenta) || '-'}</td>
-                        <td>{sale.grupoFamiliar ? ('Familiar · ' + (sale.relacionConTitular || '-')) : 'Venta principal'}</td>
-                        <td><SalesStatusBadge status="venta" small /></td>
-                      </tr>
-                    ))}
+                    {ventas.map((row) => {
+                      const nombre = [row.nombre, row.apellido].filter(Boolean).join(' ') || '—';
+                      const telefono = row.celular || row.telefono || '—';
+                      const ubicacion = [row.departamento, row.localidad].filter(Boolean).join(', ') || '—';
+                      const nota = row.nota_venta
+                        ? (row.nota_venta.length > 40 ? row.nota_venta.slice(0, 40) + '…' : row.nota_venta)
+                        : '—';
+                      return (
+                        <tr key={row.id || row.contacto_id || nombre + telefono}>
+                          <td>
+                            <div className="person">
+                              <div className="person-badge">{initials(nombre)}</div>
+                              <strong>{nombre}</strong>
+                            </div>
+                          </td>
+                          <td>{telefono}</td>
+                          <td>{ubicacion}</td>
+                          <td><span style={{ color: '#999', fontSize: 12 }}>{row.nombre_lote || '—'}</span></td>
+                          <td style={{ color: row.nota_venta ? '#666' : '#aaa', fontSize: 13 }}>{nota}</td>
+                          <td>{formatFechaVenta(row.fecha_venta)}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
-                {!soldRows.length ? <div style={{ padding: 16, color: 'var(--muted)' }}>Aún no hay clientes cerrados en venta.</div> : null}
+                {!loadingVentas && !ventas.length ? (
+                  <div style={{ textAlign: 'center', padding: '48px', color: '#aaa' }}>
+                    <p style={{ fontSize: 14, fontWeight: 600, color: '#333', margin: '0 0 4px 0' }}>
+                      Aún no tenés ventas registradas
+                    </p>
+                    <p style={{ fontSize: 12, margin: 0 }}>
+                      Cuando cerrés una venta aparecerá acá
+                    </p>
+                  </div>
+                ) : null}
               </div>
             </Panel>
           </section>
