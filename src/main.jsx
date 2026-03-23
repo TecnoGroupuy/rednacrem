@@ -1090,9 +1090,40 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
     const ESTADOS_FINALES_GESTION = ['venta', 'rechazo', 'dato_erroneo'];
 
+    const formatLastGestion = (isoStr) => {
+      if (!isoStr) return '';
+      try {
+        return new Date(isoStr).toLocaleString('es-UY', {
+          day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+      } catch {
+        return '';
+      }
+    };
+
+    const normalizeAssignedContact = (raw) => ({
+      ...raw,
+      name: [raw.nombre, raw.apellido].filter(Boolean).join(' ').trim() || raw.nombre || '',
+      phone: raw.celular || raw.telefono || '',
+      city: raw.departamento || raw.localidad || '',
+      status: raw.estado_venta || 'nuevo',
+      last: formatLastGestion(raw.ultima_gestion_real)
+    });
+
     function SalesContactsView({ contacts, selectedId, onSelect, onRegister, salesRecords, products, onAssignFamilySale, onUpdateContact }) {
       const [localContacts, setLocalContacts] = React.useState(() => contacts.filter(isSalesActiveContact));
-      React.useEffect(() => { setLocalContacts(contacts.filter(isSalesActiveContact)); }, [contacts]);
+      React.useEffect(() => {
+        listAssignedLeadsAsync().then((data) => {
+          const items = data?.contactos || [];
+          if (items.length > 0) {
+            setLocalContacts(items.map(normalizeAssignedContact));
+          } else {
+            setLocalContacts(contacts.filter(isSalesActiveContact));
+          }
+        }).catch(() => {
+          setLocalContacts(contacts.filter(isSalesActiveContact));
+        });
+      }, []); // eslint-disable-line react-hooks/exhaustive-deps
       const [searchTerm, setSearchTerm] = React.useState('');
       const [drawerContact, setDrawerContact] = React.useState(null);
       const [nextLoading, setNextLoading] = React.useState(false);
@@ -1172,15 +1203,17 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             nextAction
           });
           const contactId = dc.id;
+          const ahora = new Date().toISOString();
+          const applyUpdate = (c) => ({ ...c, status: estadoGestion, ultima_gestion_real: ahora, last: formatLastGestion(ahora) });
           if (ESTADOS_FINALES_GESTION.includes(estadoGestion)) {
             setLocalContacts((prev) => {
               const found = prev.find((c) => String(c.id) === String(contactId));
               const resto = prev.filter((c) => String(c.id) !== String(contactId));
-              return found ? [...resto, { ...found, status: estadoGestion }] : prev;
+              return found ? [...resto, applyUpdate(found)] : prev;
             });
           } else {
             setLocalContacts((prev) => prev.map((c) =>
-              String(c.id) === String(contactId) ? { ...c, status: estadoGestion } : c
+              String(c.id) === String(contactId) ? applyUpdate(c) : c
             ));
           }
           setStatusOverrides((prev) => ({ ...prev, [contactId]: estadoGestion }));
