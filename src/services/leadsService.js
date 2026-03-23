@@ -282,7 +282,8 @@ export const registerCommercialManagement = async (contactId, payload, { sellerN
     await api.post(`/leads/${contactId}/management`, {
       status: payload.status,
       note: payload.note,
-      nextAction: payload.nextAction
+      nextAction: payload.nextAction,
+      fecha_agenda: payload.fecha_agenda
     });
     return getCommercialContactById(contactId);
   }

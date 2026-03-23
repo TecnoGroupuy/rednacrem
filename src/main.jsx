@@ -1188,6 +1188,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [horaAgenda, setHoraAgenda] = React.useState('');
       const [agendaSeleccionada, setAgendaSeleccionada] = React.useState(null);
       const [mostrarManual, setMostrarManual] = React.useState(false);
+      const fechaAgendaRef = React.useRef('');
+      const horaAgendaRef = React.useRef('');
       const [guardando, setGuardando] = React.useState(false);
       const [gestionError, setGestionError] = React.useState('');
       const [statusOverrides, setStatusOverrides] = React.useState({});
@@ -1227,6 +1229,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setHoraAgenda('');
         setAgendaSeleccionada(null);
         setMostrarManual(false);
+        fechaAgendaRef.current = '';
+        horaAgendaRef.current = '';
         setGestionError('');
       };
 
@@ -1252,6 +1256,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setAgendaSeleccionada(opcion);
         setFechaAgenda(opcion.fecha);
         setHoraAgenda(opcion.hora);
+        fechaAgendaRef.current = opcion.fecha;
+        horaAgendaRef.current = opcion.hora;
         setMostrarManual(false);
       };
 
@@ -1291,14 +1297,27 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setGuardando(true);
         setGestionError('');
         try {
-          const nextAction = estadoGestion === 'seguimiento' && fechaAgenda
-            ? [fechaAgenda, horaAgenda].filter(Boolean).join(' ')
-            : undefined;
-          await registerCommercialManagement(dc.id, {
+          let fecha_agenda;
+          if (estadoGestion === 'seguimiento') {
+            const fecha = fechaAgenda || fechaAgendaRef.current;
+            const hora = horaAgenda || horaAgendaRef.current || '10:00';
+            console.log('[gestion] fechaAgenda:', fechaAgenda, 'ref:', fechaAgendaRef.current);
+            console.log('[gestion] horaAgenda:', horaAgenda, 'ref:', horaAgendaRef.current);
+            if (!fecha) {
+              setGestionError('Seleccioná una opción de agenda antes de guardar.');
+              setGuardando(false);
+              return;
+            }
+            fecha_agenda = `${fecha}T${hora}:00`;
+          }
+          const gestionPayload = {
             status: estadoGestion,
             note: notaGestion.trim() || undefined,
-            nextAction
-          });
+            nextAction: fecha_agenda,
+            fecha_agenda
+          };
+          console.log('[gestion] body:', JSON.stringify(gestionPayload));
+          await registerCommercialManagement(dc.id, gestionPayload);
           const contactId = dc.id;
           const ahora = new Date().toISOString();
           const applyUpdate = (c) => ({ ...c, status: estadoGestion, ultima_gestion_real: ahora, last: formatLastGestion(ahora) });
@@ -1625,14 +1644,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                               <input
                                 type="date"
                                 value={fechaAgenda}
-                                onChange={(e) => setFechaAgenda(e.target.value)}
+                                onChange={(e) => { setFechaAgenda(e.target.value); fechaAgendaRef.current = e.target.value; }}
                                 min={new Date().toISOString().split('T')[0]}
                                 style={{ flex: 1, padding: '8px 10px', border: '1px solid #E0E0E0', borderRadius: 8, fontSize: 13 }}
                               />
                               <input
                                 type="time"
                                 value={horaAgenda}
-                                onChange={(e) => setHoraAgenda(e.target.value)}
+                                onChange={(e) => { setHoraAgenda(e.target.value); horaAgendaRef.current = e.target.value; }}
                                 style={{ width: 110, padding: '8px 10px', border: '1px solid #E0E0E0', borderRadius: 8, fontSize: 13 }}
                               />
                             </div>
