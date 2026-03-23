@@ -1186,6 +1186,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [notaGestion, setNotaGestion] = React.useState('');
       const [fechaAgenda, setFechaAgenda] = React.useState('');
       const [horaAgenda, setHoraAgenda] = React.useState('');
+      const [agendaSeleccionada, setAgendaSeleccionada] = React.useState(null);
+      const [mostrarManual, setMostrarManual] = React.useState(false);
       const [guardando, setGuardando] = React.useState(false);
       const [gestionError, setGestionError] = React.useState('');
       const [statusOverrides, setStatusOverrides] = React.useState({});
@@ -1223,7 +1225,34 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setNotaGestion('');
         setFechaAgenda('');
         setHoraAgenda('');
+        setAgendaSeleccionada(null);
+        setMostrarManual(false);
         setGestionError('');
+      };
+
+      const opcionesAgenda = () => {
+        const ahora = new Date();
+        const hoy = ahora.toISOString().split('T')[0];
+        const manana = new Date(ahora);
+        manana.setDate(manana.getDate() + 1);
+        const mananaStr = manana.toISOString().split('T')[0];
+        const pasado = new Date(ahora);
+        pasado.setDate(pasado.getDate() + 2);
+        const pasadoStr = pasado.toISOString().split('T')[0];
+        return [
+          { label: 'Llamar esta mañana', hora: '10:00', fecha: hoy, visible: ahora.getHours() < 11 },
+          { label: 'Llamar esta tarde', hora: '17:00', fecha: hoy, visible: ahora.getHours() < 16 },
+          { label: 'Mañana a la mañana', hora: '10:00', fecha: mananaStr, visible: true },
+          { label: 'Mañana a la tarde', hora: '17:00', fecha: mananaStr, visible: true },
+          { label: 'En 2 días', hora: '10:00', fecha: pasadoStr, visible: true }
+        ].filter((o) => o.visible);
+      };
+
+      const seleccionarAgenda = (opcion) => {
+        setAgendaSeleccionada(opcion);
+        setFechaAgenda(opcion.fecha);
+        setHoraAgenda(opcion.hora);
+        setMostrarManual(false);
       };
 
       const openDrawer = (c) => {
@@ -1549,25 +1578,70 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       </div>
 
                       {estadoGestion === 'seguimiento' && (
-                        <div style={{ display: 'flex', gap: 10 }}>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 11, color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 5 }}>Fecha agenda</div>
-                            <input
-                              type="date"
-                              value={fechaAgenda}
-                              onChange={(e) => setFechaAgenda(e.target.value)}
-                              style={{ width: '100%', padding: '7px 10px', border: '1px solid #ddd', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }}
-                            />
+                        <div style={{ background: '#F8F0FF', border: '1px solid rgba(155,89,182,0.2)', borderRadius: 10, padding: '12px 14px' }}>
+                          <p style={{ fontSize: 12, fontWeight: 600, color: '#9B59B6', margin: '0 0 10px 0' }}>Agenda de seguimiento</p>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            {opcionesAgenda().map((op) => (
+                              <button
+                                key={op.label}
+                                type="button"
+                                onClick={() => seleccionarAgenda(op)}
+                                style={{
+                                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                  padding: '9px 12px',
+                                  background: agendaSeleccionada?.label === op.label ? '#9B59B6' : '#FFF',
+                                  color: agendaSeleccionada?.label === op.label ? '#FFF' : '#333',
+                                  border: `1px solid ${agendaSeleccionada?.label === op.label ? '#9B59B6' : '#E0E0E0'}`,
+                                  borderRadius: 8, fontSize: 13,
+                                  fontWeight: agendaSeleccionada?.label === op.label ? 600 : 400,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                <span>{op.label}</span>
+                                <span style={{ fontSize: 11, color: agendaSeleccionada?.label === op.label ? 'rgba(255,255,255,0.6)' : '#999' }}>{op.hora}hs</span>
+                              </button>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMostrarManual(!mostrarManual);
+                                setAgendaSeleccionada(null);
+                                setFechaAgenda('');
+                                setHoraAgenda('');
+                              }}
+                              style={{
+                                padding: '8px 12px',
+                                background: 'transparent',
+                                color: mostrarManual ? '#9B59B6' : '#999',
+                                border: `1px dashed ${mostrarManual ? '#9B59B6' : '#CCC'}`,
+                                borderRadius: 8, fontSize: 12, cursor: 'pointer', textAlign: 'left'
+                              }}
+                            >
+                              + Elegir otra fecha y hora
+                            </button>
                           </div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 11, color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 5 }}>Hora (opc.)</div>
-                            <input
-                              type="time"
-                              value={horaAgenda}
-                              onChange={(e) => setHoraAgenda(e.target.value)}
-                              style={{ width: '100%', padding: '7px 10px', border: '1px solid #ddd', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }}
-                            />
-                          </div>
+                          {mostrarManual && (
+                            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                              <input
+                                type="date"
+                                value={fechaAgenda}
+                                onChange={(e) => setFechaAgenda(e.target.value)}
+                                min={new Date().toISOString().split('T')[0]}
+                                style={{ flex: 1, padding: '8px 10px', border: '1px solid #E0E0E0', borderRadius: 8, fontSize: 13 }}
+                              />
+                              <input
+                                type="time"
+                                value={horaAgenda}
+                                onChange={(e) => setHoraAgenda(e.target.value)}
+                                style={{ width: 110, padding: '8px 10px', border: '1px solid #E0E0E0', borderRadius: 8, fontSize: 13 }}
+                              />
+                            </div>
+                          )}
+                          {(agendaSeleccionada || (fechaAgenda && horaAgenda)) && (
+                            <p style={{ fontSize: 11, color: '#9B59B6', margin: '8px 0 0 0', fontWeight: 500 }}>
+                              Agendado: {agendaSeleccionada?.label || `${new Date(fechaAgenda + 'T12:00:00').toLocaleDateString('es-UY')} a las ${horaAgenda}hs`}
+                            </p>
+                          )}
                         </div>
                       )}
 
