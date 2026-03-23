@@ -1696,31 +1696,395 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       );
     }
 
-    function SalesAgendaView({ contacts }) {
-      const agendaRows = contacts
-        .filter((contact) => shouldAppearInSalesAgenda(contact))
-        .sort((a, b) => (a.nextAction > b.nextAction ? 1 : -1));
+    function SalesAgendaView({ onVentaCerrada }) {
+      const agendaApi = getApiClient();
+      const [seguimientos, setSeguimientos] = React.useState([]);
+      const [loadingAgenda, setLoadingAgenda] = React.useState(true);
+      const [drawerItem, setDrawerItem] = React.useState(null);
+      const [agendaTab, setAgendaTab] = React.useState('historial');
+      const [agEstado, setAgEstado] = React.useState('');
+      const [agNota, setAgNota] = React.useState('');
+      const [agFecha, setAgFecha] = React.useState('');
+      const [agHora, setAgHora] = React.useState('');
+      const [agSeleccionada, setAgSeleccionada] = React.useState(null);
+      const [agMostrarManual, setAgMostrarManual] = React.useState(false);
+      const agFechaRef = React.useRef('');
+      const agHoraRef = React.useRef('');
+      const [agGuardando, setAgGuardando] = React.useState(false);
+      const [agError, setAgError] = React.useState('');
+
+      const cargarAgenda = React.useCallback(async () => {
+        setLoadingAgenda(true);
+        try {
+          const data = await agendaApi.get('/agenda');
+          setSeguimientos(data?.data?.items || []);
+        } catch {
+          setSeguimientos([]);
+        } finally {
+          setLoadingAgenda(false);
+        }
+      }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+      React.useEffect(() => { cargarAgenda(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+      const agOpcionesAgenda = () => {
+        const ahora = new Date();
+        const hoy = ahora.toISOString().split('T')[0];
+        const manana = new Date(ahora); manana.setDate(manana.getDate() + 1);
+        const mananaStr = manana.toISOString().split('T')[0];
+        const pasado = new Date(ahora); pasado.setDate(pasado.getDate() + 2);
+        const pasadoStr = pasado.toISOString().split('T')[0];
+        return [
+          { label: 'Llamar esta mañana', hora: '10:00', fecha: hoy, visible: ahora.getHours() < 11 },
+          { label: 'Llamar esta tarde', hora: '17:00', fecha: hoy, visible: ahora.getHours() < 16 },
+          { label: 'Mañana a la mañana', hora: '10:00', fecha: mananaStr, visible: true },
+          { label: 'Mañana a la tarde', hora: '17:00', fecha: mananaStr, visible: true },
+          { label: 'En 2 días', hora: '10:00', fecha: pasadoStr, visible: true }
+        ].filter((o) => o.visible);
+      };
+
+      const agSeleccionarAgenda = (op) => {
+        setAgSeleccionada(op); setAgFecha(op.fecha); setAgHora(op.hora);
+        agFechaRef.current = op.fecha; agHoraRef.current = op.hora;
+        setAgMostrarManual(false);
+      };
+
+      const agResetForm = () => {
+        setAgEstado(''); setAgNota(''); setAgFecha(''); setAgHora('');
+        setAgSeleccionada(null); setAgMostrarManual(false);
+        agFechaRef.current = ''; agHoraRef.current = '';
+        setAgError('');
+      };
+
+      const abrirDrawer = (row) => { setDrawerItem(row); setAgendaTab('historial'); agResetForm(); };
+      const cerrarDrawer = () => { setDrawerItem(null); agResetForm(); };
+
+      const handleForzarRechazo = async (row) => {
+        setAgGuardando(true); setAgError('');
+        try {
+          await agendaApi.post(`/leads/${row.contact_id}/management`, {
+            status: 'rechazo',
+            nota: 'Sin respuesta luego de 3 intentos consecutivos'
+          });
+          await agendaApi.patch(`/agenda/${row.id}/complete`, {}).catch(() => {});
+          setSeguimientos((prev) => prev.filter((s) => s.id !== row.id));
+          cerrarDrawer();
+        } catch (err) {
+          setAgError(err?.message || 'No se pudo registrar el rechazo.');
+        } finally {
+          setAgGuardando(false);
+        }
+      };
+
+      const handleGuardarAgendaGestion = async () => {
+        if (agGuardando || !drawerItem || !agEstado) return;
+        setAgGuardando(true); setAgError('');
+        try {
+          let fecha_agenda;
+          if (agEstado === 'seguimiento') {
+            const fecha = agFecha || agFechaRef.current;
+            const hora = agHora || agHoraRef.current || '10:00';
+            if (!fecha) {
+              setAgError('Seleccioná una opción de agenda antes de guardar.');
+              setAgGuardando(false);
+              return;
+            }
+            fecha_agenda = `${fecha}T${hora}:00`;
+          }
+          await agendaApi.post(`/leads/${drawerItem.contact_id}/management`, {
+            status: agEstado,
+            note: agNota.trim() || undefined,
+            nextAction: fecha_agenda,
+            fecha_agenda
+          });
+          if (ESTADOS_FINALES_GESTION.includes(agEstado)) {
+            await agendaApi.patch(`/agenda/${drawerItem.id}/complete`, {}).catch(() => {});
+            setSeguimientos((prev) => prev.filter((s) => s.id !== drawerItem.id));
+            if (agEstado === 'venta' && onVentaCerrada) {
+              try {
+                const borrador = {
+                  contacto_id: String(drawerItem.contact_id),
+                  nombre: drawerItem.nombre || '',
+                  apellido: drawerItem.apellido || '',
+                  documento: drawerItem.documento || '',
+                  fecha_nacimiento: drawerItem.fecha_nacimiento || '',
+                  telefono: drawerItem.telefono || '',
+                  celular: drawerItem.celular || '',
+                  correo_electronico: drawerItem.correo_electronico || '',
+                  batch_id: drawerItem.batch_id || '',
+                  timestamp: new Date().toISOString()
+                };
+                localStorage.setItem('cliente_pendiente_alta', JSON.stringify(borrador));
+              } catch {}
+              onVentaCerrada(drawerItem);
+            }
+            cerrarDrawer();
+          } else if (agEstado === 'seguimiento') {
+            setSeguimientos((prev) => prev.map((s) =>
+              s.id === drawerItem.id ? { ...s, fecha_agenda, estado_venta: agEstado } : s
+            ));
+            cerrarDrawer();
+          } else {
+            setSeguimientos((prev) => prev.map((s) =>
+              s.id === drawerItem.id ? { ...s, estado_venta: agEstado } : s
+            ));
+            cerrarDrawer();
+          }
+        } catch (err) {
+          setAgError(err?.message || 'No se pudo guardar la gestión.');
+        } finally {
+          setAgGuardando(false);
+        }
+      };
+
+      const ahora = new Date();
+      const fmtFechaHora = (iso) => {
+        if (!iso) return '—';
+        try {
+          return new Date(iso).toLocaleString('es-UY', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
+        } catch { return iso; }
+      };
 
       return (
         <div className="view">
           <section className="content-grid">
-            <Panel className="span-12" title="Agenda del vendedor" subtitle="Seguimientos y rellamadas pendientes">
-              <div className="table-wrap">
-                <table>
-                  <thead><tr><th>Fecha</th><th>Hora</th><th>Contacto</th><th>Tipo de accion</th><th>Nota</th><th>Estado</th></tr></thead>
-                  <tbody>
-                    {agendaRows.map((contact) => {
-                      const parsed = contact.nextAction.includes('T') ? new Date(contact.nextAction) : null;
-                      const dateText = parsed && !Number.isNaN(parsed.getTime()) ? parsed.toLocaleDateString('es-UY') : contact.nextAction;
-                      const timeText = parsed && !Number.isNaN(parsed.getTime()) ? parsed.toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' }) : '-';
-                      return <tr key={contact.id}><td>{dateText}</td><td>{timeText}</td><td><strong>{contact.name}</strong></td><td>{salesStatusMeta(contact.status).label}</td><td>{contact.notes?.[0] || '-'}</td><td><SalesStatusBadge status={contact.status} small /></td></tr>;
-                    })}
-                  </tbody>
-                </table>
-                {!agendaRows.length ? <div style={{ padding: 16, color: 'var(--muted)' }}>No hay seguimientos ni rellamadas pendientes.</div> : null}
-              </div>
+            <Panel className="span-12" title="Mis seguimientos" subtitle="Contactos con compromiso de llamada pendiente">
+              {loadingAgenda ? (
+                <div style={{ padding: '32px 16px', textAlign: 'center', color: '#aaa', fontSize: 14 }}>Cargando agenda...</div>
+              ) : seguimientos.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '48px 20px', color: '#aaa' }}>
+                  <p style={{ fontSize: 32, margin: '0 0 8px 0' }}>✓</p>
+                  <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Sin seguimientos pendientes</p>
+                  <p style={{ fontSize: 12, margin: '4px 0 0 0' }}>Cuando agendés un seguimiento aparecerá acá</p>
+                </div>
+              ) : (
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Fecha y hora</th>
+                        <th>Contacto</th>
+                        <th>Teléfono</th>
+                        <th>Intentos</th>
+                        <th>Nota</th>
+                        <th>Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {seguimientos.map((row) => {
+                        const fechaDt = row.fecha_agenda ? new Date(row.fecha_agenda) : null;
+                        const vencida = fechaDt && fechaDt < ahora;
+                        const telefono = row.celular || row.telefono || '';
+                        const intentos = row.intentos || 0;
+                        const intentosMeta = intentos >= 3
+                          ? { bg: '#FDECEA', color: '#E53E3E', label: `${intentos} intentos` }
+                          : intentos === 2
+                          ? { bg: 'rgba(245,166,35,0.15)', color: '#F5A623', label: `${intentos} intentos` }
+                          : { bg: 'rgba(158,158,158,0.12)', color: '#9E9E9E', label: `${intentos} intentos` };
+                        const notaText = row.nota ? (row.nota.length > 40 ? row.nota.slice(0, 40) + '…' : row.nota) : null;
+                        const estadoMeta = salesStatusMeta(row.estado_venta);
+                        return (
+                          <tr
+                            key={row.id}
+                            onClick={() => abrirDrawer(row)}
+                            style={{ cursor: 'pointer', background: vencida ? '#FFF8E1' : undefined }}
+                          >
+                            <td>
+                              <div style={{ color: vencida ? '#E53E3E' : undefined, fontWeight: vencida ? 600 : undefined }}>
+                                {fechaDt ? fmtFechaHora(row.fecha_agenda) : '—'}
+                              </div>
+                              {vencida && (
+                                <span style={{ display: 'inline-block', marginTop: 2, fontSize: 10, fontWeight: 700, background: '#E53E3E', color: '#fff', borderRadius: 4, padding: '1px 6px' }}>Vencida</span>
+                              )}
+                            </td>
+                            <td><strong>{[row.nombre, row.apellido].filter(Boolean).join(' ') || '—'}</strong></td>
+                            <td>
+                              {telefono
+                                ? <a href={`tel:${telefono.replace(/\s/g, '')}`} onClick={(e) => e.stopPropagation()} style={{ color: '#1A5C4A', fontWeight: 500 }}>{telefono}</a>
+                                : '—'}
+                            </td>
+                            <td>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 999, background: intentosMeta.bg, color: intentosMeta.color, fontSize: 12, fontWeight: 600 }}>
+                                {intentosMeta.label}
+                              </span>
+                            </td>
+                            <td style={{ color: notaText ? '#888' : '#ccc', fontSize: 13 }}>{notaText || '—'}</td>
+                            <td><SalesStatusBadge status={row.estado_venta} small /></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </Panel>
           </section>
+
+          {/* Drawer */}
+          {drawerItem && (
+            <>
+              <div
+                style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15,23,42,0.35)', zIndex: 45 }}
+                onClick={cerrarDrawer}
+              />
+              <div style={{
+                position: 'fixed', right: 0, top: 0, bottom: 0, width: 'min(420px, 100%)',
+                backgroundColor: '#fff', boxShadow: '-4px 0 24px rgba(15,23,42,0.15)',
+                zIndex: 46, display: 'flex', flexDirection: 'column', overflow: 'hidden'
+              }}>
+                {/* Header */}
+                <div style={{ padding: '20px 20px 0 20px', borderBottom: '1px solid #F0F0F0', paddingBottom: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
+                        {[drawerItem.nombre, drawerItem.apellido].filter(Boolean).join(' ') || 'Contacto'}
+                      </h3>
+                      <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <SalesStatusBadge status={drawerItem.estado_venta} small />
+                        <span style={{ fontSize: 12, color: '#666' }}>
+                          Agendado para: <strong>{fmtFechaHora(drawerItem.fecha_agenda)}</strong>
+                        </span>
+                      </div>
+                      {drawerItem.nota && (
+                        <p style={{ margin: '6px 0 0 0', fontSize: 12, color: '#666', fontStyle: 'italic' }}>{drawerItem.nota}</p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={cerrarDrawer}
+                      style={{ border: 'none', background: '#f3f4f6', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', flexShrink: 0 }}
+                    >✕</button>
+                  </div>
+                  {/* Tabs */}
+                  <div style={{ display: 'flex', gap: 0, marginTop: 4 }}>
+                    {[{ key: 'historial', label: 'Historial' }, { key: 'gestion', label: 'Gestión' }].map((t) => (
+                      <button
+                        key={t.key}
+                        type="button"
+                        onClick={() => setAgendaTab(t.key)}
+                        style={{
+                          flex: 1, padding: '8px 0', border: 'none', background: 'transparent', cursor: 'pointer',
+                          fontSize: 13, fontWeight: agendaTab === t.key ? 700 : 500,
+                          color: agendaTab === t.key ? '#1A5C4A' : '#888',
+                          borderBottom: `2px solid ${agendaTab === t.key ? '#1A5C4A' : 'transparent'}`
+                        }}
+                      >{t.label}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Body */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
+                  {agendaTab === 'historial' ? (
+                    <div>
+                      {(drawerItem.historial || []).length === 0 ? (
+                        <p style={{ color: '#aaa', fontSize: 13, textAlign: 'center', marginTop: 24 }}>Sin gestiones registradas aún</p>
+                      ) : (
+                        (drawerItem.historial || []).map((h, i) => {
+                          const hMeta = salesStatusMeta(h.estado);
+                          return (
+                            <div key={i} style={{ padding: '10px 0', borderBottom: '1px solid #F0F0F0' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: 12, fontWeight: 600, color: hMeta.color }}>{hMeta.label}</span>
+                                <span style={{ fontSize: 11, color: '#999' }}>{fmtFechaHora(h.fecha)}</span>
+                              </div>
+                              {h.nota && <p style={{ fontSize: 12, color: '#666', margin: '4px 0 0 0' }}>{h.nota}</p>}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                      {/* Alerta 3 intentos */}
+                      {(drawerItem.intentos || 0) >= 3 && (
+                        <div style={{ background: '#FFF3F3', border: '1px solid #E53E3E', borderRadius: 10, padding: '12px 14px' }}>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: '#E53E3E', margin: '0 0 4px 0' }}>No te contestó 3 veces</p>
+                          <p style={{ fontSize: 12, color: '#666', margin: '0 0 10px 0' }}>Este contacto no respondió en 3 intentos consecutivos. Se recomienda finalizar como rechazo.</p>
+                          <button
+                            type="button"
+                            onClick={() => handleForzarRechazo(drawerItem)}
+                            disabled={agGuardando}
+                            style={{ width: '100%', padding: 10, background: '#E53E3E', color: '#FFF', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: agGuardando ? 'not-allowed' : 'pointer', opacity: agGuardando ? 0.6 : 1 }}
+                          >
+                            Finalizar — Marcar como rechazo
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Opciones */}
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 10 }}>Resultado de la gestión</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {[
+                            { value: 'no_contesta', label: 'No contesta' },
+                            { value: 'rellamar', label: 'Rellamar' },
+                            { value: 'seguimiento', label: 'Seguimiento' },
+                            { value: 'rechazo', label: 'Rechazo' },
+                            { value: 'dato_erroneo', label: 'Dato erróneo' },
+                            { value: 'venta', label: 'Venta' }
+                          ].map((opt) => (
+                            <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '8px 10px', borderRadius: 6, border: agEstado === opt.value ? '1.5px solid #1A5C4A' : '1.5px solid #E8E8E8', background: agEstado === opt.value ? '#F0FAF6' : '#fff', fontSize: 13, fontWeight: agEstado === opt.value ? 600 : 400 }}>
+                              <input type="radio" name="agEstadoGestion" value={opt.value} checked={agEstado === opt.value} onChange={() => setAgEstado(opt.value)} style={{ accentColor: '#1A5C4A' }} />
+                              {opt.label}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Agenda rápida seguimiento */}
+                      {agEstado === 'seguimiento' && (
+                        <div style={{ background: '#F8F0FF', border: '1px solid rgba(155,89,182,0.2)', borderRadius: 10, padding: '12px 14px' }}>
+                          <p style={{ fontSize: 12, fontWeight: 600, color: '#9B59B6', margin: '0 0 10px 0' }}>Agenda de seguimiento</p>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            {agOpcionesAgenda().map((op) => (
+                              <button key={op.label} type="button" onClick={() => agSeleccionarAgenda(op)}
+                                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 12px', background: agSeleccionada?.label === op.label ? '#9B59B6' : '#FFF', color: agSeleccionada?.label === op.label ? '#FFF' : '#333', border: `1px solid ${agSeleccionada?.label === op.label ? '#9B59B6' : '#E0E0E0'}`, borderRadius: 8, fontSize: 13, fontWeight: agSeleccionada?.label === op.label ? 600 : 400, cursor: 'pointer' }}>
+                                <span>{op.label}</span>
+                                <span style={{ fontSize: 11, color: agSeleccionada?.label === op.label ? 'rgba(255,255,255,0.6)' : '#999' }}>{op.hora}hs</span>
+                              </button>
+                            ))}
+                            <button type="button"
+                              onClick={() => { setAgMostrarManual(!agMostrarManual); setAgSeleccionada(null); setAgFecha(''); setAgHora(''); }}
+                              style={{ padding: '8px 12px', background: 'transparent', color: agMostrarManual ? '#9B59B6' : '#999', border: `1px dashed ${agMostrarManual ? '#9B59B6' : '#CCC'}`, borderRadius: 8, fontSize: 12, cursor: 'pointer', textAlign: 'left' }}>
+                              + Elegir otra fecha y hora
+                            </button>
+                          </div>
+                          {agMostrarManual && (
+                            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                              <input type="date" value={agFecha} onChange={(e) => { setAgFecha(e.target.value); agFechaRef.current = e.target.value; }} min={new Date().toISOString().split('T')[0]} style={{ flex: 1, padding: '8px 10px', border: '1px solid #E0E0E0', borderRadius: 8, fontSize: 13 }} />
+                              <input type="time" value={agHora} onChange={(e) => { setAgHora(e.target.value); agHoraRef.current = e.target.value; }} style={{ width: 110, padding: '8px 10px', border: '1px solid #E0E0E0', borderRadius: 8, fontSize: 13 }} />
+                            </div>
+                          )}
+                          {(agSeleccionada || (agFecha && agHora)) && (
+                            <p style={{ fontSize: 11, color: '#9B59B6', margin: '8px 0 0 0', fontWeight: 500 }}>
+                              Agendado: {agSeleccionada?.label || `${new Date(agFecha + 'T12:00:00').toLocaleDateString('es-UY')} a las ${agHora}hs`}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Nota */}
+                      <div>
+                        <div style={{ fontSize: 11, color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 5 }}>Nota (opcional)</div>
+                        <textarea value={agNota} onChange={(e) => setAgNota(e.target.value)} placeholder="Observaciones..." rows={3}
+                          style={{ width: '100%', padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6, fontSize: 13, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+                      </div>
+
+                      {agError && (
+                        <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 6, padding: '8px 12px', fontSize: 13, color: '#B91C1C' }}>{agError}</div>
+                      )}
+
+                      <button type="button" onClick={handleGuardarAgendaGestion} disabled={agGuardando || !agEstado}
+                        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: '#1A5C4A', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 18px', fontWeight: 600, fontSize: 13, cursor: (agGuardando || !agEstado) ? 'not-allowed' : 'pointer', opacity: (agGuardando || !agEstado) ? 0.5 : 1 }}>
+                        {agGuardando ? 'Guardando...' : 'Guardar gestión'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       );
     }
@@ -5812,7 +6176,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           return <ContactsView />;
         }
         if (route === 'agenda') {
-          if (role === 'vendedor') return <SalesAgendaView contacts={salesContacts} />;
+          if (role === 'vendedor') return <SalesAgendaView onVentaCerrada={(contactData) => { setVendorNewClientPrefill(contactData); setRoute('clientes'); }} />;
         }
         if (route === 'clientes') {
           if (role === 'vendedor' && !vendorNewClientPrefill) return <SalesClientsView salesRecords={salesRecords} productsById={productsById} />;
