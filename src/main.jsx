@@ -1333,6 +1333,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             ));
           }
           setStatusOverrides((prev) => ({ ...prev, [contactId]: estadoGestion }));
+          if (estadoGestion === 'seguimiento') {
+            try { localStorage.setItem('agenda_needs_refresh', 'true'); } catch {}
+          }
           closeDrawer();
           if (estadoGestion === 'venta' && onVentaCerrada) {
             try {
@@ -1725,7 +1728,19 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         }
       }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-      React.useEffect(() => { cargarAgenda(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+      React.useEffect(() => {
+        try { localStorage.removeItem('agenda_needs_refresh'); } catch {}
+        cargarAgenda();
+        const handleFocus = () => {
+          const needs = localStorage.getItem('agenda_needs_refresh');
+          if (needs) {
+            try { localStorage.removeItem('agenda_needs_refresh'); } catch {}
+            cargarAgenda();
+          }
+        };
+        window.addEventListener('focus', handleFocus);
+        return () => window.removeEventListener('focus', handleFocus);
+      }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
       const agOpcionesAgenda = () => {
         const ahora = new Date();
@@ -6330,7 +6345,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       </div>
                     ) : null}
                   </div>
-                  <div className="searchbox"><Search size={18} color="#69788d" /><input placeholder="Buscar clientes, gestiones o servicios..." /><div className="pill">Demo</div></div>
+                  {effectiveRoleForUi !== 'vendedor' && (
+                    <div className="searchbox"><Search size={18} color="#69788d" /><input placeholder="Buscar clientes, gestiones o servicios..." /><div className="pill">Demo</div></div>
+                  )}
                 </div>
               </header>
               {renderRoute()}
