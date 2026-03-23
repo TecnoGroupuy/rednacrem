@@ -1165,18 +1165,61 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
     function SalesContactsView({ contacts, selectedId, onSelect, onRegister, salesRecords, products, onAssignFamilySale, onUpdateContact, onVentaCerrada }) {
       const [localContacts, setLocalContacts] = React.useState(() => contacts.filter(isSalesActiveContact));
-      React.useEffect(() => {
-        listAssignedLeadsAsync().then((data) => {
-          const items = data?.contactos || [];
-          if (items.length > 0) {
+      const [loadingContacts, setLoadingContacts] = React.useState(true);
+      const [stats, setStats] = React.useState(null);
+      const tabs = [
+        { key: 'todos', label: 'Todos' },
+        { key: 'nuevo', label: 'Nuevos' },
+        { key: 'no_contesta', label: 'No contesta' },
+        { key: 'seguimiento', label: 'Seguimiento' },
+        { key: 'rechazo', label: 'Rechazos' }
+      ];
+      const [tabActivo, setTabActivo] = React.useState('todos');
+      const [page, setPage] = React.useState(1);
+      const [totalPages, setTotalPages] = React.useState(1);
+      const [totalContactos, setTotalContactos] = React.useState(0);
+      const LIMIT = 50;
+
+      const loadStats = React.useCallback(() => {
+        fetch('/leads/daily-stats')
+          .then((r) => r.json())
+          .then((d) => { if (d.success) setStats(d.data); })
+          .catch(() => {});
+      }, []);
+
+      const cargarContactos = React.useCallback(async () => {
+        setLoadingContacts(true);
+        try {
+          const params = new URLSearchParams({
+            page,
+            limit: LIMIT,
+            tab: tabActivo
+          });
+          const res = await fetch(`/leads/assigned?${params}`);
+          const data = await res.json();
+          if (data.success) {
+            const items = data?.data?.contactos || [];
             setLocalContacts(items.map(normalizeAssignedContact));
-          } else {
-            setLocalContacts(contacts.filter(isSalesActiveContact));
+            setTotalPages(data?.data?.totalPages || 1);
+            setTotalContactos(data?.data?.total || 0);
           }
-        }).catch(() => {
-          setLocalContacts(contacts.filter(isSalesActiveContact));
-        });
-      }, []); // eslint-disable-line react-hooks/exhaustive-deps
+        } catch {
+          const fallback = contacts.filter(isSalesActiveContact);
+          setLocalContacts(fallback);
+          setTotalPages(1);
+          setTotalContactos(fallback.length);
+        } finally {
+          setLoadingContacts(false);
+        }
+      }, [contacts, page, tabActivo]);
+
+      React.useEffect(() => {
+        loadStats();
+      }, [loadStats]);
+
+      React.useEffect(() => {
+        cargarContactos();
+      }, [cargarContactos]);
       const [searchTerm, setSearchTerm] = React.useState('');
       const [drawerContact, setDrawerContact] = React.useState(null);
       const [nextLoading, setNextLoading] = React.useState(false);
@@ -1220,6 +1263,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         ].join(' ').toLowerCase();
         return haystack.includes(searchTerm.toLowerCase());
       }), [localContacts, searchTerm]);
+      const visibleContacts = React.useMemo(
+        () => filteredContacts.filter((contact) => contact.estado_venta !== 'dato_erroneo'),
+        [filteredContacts]
+      );
 
       const resetForm = () => {
         setActiveTab('datos');
@@ -1358,6 +1405,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             } catch {}
             onVentaCerrada(dc);
           }
+          loadStats();
         } catch (err) {
           const msg = String(err?.message || '');
           if (msg.includes('409')) {
@@ -1427,6 +1475,81 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             </div>
           ) : null}
 
+          {stats && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(8, 1fr)',
+              gap: 8,
+              marginBottom: 16,
+              background: '#FFFFFF',
+              borderRadius: 12,
+              padding: '12px 16px',
+              boxShadow: '0 1px 6px rgba(0,0,0,0.06)'
+            }}>
+              {[
+                { label: 'Tocados hoy', value: stats.gestiones_hoy, color: '#1A5C4A' },
+                { label: 'Nuevos', value: stats.nuevos, color: '#9E9E9E' },
+                { label: 'No contesta', value: stats.no_contesta, color: '#F5A623' },
+                { label: 'Seguimiento', value: stats.seguimiento, color: '#9B59B6' },
+                { label: 'Rechazos', value: stats.rechazos, color: '#E53E3E' },
+                { label: 'Ventas', value: stats.ventas, color: '#27AE60' },
+                {
+                  label: 'Contacto',
+                  value: `${stats.pct_contacto}%`,
+                  color: '#4A90D9',
+                  tooltip: 'Seguimientos + Ventas / Total'
+                },
+                {
+                  label: 'Efectividad',
+                  value: `${stats.pct_efectividad}%`,
+                  color: '#27AE60',
+                  tooltip: 'Ventas / Total asignados'
+                }
+              ].map((m) => (
+                <div key={m.label} style={{ textAlign: 'center' }} title={m.tooltip || undefined}>
+                  <p style={{
+                    fontSize: 18, fontWeight: 700,
+                    color: m.color, margin: '0 0 2px 0'
+                  }}>
+                    {m.value}
+                  </p>
+                  <p style={{
+                    fontSize: 10, color: '#888',
+                    margin: 0, lineHeight: 1.2
+                  }}>
+                    {m.label}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{
+            display: 'flex', gap: 4, marginBottom: 12,
+            borderBottom: '1px solid #E0E0E0', paddingBottom: 0
+          }}>
+            {tabs.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => { setTabActivo(t.key); setPage(1); }}
+                style={{
+                  padding: '8px 16px',
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom: tabActivo === t.key
+                    ? '2px solid #1A5C4A' : '2px solid transparent',
+                  color: tabActivo === t.key ? '#1A5C4A' : '#888',
+                  fontWeight: tabActivo === t.key ? 600 : 400,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  marginBottom: -1
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
           <div className="table-wrap">
             <table className="sales-contacts-table">
               <thead>
@@ -1436,7 +1559,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 </tr>
               </thead>
               <tbody>
-                {filteredContacts.map((contact) => (
+                {visibleContacts.map((contact) => (
                   <tr key={contact.id} className="support-row" onClick={() => openDrawer(contact)} style={{ cursor: 'pointer' }}>
                     <td>
                       <div className="person">
@@ -1456,7 +1579,59 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 ))}
               </tbody>
             </table>
-            {!filteredContacts.length ? <div style={{ padding: 16, color: 'var(--muted)' }}>No hay contactos activos para la búsqueda aplicada.</div> : null}
+            {loadingContacts ? (
+              <div style={{ padding: 16, color: 'var(--muted)' }}>Cargando contactos...</div>
+            ) : !visibleContacts.length ? (
+              <div style={{ padding: 16, color: 'var(--muted)' }}>No hay contactos activos para la búsqueda aplicada.</div>
+            ) : null}
+          </div>
+
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginTop: 12,
+            padding: '8px 0'
+          }}>
+            <p style={{ fontSize: 12, color: '#888', margin: 0 }}>
+              {totalContactos.toLocaleString()} contactos
+              {tabActivo !== 'todos' ? ` en "${tabs.find((t) => t.key === tabActivo)?.label}"` : ''}
+            </p>
+
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                style={{
+                  padding: '6px 12px',
+                  background: page === 1 ? '#F0F0F0' : '#FFF',
+                  color: page === 1 ? '#ccc' : '#333',
+                  border: '1px solid #E0E0E0',
+                  borderRadius: 6, fontSize: 12, cursor: page === 1 ? 'default' : 'pointer'
+                }}
+              >
+                ← Anterior
+              </button>
+
+              <span style={{ fontSize: 12, color: '#666' }}>
+                {page} / {totalPages}
+              </span>
+
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                style={{
+                  padding: '6px 12px',
+                  background: page === totalPages ? '#F0F0F0' : '#FFF',
+                  color: page === totalPages ? '#ccc' : '#333',
+                  border: '1px solid #E0E0E0',
+                  borderRadius: 6, fontSize: 12,
+                  cursor: page === totalPages ? 'default' : 'pointer'
+                }}
+              >
+                Siguiente →
+              </button>
+            </div>
           </div>
 
           {dc ? (
