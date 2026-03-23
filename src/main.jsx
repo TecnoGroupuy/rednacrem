@@ -1046,17 +1046,41 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       React.useEffect(() => {
         listAssignedLeadsAsync().then(setAssignedData).catch(() => {});
       }, []);
+      const contactosAsignados = assignedData.total;
       const ventasCerradas = assignedData.contactos.filter((c) => c.estado_venta === 'venta').length;
       const seguimientosPendientes = assignedData.contactos.filter((c) => c.estado_venta === 'seguimiento').length;
-      const metrics = [
-        { title: 'Contactos asignados', value: String(assignedData.total), change: 0, label: 'lote recibido', trend: 'up', icon: Users, bg: 'rgba(37,99,235,0.12)', color: '#2563eb' },
+      const gestionados = assignedData.contactos.filter((c) => c.estado_venta && c.estado_venta !== 'nuevo').length;
+      const metricsRow1 = [
+        { title: 'Contactos asignados', value: String(contactosAsignados), change: 0, label: 'lote recibido', trend: 'up', icon: Users, bg: 'rgba(37,99,235,0.12)', color: '#2563eb' },
         { title: 'Ventas cerradas', value: String(ventasCerradas), change: 0, label: 'incluye familiares', trend: 'up', icon: CheckCircle2, bg: 'rgba(22,163,74,0.12)', color: '#15803d' },
         { title: 'Seguimientos pendientes', value: String(seguimientosPendientes), change: 0, label: 'agenda comercial', trend: 'up', icon: Calendar, bg: 'rgba(245,158,11,0.12)', color: '#b45309' }
       ];
 
       return (
         <div className="view">
-          <section className="metrics-grid">{metrics.map((item) => <MetricCard key={item.title} item={item} />)}</section>
+          <section className="metrics-grid-4">
+            <div><MetricCard item={metricsRow1[0]} /></div>
+            <div>
+              <div className="metric-card">
+                <div className="metric-top">
+                  <div>
+                    <div className="metric-label">Contactos gestionados</div>
+                    <h3 className="metric-value">{gestionados}</h3>
+                    <div className="trend up">
+                      <span style={{ fontWeight: 500, opacity: 0.7 }}>
+                        {contactosAsignados > 0
+                          ? `${Math.round(gestionados / contactosAsignados * 100)}% del lote`
+                          : '0% del lote'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="metric-icon" style={{ background: 'rgba(139,92,246,0.12)' }}><CheckCircle2 size={24} color="#7c3aed" /></div>
+                </div>
+              </div>
+            </div>
+            <div><MetricCard item={metricsRow1[1]} /></div>
+            <div><MetricCard item={metricsRow1[2]} /></div>
+          </section>
           <section className="content-grid">
             <Panel className="span-8" title="Operacion del dia" subtitle="Trabaja solo tus contactos asignados">
               <div className="list">
