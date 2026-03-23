@@ -1040,11 +1040,23 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
     const isSalesActiveContact = (contact) => isCommercialContactActive(contact);
 
-    function SalesDashboard({ contacts, salesRecords, onGoRoute }) {
+    function SalesDashboard({ contacts, salesRecords, onGoRoute, onVentaCerrada }) {
       const pendingAgenda = contacts.filter((contact) => shouldAppearInSalesAgenda(contact));
       const [assignedData, setAssignedData] = React.useState({ contactos: [], total: 0 });
+      const [clientePendiente, setClientePendiente] = React.useState(null);
+      const [showBannerPendiente, setShowBannerPendiente] = React.useState(false);
       React.useEffect(() => {
         listAssignedLeadsAsync().then(setAssignedData).catch(() => {});
+        try {
+          const stored = localStorage.getItem('cliente_pendiente_alta');
+          if (stored) {
+            const borrador = JSON.parse(stored);
+            setClientePendiente(borrador);
+            setShowBannerPendiente(true);
+          }
+        } catch {
+          localStorage.removeItem('cliente_pendiente_alta');
+        }
       }, []);
       const contactosAsignados = assignedData.total;
       const ventasCerradas = assignedData.contactos.filter((c) => c.estado_venta === 'venta').length;
@@ -1058,6 +1070,21 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
       return (
         <div className="view">
+          {showBannerPendiente && clientePendiente ? (
+            <div style={{ background: '#FFF8E1', border: '1px solid #F5A623', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 18 }}>⚠️</span>
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#333', margin: 0 }}>Tenés un alta de cliente pendiente</p>
+                  <p style={{ fontSize: 12, color: '#666', margin: 0 }}>{clientePendiente.nombre} {clientePendiente.apellido} — guardado el {new Date(clientePendiente.timestamp).toLocaleString('es-UY', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => onVentaCerrada && onVentaCerrada(clientePendiente)} style={{ background: '#F5A623', color: '#FFF', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Completar alta</button>
+                <button onClick={() => { try { localStorage.removeItem('cliente_pendiente_alta'); } catch {} setShowBannerPendiente(false); setClientePendiente(null); }} style={{ background: 'transparent', color: '#999', border: '1px solid #E0E0E0', borderRadius: 8, padding: '8px 14px', fontSize: 12, cursor: 'pointer' }}>Descartar</button>
+              </div>
+            </div>
+          ) : null}
           <section className="metrics-grid-4">
             <div><MetricCard item={metricsRow1[0]} /></div>
             <div>
@@ -1160,6 +1187,21 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [guardando, setGuardando] = React.useState(false);
       const [gestionError, setGestionError] = React.useState('');
       const [statusOverrides, setStatusOverrides] = React.useState({});
+      const [clientePendiente, setClientePendiente] = React.useState(null);
+      const [showBannerPendiente, setShowBannerPendiente] = React.useState(false);
+
+      React.useEffect(() => {
+        try {
+          const stored = localStorage.getItem('cliente_pendiente_alta');
+          if (stored) {
+            const borrador = JSON.parse(stored);
+            setClientePendiente(borrador);
+            setShowBannerPendiente(true);
+          }
+        } catch {
+          localStorage.removeItem('cliente_pendiente_alta');
+        }
+      }, []);
 
       const filteredContacts = React.useMemo(() => localContacts.filter((contact) => {
         const haystack = [
@@ -1243,6 +1285,24 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           setStatusOverrides((prev) => ({ ...prev, [contactId]: estadoGestion }));
           closeDrawer();
           if (estadoGestion === 'venta' && onVentaCerrada) {
+            try {
+              const borrador = {
+                contacto_id: String(dc.id),
+                nombre: dc.nombre || dc.name?.split(' ')[0] || '',
+                apellido: dc.apellido || (dc.name?.split(' ').slice(1).join(' ')) || '',
+                documento: dc.documento || '',
+                fecha_nacimiento: dc.fecha_nacimiento || '',
+                telefono: dc.telefono || dc.phone || '',
+                celular: dc.celular || '',
+                correo_electronico: dc.correo_electronico || dc.email || '',
+                direccion: dc.direccion || '',
+                departamento: dc.departamento || dc.city || '',
+                pais: dc.pais || 'Uruguay',
+                batch_id: dc.batch_id || dc.lotId || '',
+                timestamp: new Date().toISOString()
+              };
+              localStorage.setItem('cliente_pendiente_alta', JSON.stringify(borrador));
+            } catch {}
             onVentaCerrada(dc);
           }
         } catch (err) {
@@ -1295,6 +1355,22 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           {nextMessage ? (
             <div style={{ background: '#FFF8E1', border: '1px solid #FFD54F', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#795548', marginBottom: 12 }}>
               {nextMessage}
+            </div>
+          ) : null}
+
+          {showBannerPendiente && clientePendiente ? (
+            <div style={{ background: '#FFF8E1', border: '1px solid #F5A623', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 18 }}>⚠️</span>
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#333', margin: 0 }}>Tenés un alta de cliente pendiente</p>
+                  <p style={{ fontSize: 12, color: '#666', margin: 0 }}>{clientePendiente.nombre} {clientePendiente.apellido} — guardado el {new Date(clientePendiente.timestamp).toLocaleString('es-UY', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => onVentaCerrada && onVentaCerrada(clientePendiente)} style={{ background: '#F5A623', color: '#FFF', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Completar alta</button>
+                <button onClick={() => { try { localStorage.removeItem('cliente_pendiente_alta'); } catch {} setShowBannerPendiente(false); setClientePendiente(null); }} style={{ background: 'transparent', color: '#999', border: '1px solid #E0E0E0', borderRadius: 8, padding: '8px 14px', fontSize: 12, cursor: 'pointer' }}>Descartar</button>
+              </div>
             </div>
           ) : null}
 
@@ -4018,6 +4094,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             setClientRows(directory.table);
             setClientMetrics(buildClientMetricCards(metrics));
             setNewClientOpen(false);
+            try { localStorage.removeItem('cliente_pendiente_alta'); } catch {}
           } catch (err) {
             const status = err?.status;
             if (status === 409) {
@@ -5559,7 +5636,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         if (route === 'dashboard') {
           if (role === 'director') return <DirectorDashboard />;
           if (role === 'supervisor') return <SupervisorDashboard />;
-          if (role === 'vendedor') return <SalesDashboard contacts={salesContacts} salesRecords={salesRecords} onGoRoute={setRoute} />;
+          if (role === 'vendedor') return <SalesDashboard contacts={salesContacts} salesRecords={salesRecords} onGoRoute={setRoute} onVentaCerrada={(contactData) => { setVendorNewClientPrefill(contactData); setRoute('clientes'); }} />;
           return <OperationsDashboard />;
         }
         if (role === 'supervisor' && ['base_general', 'lotes', 'numeros_error', 'seguimiento_vendedores'].includes(route)) {
