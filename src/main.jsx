@@ -5612,6 +5612,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [previewLoading, setPreviewLoading] = React.useState(false);
       const [previewBatchId, setPreviewBatchId] = React.useState(null);
       const [createProductsOnImport, setCreateProductsOnImport] = React.useState(false);
+      const [importSubmitting, setImportSubmitting] = React.useState(false);
 
       const resolvedBatchId = previewBatchId || preview?.batchId || preview?.batch_id || null;
 
@@ -5817,6 +5818,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       };
 
       const confirmImport = async () => {
+        if (importSubmitting) return;
+        setImportSubmitting(true);
         try {
           let batchIdToUse = resolvedBatchId;
           if (preview?.usesBackend && !batchIdToUse) {
@@ -5848,6 +5851,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           await loadImports();
         } catch (err) {
           console.error('CSV_IMPORT_ERROR', err);
+        } finally {
+          setImportSubmitting(false);
         }
       };
 
@@ -6033,9 +6038,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         <Button
                           icon={<CheckCircle2 size={16} />}
                           onClick={confirmImport}
-                          disabled={!importDraft.fileName || !importDraft.csvText}
+                          disabled={!importDraft.fileName || !importDraft.csvText || importSubmitting}
                         >
-                          Confirmar importación
+                          {importSubmitting ? 'Importando...' : 'Confirmar importación'}
                         </Button>
                       </div>
                     </div>
