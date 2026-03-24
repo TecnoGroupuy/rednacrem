@@ -5696,7 +5696,17 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         }
         try {
           const result = await listImports({ page: importsPage, pageSize: 8, search: importsSearch, importType: importsType, status: 'all' });
-          const items = Array.isArray(result?.items) ? result.items : (Array.isArray(result?.data) ? result.data : []);
+          const items = Array.isArray(result?.data?.items)
+            ? result.data.items
+            : Array.isArray(result?.data?.imports)
+              ? result.data.imports
+              : Array.isArray(result?.items)
+                ? result.items
+                : Array.isArray(result?.imports)
+                  ? result.imports
+                  : Array.isArray(result?.data)
+                    ? result.data
+                    : [];
           const nextRows = items.map(formatImportRow);
           setImports((prev) => {
             const prevActive = prev.filter((row) => isActiveImportStatus(row.statusKey));
@@ -5708,10 +5718,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             return merged;
           });
           setImportsMeta({
-            page: result.page || 1,
-            pageSize: result.pageSize || 8,
-            total: result.total || Math.max(items.length, 1),
-            totalPages: result.totalPages || 1
+            page: result?.data?.page || result.page || 1,
+            pageSize: result?.data?.pageSize || result.pageSize || 8,
+            total: result?.data?.total || result.total || Math.max(items.length, 1),
+            totalPages: result?.data?.totalPages || result.totalPages || 1
           });
         } catch (err) {
           if (!silent) {
