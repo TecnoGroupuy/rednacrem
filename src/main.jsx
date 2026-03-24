@@ -59,7 +59,7 @@ import {
 } from './services/ticketsService.js';
 import { listTicketsByClientId } from './services/ticketClientService.js';
 import { listOperationsRows } from './services/operationsService.js';
-import { listImports, previewCsvText, createImportFromCsv, IMPORT_TYPES } from './services/importsService.js';
+import { listImports, previewCsvText, createImportFromCsv, deleteImportById, IMPORT_TYPES } from './services/importsService.js';
 import { getNoCallImportJob } from './services/noCallImportService.js';
 import { getImportRows } from './services/importRowsService.js';
 import {
@@ -3260,7 +3260,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   Bloqueados
                 </Button>
               </div>
-              <div className="toolbar" style={{ marginBottom: 12 }}>
+            <div className="toolbar" style={{ marginBottom: 12 }}>
                 <div className="searchbox" style={{ maxWidth: 360 }}>
                   <Search size={18} color="#69788d" />
                   <input
@@ -5593,6 +5593,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const [importRows, setImportRows] = React.useState([]);
         const [importRowsLoading, setImportRowsLoading] = React.useState(false);
         const [importRowsError, setImportRowsError] = React.useState('');
+        const [importDeleteTarget, setImportDeleteTarget] = React.useState(null);
+        const [importDeleteLoading, setImportDeleteLoading] = React.useState(false);
+        const [importDeleteToast, setImportDeleteToast] = React.useState('');
+        const importDeleteToastRef = React.useRef(null);
       const [importRowsBatchId, setImportRowsBatchId] = React.useState(null);
       const [noCallJob, setNoCallJob] = React.useState(null);
         const [products, setProducts] = React.useState([]);
@@ -5683,6 +5687,94 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           return value;
         }
       };
+
+      const showImportDeleteToast = React.useCallback((message) => {
+        setImportDeleteToast(message);
+        if (importDeleteToastRef.current) {
+          clearTimeout(importDeleteToastRef.current);
+        }
+        importDeleteToastRef.current = setTimeout(() => {
+          setImportDeleteToast('');
+        }, 4200);
+      }, []);
+
+      React.useEffect(() => () => {
+        if (importDeleteToastRef.current) {
+          clearTimeout(importDeleteToastRef.current);
+          importDeleteToastRef.current = null;
+        }
+      }, []);
+
+      const resolveImportId = React.useCallback((row = {}) => (
+        row.id || row.batchId || row.batch_id || row.jobId || row.job_id || null
+      ), []);
+
+      const resolveImportTypeKey = React.useCallback((row = {}) => {
+        const rawType = row.importType || row.tipo || row.import_type || row.tipoImportacion || row.tipo_key || '';
+        const normalized = String(rawType || '').toLowerCase();
+        if (IMPORT_TYPES[normalized]) return normalized;
+        if (normalized.includes('no') && normalized.includes('llamar')) return 'no_llamar';
+        if (normalized.includes('dato') && normalized.includes('trabajar')) return 'datos_para_trabajar';
+        if (normalized.includes('result')) return 'resultados';
+        if (normalized.includes('cliente')) return 'clientes';
+        const label = row.importTypeLabel || row.tipoLabel || row.tipo_label || '';
+        const normalizedLabel = String(label || '').toLowerCase();
+        if (normalizedLabel.includes('no llamar')) return 'no_llamar';
+        if (normalizedLabel.includes('datos')) return 'datos_para_trabajar';
+        if (normalizedLabel.includes('result')) return 'resultados';
+        if (normalizedLabel.includes('cliente')) return 'clientes';
+        return '';
+      }, []);
+
+      const resolveImportStatusLabel = React.useCallback((row = {}) => (
+        row.estado || row.statusLabel || row.status || row.estadoLabel || ''
+      ), []);
+
+      const canDeleteImport = React.useCallback((row = {}) => {
+        const id = resolveImportId(row);
+        if (!id) return false;
+        const statusLabel = String(resolveImportStatusLabel(row) || '').toLowerCase();
+        const allowedStatuses = ['validada', 'con observaciones', 'completada', 'fallida'];
+        if (!allowedStatuses.includes(statusLabel)) return false;
+        if (statusLabel === 'en proceso' || statusLabel === 'en cola') return false;
+        const typeKey = resolveImportTypeKey(row);
+        return ['clientes', 'datos_para_trabajar', 'no_llamar'].includes(typeKey);
+      }, [resolveImportId, resolveImportStatusLabel, resolveImportTypeKey]);
+
+      const openImportDeleteModal = React.useCallback((row) => {
+        if (!row) return;
+        const id = resolveImportId(row);
+        const typeKey = resolveImportTypeKey(row);
+        setImportDeleteTarget({ row, id, typeKey });
+      }, [resolveImportId, resolveImportTypeKey]);
+
+      const closeImportDeleteModal = React.useCallback(() => {
+        if (importDeleteLoading) return;
+        setImportDeleteTarget(null);
+      }, [importDeleteLoading]);
+
+      const confirmImportDelete = React.useCallback(async () => {
+        if (!importDeleteTarget?.id || !importDeleteTarget?.typeKey) {
+          closeImportDeleteModal();
+          return;
+        }
+        setImportDeleteLoading(true);
+        try {
+          const result = await deleteImportById({ id: importDeleteTarget.id, importType: importDeleteTarget.typeKey });
+          if (result?.ok) {
+            setImports((prev) => prev.filter((item) => String(resolveImportId(item)) !== String(importDeleteTarget.id)));
+            setImportsMeta((prev) => ({
+              ...prev,
+              total: Math.max(0, Number(prev.total || 0) - 1)
+            }));
+            setImportDeleteTarget(null);
+          }
+        } catch (error) {
+          showImportDeleteToast(error?.message || 'No se pudo eliminar la importación.');
+        } finally {
+          setImportDeleteLoading(false);
+        }
+      }, [importDeleteTarget, resolveImportId, closeImportDeleteModal, showImportDeleteToast]);
 
       React.useEffect(() => {
         const nextBatchId = preview?.batchId || preview?.batch_id || null;
@@ -6065,9 +6157,26 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     </select>
                     <Button variant="secondary" icon={<Filter size={16} />} onClick={loadImports}>Aplicar</Button>
                     {importSuccess ? <span className="pill" style={{ color: '#15803d' }}>{importSuccess}</span> : null}
-                  </div>
-                {importReport ? (
-                  <div style={{ marginBottom: 12, padding: 12, borderRadius: 12, border: '1px solid rgba(15,23,42,0.12)', background: 'rgba(248,250,252,0.9)' }}>
+            </div>
+            {importDeleteToast ? (
+              <div style={{
+                position: 'fixed',
+                right: 24,
+                bottom: 24,
+                zIndex: 40,
+                background: '#fee2e2',
+                color: '#b91c1c',
+                border: '1px solid rgba(239,68,68,0.4)',
+                padding: '12px 16px',
+                borderRadius: 12,
+                boxShadow: '0 12px 28px rgba(15,23,42,0.12)',
+                fontWeight: 600
+              }}>
+                {importDeleteToast}
+              </div>
+            ) : null}
+            {importReport ? (
+              <div style={{ marginBottom: 12, padding: 12, borderRadius: 12, border: '1px solid rgba(15,23,42,0.12)', background: 'rgba(248,250,252,0.9)' }}>
                     <div style={{ fontWeight: 700, marginBottom: 6 }}>Informe final</div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8, fontSize: '0.9rem' }}>
                       <div>Productos detectados: <strong>{importReport.productosDetectados ?? 0}</strong></div>
@@ -6087,7 +6196,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 ) : null}
                 <div className="table-wrap">
                   <table>
-                    <thead><tr><th>Archivo</th><th>Tipo</th><th>Fecha</th><th>Total</th><th>Importados</th><th>Rechazados</th><th>Estado</th><th>Usuario</th><th>Detalle</th></tr></thead>
+                    <thead><tr><th>Archivo</th><th>Tipo</th><th>Fecha</th><th>Total</th><th>Importados</th><th>Rechazados</th><th>Estado</th><th>Usuario</th><th>Detalle</th><th>Acciones</th></tr></thead>
                     <tbody>
                       {imports.map((row) => (
                         <tr key={row.id}>
@@ -6166,6 +6275,29 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                 Copiar diagnóstico
                               </Button>
                             </div>
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            {canDeleteImport(row) ? (
+                              <button
+                                type="button"
+                                onClick={() => openImportDeleteModal(row)}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  padding: '6px 12px',
+                                  borderRadius: 999,
+                                  border: '1px solid rgba(248,113,113,0.4)',
+                                  background: 'rgba(248,113,113,0.15)',
+                                  color: '#b91c1c',
+                                  fontWeight: 600,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                <Trash2 size={14} />
+                                Eliminar
+                              </button>
+                            ) : null}
                           </td>
                         </tr>
                       ))}
@@ -6315,6 +6447,33 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           {!importRows.length ? <div style={{ padding: 12, color: 'var(--muted)' }}>No hay filas para este batch.</div> : null}
                         </div>
                       ) : null}
+                    </div>
+                  </div>
+                ) : null}
+                {importDeleteTarget ? (
+                  <div className="lot-wizard-overlay" onClick={closeImportDeleteModal}>
+                    <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 420 }}>
+                      <div className="lot-wizard-header">
+                        <div>
+                          <h3>¿Eliminar importación?</h3>
+                          <p>Esta acción no se puede deshacer.</p>
+                        </div>
+                        <button className="icon-button" style={{ width: 36, height: 36 }} onClick={closeImportDeleteModal}><X size={16} color="#152235" /></button>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
+                        <Button variant="secondary" onClick={closeImportDeleteModal} disabled={importDeleteLoading}>Cancelar</Button>
+                        <Button
+                          onClick={confirmImportDelete}
+                          disabled={importDeleteLoading}
+                          style={{
+                            background: '#ef4444',
+                            border: 'none',
+                            color: '#fff'
+                          }}
+                        >
+                          {importDeleteLoading ? 'Eliminando...' : 'Eliminar'}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ) : null}

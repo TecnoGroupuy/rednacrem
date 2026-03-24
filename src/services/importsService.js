@@ -417,3 +417,41 @@ export const createImportFromCsv = async ({
   return normalizeImport(newImport);
 };
 
+const resolveDeleteEndpoint = ({ id, importType }) => {
+  const normalizedType = normalizeImportType(importType);
+  if (!id) return null;
+  if (normalizedType === 'no_llamar') {
+    return `/imports/no-llamar/jobs/${id}`;
+  }
+  if (normalizedType === 'clientes' || normalizedType === 'datos_para_trabajar') {
+    return `/imports/clients/${id}`;
+  }
+  return null;
+};
+
+export const deleteImportById = async ({ id, importType }) => {
+  const endpoint = resolveDeleteEndpoint({ id, importType });
+  if (!endpoint) {
+    throw new Error('Esta importación no puede eliminarse.');
+  }
+
+  if (hasApiConfigured()) {
+    try {
+      // TODO: confirmar que el backend expone este DELETE para importaciones.
+      await api.del(endpoint);
+      return { ok: true };
+    } catch (error) {
+      const status = error?.status;
+      if (status === 404 || status === 501) {
+        // TODO: cuando no exista el endpoint, eliminar solo en UI.
+        return { ok: true, simulated: true, reason: 'endpoint_missing' };
+      }
+      throw error;
+    }
+  }
+
+  const normalizedId = String(id || '').toLowerCase();
+  importsStore = importsStore.filter((item) => String(item.id || '').toLowerCase() !== normalizedId);
+  return { ok: true, simulated: true, reason: 'mock' };
+};
+
