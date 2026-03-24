@@ -3,14 +3,21 @@ import { usersMock } from '../data/mocks/users.js';
 import { toEsUyDateTime } from '../utils/dateFormat.js';
 import { delay, maybeThrow, paginateArray } from './fakeApi.js';
 import { importNoCallEntries, importPhoneResultsEntries } from './leadsService.js';
+import { getApiClient } from './apiClient.js';
 
 const userById = Object.fromEntries(usersMock.map((item) => [item.id, item]));
 let importsStore = importsMock.map((item) => ({ ...item }));
+const api = getApiClient();
+const hasApiConfigured = () => {
+  const baseUrl = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_API_URL : '';
+  return Boolean(String(baseUrl || '').trim());
+};
 
 export const IMPORT_TYPES = {
   clientes: { key: 'clientes', label: 'CSV de clientes' },
   no_llamar: { key: 'no_llamar', label: 'CSV Base No llamar' },
-  resultados: { key: 'resultados', label: 'CSV de resultados telefónicos' }
+  resultados: { key: 'resultados', label: 'CSV de resultados telefónicos' },
+  datos_para_trabajar: { key: 'datos_para_trabajar', label: 'CSV Datos para trabajar' }
 };
 
 const normalizeImportType = (value) => {
@@ -101,16 +108,23 @@ const parseCsv = (csvText) => {
 
   const separator = detectSeparator(lines[0]);
   const headers = parseCsvLine(lines[0], separator).map((h) => h.trim().toLowerCase());
-  const rows = lines.slice(1).map((line, index) => {
+  const rows = [];
+  let skippedEmptyRows = 0;
+  lines.slice(1).forEach((line, index) => {
     const cells = parseCsvLine(line, separator);
+    const hasValues = cells.some((cell) => String(cell || '').trim() !== '');
+    if (!hasValues) {
+      skippedEmptyRows += 1;
+      return;
+    }
     const row = {};
     headers.forEach((header, i) => {
       row[header] = cells[i] || '';
     });
-    return { rowNumber: index + 2, ...row };
+    rows.push({ rowNumber: index + 2, ...row });
   });
 
-  return { headers, rows, separator };
+  return { headers, rows, separator, skippedEmptyRows };
 };
 
 const normalizeResult = (value) => {
@@ -133,11 +147,7 @@ const validateRows = (rows, importType) => {
     const errors = [];
 
     if (importType === 'clientes') {
-      if (!row.nombre) errors.push('Nombre vacío');
-      if (!row.telefono) errors.push('Teléfono vacío');
-      if (row.telefono && !/^[\d\s+\-()]{7,}$/.test(row.telefono)) errors.push('Teléfono inválido');
-      if (!row.ubicacion) errors.push('Ubicación vacía');
-      if (!row.fuente) errors.push('Fuente vacía');
+      if (!row.documento) errors.push('Documento vacío');
     }
 
     if (importType === 'no_llamar') {
@@ -176,19 +186,33 @@ const validateRows = (rows, importType) => {
 
 const validateCsvByType = ({ headers, rows }, importType) => {
   const requiredByType = {
-    clientes: ['nombre', 'telefono', 'ubicacion', 'fuente'],
+    clientes: ['documento'],
     no_llamar: ['telefono'],
-    resultados: ['resultado']
+    resultados: ['resultado'],
+    datos_para_trabajar: []
   };
 
   const required = requiredByType[importType] || requiredByType.clientes;
-  const missing = required.filter((key) => !headers.includes(key));
-  maybeThrow(missing.length > 0, 'Faltan columnas obligatorias: ' + missing.join(', '));
+  if (required.length) {
+    const missing = required.filter((key) => !headers.includes(key));
+    maybeThrow(missing.length > 0, 'Faltan columnas obligatorias: ' + missing.join(', '));
+  }
 
   return validateRows(rows, importType);
 };
 
 export const listImports = async ({ page = 1, pageSize = 8, search = '', importType = 'todos' } = {}) => {
+  if (hasApiConfigured()) {
+    const params = new URLSearchParams({
+      page: String(page || 1),
+      pageSize: String(pageSize || 8),
+      search: String(search || ''),
+      importType: String(importType || 'todos'),
+      status: 'processed'
+    });
+    const response = await api.get(`/imports?${params.toString()}`);
+    return response;
+  }
   await delay(180);
   const normalizedType = normalizeImportType(importType);
   const filtered = importsStore
@@ -203,25 +227,165 @@ export const listImports = async ({ page = 1, pageSize = 8, search = '', importT
   return paginateArray(filtered, page, pageSize);
 };
 
-export const previewCsvText = async (csvText, { importType = 'clientes' } = {}) => {
-  await delay(220);
+export const getImportRows = async (batchId) => {
+  if (!batchId) return [];
+  if (hasApiConfigured()) {
+    const response = await api.get(`/imports/${batchId}/rows`);
+    return response?.items || [];
+  }
+  await delay(120);
+  const batch = importsStore.find((item) => item.id === batchId) || null;
+  return batch?.rowErrors || [];
+};
+
+export const getNoCallImportJob = async (jobId) => {
+  if (!jobId) return null;
+  if (hasApiConfigured()) {
+    const response = await api.get(`/imports/no-llamar/jobs/${jobId}`);
+    return response?.job || null;
+  }
+  return null;
+};
+
+export const previewCsvText = async (csvText, { importType = 'clientes', fileName = '' } = {}) => {
   const normalizedType = normalizeImportType(importType);
+  if (hasApiConfigured() && normalizedType === 'clientes') {
+    const headers = fileName ? { 'X-File-Name': fileName } : {};
+    const response = await api.post('/imports/clients', { csv: csvText }, { headers });
+    const total = Number(response?.total || 0);
+    const valid = Number(response?.valid || 0);
+    const errors = Number(response?.errors || 0);
+    return {
+      headers: [],
+      rows: [],
+      summary: {
+        total,
+        importados: valid,
+        rechazados: errors
+      },
+      validRows: [],
+      rowErrors: [],
+      importType: normalizedType,
+      importTypeLabel: IMPORT_TYPES[normalizedType].label,
+      batchId: response?.batchId || null,
+      rejectedMissingDocumento: response?.rejectedMissingDocumento || 0,
+      newProducts: response?.newProducts || [],
+      newProductsCount: response?.newProductsCount || 0,
+      skippedEmptyRows: 0,
+      usesBackend: true
+    };
+  }
+  if (normalizedType === 'no_llamar') {
+    // Validación liviana local: solo conteo y teléfono obligatorio.
+    const parsed = parseCsv(csvText);
+    const validation = validateCsvByType(parsed, normalizedType);
+    return {
+      ...validation,
+      headers: parsed.headers,
+      importType: normalizedType,
+      importTypeLabel: IMPORT_TYPES[normalizedType].label,
+      skippedEmptyRows: parsed.skippedEmptyRows || 0,
+      usesBackend: false
+    };
+  }
+  if (normalizedType === 'datos_para_trabajar') {
+    const parsed = parseCsv(csvText);
+    const validation = validateCsvByType(parsed, normalizedType);
+    return {
+      ...validation,
+      headers: parsed.headers,
+      importType: normalizedType,
+      importTypeLabel: IMPORT_TYPES[normalizedType].label,
+      skippedEmptyRows: parsed.skippedEmptyRows || 0,
+      usesBackend: false
+    };
+  }
+  await delay(220);
   const parsed = parseCsv(csvText);
   const validation = validateCsvByType(parsed, normalizedType);
   return {
     ...validation,
     headers: parsed.headers,
     importType: normalizedType,
-    importTypeLabel: IMPORT_TYPES[normalizedType].label
+    importTypeLabel: IMPORT_TYPES[normalizedType].label,
+    skippedEmptyRows: parsed.skippedEmptyRows || 0,
+    usesBackend: false
   };
 };
 
-export const createImportFromCsv = async ({ fileName, csvText, userId = 'usr-001', importType = 'clientes' }) => {
+export const createImportFromCsv = async ({
+  fileName,
+  csvText,
+  userId = 'usr-001',
+  importType = 'clientes',
+  batchId = null,
+  createProducts = false
+} = {}) => {
+  const normalizedType = normalizeImportType(importType);
+
+  if (hasApiConfigured() && normalizedType === 'clientes') {
+    let effectiveBatchId = batchId;
+    if (!effectiveBatchId) {
+      const headers = fileName ? { 'X-File-Name': fileName } : {};
+      const response = await api.post('/imports/clients', { csv: csvText }, { headers });
+      effectiveBatchId = response?.batchId || response?.batch_id || null;
+    }
+    maybeThrow(!effectiveBatchId, 'No se pudo generar el lote de importación.');
+    const query = createProducts ? '?createProducts=true' : '';
+    const response = await api.post(`/imports/clients/${effectiveBatchId}/process${query}`, {});
+    return {
+      id: String(effectiveBatchId),
+      nombreArchivo: fileName || `import_${effectiveBatchId}.csv`,
+      fecha: new Date().toISOString(),
+      tipo: normalizedType,
+      totalRegistros: Number(response?.imported || 0) + Number(response?.failed || 0),
+      importados: Number(response?.imported || 0),
+      rechazados: Number(response?.failed || 0),
+      estado: Number(response?.failed || 0)
+        ? (Number(response?.imported || 0) ? 'Con observaciones' : 'Fallida')
+        : 'Completada',
+      usuarioId: userId,
+      rowErrors: [],
+      report: response?.report || null
+    };
+  }
+
+  if (hasApiConfigured() && normalizedType === 'no_llamar') {
+    const headers = fileName ? { 'X-File-Name': fileName } : {};
+    const response = await api.post('/imports/no-llamar/jobs', { csv: csvText }, { headers });
+    const jobId = response?.jobId || response?.job_id || null;
+    return {
+      asyncJob: true,
+      jobId,
+      nombreArchivo: fileName || 'import_no_llamar.csv',
+      tipo: normalizedType,
+      usuarioId: userId
+    };
+  }
+
+  if (hasApiConfigured() && normalizedType === 'datos_para_trabajar') {
+    const headers = fileName ? { 'X-File-Name': fileName } : {};
+    const response = await api.post('/imports/datos-para-trabajar', { csv: csvText }, { headers });
+    return {
+      id: String(response?.batchId || response?.batch_id || Date.now()),
+      nombreArchivo: fileName || 'import_datos_para_trabajar.csv',
+      fecha: new Date().toISOString(),
+      tipo: normalizedType,
+      totalRegistros: Number(response?.total || 0),
+      importados: Number(response?.inserted || 0),
+      rechazados: Number(response?.errors || 0),
+      estado: Number(response?.errors || 0)
+        ? (Number(response?.inserted || 0) ? 'Con observaciones' : 'Fallida')
+        : 'Completada',
+      usuarioId: userId,
+      rowErrors: []
+    };
+  }
+
   await delay(260);
   maybeThrow(!fileName, 'Debes seleccionar un archivo CSV.');
   maybeThrow(!csvText, 'No se pudo leer el contenido del archivo.');
 
-  const normalizedType = normalizeImportType(importType);
   const parsed = parseCsv(csvText);
   const validation = validateCsvByType(parsed, normalizedType);
 

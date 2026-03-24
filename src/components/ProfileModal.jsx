@@ -1,9 +1,11 @@
-﻿import React from 'react';
-import { AlertTriangle, Check, Loader2, User as UserIcon, X } from 'lucide-react';
+import React from 'react';
+import { AlertTriangle, Check, Loader2, User as UserIcon, X, Shield } from 'lucide-react';
 import './ProfileModal.css';
+import { useAuth, VIEWABLE_ROLES } from '../auth/AuthProvider.jsx';
+import { useRolEfectivo } from '../hooks/useRolEfectivo.js';
+import { logActivityEvent } from '../services/activityService.js';
 
 const REQUIRED_FIELDS = ['fullName', 'email', 'phone', 'department'];
-const CIRCLE_LENGTH = 125.6;
 
 const emailIsValid = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
 const phoneHasExtensionMarker = (phone) => /\b(ext|int|interno)\b/i.test(String(phone || ''));
@@ -24,6 +26,22 @@ const buildFullNameFromUser = (user) => {
   return combined || user?.name || '';
 };
 
+const ROLE_OVERVIEW = [
+  { id: 'director', label: 'Director', description: 'Visión ejecutiva del negocio' },
+  { id: 'supervisor', label: 'Supervisor', description: 'Gestión de equipo y lotes' },
+  { id: 'vendedor', label: 'Vendedor', description: 'Agenda comercial y seguimiento' },
+  { id: 'operaciones', label: 'Operaciones', description: 'Servicios, proveedores y SLA' },
+  { id: 'atencion_cliente', label: 'Atención al cliente', description: 'Mesa de ayuda y tickets' }
+];
+
+const DEPARTMENTS = [
+  { value: 'soporte', label: 'Soporte técnico' },
+  { value: 'ventas', label: 'Ventas' },
+  { value: 'facturacion', label: 'Facturación' },
+  { value: 'reten', label: 'Retención' },
+  { value: 'supervisor', label: 'Supervisión' }
+];
+
 const initialFormFromUser = (user) => ({
   fullName: buildFullNameFromUser(user),
   email: user?.email || '',
@@ -40,7 +58,7 @@ const fieldIsValid = (id, value) => {
   return true;
 };
 
-export default function ProfileModal({ isOpen, onClose, user, onSave }) {
+export default function ProfileModal({ isOpen, onClose, user, onSave, roleMeta = {} }) {
   const [form, setForm] = React.useState(() => initialFormFromUser(user));
   const [touched, setTouched] = React.useState({});
   const [saving, setSaving] = React.useState(false);
@@ -84,7 +102,6 @@ export default function ProfileModal({ isOpen, onClose, user, onSave }) {
   }, [form]);
 
   const progress = Math.round((completed / (REQUIRED_FIELDS.length + 1)) * 100);
-  const strokeOffset = CIRCLE_LENGTH - (progress / 100) * CIRCLE_LENGTH;
   const progressColor = progress === 100 ? '#10B981' : progress > 50 ? '#F59E0B' : '#EF4444';
 
   const markTouched = (id) => setTouched((prev) => ({ ...prev, [id]: true }));
@@ -132,6 +149,35 @@ export default function ProfileModal({ isOpen, onClose, user, onSave }) {
     }, 700);
   };
 
+  const { setVistaRol, restaurarVistaRol } = useAuth();
+  const { rolReal, rolEfectivo, esVistaSimulada } = useRolEfectivo();
+
+  const roleOptions = ROLE_OVERVIEW
+    .map((entry) => ({ ...entry, ...(roleMeta[entry.id] || {}) }))
+    .filter((item) => item.id !== 'superadministrador');
+
+  const changeVista = (roleId) => {
+    setVistaRol(roleId);
+    logActivityEvent({
+      entidad: 'seguridad',
+      entidadId: user?.id || 'unknown',
+      tipo: 'modo_vista_ui',
+      descripcion: 'Cambio de vista a ' + roleId,
+      usuarioId: user?.id || 'unknown'
+    });
+  };
+
+  const restoreVista = () => {
+    restaurarVistaRol();
+    logActivityEvent({
+      entidad: 'seguridad',
+      entidadId: user?.id || 'unknown',
+      tipo: 'modo_vista_ui',
+      descripcion: 'Restauracion de vista real',
+      usuarioId: user?.id || 'unknown'
+    });
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -140,49 +186,32 @@ export default function ProfileModal({ isOpen, onClose, user, onSave }) {
       <div className="profile-modal-shell profile-modal-enter">
         <div className="profile-modal-card">
           <div className="profile-modal-header">
-            <div>
+            <div className="profile-header-content">
               <h2>
                 <UserIcon size={18} color="#10B981" />
                 Mi Perfil
               </h2>
-              <p>Complete sus datos de contacto para continuar</p>
-            </div>
-            <div className="profile-modal-header-actions">
-              <div className="profile-progress-circle-wrap">
-                <svg className="profile-progress-circle">
-                  <circle cx="24" cy="24" r="20" stroke="#1e293b" strokeWidth="4" fill="none"></circle>
-                  <circle
-                    cx="24"
-                    cy="24"
-                    r="20"
-                    stroke={progressColor}
-                    strokeWidth="4"
-                    fill="none"
-                    strokeDasharray={CIRCLE_LENGTH}
-                    strokeDashoffset={strokeOffset}
-                    className="profile-progress-fill"
-                  ></circle>
-                </svg>
-                <span style={{ color: progressColor }}>{progress}%</span>
+              <p>Complete sus datos de contacto</p>
+              <div className="profile-progress-track profile-progress-track-header">
+                <div className="profile-progress-bar" style={{ width: progress + '%' }}></div>
               </div>
-              <button type="button" className="profile-close-btn" onClick={onClose} disabled={saving} aria-label="Cerrar perfil">
-                <X size={16} />
-              </button>
+              <div className="profile-progress-info">{progress}% completado</div>
             </div>
+            <button type="button" className="profile-close-btn" onClick={onClose} disabled={saving} aria-label="Cerrar perfil">
+              <X size={16} />
+            </button>
           </div>
 
-          <div className="profile-progress-track">
-            <div className="profile-progress-bar" style={{ width: progress + '%' }}></div>
-          </div>
-
-          <form className="profile-form" onSubmit={handleSubmit}>
-            <div className="profile-alert">
+          <div className="profile-modal-content">
+            <div className="profile-alert profile-alert-banner">
               <AlertTriangle size={16} />
               <div>
                 <strong>Datos requeridos</strong>
-                <div>Todos los campos marcados con * son obligatorios para activar su cuenta</div>
+                <div>Todos los campos marcados con * son necesarios para completar su contacto laboral.</div>
               </div>
             </div>
+            <div className="profile-body">
+            <form className="profile-form" onSubmit={handleSubmit}>
 
             <div className={'profile-field ' + (shakeField === 'fullName' ? 'shake' : '')}>
               <label>Nombre completo <span>*</span></label>
@@ -212,45 +241,52 @@ export default function ProfileModal({ isOpen, onClose, user, onSave }) {
               {touched.email && errors.email ? <p className="profile-error">{errors.email}</p> : null}
             </div>
 
-            <div className={'profile-field ' + (shakeField === 'phone' ? 'shake' : '')}>
-              <label>Telefono movil <span>*</span></label>
-              <div className="profile-input-wrap">
-                <input
-                  value={form.phone}
-                  onChange={(e) => handleChange('phone', e.target.value)}
-                  onBlur={() => markTouched('phone')}
-                  placeholder="Ej: 099123321"
-                />
-                {fieldIsValid('phone', form.phone) ? <Check size={16} color="#10B981" className="profile-valid-icon" /> : null}
+            <div className="profile-phone-row">
+              <div className={'profile-field ' + (shakeField === 'phone' ? 'shake' : '')}>
+                <label>Teléfono móvil <span>*</span></label>
+                <div className="profile-input-wrap">
+                  <input
+                    value={form.phone}
+                    onChange={(e) => handleChange('phone', e.target.value)}
+                    onBlur={() => markTouched('phone')}
+                    placeholder="Ej: 099123321"
+                  />
+                  {fieldIsValid('phone', form.phone) ? <Check size={16} color="#10B981" className="profile-valid-icon" /> : null}
+                </div>
+                {touched.phone && errors.phone ? <p className="profile-error">{errors.phone}</p> : null}
               </div>
-              {touched.phone && errors.phone ? <p className="profile-error">{errors.phone}</p> : null}
-            </div>
-
-            <div className="profile-field">
-              <label>Extension / Telefono fijo <small>(Opcional)</small></label>
-              <input
-                value={form.extension}
-                onChange={(e) => handleChange('extension', e.target.value)}
-                onBlur={() => markTouched('extension')}
-                placeholder="Solo numeros. Ej: 105"
-              />
-              {touched.extension && errors.extension ? <p className="profile-error">{errors.extension}</p> : null}
+              <div className={'profile-field ' + (shakeField === 'extension' ? 'shake' : '')}>
+                <label>Extensión <small>(Opcional)</small></label>
+                <input
+                  value={form.extension}
+                  onChange={(e) => handleChange('extension', e.target.value)}
+                  onBlur={() => markTouched('extension')}
+                  placeholder="Solo números. Ej: 105"
+                />
+                {touched.extension && errors.extension ? <p className="profile-error">{errors.extension}</p> : null}
+              </div>
             </div>
 
             <div className={'profile-field ' + (shakeField === 'department' ? 'shake' : '')}>
               <label>Departamento <span>*</span></label>
-              <select
-                value={form.department}
-                onChange={(e) => handleChange('department', e.target.value)}
-                onBlur={() => markTouched('department')}
-              >
-                <option value="">Seleccione su departamento</option>
-                <option value="soporte">Soporte Tecnico</option>
-                <option value="ventas">Ventas</option>
-                <option value="facturacion">Facturacion</option>
-                <option value="reten">Retencion</option>
-                <option value="supervisor">Supervision</option>
-              </select>
+              <div className="profile-department-options">
+                {DEPARTMENTS.map((dept) => (
+                  <label
+                    key={dept.value}
+                    className={`profile-department-option ${form.department === dept.value ? 'active' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name="department"
+                      value={dept.value}
+                      checked={form.department === dept.value}
+                      onChange={() => handleChange('department', dept.value)}
+                      onBlur={() => markTouched('department')}
+                    />
+                    {dept.label}
+                  </label>
+                ))}
+              </div>
               {touched.department && errors.department ? <p className="profile-error">{errors.department}</p> : null}
             </div>
 
@@ -261,7 +297,9 @@ export default function ProfileModal({ isOpen, onClose, user, onSave }) {
                 onChange={(e) => handleChange('confirmData', e.target.checked)}
                 onBlur={() => markTouched('confirmData')}
               />
-              <span>Confirmo que los datos proporcionados son correctos y autorizo su uso para contacto laboral.</span>
+              <span>
+                Acepto los <a href="#!" onClick={(event) => event.preventDefault()}>términos y condiciones</a> y autorizo su uso para contacto laboral.
+              </span>
             </label>
             {touched.confirmData && errors.confirmData ? <p className="profile-error">{errors.confirmData}</p> : null}
 
@@ -272,7 +310,44 @@ export default function ProfileModal({ isOpen, onClose, user, onSave }) {
                 {saving ? 'Guardando...' : 'Guardar y continuar'}
               </button>
             </div>
-          </form>
+            </form>
+            <aside className="profile-role-section">
+            <div className="profile-role-header">
+              <div>
+                <strong>Ver como rol</strong>
+                <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Solo afecta la vista UI.</div>
+              </div>
+              <div className="pill">
+                <Shield size={14} style={{ marginRight: 4 }} />
+                {esVistaSimulada ? 'Modo vista activo' : 'Vista real'}
+              </div>
+            </div>
+            <details className="profile-role-collapse" open>
+              <summary>Vista previa de roles</summary>
+              <div className="profile-role-grid">
+                {roleOptions.map((roleItem) => (
+                  <button
+                    key={roleItem.id}
+                    type="button"
+                    className={`profile-role-card ${rolEfectivo === roleItem.id ? 'active' : ''}`}
+                    onClick={() => changeVista(roleItem.id)}
+                  >
+                    <strong>{roleItem.label}</strong>
+                    <span>{roleItem.description || 'Vista simulada'}</span>
+                  </button>
+                ))}
+              </div>
+              {esVistaSimulada ? (
+                <button
+                  type="button"
+                  onClick={restoreVista}
+                  className="profile-submit-btn profile-restore-btn"
+                >
+                  Restaurar vista real ({roleMeta[rolReal]?.label || rolReal})
+                </button>
+              ) : null}
+            </details>
+          </aside>
         </div>
 
         {success ? (
@@ -284,7 +359,9 @@ export default function ProfileModal({ isOpen, onClose, user, onSave }) {
             </div>
           </div>
         ) : null}
+        </div>
       </div>
     </div>
+  </div>
   );
 }

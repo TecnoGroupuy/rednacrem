@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(python3 -c \":*)",
+      "Bash(python -c \":*)",
+      "Bash(node:*)",
+      "Read(//c/Proyecto/**)",
+      "Read(//c/Proyecto//**)",
+      "Bash(npm run:*)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill:*)",
+      "Bash(grep -i \"database\\\\|postgres\\\\|pg\\\\|db_url\\\\|DATABASE\" /c/Proyecto/rednacrem-backend/.env*)",
+      "Bash(ls /c/Proyecto/rednacrem-backend/.env*)",
+      "Bash(PGPASSWORD=Seguridad1 psql -h localhost -p 5432 -U postgres -d rednacrem -c \"SELECT id, nombre, apellido, email, role_key FROM users WHERE nombre ILIKE '%matias%' OR apellido ILIKE '%decker%';\" 2>/dev/null)",
+      "Bash(curl -s http://localhost:3001/health)",
+      "Bash(xargs -I{} taskkill //PID {} //F)"
+    ]
+  }
+}

@@ -4,6 +4,7 @@ import { activitiesMock } from '../data/mocks/activities.js';
 import { ticketTypeLabel } from '../utils/labels.js';
 import { toEsUyTime } from '../utils/dateFormat.js';
 import { delay, maybeThrow } from './fakeApi.js';
+import { getApiClient } from './apiClient.js';
 import { createOperationFromTicket } from './operationsService.js';
 import {
   getPortfolioClientById,
@@ -11,7 +12,8 @@ import {
   listActiveContactProducts,
   getContactProductById,
   markContactProductAsBaja,
-  keepContactProductAlta
+  keepContactProductAlta,
+  fetchClientsDirectory
 } from './clientsService.js';
 
 const userById = Object.fromEntries(usersMock.map((item) => [item.id, item]));
@@ -177,12 +179,181 @@ const resolveTicketIndex = (id) => ticketsStore.findIndex((item) => toUiTicketId
 
 export const listTickets = () => ticketsStore.map(toUiTicket);
 
+const api = getApiClient();
+const hasApiConfigured = () => {
+  const baseUrl = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_API_URL : '';
+  return Boolean(String(baseUrl || '').trim());
+};
+
+const normalizeBackendStatus = (value) => {
+  if (!value) return '';
+  if (value === 'en_proceso') return 'gestion';
+  if (value === 'en_gestion') return 'gestion';
+  if (value === 'finalizada') return 'cerrado';
+  return value;
+};
+
+const parseBool = (value) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value === 1;
+  const text = String(value || '').trim().toLowerCase();
+  if (!text) return false;
+  return ['si', 'sí', 'true', '1', 'yes'].includes(text);
+};
+
+const mapServiceRequest = (payload) => {
+  if (!payload || typeof payload !== 'object') return {};
+  return {
+    solicitanteNombre: payload.solicitanteNombre || payload.solicitante_nombre || payload.nombre_solicitante || payload.nombre || '',
+    solicitanteDocumento: payload.solicitanteDocumento || payload.solicitante_documento || payload.documento_solicitante || payload.documento || '',
+    solicitanteTelefono: payload.solicitanteTelefono || payload.solicitante_telefono || payload.telefono_solicitante || payload.telefono || '',
+    solicitanteRelacion: payload.solicitanteRelacion || payload.solicitante_relacion || payload.relacion_fallecido || payload.relacion || '',
+    cuerpoUbicacion: payload.cuerpoUbicacion || payload.cuerpo_ubicacion || payload.ubicacion_cuerpo || payload.ubicacion || '',
+    requiereTraslado: parseBool(payload.requiereTraslado ?? payload.requiere_traslado ?? payload.traslado ?? payload.requiereTrasladoServicio),
+    trasladoOrigen: payload.trasladoOrigen || payload.traslado_origen || payload.origen || payload.origen_traslado || '',
+    trasladoDestino: payload.trasladoDestino || payload.traslado_destino || payload.destino || payload.destino_traslado || '',
+    servicioTipo: payload.servicioTipo || payload.servicio_tipo || payload.tipo_servicio || payload.tipoServicio || '',
+    velatorioLugar: payload.velatorioLugar || payload.velatorio_lugar || payload.lugar_velatorio || payload.lugarVelatorio || '',
+    servicioFechaHora: payload.servicioFechaHora || payload.servicio_fecha_hora || payload.fecha_hora_servicio || payload.fechaHoraServicio || '',
+    crematorio: payload.crematorio || payload.crematorio_seleccionado || payload.crematorioSeleccionado || ''
+  };
+};
+
+const mapBackendManualTicket = (item = {}) => {
+  const detail = item.client || item.cliente || item.contact || {};
+  const product = item.product || item.producto || item.productDetail || {};
+  const ticketType = item.tipoSolicitud || item.tipo || '';
+  const clienteId = item.clienteId || item.clientId || detail.id || '';
+  const localClient = clienteId ? getPortfolioClientById(clienteId) : null;
+  const nombreDetalle = detail.nombre || detail.name || '';
+  const apellidoDetalle = detail.apellido || '';
+  const nombreCompleto = String(item.cliente || item.clienteNombre || item.cliente_nombre || item.nombreCliente || item.clientName || '').trim()
+    || String((nombreDetalle || '') + ' ' + (apellidoDetalle || '')).trim()
+    || localClient?.nombre
+    || localClient?.name
+    || 'Cliente';
+  const telefono = item.telefono
+    || detail.telefono
+    || detail.phone
+    || localClient?.telefono
+    || localClient?.phone
+    || '';
+  const agenteNombre = item.agente || item.agenteNombre || item.agentName || item.usuarioNombre || item.userName || item.user?.name || 'Agente';
+  return {
+    id: item.id || '',
+    numero: item.numero || item.ticketNumber || item.numeroTicket || null,
+    clienteId,
+    cliente: nombreCompleto,
+    telefono,
+    tipo: ticketType,
+    tipoRaw: ticketType,
+    tipoOtro: item.tipoSolicitudManual || item.tipoOtro || '',
+    resumen: item.resumen || item.resumenIA || item.summary || '',
+    estado: normalizeBackendStatus(item.estado || item.estadoGestion || 'nuevo'),
+    estadoBandeja: item.estadoBandeja || '',
+    prioridad: item.prioridad || 'media',
+    productoId: item.productoContratoId || item.productoId || product.id || '',
+    productoNombre: product.nombreProducto || product.nombre_producto || product.nombre || item.productoNombre || localClient?.productoActualNombre || '',
+    productoEstado: product.estado || '',
+    productoFechaAlta: product.fechaAlta || product.fecha_alta || '',
+    productoFechaBaja: product.fechaBaja || product.fecha_baja || '',
+    hora: item.createdAt || item.created_at || '',
+    createdAt: item.createdAt || item.created_at || '',
+    updatedAt: item.updatedAt || item.updated_at || '',
+    transcripcion: item.transcripcion || '',
+    agente: agenteNombre,
+    notas: Array.isArray(item.notas) ? item.notas : [],
+    cierreHistory: Array.isArray(item.cierreHistory) ? item.cierreHistory : [],
+    timeline: item.timeline || [],
+    esSolicitudServicio: ticketType === 'solicitud_servicio',
+    serviceRequest: mapServiceRequest(item.serviceRequest || item.service_request)
+  };
+};
+
+const hydrateTicketsWithDirectory = async (tickets) => {
+  if (!hasApiConfigured()) return tickets;
+  const needsClient = tickets.some((ticket) => !ticket.cliente || ticket.cliente === 'Cliente' || !ticket.telefono);
+  if (!needsClient) return tickets;
+  try {
+    const { portfolio = [] } = await fetchClientsDirectory();
+    const byId = Object.fromEntries(portfolio.map((client) => [client.id, client]));
+    return tickets.map((ticket) => {
+      const client = ticket.clienteId ? byId[ticket.clienteId] : null;
+      if (!client) return ticket;
+      return {
+        ...ticket,
+        cliente: ticket.cliente && ticket.cliente !== 'Cliente' ? ticket.cliente : (client.name || client.nombre || ticket.cliente),
+        telefono: ticket.telefono || client.phone || client.telefono || '',
+        productoNombre: ticket.productoNombre || client.product || client.productoActualNombre || ''
+      };
+    });
+  } catch {
+    return tickets;
+  }
+};
+
+const hydrateTicketWithDirectory = async (ticket) => {
+  if (!ticket || !hasApiConfigured()) return ticket;
+  if (ticket.cliente && ticket.cliente !== 'Cliente' && ticket.telefono) return ticket;
+  try {
+    const { portfolio = [] } = await fetchClientsDirectory();
+    const byId = Object.fromEntries(portfolio.map((client) => [client.id, client]));
+    const client = ticket.clienteId ? byId[ticket.clienteId] : null;
+    if (!client) return ticket;
+    return {
+      ...ticket,
+      cliente: ticket.cliente && ticket.cliente !== 'Cliente' ? ticket.cliente : (client.name || client.nombre || ticket.cliente),
+      telefono: ticket.telefono || client.phone || client.telefono || '',
+      productoNombre: ticket.productoNombre || client.product || client.productoActualNombre || ''
+    };
+  } catch {
+    return ticket;
+  }
+};
+
 export const listTicketsAsync = async () => {
-  await delay(160);
-  return listTickets();
+  if (!hasApiConfigured()) {
+    await delay(160);
+    return listTickets();
+  }
+  const response = await api.get('/manual-tickets');
+  const items = Array.isArray(response)
+    ? response
+    : (Array.isArray(response?.items) ? response.items : (Array.isArray(response?.data) ? response.data : []));
+  const mapped = await hydrateTicketsWithDirectory(items.map(mapBackendManualTicket));
+  ticketsStore = mapped.map((item) => ({
+    ...item,
+    notas: Array.isArray(item.notas) ? item.notas : []
+  }));
+  return mapped;
+};
+
+export const listTicketsByClientId = async (clientId) => {
+  if (!hasApiConfigured()) {
+    await delay(160);
+    return listTickets().filter((ticket) => ticket.clienteId === clientId);
+  }
+  const response = await api.get(`/manual-tickets?clienteId=${encodeURIComponent(clientId || '')}`);
+  const items = Array.isArray(response)
+    ? response
+    : (Array.isArray(response?.items) ? response.items : (Array.isArray(response?.data) ? response.data : []));
+  return hydrateTicketsWithDirectory(items.map(mapBackendManualTicket));
 };
 
 export const getTicketById = async (id) => {
+  if (hasApiConfigured()) {
+    const response = await api.get(`/manual-tickets/${id}`);
+    const item = response?.item || response?.data || response || null;
+    const mapped = item ? mapBackendManualTicket(item) : null;
+    maybeThrow(!mapped, 'Ticket no encontrado.');
+    const idx = ticketsStore.findIndex((ticket) => ticket.id === mapped.id || String(ticket.id) === String(mapped.id));
+    if (idx >= 0) {
+      ticketsStore[idx] = { ...ticketsStore[idx], ...mapped };
+    } else {
+      ticketsStore.unshift(mapped);
+    }
+    return mapped;
+  }
   await delay(120);
   const idx = resolveTicketIndex(id);
   maybeThrow(idx < 0, 'Ticket no encontrado.');
@@ -198,8 +369,26 @@ export const createManualTicket = async ({
   prioridad = 'media',
   asignadoA = DEFAULT_AGENT_ID,
   origen = 'manual',
-  productoContratoId = ''
+  productoContratoId = '',
+  estado = 'nueva'
 }) => {
+  if (hasApiConfigured()) {
+    const payload = {
+      clienteId,
+      tipoSolicitud,
+      tipoSolicitudManual,
+      resumen,
+      canal,
+      prioridad,
+      productoContratoId,
+      estado
+    };
+    const response = await api.post('/manual-tickets', payload);
+    const item = response?.item || response;
+    const mapped = mapBackendManualTicket(item || {});
+    ticketsStore = [mapped, ...ticketsStore.filter((ticket) => ticket.id !== mapped.id)];
+    return mapped;
+  }
   await delay(160);
   const client = getPortfolioClientById(clienteId);
   maybeThrow(!client, 'Cliente no encontrado.');
@@ -268,6 +457,24 @@ export const createManualTicket = async ({
 };
 
 export const updateTicket = async (id, patch) => {
+  if (hasApiConfigured()) {
+    const nextEstado = patch.estadoServicio
+      ? mapServiceStatusToTicketStatus(patch.estadoServicio)
+      : (patch.estado ? mapTicketStatusToRaw(patch.estado) : null);
+    const payload = {
+      ...(nextEstado ? { estado: nextEstado } : {}),
+      ...(patch.prioridad ? { prioridad: patch.prioridad } : {}),
+      ...(patch.resumen ? { resumen: patch.resumen } : {}),
+      ...(patch.tipoSolicitud ? { tipoSolicitud: patch.tipoSolicitud } : {}),
+      ...(patch.tipoSolicitudManual ? { tipoSolicitudManual: patch.tipoSolicitudManual } : {}),
+      ...(patch.productoContratoId ? { productoContratoId: patch.productoContratoId } : {}),
+      ...(patch.serviceRequest ? { serviceRequest: patch.serviceRequest } : {})
+    };
+    const response = await api.put(`/manual-tickets/${id}`, payload);
+    const item = response?.item || response;
+    return mapBackendManualTicket(item || {});
+  }
+
   await delay(140);
   const idx = resolveTicketIndex(id);
   maybeThrow(idx < 0, 'Ticket no encontrado.');
@@ -293,6 +500,9 @@ export const updateTicket = async (id, patch) => {
 
 export const updateRetentionTracking = async (id, patch, { actorId = DEFAULT_AGENT_ID } = {}) => {
   const uiTicket = await updateTicket(id, patch);
+  if (hasApiConfigured()) {
+    return uiTicket;
+  }
   appendActivity({
     ticketRawId: uiTicket.rawId,
     tipo: 'retencion',
@@ -304,6 +514,9 @@ export const updateRetentionTracking = async (id, patch, { actorId = DEFAULT_AGE
 
 export const updateTicketStatus = async (id, status, { actorId = DEFAULT_AGENT_ID } = {}) => {
   const uiTicket = await updateTicket(id, { estado: status });
+  if (hasApiConfigured()) {
+    return uiTicket;
+  }
   appendActivity({
     ticketRawId: uiTicket.rawId,
     tipo: 'estado',
@@ -315,6 +528,9 @@ export const updateTicketStatus = async (id, status, { actorId = DEFAULT_AGENT_I
 
 export const updateServiceRequestStatus = async (id, serviceStatus, { actorId = DEFAULT_AGENT_ID } = {}) => {
   const uiTicket = await updateTicket(id, { estadoServicio: serviceStatus });
+  if (hasApiConfigured()) {
+    return uiTicket;
+  }
   appendActivity({
     ticketRawId: uiTicket.rawId,
     tipo: 'estado_servicio',
@@ -325,8 +541,22 @@ export const updateServiceRequestStatus = async (id, serviceStatus, { actorId = 
 };
 
 export const addTicketNote = async (id, text, { actorId = DEFAULT_AGENT_ID, authorName = 'Usuario' } = {}) => {
+  if (hasApiConfigured()) {
+    const response = await api.post(`/manual-tickets/${id}/notes`, { texto: text });
+    const note = response?.item || response;
+    const idx = ticketsStore.findIndex((ticket) => ticket.id === id || String(ticket.id) === String(id));
+    if (idx >= 0) {
+      ticketsStore[idx] = {
+        ...ticketsStore[idx],
+        notas: [note, ...(ticketsStore[idx].notas || [])]
+      };
+      return ticketsStore[idx];
+    }
+    return { id, notas: [note] };
+  }
+
   await delay(120);
-  maybeThrow(!text || !text.trim(), 'La nota no puede quedar vacía.');
+  maybeThrow(!text || !text.trim(), 'La nota no puede quedar vac?a.');
 
   const idx = resolveTicketIndex(id);
   maybeThrow(idx < 0, 'Ticket no encontrado.');
@@ -428,6 +658,23 @@ export const resolveCancellationTicket = async (
 };
 
 export const closeTicketCase = async (id, { actorId = DEFAULT_AGENT_ID, actorName = 'Agente', outcome = '', note = '' } = {}) => {
+  if (hasApiConfigured()) {
+    const payload = {
+      outcome,
+      note,
+      actorId,
+      actorName
+    };
+    try {
+      const response = await api.post(`/manual-tickets/${id}/close`, payload);
+      const item = response?.item || response?.data || response || null;
+      const mapped = item ? mapBackendManualTicket(item) : null;
+      if (!mapped) throw new Error('No se pudo cerrar el ticket.');
+      return hydrateTicketWithDirectory(mapped);
+    } catch (err) {
+      throw err;
+    }
+  }
   const idx = resolveTicketIndex(id);
   maybeThrow(idx < 0, 'Ticket no encontrado.');
   const ticket = ticketsStore[idx];

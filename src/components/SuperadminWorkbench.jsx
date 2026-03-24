@@ -1,11 +1,13 @@
 ﻿
 import React from 'react';
-import { Search, Filter, Upload, Plus, CheckCircle2, X, Edit3, Activity, Phone, PhoneCall } from 'lucide-react';
+import { Search, Filter, Upload, Plus, CheckCircle2, X, Edit3, Activity, Phone, PhoneCall, Download, Eye } from 'lucide-react';
+import ContactDetailModal from './ContactDetailModal.jsx';
 import { listImports, previewCsvText, createImportFromCsv, IMPORT_TYPES } from '../services/importsService.js';
-import { listNoCallEntries, listPhoneResultEntries } from '../services/leadsService.js';
+import { listNoCallEntries, listPhoneResultEntries, getNoCallStats, listDatosParaTrabajar } from '../services/leadsService.js';
 import { listProductsAsync, createProduct, updateProduct } from '../services/productsService.js';
 import { listUsersAsync, createUser, updateUser } from '../services/usersService.js';
 import { listRecentActivity, listActivityLog, logActivityEvent } from '../services/activityService.js';
+import { IMPORT_SAMPLE_CSV, NO_LLAMAR_SAMPLE_CSV, RESULTADOS_SAMPLE_CSV, DATOS_TRABAJAR_SAMPLE_CSV, downloadCsvFile, formatFileSize } from '../utils/importWizardHelpers.js';
 
 const USER_ROLE_OPTIONS = ['superadministrador', 'director', 'supervisor', 'operaciones', 'atencion_cliente'];
 const USER_STATUS_OPTIONS = [
@@ -18,6 +20,14 @@ const USER_STATUS_OPTIONS = [
 const DEFAULT_USER_ROLE = 'supervisor';
 const DEFAULT_USER_STATUS = 'approved';
 const DEFAULT_USER_REASON = 'Alta manual desde panel superadmin';
+
+const createImportDraft = () => ({
+  fileName: '',
+  csvText: '',
+  importType: 'clientes',
+  fileSize: 0,
+  fileType: ''
+});
 
 const createUserDraft = (overrides = {}) => ({
   id: '',
@@ -58,14 +68,37 @@ export default function SuperadminWorkbench({
   const [products, setProducts] = React.useState([]);
   const [users, setUsers] = React.useState([]);
   const [noCallRows, setNoCallRows] = React.useState([]);
+  const [noCallStats, setNoCallStats] = React.useState({ total: 0, celulares: 0, montevideo: 0, interior: 0 });
+  const [noCallSearch, setNoCallSearch] = React.useState('');
+  const [noCallFuente, setNoCallFuente] = React.useState('todos');
+  const [noCallDepartamento, setNoCallDepartamento] = React.useState('');
+  const [noCallLocalidad, setNoCallLocalidad] = React.useState('');
+  const [noCallPage, setNoCallPage] = React.useState(1);
+  const [noCallPageSize, setNoCallPageSize] = React.useState(20);
+  const [noCallMeta, setNoCallMeta] = React.useState({ page: 1, pageSize: 20, total: 0, totalPages: 1 });
+  const [noCallLoading, setNoCallLoading] = React.useState(false);
+  const [noCallError, setNoCallError] = React.useState('');
+  const [workDataRows, setWorkDataRows] = React.useState([]);
+  const [workDataLoading, setWorkDataLoading] = React.useState(false);
+  const [workDataError, setWorkDataError] = React.useState('');
+  const [workDataSearch, setWorkDataSearch] = React.useState('');
+  const [workDataSelected, setWorkDataSelected] = React.useState(null);
+  const [workDataPage, setWorkDataPage] = React.useState(1);
+  const [workDataPageSize, setWorkDataPageSize] = React.useState(10);
+  const [workDataMeta, setWorkDataMeta] = React.useState({ page: 1, pageSize: 10, total: 0, totalPages: 1 });
+  const [workDataTab, setWorkDataTab] = React.useState('nuevo');
+  const [workDataDepto, setWorkDataDepto] = React.useState('todos');
+  const [workDataOrigen, setWorkDataOrigen] = React.useState('todos');
   const [phoneResultsRows, setPhoneResultsRows] = React.useState([]);
   const [activityRows, setActivityRows] = React.useState([]);
 
   const [showImportFlow, setShowImportFlow] = React.useState(false);
-  const [importDraft, setImportDraft] = React.useState({ fileName: '', csvText: '', importType: 'clientes' });
+  const [importDraft, setImportDraft] = React.useState(createImportDraft());
   const [preview, setPreview] = React.useState(null);
   const [previewLoading, setPreviewLoading] = React.useState(false);
   const [previewError, setPreviewError] = React.useState('');
+  const fileInputRef = React.useRef(null);
+  const [dragActive, setDragActive] = React.useState(false);
 
   const [productDraft, setProductDraft] = React.useState({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', observaciones: '', activo: true });
   const [userDraft, setUserDraft] = React.useState(() => createUserDraft());
@@ -80,11 +113,31 @@ export default function SuperadminWorkbench({
   const [moduleRoleFilter, setModuleRoleFilter] = React.useState(() => Object.keys(roleMeta).find((key) => key !== 'superadministrador') || 'superadministrador');
 
   const resetImportFlow = React.useCallback(() => {
-    setImportDraft({ fileName: '', csvText: '', importType: 'clientes' });
+    setImportDraft(createImportDraft());
+    setDragActive(false);
     setPreview(null);
     setPreviewError('');
     setPreviewLoading(false);
   }, []);
+
+  const downloadImportExampleCsv = React.useCallback(() => {
+    const activeType = showImportFlow
+      ? importDraft.importType
+      : (importsType && importsType !== 'todos' ? importsType : 'clientes');
+    if (activeType === 'no_llamar') {
+      downloadCsvFile(NO_LLAMAR_SAMPLE_CSV, 'importacion-no-llamar-ejemplo.csv');
+      return;
+    }
+    if (activeType === 'resultados') {
+      downloadCsvFile(RESULTADOS_SAMPLE_CSV, 'importacion-resultados-ejemplo.csv');
+      return;
+    }
+    if (activeType === 'datos_para_trabajar') {
+      downloadCsvFile(DATOS_TRABAJAR_SAMPLE_CSV, 'importacion-datos-para-trabajar-ejemplo.csv');
+      return;
+    }
+    downloadCsvFile(IMPORT_SAMPLE_CSV, 'importacion-clientes-ejemplo.csv');
+  }, [showImportFlow, importDraft.importType, importsType]);
 
   const loadImports = React.useCallback(async () => {
     setImportsLoading(true);
@@ -103,11 +156,99 @@ export default function SuperadminWorkbench({
   const loadProducts = React.useCallback(async () => setProducts(await listProductsAsync()), []);
   const loadUsers = React.useCallback(async () => setUsers(await listUsersAsync()), []);
   const loadSpecialBases = React.useCallback(async () => {
-    const [noCall, results] = await Promise.all([listNoCallEntries(), listPhoneResultEntries()]);
-    setNoCallRows(noCall);
+    const [noCall, results, stats] = await Promise.all([
+      listNoCallEntries({ page: 1, pageSize: 20, search: '' }),
+      listPhoneResultEntries(),
+      getNoCallStats()
+    ]);
+    setNoCallRows(noCall?.items || []);
+    setNoCallMeta({
+      page: noCall?.page || 1,
+      pageSize: noCall?.pageSize || 20,
+      total: noCall?.total || 0,
+      totalPages: noCall?.totalPages || 1
+    });
+    setNoCallStats(stats || { total: 0, celulares: 0, montevideo: 0, interior: 0 });
     setPhoneResultsRows(results);
   }, []);
   const loadActivity = React.useCallback(() => setActivityRows(listActivityLog()), []);
+
+  const loadWorkData = React.useCallback(async () => {
+    setWorkDataLoading(true);
+    setWorkDataError('');
+    try {
+      const result = await listDatosParaTrabajar({
+        page: workDataPage,
+        pageSize: workDataPageSize,
+        search: workDataSearch,
+        estado: workDataTab,
+        departamento: workDataDepto === 'todos' ? '' : workDataDepto,
+        origen_dato: workDataOrigen === 'todos' ? '' : workDataOrigen
+      });
+      const rows = result?.items || [];
+      setWorkDataRows(Array.isArray(rows) ? rows : []);
+      setWorkDataMeta({
+        page: result?.page || workDataPage,
+        pageSize: result?.pageSize || workDataPageSize,
+        total: result?.total || 0,
+        totalPages: result?.totalPages || 1
+      });
+    } catch (err) {
+      setWorkDataError(err?.message || 'No se pudo cargar la base de trabajo.');
+      setWorkDataRows([]);
+    } finally {
+      setWorkDataLoading(false);
+    }
+  }, [workDataPage, workDataPageSize, workDataSearch, workDataTab, workDataDepto, workDataOrigen]);
+
+  const noCallStatsDisplay = React.useMemo(() => {
+    const normalized = noCallRows.map((item) => String(item.numero || item.telefono || '').replace(/\D/g, ''));
+    const fallbackTotal = noCallMeta.total || normalized.length;
+    const fallbackCelulares = normalized.filter((value) => value.startsWith('09')).length;
+    const fallbackMontevideo = normalized.filter((value) => value.startsWith('2')).length;
+    const fallbackInterior = normalized.filter((value) => value.startsWith('4')).length;
+    return {
+      total: Number(noCallStats.total || 0) || fallbackTotal,
+      celulares: Number(noCallStats.celulares || 0) || fallbackCelulares,
+      montevideo: Number(noCallStats.montevideo || 0) || fallbackMontevideo,
+      interior: Number(noCallStats.interior || 0) || fallbackInterior
+    };
+  }, [noCallRows, noCallMeta.total, noCallStats]);
+
+  const filteredNoCallRows = React.useMemo(() => {
+    const term = String(noCallSearch || '').trim().toLowerCase();
+    if (!term) return noCallRows;
+    return noCallRows.filter((item) => {
+      const values = [
+        item.numero,
+        item.telefono,
+        item.documento,
+        item.nombre,
+        item.fuente,
+        item.origen,
+        item.departamento,
+        item.localidad
+      ]
+        .filter(Boolean)
+        .map((value) => String(value).toLowerCase());
+      return values.some((value) => value.includes(term));
+    });
+  }, [noCallRows, noCallSearch]);
+
+  const filteredWorkDataRows = React.useMemo(() => workDataRows, [workDataRows]);
+  const workDataDeptOptions = React.useMemo(() => {
+    const values = workDataRows
+      .map((item) => String(item.departamento || '').trim())
+      .filter(Boolean);
+    return ['todos', ...new Set(values)];
+  }, [workDataRows]);
+
+  const workDataOrigenOptions = React.useMemo(() => {
+    const values = workDataRows
+      .map((item) => String(item.origen_dato || '').trim())
+      .filter(Boolean);
+    return ['todos', ...new Set(values)];
+  }, [workDataRows]);
 
   const splitFullName = (value) => {
     const parts = String(value || '').trim().split(/\s+/).filter(Boolean);
@@ -132,10 +273,58 @@ export default function SuperadminWorkbench({
     loadActivity();
   }, [route, loadProducts, loadUsers, loadSpecialBases, loadActivity]);
 
+  const loadNoCall = React.useCallback(async () => {
+    setNoCallLoading(true);
+    setNoCallError('');
+    try {
+      const result = await listNoCallEntries({
+        page: noCallPage,
+        pageSize: noCallPageSize,
+        search: noCallSearch,
+        fuente: noCallFuente === 'todos' ? '' : noCallFuente,
+        departamento: noCallDepartamento,
+        localidad: noCallLocalidad
+      });
+      setNoCallRows(result?.items || []);
+      setNoCallMeta({
+        page: result?.page || noCallPage,
+        pageSize: result?.pageSize || noCallPageSize,
+        total: result?.total || 0,
+        totalPages: result?.totalPages || 1
+      });
+    } catch (err) {
+      setNoCallError(err?.message || 'No se pudo cargar Base No llamar.');
+    } finally {
+      setNoCallLoading(false);
+    }
+  }, [noCallPage, noCallPageSize, noCallSearch, noCallFuente, noCallDepartamento, noCallLocalidad]);
+
+  React.useEffect(() => {
+    if (route !== 'sa_no_llamar') return;
+    loadNoCall();
+    getNoCallStats().then((stats) => setNoCallStats(stats || { total: 0, celulares: 0, montevideo: 0, interior: 0 })).catch(() => {});
+  }, [route, loadNoCall]);
+
   React.useEffect(() => {
     if (!['sa_importaciones', 'dashboard_global'].includes(route)) return;
     loadImports();
   }, [route, loadImports]);
+
+  React.useEffect(() => {
+    if (route !== 'sa_datos_trabajar') return;
+    setWorkDataPage(1);
+  }, [route, workDataTab]);
+
+  React.useEffect(() => {
+    if (route !== 'sa_datos_trabajar') return;
+    loadWorkData();
+  }, [route, workDataTab, loadWorkData]);
+
+  React.useEffect(() => {
+    if (route !== 'sa_datos_trabajar') return;
+    setWorkDataPage(1);
+    loadWorkData();
+  }, [route, workDataDepto, workDataOrigen, loadWorkData]);
 
   React.useEffect(() => setLogoDraft(logoUrl || ''), [logoUrl]);
 
@@ -145,17 +334,48 @@ export default function SuperadminWorkbench({
     const base = (String(seed || '').split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0) % 5) + 2;
     return { day: base, month: base * 20, year: base * 240 };
   };
-  const handleCsvFile = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const processCsvFile = async (file) => {
     try {
       const csvText = await file.text();
-      setImportDraft((prev) => ({ ...prev, fileName: file.name, csvText }));
+      setImportDraft((prev) => ({
+        ...prev,
+        fileName: file.name,
+        csvText,
+        fileSize: file.size || 0,
+        fileType: file.type || 'text/csv'
+      }));
       setPreview(null);
       setPreviewError('');
     } catch {
       setPreviewError('No se pudo leer el archivo seleccionado.');
+    } finally {
+      setDragActive(false);
     }
+  };
+
+  const handleCsvFile = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    await processCsvFile(file);
+    event.target.value = '';
+  };
+
+  const handleDropFile = async (event) => {
+    event.preventDefault();
+    setDragActive(false);
+    const file = event.dataTransfer?.files?.[0];
+    if (file) {
+      await processCsvFile(file);
+    }
+  };
+
+  const handleDragOver = (event) => {
+    event.preventDefault();
+    setDragActive(true);
+  };
+
+  const handleDragLeave = () => {
+    setDragActive(false);
   };
 
   const validatePreview = async () => {
@@ -321,12 +541,40 @@ export default function SuperadminWorkbench({
     return (
       <div className="view">
         <section className="content-grid">
-          <Panel className="span-12" title="Importaciones" subtitle="Carga masiva por tipo (clientes, No llamar, resultados)" action={<Button icon={<Upload size={16} />} onClick={() => { setShowImportFlow(true); setImportSuccess(''); resetImportFlow(); }}>Importar CSV</Button>}>
+          <Panel
+            className="span-12"
+            title="Importaciones"
+            subtitle="Carga masiva por tipo (clientes, No llamar, resultados)"
+            action={
+              <div className="toolbar" style={{ gap: 8 }}>
+                <Button variant="ghost" icon={<Download size={16} />} onClick={downloadImportExampleCsv}>
+                  Descargar ejemplo CSV
+                </Button>
+                <Button icon={<Upload size={16} />} onClick={() => { setShowImportFlow(true); setImportSuccess(''); resetImportFlow(); }}>
+                  Importar CSV
+                </Button>
+              </div>
+            }
+          >
             <div className="toolbar" style={{ marginBottom: 12 }}>
-              <div className="searchbox" style={{ maxWidth: 320 }}><Search size={18} color="#69788d" /><input value={importsSearch} onChange={(event) => { setImportsPage(1); setImportsSearch(event.target.value); }} placeholder="Buscar por archivo..." /></div>
-              <select className="input" style={{ width: 250 }} value={importsType} onChange={(event) => { setImportsPage(1); setImportsType(event.target.value); }}>
+              <div className="searchbox" style={{ maxWidth: 320 }}>
+                <Search size={18} color="#69788d" />
+                <input
+                  value={importsSearch}
+                  onChange={(event) => { setImportsPage(1); setImportsSearch(event.target.value); }}
+                  placeholder="Buscar por archivo..."
+                />
+              </div>
+              <select
+                className="input"
+                style={{ width: 250 }}
+                value={importsType}
+                onChange={(event) => { setImportsPage(1); setImportsType(event.target.value); }}
+              >
                 <option value="todos">Todos los tipos</option>
-                {Object.values(IMPORT_TYPES).map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
+                {Object.values(IMPORT_TYPES).map((item) => (
+                  <option key={item.key} value={item.key}>{item.label}</option>
+                ))}
               </select>
               <Button variant="secondary" icon={<Filter size={16} />} onClick={loadImports}>Aplicar</Button>
               {importSuccess ? <span className="pill" style={{ color: '#15803d' }}>{importSuccess}</span> : null}
@@ -334,16 +582,152 @@ export default function SuperadminWorkbench({
             <div className="table-wrap">
               <table>
                 <thead><tr><th>Archivo</th><th>Tipo</th><th>Fecha</th><th>Total</th><th>Importados</th><th>Rechazados</th><th>Estado</th><th>Usuario</th></tr></thead>
-                <tbody>{imports.map((row) => <tr key={row.id}><td><strong>{row.archivo}</strong></td><td>{row.tipoLabel}</td><td>{row.fecha}</td><td>{row.total}</td><td>{row.importados}</td><td>{row.rechazados}</td><td><Tag variant={row.estado === 'Completada' ? 'success' : row.estado === 'Fallida' ? 'danger' : 'warning'}>{row.estado}</Tag></td><td>{row.usuario}</td></tr>)}</tbody>
+                <tbody>{imports.map((row) => (
+                  <tr key={row.id}>
+                    <td><strong>{row.archivo}</strong></td>
+                    <td>{row.tipoLabel}</td>
+                    <td>{row.fecha}</td>
+                    <td>{row.total}</td>
+                    <td>{row.importados}</td>
+                    <td>{row.rechazados}</td>
+                    <td><Tag variant={row.estado === 'Completada' ? 'success' : row.estado === 'Fallida' ? 'danger' : 'warning'}>{row.estado}</Tag></td>
+                    <td>{row.usuario}</td>
+                  </tr>
+                ))}</tbody>
               </table>
               {importsLoading ? <div style={{ padding: 16, color: 'var(--muted)' }}>Cargando historial...</div> : null}
               {importsError ? <div style={{ padding: 16, color: '#be123c', fontWeight: 700 }}>{importsError}</div> : null}
             </div>
             <div className="toolbar" style={{ justifyContent: 'space-between', marginTop: 12 }}>
               <span className="pill">Página {importsMeta.page} de {importsMeta.totalPages} · {importsMeta.total} registros</span>
-              <div className="toolbar"><Button variant="ghost" onClick={() => setImportsPage((p) => Math.max(1, p - 1))} disabled={importsMeta.page <= 1}>Anterior</Button><Button variant="ghost" onClick={() => setImportsPage((p) => Math.min(importsMeta.totalPages, p + 1))} disabled={importsMeta.page >= importsMeta.totalPages}>Siguiente</Button></div>
+              <div className="toolbar">
+                <Button variant="ghost" onClick={() => setImportsPage((p) => Math.max(1, p - 1))} disabled={importsMeta.page <= 1}>Anterior</Button>
+                <Button variant="ghost" onClick={() => setImportsPage((p) => Math.min(importsMeta.totalPages, p + 1))} disabled={importsMeta.page >= importsMeta.totalPages}>Siguiente</Button>
+              </div>
             </div>
-            {showImportFlow ? <div className="lot-wizard-overlay" onClick={() => setShowImportFlow(false)}><div className="lot-wizard" onClick={(event) => event.stopPropagation()}><div className="lot-wizard-header"><div><h3>Importar CSV</h3><p>Subida, preview y confirmación.</p></div><button className="icon-button" style={{ width: 36, height: 36 }} onClick={() => setShowImportFlow(false)}><X size={16} color="#152235" /></button></div><div className="lot-step"><span className="lot-step-index">1</span><div style={{ flex: 1 }}><h4>Tipo</h4><select className="input" value={importDraft.importType} onChange={(event) => setImportDraft((prev) => ({ ...prev, importType: event.target.value }))}>{Object.values(IMPORT_TYPES).map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}</select></div></div><div className="lot-step"><span className="lot-step-index">2</span><div style={{ flex: 1 }}><h4>Archivo</h4><input className="input" type="file" accept=".csv" onChange={handleCsvFile} /></div></div><div className="lot-step"><span className="lot-step-index">3</span><div style={{ flex: 1 }}><h4>Validación</h4><Button variant="secondary" onClick={validatePreview} disabled={!importDraft.csvText || previewLoading}>{previewLoading ? 'Validando...' : 'Validar'}</Button>{preview ? <div style={{ marginTop: 8, color: 'var(--muted)' }}>Total: {preview.summary.total} · Importables: {preview.summary.importados} · Rechazados: {preview.summary.rechazados}</div> : null}</div></div>{previewError ? <div style={{ color: '#be123c', fontWeight: 700 }}>{previewError}</div> : null}<div className="toolbar" style={{ justifyContent: 'flex-end' }}><Button variant="ghost" onClick={() => setShowImportFlow(false)}>Cancelar</Button><Button icon={<CheckCircle2 size={16} />} onClick={confirmImport} disabled={!preview || !importDraft.fileName}>Confirmar</Button></div></div></div> : null}
+            {showImportFlow ? (
+              <div className="lot-wizard-overlay" onClick={() => setShowImportFlow(false)}>
+                <div className="lot-wizard" onClick={(event) => event.stopPropagation()}>
+                  <div className="lot-wizard-header">
+                    <div>
+                      <h3>Importar CSV</h3>
+                      <p>Subida, preview y confirmación.</p>
+                    </div>
+                    <button className="icon-button" style={{ width: 36, height: 36 }} onClick={() => setShowImportFlow(false)}><X size={16} color="#152235" /></button>
+                  </div>
+                  <div className="import-wizard">
+                    <div className="import-step import-step--active">
+                      <div className="import-step-header">
+                        <span className="import-step-badge import-step-badge--completed">1</span>
+                        <div>
+                          <strong>Tipo de importación</strong>
+                          <p className="import-step-subtitle">Elige la carga que vas a realizar</p>
+                        </div>
+                      </div>
+                      <select
+                        className="input"
+                        value={importDraft.importType}
+                        onChange={(event) => setImportDraft((prev) => ({ ...prev, importType: event.target.value }))}
+                      >
+                        {Object.values(IMPORT_TYPES).map((item) => (
+                          <option key={item.key} value={item.key}>{item.label}</option>
+                        ))}
+                      </select>
+                      <p className="import-step-note">{IMPORT_TYPES[importDraft.importType]?.label}</p>
+                    </div>
+                    <div className="step-connector" aria-hidden="true"><span>▶</span></div>
+                    <div className={`import-step ${importDraft.csvText ? 'import-step--active' : 'import-step--pending'}`}>
+                      <div className="import-step-header">
+                        <span className="import-step-badge import-step-badge--pending">2</span>
+                        <div>
+                          <strong>Archivo</strong>
+                          <p className="import-step-subtitle">Arrastra o selecciona el CSV</p>
+                        </div>
+                      </div>
+                      <div
+                        className={`import-dropzone ${dragActive ? 'active' : ''}`}
+                        onClick={() => fileInputRef.current?.click()}
+                        onDrop={handleDropFile}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        tabIndex={0}
+                        role="button"
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            fileInputRef.current?.click();
+                          }
+                        }}
+                      >
+                        <div className="import-dropzone-content">
+                          <strong>{importDraft.fileName || 'Sin archivo seleccionado'}</strong>
+                          <span>{importDraft.fileName ? formatFileSize(importDraft.fileSize) : 'CSV · máximo 10 MB'}</span>
+                        </div>
+                        <input ref={fileInputRef} type="file" accept=".csv" className="import-file-input" onChange={handleCsvFile} />
+                      </div>
+                    </div>
+                    {
+                      importDraft.csvText && (
+                        <>
+                          <div className="step-connector" aria-hidden="true"><span>▶</span></div>
+                          <div className={`import-step validation-step ${preview ? 'validation-step--success' : previewError ? 'validation-step--error' : 'validation-step--pending'}`}>
+                            <div className="import-step-header">
+                              <span className="import-step-badge">3</span>
+                              <div>
+                                <strong>Validación</strong>
+                                <p className="import-step-subtitle">
+                                  {preview ? 'Listo para confirmar' : previewError ? 'Corrige los errores' : 'Revisa tu archivo antes de continuar'}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="import-step-body">
+                              <Button variant="secondary" onClick={validatePreview} disabled={!importDraft.csvText || previewLoading}>
+                                {previewLoading ? 'Validando...' : preview ? 'Revalidar archivo' : 'Validar archivo'}
+                              </Button>
+                              <p className="import-step-note">Se verifican las columnas obligatorias y formato.</p>
+                              {preview ? (
+                                <div className="validation-summary">
+                                  <div className="validation-summary-row">
+                                    <span>Total</span>
+                                    <strong>{preview.summary.total}</strong>
+                                  </div>
+                                  <div className="validation-summary-row">
+                                    <span>Importables</span>
+                                    <strong>{preview.summary.importados}</strong>
+                                  </div>
+                                  <div className="validation-summary-row">
+                                    <span>Rechazados</span>
+                                    <strong>{preview.summary.rechazados}</strong>
+                                  </div>
+                                </div>
+                              ) : null}
+                              {preview?.rowErrors?.length ? (
+                                <div className="validation-errors">
+                                  {preview.rowErrors.slice(0, 3).map((err) => (
+                                    <div key={err.rowNumber} className="validation-error-row">
+                                      <strong>Fila {err.rowNumber}</strong>
+                                      <span>{err.errors.join(', ')}</span>
+                                    </div>
+                                  ))}
+                                  {preview.rowErrors.length > 3 ? (
+                                    <span className="validation-error-more">+{preview.rowErrors.length - 3} más errores</span>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                              {previewError ? <div className="import-error-bar">{previewError}</div> : null}
+                            </div>
+                          </div>
+                        </>
+                      )
+                    }
+                  </div>
+                  <div className="wizard-actions" style={{ justifyContent: 'flex-end' }}>
+                    <Button variant="ghost" onClick={() => setShowImportFlow(false)}>Cancelar</Button>
+                    <Button icon={<CheckCircle2 size={16} />} onClick={confirmImport} disabled={!preview || !importDraft.fileName}>Confirmar importación</Button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </Panel>
         </section>
       </div>
@@ -351,11 +735,220 @@ export default function SuperadminWorkbench({
   }
 
   if (route === 'sa_no_llamar') {
-    return <div className="view"><section className="content-grid"><Panel className="span-12" title="Base No llamar" subtitle="Contactos bloqueados"><div className="table-wrap"><table><thead><tr><th>Teléfono</th><th>Documento</th><th>Nombre</th><th>Motivo</th><th>Origen</th><th>Fecha</th><th>Estado</th></tr></thead><tbody>{noCallRows.map((item) => <tr key={item.id}><td><strong>{item.telefono}</strong></td><td>{item.documento || '-'}</td><td>{item.nombre || '-'}</td><td>{item.motivo || '-'}</td><td>{item.origen || '-'}</td><td>{formatDate(item.createdAt)}</td><td><Tag variant="danger">{item.estado || 'Bloqueado'}</Tag></td></tr>)}</tbody></table></div></Panel></section></div>;
+    return (
+      <div className="view">
+        <section className="content-grid">
+          <Panel className="span-12" title="Base No llamar" subtitle="Contactos bloqueados">
+            <div className="mini-stats" style={{ marginBottom: 16 }}>
+              <div className="mini-stat"><span>Teléfonos registrados</span><strong>{noCallStatsDisplay.total}</strong></div>
+              <div className="mini-stat"><span>Registros en Montevideo</span><strong>{noCallStatsDisplay.montevideo}</strong></div>
+              <div className="mini-stat"><span>Registros en interior</span><strong>{noCallStatsDisplay.interior}</strong></div>
+              <div className="mini-stat"><span>Registros de celulares</span><strong>{noCallStatsDisplay.celulares}</strong></div>
+            </div>
+            <div className="toolbar" style={{ marginBottom: 12 }}>
+              <div className="searchbox" style={{ maxWidth: 360 }}>
+                <Search size={18} color="#69788d" />
+                <input
+                  value={noCallSearch}
+                  onChange={(event) => { setNoCallPage(1); setNoCallSearch(event.target.value); }}
+                  placeholder="Buscar por teléfono, documento o nombre..."
+                />
+              </div>
+              <select
+                className="input"
+                style={{ width: 160 }}
+                value={noCallFuente}
+                onChange={(event) => { setNoCallPage(1); setNoCallFuente(event.target.value); }}
+              >
+                <option value="todos">Todos los tipos</option>
+                <option value="celular">Celular</option>
+                <option value="tel_fijo">Tel fijo</option>
+              </select>
+              <input
+                className="input"
+                style={{ width: 180 }}
+                value={noCallDepartamento}
+                onChange={(event) => { setNoCallPage(1); setNoCallDepartamento(event.target.value); }}
+                placeholder="Departamento"
+              />
+              <input
+                className="input"
+                style={{ width: 180 }}
+                value={noCallLocalidad}
+                onChange={(event) => { setNoCallPage(1); setNoCallLocalidad(event.target.value); }}
+                placeholder="Localidad"
+              />
+              <select
+                className="input"
+                style={{ width: 140 }}
+                value={noCallPageSize}
+                onChange={(event) => { setNoCallPage(1); setNoCallPageSize(Number(event.target.value)); }}
+              >
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+              <Button variant="secondary" icon={<Filter size={16} />} onClick={loadNoCall}>Aplicar</Button>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>Fecha de carga</th><th>Número</th><th>Tipo (Fuente)</th><th>Departamento</th><th>Localidad</th></tr></thead>
+                <tbody>
+                  {filteredNoCallRows.map((item) => (
+                    <tr key={item.id}>
+                      <td>{formatDate(item.fecha_carga || item.createdAt)}</td>
+                      <td><strong>{item.numero || item.telefono || '-'}</strong></td>
+                      <td>{item.fuente || item.origen || '-'}</td>
+                      <td>{item.departamento || item.departamento_residencia || '-'}</td>
+                      <td>{item.localidad || item.ciudad || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {noCallLoading ? <div style={{ padding: 16, color: 'var(--muted)' }}>Cargando registros...</div> : null}
+              {noCallError ? <div style={{ padding: 16, color: '#be123c', fontWeight: 700 }}>{noCallError}</div> : null}
+              {!noCallLoading && !noCallError && !filteredNoCallRows.length ? (
+                <div style={{ padding: 16, color: 'var(--muted)' }}>No hay registros para los filtros aplicados.</div>
+              ) : null}
+            </div>
+            <div className="toolbar" style={{ justifyContent: 'space-between', marginTop: 12 }}>
+              <span className="pill">Página {noCallMeta.page} de {noCallMeta.totalPages} · {noCallMeta.total} registros</span>
+              <div className="toolbar">
+                <Button variant="ghost" onClick={() => setNoCallPage((p) => Math.max(1, p - 1))} disabled={noCallMeta.page <= 1}>Anterior</Button>
+                <Button variant="ghost" onClick={() => setNoCallPage((p) => Math.min(noCallMeta.totalPages, p + 1))} disabled={noCallMeta.page >= noCallMeta.totalPages}>Siguiente</Button>
+              </div>
+            </div>
+          </Panel>
+        </section>
+      </div>
+    );
   }
 
   if (route === 'sa_resultados') {
     return <div className="view"><section className="content-grid"><Panel className="span-12" title="Resultados telefónicos" subtitle="Historial importado"><div className="table-wrap"><table><thead><tr><th>Teléfono</th><th>Documento</th><th>Nombre</th><th>Resultado</th><th>Observación</th><th>Origen</th><th>Coincidencia</th><th>Fecha</th></tr></thead><tbody>{phoneResultsRows.map((item) => <tr key={item.id}><td><strong>{item.telefono || '-'}</strong></td><td>{item.documento || '-'}</td><td>{item.nombre || '-'}</td><td>{String(item.resultado || '-').replace(/_/g, ' ')}</td><td>{item.observacion || '-'}</td><td>{item.origen || '-'}</td><td>{item.leadId ? <Tag variant="success">Vinculado</Tag> : <Tag variant="warning">Sin match</Tag>}</td><td>{formatDate(item.createdAt)}</td></tr>)}</tbody></table></div></Panel></section></div>;
+  }
+  if (route === 'sa_datos_trabajar') {
+    return (
+      <div className="view">
+        <section className="content-grid">
+          <Panel className="span-12" title="Datos para trabajar" subtitle="Listado completo de registros cargados">
+            <div className="toolbar" style={{ marginBottom: 8 }}>
+              <Button
+                variant={workDataTab === 'nuevo' ? 'secondary' : 'ghost'}
+                onClick={() => setWorkDataTab('nuevo')}
+              >
+                Nuevos
+              </Button>
+              <Button
+                variant={workDataTab === 'trabajado' ? 'secondary' : 'ghost'}
+                onClick={() => setWorkDataTab('trabajado')}
+              >
+                Trabajados
+              </Button>
+              <Button
+                variant={workDataTab === 'bloqueado' ? 'secondary' : 'ghost'}
+                onClick={() => setWorkDataTab('bloqueado')}
+              >
+                Bloqueados
+              </Button>
+            </div>
+            <div className="toolbar" style={{ marginBottom: 12 }}>
+              <div className="searchbox" style={{ maxWidth: 360 }}>
+                <Search size={18} color="#69788d" />
+                <input
+                  value={workDataSearch}
+                  onChange={(event) => { setWorkDataPage(1); setWorkDataSearch(event.target.value); }}
+                  placeholder="Buscar por nombre, teléfono o documento..."
+                />
+              </div>
+              <select
+                className="input"
+                style={{ width: 190 }}
+                value={workDataDepto}
+                onChange={(event) => { setWorkDataPage(1); setWorkDataDepto(event.target.value); }}
+              >
+                {workDataDeptOptions.map((dept) => (
+                  <option key={dept} value={dept}>
+                    {dept === 'todos' ? 'Todos los departamentos' : dept}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="input"
+                style={{ width: 180 }}
+                value={workDataOrigen}
+                onChange={(event) => { setWorkDataPage(1); setWorkDataOrigen(event.target.value); }}
+              >
+                {workDataOrigenOptions.map((origin) => (
+                  <option key={origin} value={origin}>
+                    {origin === 'todos' ? 'Todos los orígenes' : origin}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="input"
+                style={{ width: 120 }}
+                value={workDataPageSize}
+                onChange={(event) => { setWorkDataPage(1); setWorkDataPageSize(Number(event.target.value)); }}
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+              <Button variant="secondary" icon={<Filter size={16} />} onClick={loadWorkData}>Aplicar</Button>
+              <span className="pill" style={{ marginLeft: 'auto' }}>
+                Total: {workDataMeta.total}
+              </span>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Teléfono</th>
+                    <th>Departamento</th>
+                    <th>Origen del dato</th>
+                    <th>Estado</th>
+                    <th>Última gestión</th>
+                    <th>Próxima acción</th>
+                    <th style={{ minWidth: 140 }}>Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredWorkDataRows.map((item) => (
+                    <tr key={item.id}>
+                      <td><strong>{[item.nombre, item.apellido].filter(Boolean).join(' ') || item.nombre || '-'}</strong></td>
+                      <td>{item.telefono || item.celular || '-'}</td>
+                      <td>{item.departamento || '-'}</td>
+                      <td>{(item.origen_dato && String(item.origen_dato).trim()) ? item.origen_dato : '-'}</td>
+                      <td>{item.estado_label || item.estado || '-'}</td>
+                      <td>{item.ultima_gestion || '-'}</td>
+                      <td>{item.proxima_accion || '-'}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <Button variant="ghost" icon={<Eye size={16} />} onClick={() => setWorkDataSelected(item)}>Ver detalles</Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {workDataLoading ? <div style={{ padding: 16, color: 'var(--muted)' }}>Cargando registros...</div> : null}
+              {workDataError ? <div style={{ padding: 16, color: '#be123c', fontWeight: 700 }}>{workDataError}</div> : null}
+              {!workDataLoading && !workDataError && !filteredWorkDataRows.length ? (
+                <div style={{ padding: 16, color: 'var(--muted)' }}>No hay datos cargados aún.</div>
+              ) : null}
+            </div>
+            <div className="toolbar" style={{ justifyContent: 'space-between', marginTop: 12 }}>
+              <span className="pill">Página {workDataMeta.page} de {workDataMeta.totalPages}</span>
+              <div className="toolbar">
+                <Button variant="ghost" onClick={() => setWorkDataPage((p) => Math.max(1, p - 1))} disabled={workDataMeta.page <= 1}>Anterior</Button>
+                <Button variant="ghost" onClick={() => setWorkDataPage((p) => Math.min(workDataMeta.totalPages, p + 1))} disabled={workDataMeta.page >= workDataMeta.totalPages}>Siguiente</Button>
+              </div>
+            </div>
+            {workDataSelected ? <ContactDetailModal contact={workDataSelected} onClose={() => setWorkDataSelected(null)} /> : null}
+          </Panel>
+        </section>
+      </div>
+    );
   }
   if (route === 'sa_productos') {
     return <div className="view"><section className="content-grid"><Panel className="span-8" title="Productos" subtitle="Gestión de catálogo" action={<Button icon={<Plus size={16} />} onClick={() => setProductDraft({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', observaciones: '', activo: true })}>Nuevo</Button>}><div className="table-wrap"><table><thead><tr><th>Nombre</th><th>Categoría</th><th>Precio</th><th>Estado</th><th>Actualización</th><th>Acción</th></tr></thead><tbody>{products.map((item) => <tr key={item.id}><td><strong>{item.nombre}</strong></td><td>{item.categoria}</td><td>$ {Number(item.precio || 0).toLocaleString('es-UY')}</td><td><Tag variant={item.activo ? 'success' : 'warning'}>{item.activo ? 'Activo' : 'Inactivo'}</Tag></td><td>{formatDate(item.updatedAt)}</td><td><div className="toolbar"><Button variant="ghost" icon={<Edit3 size={15} />} onClick={() => setProductDraft({ id: item.id, nombre: item.nombre, categoria: item.categoria, precio: String(item.precio), descripcion: item.descripcion || '', observaciones: item.observaciones || '', activo: !!item.activo })}>Editar</Button><Button variant="secondary" onClick={async () => { await updateProduct(item.id, { activo: !item.activo }); await loadProducts(); }}>Estado</Button></div></td></tr>)}</tbody></table></div></Panel><Panel className="span-4" title={productDraft.id ? 'Editar producto' : 'Crear producto'} subtitle="Formulario"><div className="list"><input className="input" placeholder="Nombre" value={productDraft.nombre} onChange={(event) => setProductDraft((prev) => ({ ...prev, nombre: event.target.value }))} /><input className="input" placeholder="Categoría" value={productDraft.categoria} onChange={(event) => setProductDraft((prev) => ({ ...prev, categoria: event.target.value }))} /><input className="input" placeholder="Precio / Cuota" value={productDraft.precio} onChange={(event) => setProductDraft((prev) => ({ ...prev, precio: event.target.value }))} /><textarea className="input" rows="3" placeholder="Descripción" value={productDraft.descripcion} onChange={(event) => setProductDraft((prev) => ({ ...prev, descripcion: event.target.value }))}></textarea><textarea className="input" rows="3" placeholder="Observaciones" value={productDraft.observaciones} onChange={(event) => setProductDraft((prev) => ({ ...prev, observaciones: event.target.value }))}></textarea><Button icon={<CheckCircle2 size={16} />} onClick={saveProduct}>{productDraft.id ? 'Guardar' : 'Crear'}</Button></div></Panel></section></div>;
@@ -606,7 +1199,7 @@ export default function SuperadminWorkbench({
     return <div className="view"><section className="content-grid"><Panel className="span-8" title="Configuración general" subtitle="Parámetros globales"><div className="mini-stats"><div className="mini-stat"><span>Tipos de solicitud</span><strong>Atención al cliente</strong></div><div className="mini-stat"><span>Estados comerciales</span><strong>Ventas y seguimiento</strong></div><div className="mini-stat"><span>Parámetros generales</span><strong>Categorías y estados</strong></div></div></Panel><Panel className="span-4" title="Identidad visual" subtitle="Cambio de logo"><div className="list"><div style={{ borderRadius: 16, border: '1px solid var(--line)', minHeight: 100, display: 'grid', placeItems: 'center', background: 'rgba(20,34,53,0.03)' }}>{logoDraft ? <img src={logoDraft} alt="Logo" style={{ maxWidth: '100%', maxHeight: 80, objectFit: 'contain' }} /> : <strong>Sin logo personalizado</strong>}</div><input className="input" type="file" accept="image/*" onChange={onLogoFile} />{logoError ? <div style={{ color: '#be123c', fontWeight: 700 }}>{logoError}</div> : null}{logoSaved ? <div style={{ color: '#15803d', fontWeight: 700 }}>{logoSaved}</div> : null}<Button icon={<CheckCircle2 size={16} />} onClick={saveLogo}>Guardar logo</Button></div></Panel></section></div>;
   }
 
-  return <div className="view"><section className="metrics-grid">{globalMetrics.map((item) => <MetricCard key={item.title} item={item} />)}</section><section className="content-grid"><Panel className="span-7" title="Vista general del sistema" subtitle="Control rápido de módulos críticos"><div className="mini-stats"><div className="mini-stat"><span>Importaciones recientes</span><strong>{imports.slice(0, 5).length}</strong></div><div className="mini-stat"><span>Base No llamar activa</span><strong>{noCallRows.length}</strong></div><div className="mini-stat"><span>Resultados telefónicos cargados</span><strong>{phoneResultsRows.length}</strong></div><div className="mini-stat"><span>Usuarios con actividad reciente</span><strong>{activeUsers}</strong></div></div><div className="toolbar" style={{ marginTop: 14 }}><Button icon={<Upload size={16} />} onClick={() => onOpenRoute('sa_importaciones')}>Ir a Importaciones</Button><Button variant="secondary" icon={<Phone size={16} />} onClick={() => onOpenRoute('sa_no_llamar')}>Base No llamar</Button><Button variant="secondary" icon={<PhoneCall size={16} />} onClick={() => onOpenRoute('sa_resultados')}>Resultados</Button></div></Panel><Panel className="span-5" title="Actividad reciente" subtitle="Monitoreo transversal">{listRecentActivity(6).map((item) => <div key={item.id} className="status-item"><div className="status-ring" style={{ background: 'rgba(37,99,235,0.12)', color: '#2563eb' }}><Activity size={16} /></div><div style={{ flex: 1 }}><div style={{ fontWeight: 700 }}>{item.tipo}</div><div style={{ color: 'var(--muted)' }}>{item.detalle}</div></div><span style={{ color: 'var(--muted)', fontSize: '0.84rem' }}>{item.at}</span></div>)}</Panel></section></div>;
+  return <div className="view"><section className="metrics-grid">{globalMetrics.map((item) => <MetricCard key={item.title} item={item} />)}</section><section className="content-grid"><Panel className="span-7" title="Vista general del sistema" subtitle="Control rápido de módulos críticos"><div className="mini-stats"><div className="mini-stat"><span>Importaciones recientes</span><strong>{imports.slice(0, 5).length}</strong></div><div className="mini-stat"><span>Base No llamar activa</span><strong>{noCallMeta.total || noCallRows.length}</strong></div><div className="mini-stat"><span>Resultados telefónicos cargados</span><strong>{phoneResultsRows.length}</strong></div><div className="mini-stat"><span>Usuarios con actividad reciente</span><strong>{activeUsers}</strong></div></div><div className="toolbar" style={{ marginTop: 14 }}><Button icon={<Upload size={16} />} onClick={() => onOpenRoute('sa_importaciones')}>Ir a Importaciones</Button><Button variant="secondary" icon={<Phone size={16} />} onClick={() => onOpenRoute('sa_no_llamar')}>Base No llamar</Button><Button variant="secondary" icon={<PhoneCall size={16} />} onClick={() => onOpenRoute('sa_resultados')}>Resultados</Button></div></Panel><Panel className="span-5" title="Actividad reciente" subtitle="Monitoreo transversal">{listRecentActivity(6).map((item) => <div key={item.id} className="status-item"><div className="status-ring" style={{ background: 'rgba(37,99,235,0.12)', color: '#2563eb' }}><Activity size={16} /></div><div style={{ flex: 1 }}><div style={{ fontWeight: 700 }}>{item.tipo}</div><div style={{ color: 'var(--muted)' }}>{item.detalle}</div></div><span style={{ color: 'var(--muted)', fontSize: '0.84rem' }}>{item.at}</span></div>)}</Panel></section></div>;
 }
 
 

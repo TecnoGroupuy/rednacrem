@@ -31,7 +31,10 @@ const computeMonthsSince = (value) => {
 const computePaidInstallments = (value) => Math.max(0, computeMonthsSince(value) + 2);
 
 const api = getApiClient();
-const hasApiConfigured = () => Boolean(import.meta.env?.VITE_API_URL);
+const hasApiConfigured = () => {
+  const baseUrl = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_API_URL : '';
+  return Boolean(String(baseUrl || '').trim());
+};
 
 const buildClientName = (source = {}) => {
   const parts = [source.nombre || source.name || '', source.apellido || ''];
@@ -39,12 +42,13 @@ const buildClientName = (source = {}) => {
 };
 
 const mapBackendContactRow = (item = {}) => ({
-  id: item.id || item.contactId || '',
-  name: item.name || buildClientName(item),
-  phone: item.phone || item.telefono || '',
+  id: item.id || '',
+  name: item.name || '',
+  phone: item.phone || '',
+  celular: item.celular || item.cellphone || item.telefono_celular || item.telefonoCelular || '',
   city: item.city || '',
-  status: item.status || item.contactoEstado || 'Pendiente',
-  last: item.last || (item.tipoPersona ? item.tipoPersona.replace('_', ' ') : ''),
+  status: item.status || '',
+  last: item.last || '',
   email: item.email || '',
   documento: item.documento || '',
   tipoPersona: item.tipoPersona,
@@ -72,48 +76,72 @@ const mapMockContactRow = (item = {}, index = 0) => ({
   updatedAt: item.updatedAt || null
 });
 
+const buildBackendClientName = (item = {}) => {
+  const nombre = item.nombre || item.name || '';
+  const apellido = item.apellido || '';
+  return [nombre, apellido].map((part) => String(part || '').trim()).filter(Boolean).join(' ') || nombre || item.name || 'Cliente';
+};
+
 const mapBackendPortfolioRow = (item = {}) => {
-  const name = buildClientName(item);
-  const number = toClientNumber(item.id);
-  const fechaAlta = item.fechaAlta || item.createdAt || item.created_at || null;
-  const precioValue = Number(item.precio || item.cuota || 0);
-  const carenciaMeses = Number(item.carenciaMeses ?? item.carenciaCuotas ?? item.carencia_cuotas ?? 12);
+  const productObj = item.product && typeof item.product === 'object' ? item.product : null;
+  const cuotaRaw = productObj?.fee ?? productObj?.precio ?? productObj?.price
+    ?? item.fee ?? item.cuota ?? item.cuota_mensual ?? item.precio ?? item.price;
+  const cuotaValue = typeof cuotaRaw === 'string' && cuotaRaw.trim() ? cuotaRaw : cuotaRaw;
+  const feeValue = typeof cuotaValue === 'number' ? formatFee(cuotaValue) : cuotaValue || '';
+  const productName = productObj?.nombre || productObj?.name || item.product || item.producto || item.productoNombre || item.producto_nombre || item.servicio || '';
+  const planName = productObj?.plan || productObj?.planNombre || productObj?.plan_nombre || item.plan || item.planNombre || item.plan_nombre || '';
+  const statusLabel = productObj?.estadoLabel || productObj?.estado || item.status || item.estado || item.contactoEstado || '';
   return {
     id: item.id || '',
-    name,
-    productoActualNombre: item.productoActualNombre || item.product || 'Sin producto',
-    productoContratoId: item.productoContratoId || item.productContractId || item.id || '',
-    plan: item.plan || (String(item.productoEstado || item.productEstado || '').toLowerCase() === 'alta' ? 'Activo' : 'Inactivo'),
-    fee: item.fee || formatFee(item.cuota || item.precio || precioValue),
-    status: item.status || 'Al dia',
-    email: item.email || '',
-    phone: item.phone || item.telefono || '',
-    documento: item.documento || '',
-    direccion: item.direccion || '',
-    estado: (item.estado || String(item.status || '').toLowerCase()).toLowerCase(),
-    createdAt: fechaAlta,
+    name: item.name || buildBackendClientName(item),
+    product: productName,
+    plan: planName,
+    fee: item.fee || feeValue,
+    status: statusLabel,
+    email: item.email || item.mail || '',
+    phone: item.phone || item.telefono || item.telefono_principal || '',
+    celular: item.celular || item.cellphone || item.telefono_celular || item.telefonoCelular || '',
+    fechaVenta: productObj?.fechaAlta || item.fechaVenta || item.fecha_venta || item.ventaFecha || item.createdAt || null,
+    vendedor: productObj?.sellerName || productObj?.seller_name || item.vendedor || item.vendedorNombre || item.vendedor_nombre || '',
+    medioPago: productObj?.medioPago || productObj?.medio_pago || item.medioPago || item.medio_pago || '',
+    documento: item.documento || item.documento_numero || '',
+    createdAt: item.createdAt || item.created_at || null,
     updatedAt: item.updatedAt || item.updated_at || null,
-    numeroCliente: number,
-    productoEstado: item.productoEstado || item.productEstado || '',
-    cuotasPagas: computePaidInstallments(fechaAlta),
-    carenciaMeses,
-    precioMensual: precioValue,
-    fechaAlta,
-    vendedor: item.vendedor || 'Carlos Rodriguez',
-    productoResumen: item.productoResumen || '',
-    productoPlan: item.plan || '',
-    productoDetalle: item.productoDetalle || ''
+    cuotasPagas: Number(item.cuotasPagas ?? item.cuotas_pag ?? productObj?.cuotasPagas ?? 0),
+    carenciaCuotas: Number(item.carenciaCuotas ?? item.carencia_cuotas ?? item.carenciaCuotas ?? productObj?.carenciaCuotas ?? 0)
   };
 };
 
-const buildTableRowFromPortfolio = (item = {}) => ({
-  id: item.id,
-  name: item.name,
-  product: item.productoActualNombre,
-  plan: item.plan,
-  fee: item.fee,
-  status: item.status
-});
+const mapBackendClientDetail = (item = {}) => {
+  const contact = item.contact || item.contacto || item.client || null;
+  const base = mapBackendPortfolioRow(item);
+  const productsArray = Array.isArray(item.products) && item.products.length
+    ? item.products
+    : (Array.isArray(item.productos) ? item.productos : []);
+  const product =
+    item.product && typeof item.product === 'object'
+      ? item.product
+      : (item.producto && typeof item.producto === 'object' ? item.producto : (productsArray[0] || null));
+  const saleSource = Array.isArray(item.sales) && item.sales.length
+    ? item.sales[0]
+    : (Array.isArray(item.salesHistory) && item.salesHistory.length ? item.salesHistory[0] : null);
+  return {
+    ...base,
+    product: product || base.product,
+    products: productsArray,
+    telefono: item.telefono || item.phone || contact?.telefono || contact?.phone || base.phone || '',
+    celular: item.celular || item.cellphone || item.telefono_celular || item.telefonoCelular || contact?.celular || contact?.cellphone || contact?.telefono_celular || contact?.telefonoCelular || '',
+    fechaNacimiento: item.fechaNacimiento || item.fecha_nacimiento || contact?.fechaNacimiento || contact?.fecha_nacimiento || null,
+    direccion: item.direccion || item.address || contact?.direccion || contact?.address || '',
+    departamento: item.departamento || item.state || contact?.departamento || contact?.state || '',
+    pais: item.pais || item.country || contact?.pais || contact?.country || '',
+    fechaVenta: product?.fechaAlta || product?.fecha_alta || saleSource?.fechaAlta || saleSource?.fecha_alta || item.fechaVenta || item.fecha_venta || item.ventaFecha || item.createdAt || null,
+    vendedor: product?.sellerName || product?.seller_name || saleSource?.sellerName || saleSource?.seller_name || item.vendedor || item.vendedorNombre || item.vendedor_nombre || '',
+    medioPago: product?.medioPago || product?.medio_pago || saleSource?.medioPago || saleSource?.medio_pago || item.medioPago || item.medio_pago || '',
+    observaciones: item.observaciones || item.notes || ''
+  };
+};
+
 const bootstrapProducts = () => {
   const rows = [];
   clientsMock.forEach((client, clientIndex) => {
@@ -276,13 +304,32 @@ export const getContactLifecycle = (clientId, relatedTickets = []) => {
 };
 
 export const searchPortfolioClients = async (term) => {
-  await delay(120);
   const query = (term || '').trim().toLowerCase();
   if (!query) return [];
-  return listPortfolioClients().filter((client) => {
-    const text = [client.numeroCliente, client.nombre, client.documento, client.telefono].join(' ').toLowerCase();
-    return text.includes(query);
-  });
+  if (!hasApiConfigured()) {
+    await delay(120);
+    return listPortfolioClients().filter((client) => {
+      const text = [client.numeroCliente, client.nombre, client.documento, client.telefono].join(' ').toLowerCase();
+      return text.includes(query);
+    });
+  }
+  const { portfolio = [], table = [] } = await fetchClientsDirectory();
+  const base = portfolio.length ? portfolio : table;
+  return base
+    .map((client) => ({
+      id: client.id,
+      nombre: client.nombre || client.name || '',
+      numeroCliente: client.numeroCliente || client.numero_cliente || client.id || '',
+      documento: client.documento || '',
+      telefono: client.telefono || client.phone || '',
+      productoActualNombre: client.productoActualNombre || client.product || ''
+    }))
+    .filter((client) => {
+      const text = [client.numeroCliente, client.nombre, client.documento, client.telefono, client.productoActualNombre]
+        .join(' ')
+        .toLowerCase();
+      return text.includes(query);
+    });
 };
 
 export const fetchContactsList = async () => {
@@ -291,7 +338,9 @@ export const fetchContactsList = async () => {
   }
 
   const response = await api.get('/contacts');
-  const items = Array.isArray(response?.items) ? response.items : [];
+  const items = Array.isArray(response)
+    ? response
+    : (Array.isArray(response?.items) ? response.items : (Array.isArray(response?.data) ? response.data : []));
   return items.map(mapBackendContactRow);
 };
 
@@ -305,16 +354,43 @@ export const fetchClientsDirectory = async () => {
         product: client.product,
         plan: client.plan,
         fee: client.fee,
-        status: client.status
+        status: client.status,
+        email: '',
+        phone: '',
+        documento: '',
+        cuotasPagas: 0,
+        carenciaCuotas: 0
       })),
       portfolio: fallback
     };
   }
 
   const response = await api.get('/clients');
-  const items = Array.isArray(response?.items) ? response.items : [];
+  const items = Array.isArray(response)
+    ? response
+    : (Array.isArray(response?.items)
+        ? response.items
+        : (Array.isArray(response?.clients)
+            ? response.clients
+            : (Array.isArray(response?.data) ? response.data : [])));
   const portfolio = items.map(mapBackendPortfolioRow);
-  const table = portfolio.map(buildTableRowFromPortfolio);
+  const table = portfolio.map((item) => ({
+    id: item.id,
+    name: item.name,
+    product: item.product,
+    plan: item.plan,
+    fee: item.fee,
+    status: item.status,
+    email: item.email,
+    phone: item.phone,
+    celular: item.celular,
+    fechaVenta: item.fechaVenta,
+    vendedor: item.vendedor,
+    medioPago: item.medioPago,
+    documento: item.documento,
+    cuotasPagas: item.cuotasPagas,
+    carenciaCuotas: item.carenciaCuotas
+  }));
   return { table, portfolio };
 };
 
@@ -329,10 +405,51 @@ export const fetchClientsMetrics = async () => {
   if (!hasApiConfigured()) return DEFAULT;
 
   const response = await api.get('/clients/metrics');
+  const source = response?.metrics || response || {};
   return {
-    activos: Number(response?.metrics?.activos ?? DEFAULT.activos),
-    enBaja: Number(response?.metrics?.enBaja ?? DEFAULT.enBaja),
-    cuotaPromedio: Number(response?.metrics?.cuotaPromedio ?? DEFAULT.cuotaPromedio),
-    cuotaPromedioLabel: response?.metrics?.cuotaPromedioLabel || DEFAULT.cuotaPromedioLabel
+    activos: Number(source.activos ?? source.activos_total ?? DEFAULT.activos),
+    enBaja: Number(source.enBaja ?? source.en_baja ?? DEFAULT.enBaja),
+    cuotaPromedio: Number(source.cuotaPromedio ?? source.cuota_promedio ?? source.cuota ?? DEFAULT.cuotaPromedio),
+    cuotaPromedioLabel: source.cuotaPromedioLabel || source.cuota_promedio_label || DEFAULT.cuotaPromedioLabel
   };
+};
+
+export const fetchClientDetail = async (clientId) => {
+  if (!hasApiConfigured()) {
+    const fallback = getPortfolioClientById(clientId);
+    return fallback ? mapBackendClientDetail(fallback) : null;
+  }
+  const response = await api.get(`/clients/${clientId}`);
+  const item = response?.item || response?.data || response || null;
+  return item ? mapBackendClientDetail(item) : null;
+};
+
+export const createContactWithProducts = async (payload) => {
+  const response = await api.post('/contacts', payload);
+  return response?.item || response;
+};
+
+export const updateContact = async (contactId, payload) => {
+  const response = await api.put(`/contacts/${contactId}`, payload);
+  const item = response?.item || response;
+  return item ? mapBackendClientDetail(item) : item;
+};
+
+export const downloadClientDocument = async (clientId, { template = 'standard', lang = 'es' } = {}) => {
+  const query = new URLSearchParams();
+  if (template) query.set('template', template);
+  if (lang) query.set('lang', lang);
+  const path = `/clients/${clientId}/document${query.toString() ? `?${query.toString()}` : ''}`;
+  return api.getBlob(path);
+};
+
+export const notifyClientDocumentSent = async (clientId, { channel = 'whatsapp', note = '' } = {}) => {
+  const payload = { channel, ...(note ? { note } : {}) };
+  const response = await api.post(`/clients/${clientId}/document/sent`, payload);
+  return response?.item || response;
+};
+
+export const deleteClient = async (clientId) => {
+  const response = await api.del(`/clients/${clientId}`);
+  return response?.item || response;
 };
