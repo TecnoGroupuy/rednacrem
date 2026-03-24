@@ -111,7 +111,7 @@ export function AuthProvider({ children, fallbackRole = null }) {
     const accessToken = sessionData?.accessToken || null;
     const idToken = sessionData?.idToken || null;
     const claims = sessionData?.claims || null;
-    const primaryToken = accessToken || idToken;
+    const primaryToken = idToken || accessToken;
 
     if (!primaryToken) {
       clearSession();

@@ -1,4 +1,4 @@
-﻿// API client base. Authorization real depende de access_token Cognito.
+// API client base. Authorization real depende de id_token Cognito.
 // Nunca enviar rol/vistaRol como fuente de autorizacion (ej: X-User-Rol).
 
 export class ApiError extends Error {
@@ -168,3 +168,4 @@ export function getApiClient() {
 }
 
 export default sharedApiClient;
+
