@@ -5688,11 +5688,20 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         try {
           const result = await listImports({ page: importsPage, pageSize: 8, search: importsSearch, status: 'all' });
           const items = Array.isArray(result?.items) ? result.items : (Array.isArray(result?.data) ? result.data : []);
-          setImports(items.map(formatImportRow));
+          const nextRows = items.map(formatImportRow);
+          setImports((prev) => {
+            const prevActive = prev.filter((row) => isActiveImportStatus(row.statusKey));
+            const nextIds = new Set(nextRows.map((row) => String(row.id)));
+            const merged = [
+              ...prevActive.filter((row) => !nextIds.has(String(row.id))),
+              ...nextRows
+            ];
+            return merged;
+          });
           setImportsMeta({
             page: result.page || 1,
             pageSize: result.pageSize || 8,
-            total: result.total || items.length,
+            total: result.total || Math.max(items.length, 1),
             totalPages: result.totalPages || 1
           });
         } catch (err) {
