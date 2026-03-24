@@ -59,7 +59,7 @@ import {
 } from './services/ticketsService.js';
 import { listTicketsByClientId } from './services/ticketClientService.js';
 import { listOperationsRows } from './services/operationsService.js';
-import { listImports, previewCsvText, createImportFromCsv } from './services/importsService.js';
+import { listImports, previewCsvText, createImportFromCsv, IMPORT_TYPES } from './services/importsService.js';
 import { getNoCallImportJob } from './services/noCallImportService.js';
 import { getImportRows } from './services/importRowsService.js';
 import {
@@ -5582,6 +5582,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       function SuperadminModule({ route }) {
         const [imports, setImports] = React.useState([]);
         const [importsPage, setImportsPage] = React.useState(1);
+        const [importsType, setImportsType] = React.useState('todos');
         const [importsSearch, setImportsSearch] = React.useState('');
         const [importsMeta, setImportsMeta] = React.useState({ page: 1, totalPages: 1, total: 0, pageSize: 8 });
         const [importsLoading, setImportsLoading] = React.useState(false);
@@ -5613,6 +5614,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [previewBatchId, setPreviewBatchId] = React.useState(null);
       const [createProductsOnImport, setCreateProductsOnImport] = React.useState(false);
       const [importSubmitting, setImportSubmitting] = React.useState(false);
+      const [importDebug, setImportDebug] = React.useState({
+        endpoint: '',
+        payload: null,
+        batchId: null,
+        response: null,
+        error: null
+      });
+      const isDevEnv = Boolean(import.meta?.env?.DEV);
 
       const resolvedBatchId = previewBatchId || preview?.batchId || preview?.batch_id || null;
       const importPollRef = React.useRef(null);
@@ -5686,7 +5695,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           setImportsError('');
         }
         try {
-          const result = await listImports({ page: importsPage, pageSize: 8, search: importsSearch, status: 'all' });
+          const result = await listImports({ page: importsPage, pageSize: 8, search: importsSearch, importType: importsType, status: 'all' });
           const items = Array.isArray(result?.items) ? result.items : (Array.isArray(result?.data) ? result.data : []);
           const nextRows = items.map(formatImportRow);
           setImports((prev) => {
@@ -5713,7 +5722,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             setImportsLoading(false);
           }
         }
-      }, [importsPage, importsSearch]);
+      }, [importsPage, importsSearch, importsType]);
 
       React.useEffect(() => {
         const hasActiveJobs = imports.some((row) => isActiveImportStatus(row.statusKey));
@@ -5921,21 +5930,41 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const confirmImport = async () => {
         if (importSubmitting) return;
         setImportSubmitting(true);
+        setImportSuccess('');
         try {
           let batchIdToUse = resolvedBatchId;
+          const payload = {
+            fileName: importDraft.fileName,
+            csvText: importDraft.csvText,
+            userId: 'usr-001',
+            batchId: batchIdToUse,
+            createProducts: createProductsOnImport,
+            importType: importDraft.importType
+          };
+          setImportDebug((prev) => ({
+            ...prev,
+            endpoint: importDraft.importType === 'no_llamar'
+              ? '/imports/no-llamar/jobs'
+              : importDraft.importType === 'resultados'
+              ? '/imports/phone-results'
+              : importDraft.importType === 'datos_para_trabajar'
+              ? '/imports/datos-para-trabajar'
+              : '/imports/clients',
+            payload,
+            error: null
+          }));
           if (preview?.usesBackend && !batchIdToUse) {
             const fresh = await previewCsvText(importDraft.csvText, { fileName: importDraft.fileName });
             setPreview(fresh);
             batchIdToUse = fresh?.batchId || fresh?.batch_id || null;
             if (batchIdToUse) setPreviewBatchId(batchIdToUse);
           }
-          const result = await createImportFromCsv({
-            fileName: importDraft.fileName,
-            csvText: importDraft.csvText,
-            userId: 'usr-001',
-            batchId: batchIdToUse,
-            createProducts: createProductsOnImport
-          });
+          const result = await createImportFromCsv({ ...payload, batchId: batchIdToUse });
+          setImportDebug((prev) => ({
+            ...prev,
+            response: result,
+            batchId: result?.job?.id || result?.jobId || result?.job_id || result?.id || batchIdToUse || null
+          }));
           if (result?.asyncJob && result?.jobId) {
             setNoCallJob({ jobId: result.jobId, status: 'queued' });
             setImportSuccess('Importación registrada correctamente.');
@@ -5965,6 +5994,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           await loadImports({ silent: true });
         } catch (err) {
           console.error('CSV_IMPORT_ERROR', err);
+          setImportDebug((prev) => ({ ...prev, error: err?.message || String(err || 'Error') }));
+          setImportsError('No se pudo crear la importación. Revisa el archivo e intenta nuevamente.');
         } finally {
           setImportSubmitting(false);
         }
@@ -6002,18 +6033,29 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   </div>
                 }
               >
-                <div className="toolbar" style={{ marginBottom: 12 }}>
-                  <div className="searchbox" style={{ maxWidth: 360 }}>
-                    <Search size={18} color="#69788d" />
-                    <input
-                      value={importsSearch}
-                      onChange={(event) => { setImportsPage(1); setImportsSearch(event.target.value); }}
-                      placeholder="Buscar por archivo..."
-                    />
+                  <div className="toolbar" style={{ marginBottom: 12 }}>
+                    <div className="searchbox" style={{ maxWidth: 360 }}>
+                      <Search size={18} color="#69788d" />
+                      <input
+                        value={importsSearch}
+                        onChange={(event) => { setImportsPage(1); setImportsSearch(event.target.value); }}
+                        placeholder="Buscar por archivo..."
+                      />
+                    </div>
+                    <select
+                      className="input"
+                      style={{ width: 220 }}
+                      value={importsType}
+                      onChange={(event) => { setImportsPage(1); setImportsType(event.target.value); }}
+                    >
+                      <option value="todos">Todos los tipos</option>
+                      {Object.values(IMPORT_TYPES).map((item) => (
+                        <option key={item.key} value={item.key}>{item.label}</option>
+                      ))}
+                    </select>
+                    <Button variant="secondary" icon={<Filter size={16} />} onClick={loadImports}>Aplicar</Button>
+                    {importSuccess ? <span className="pill" style={{ color: '#15803d' }}>{importSuccess}</span> : null}
                   </div>
-                  <Button variant="secondary" icon={<Filter size={16} />} onClick={loadImports}>Aplicar</Button>
-                  {importSuccess ? <span className="pill" style={{ color: '#15803d' }}>{importSuccess}</span> : null}
-                </div>
                 {importReport ? (
                   <div style={{ marginBottom: 12, padding: 12, borderRadius: 12, border: '1px solid rgba(15,23,42,0.12)', background: 'rgba(248,250,252,0.9)' }}>
                     <div style={{ fontWeight: 700, marginBottom: 6 }}>Informe final</div>
@@ -6040,7 +6082,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       {imports.map((row) => (
                         <tr key={row.id}>
                           <td><strong>{row.fileName}</strong><div style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>{row.id}</div></td>
-                          <td>{row.importTypeLabel}</td>
+                          <td>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                              <span>{row.importTypeLabel}</span>
+                              {isDevEnv && row.importType ? (
+                                <span style={{ fontSize: 11, color: '#94a3b8' }}>{row.importType}</span>
+                              ) : null}
+                            </div>
+                          </td>
                           <td>{formatImportDate(row.createdAt)}</td>
                           <td>{row.totalRows}</td>
                           <td style={{ color: '#15803d', fontWeight: 700 }}>{row.insertedRows}</td>
@@ -6069,16 +6118,44 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                   ) : null}
                                 </div>
                               )}
-                              {row.statusKey === 'failed' && row.errorMessage ? (
-                                <span style={{ fontSize: 11, color: '#b91c1c' }} title={row.errorMessage}>
-                                  {row.errorMessage}
-                                </span>
+                              {row.statusKey === 'failed' ? (
+                                <div style={{ fontSize: 11, color: '#b91c1c' }}>
+                                  <div>La importación se creó, pero falló el procesamiento.</div>
+                                  {row.errorMessage ? (
+                                    <div style={{ marginTop: 4 }}>
+                                      <span style={{ color: '#7f1d1d' }}>Detalle:</span> {row.errorMessage}
+                                    </div>
+                                  ) : null}
+                                  {row.id ? (
+                                    <div style={{ marginTop: 4, color: '#991b1b' }}>BatchId: {row.id}</div>
+                                  ) : null}
+                                </div>
                               ) : null}
                             </div>
                           </td>
                           <td>{row.createdBy}</td>
                           <td>
-                            <Button variant="ghost" onClick={() => openImportRows(row.id)}>Ver detalles</Button>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              <Button variant="ghost" onClick={() => openImportRows(row.id)}>Ver detalles</Button>
+                              <Button
+                                variant="ghost"
+                                onClick={() => {
+                                  const payload = [
+                                    `fileName: ${row.fileName}`,
+                                    `importType: ${row.importType || row.importTypeLabel}`,
+                                    `endpoint: /imports`,
+                                    `batchId: ${row.id || '—'}`,
+                                    `status: ${row.statusKey}`,
+                                    `error: ${row.errorMessage || '—'}`
+                                  ].join('\n');
+                                  if (navigator?.clipboard?.writeText) {
+                                    navigator.clipboard.writeText(payload);
+                                  }
+                                }}
+                              >
+                                Copiar diagnóstico
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -6178,6 +6255,17 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         </div>
                       </div>
                       <div className="lot-step"><span className="lot-step-index">3</span><div><h4>Confirmar importación</h4><p>Se registrará en el historial con resultado final.</p></div></div>
+                      <div style={{ marginTop: 8, padding: 10, borderRadius: 12, border: '1px solid rgba(20,34,53,0.08)', background: 'rgba(248,250,252,0.9)' }}>
+                        <div style={{ fontSize: 12, color: '#475569' }}><strong>Archivo:</strong> {importDraft.fileName || '—'}</div>
+                        <div style={{ fontSize: 12, color: '#475569' }}>
+                          <strong>Tipo:</strong> {IMPORT_TYPES[importDraft.importType]?.label || '—'}
+                        </div>
+                        {isDevEnv ? (
+                          <div style={{ fontSize: 11, color: '#94a3b8' }}>
+                            Valor interno: {importDraft.importType}
+                          </div>
+                        ) : null}
+                      </div>
                       <div className="toolbar" style={{ justifyContent: 'flex-end' }}>
                         <Button variant="ghost" onClick={() => setShowImportFlow(false)}>Cancelar</Button>
                         <Button
@@ -6217,6 +6305,19 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           {!importRows.length ? <div style={{ padding: 12, color: 'var(--muted)' }}>No hay filas para este batch.</div> : null}
                         </div>
                       ) : null}
+                    </div>
+                  </div>
+                ) : null}
+                {isDevEnv ? (
+                  <div style={{ marginTop: 16, padding: 12, borderRadius: 10, border: '1px dashed rgba(148,163,184,0.6)', background: 'rgba(248,250,252,0.7)' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', marginBottom: 6 }}>Debug import</div>
+                    <div style={{ fontSize: 11, color: '#64748b' }}>
+                      <div>importType: {importDraft.importType}</div>
+                      <div>endpoint: {importDebug.endpoint || '—'}</div>
+                      <div>batchId: {importDebug.batchId || '—'}</div>
+                      <div>payload: {importDebug.payload ? JSON.stringify(importDebug.payload) : '—'}</div>
+                      <div>response: {importDebug.response ? JSON.stringify(importDebug.response) : '—'}</div>
+                      <div>error: {importDebug.error || '—'}</div>
                     </div>
                   </div>
                 ) : null}
