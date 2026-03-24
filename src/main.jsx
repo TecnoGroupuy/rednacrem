@@ -5615,25 +5615,117 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [importSubmitting, setImportSubmitting] = React.useState(false);
 
       const resolvedBatchId = previewBatchId || preview?.batchId || preview?.batch_id || null;
+      const importPollRef = React.useRef(null);
+
+      const IMPORT_STATUS_LABELS = {
+        queued: 'En cola',
+        processing: 'Procesando',
+        completed: 'Completada',
+        failed: 'Fallida'
+      };
+      const IMPORT_STATUS_VARIANTS = {
+        queued: 'info',
+        processing: 'warning',
+        completed: 'success',
+        failed: 'danger'
+      };
+      const isActiveImportStatus = (statusKey) => statusKey === 'queued' || statusKey === 'processing';
+      const normalizeImportStatus = (raw) => {
+        const key = String(raw || '').toLowerCase();
+        if (IMPORT_STATUS_LABELS[key]) return key;
+        if (key.includes('process')) return 'processing';
+        if (key.includes('queue')) return 'queued';
+        if (key.includes('fail') || key.includes('error')) return 'failed';
+        if (key.includes('complete') || key.includes('ok')) return 'completed';
+        return 'queued';
+      };
+      const formatImportRow = (row = {}) => {
+        const statusKey = normalizeImportStatus(row.status || row.estado);
+        const totalRows = Number(row.total_rows ?? row.totalRegistros ?? row.total ?? 0);
+        const insertedRows = Number(row.inserted_rows ?? row.importados ?? 0);
+        const skippedRows = Number(row.skipped_rows ?? row.rechazados ?? 0);
+        const processedRows = Number(row.processed_rows ?? row.procesados ?? insertedRows ?? 0);
+        const progressPercent = row.progress_percent ?? row.progressPercent ?? row.pct_progress ?? null;
+        return {
+          id: row.id || row.job_id || row.jobId || row.batchId || row.batch_id || row.nombreArchivo || row.file_name,
+          fileName: row.file_name || row.nombreArchivo || row.archivo || '—',
+          importType: row.import_type || row.tipo || row.importType || '',
+          importTypeLabel: row.import_type_label || row.importTypeLabel || row.tipo_label || row.tipo || '—',
+          createdAt: row.created_at || row.fecha || '',
+          totalRows,
+          insertedRows,
+          skippedRows,
+          processedRows,
+          progressPercent: progressPercent !== null && progressPercent !== undefined ? Number(progressPercent) : null,
+          statusKey,
+          statusLabel: IMPORT_STATUS_LABELS[statusKey] || row.estado || row.status || 'En cola',
+          statusVariant: IMPORT_STATUS_VARIANTS[statusKey] || 'info',
+          createdBy: row.created_by_name || row.usuario || row.usuarioId || '—',
+          errorMessage: row.error_message || row.error || row.mensaje_error || ''
+        };
+      };
+      const formatImportDate = (value) => {
+        if (!value) return '—';
+        try {
+          return new Date(value).toLocaleString('es-UY', {
+            day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit'
+          });
+        } catch {
+          return value;
+        }
+      };
 
       React.useEffect(() => {
         const nextBatchId = preview?.batchId || preview?.batch_id || null;
         if (nextBatchId) setPreviewBatchId(nextBatchId);
       }, [preview]);
 
-      const loadImports = React.useCallback(async () => {
-        setImportsLoading(true);
-        setImportsError('');
+      const loadImports = React.useCallback(async ({ silent = false } = {}) => {
+        if (!silent) {
+          setImportsLoading(true);
+          setImportsError('');
+        }
         try {
-          const result = await listImports({ page: importsPage, pageSize: 8, search: importsSearch });
-          setImports(result.items);
-          setImportsMeta({ page: result.page, pageSize: result.pageSize, total: result.total, totalPages: result.totalPages });
+          const result = await listImports({ page: importsPage, pageSize: 8, search: importsSearch, status: 'all' });
+          const items = Array.isArray(result?.items) ? result.items : (Array.isArray(result?.data) ? result.data : []);
+          setImports(items.map(formatImportRow));
+          setImportsMeta({
+            page: result.page || 1,
+            pageSize: result.pageSize || 8,
+            total: result.total || items.length,
+            totalPages: result.totalPages || 1
+          });
         } catch (err) {
-          setImportsError(err.message || 'No se pudo cargar el historial de importaciones.');
+          if (!silent) {
+            setImportsError(err.message || 'No se pudo cargar el historial de importaciones.');
+          }
         } finally {
-          setImportsLoading(false);
+          if (!silent) {
+            setImportsLoading(false);
+          }
         }
       }, [importsPage, importsSearch]);
+
+      React.useEffect(() => {
+        const hasActiveJobs = imports.some((row) => isActiveImportStatus(row.statusKey));
+        if (!hasActiveJobs) {
+          if (importPollRef.current) {
+            clearInterval(importPollRef.current);
+            importPollRef.current = null;
+          }
+          return;
+        }
+        if (importPollRef.current) return;
+        importPollRef.current = setInterval(() => {
+          loadImports({ silent: true });
+        }, 4000);
+        return () => {
+          if (importPollRef.current) {
+            clearInterval(importPollRef.current);
+            importPollRef.current = null;
+          }
+        };
+      }, [imports, loadImports]);
 
       React.useEffect(() => {
         if (route !== 'sa_importaciones') return;
@@ -5837,18 +5929,31 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           });
           if (result?.asyncJob && result?.jobId) {
             setNoCallJob({ jobId: result.jobId, status: 'queued' });
-            setImportSuccess('Importación No llamar en proceso...');
+            setImportSuccess('Importación registrada correctamente.');
+            const optimisticRow = formatImportRow(result?.job || {
+              id: result.jobId,
+              file_name: result?.nombreArchivo || importDraft.fileName,
+              import_type: result?.importType || preview?.importType || 'no_llamar',
+              import_type_label: result?.importTypeLabel || preview?.importTypeLabel || 'No llamar',
+              created_at: new Date().toISOString(),
+              total_rows: preview?.summary?.total || 0,
+              inserted_rows: 0,
+              skipped_rows: 0,
+              processed_rows: 0,
+              status: 'queued',
+              created_by_name: result?.createdByName || '—'
+            });
+            setImports((prev) => [optimisticRow, ...prev.filter((row) => row.id !== optimisticRow.id)]);
             setShowImportFlow(false);
             resetImportFlow();
-            setImportsPage(1);
+            await loadImports({ silent: true });
             return;
           }
           if (result?.report) setImportReport(result.report);
           setImportSuccess('Importación registrada correctamente.');
           setShowImportFlow(false);
           resetImportFlow();
-          setImportsPage(1);
-          await loadImports();
+          await loadImports({ silent: true });
         } catch (err) {
           console.error('CSV_IMPORT_ERROR', err);
         } finally {
@@ -5921,17 +6026,48 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 ) : null}
                 <div className="table-wrap">
                   <table>
-                    <thead><tr><th>Archivo</th><th>Fecha</th><th>Total registros</th><th>Importados</th><th>Rechazados</th><th>Estado</th><th>Usuario</th><th>Detalle</th></tr></thead>
+                    <thead><tr><th>Archivo</th><th>Tipo</th><th>Fecha</th><th>Total</th><th>Importados</th><th>Rechazados</th><th>Estado</th><th>Usuario</th><th>Detalle</th></tr></thead>
                     <tbody>
                       {imports.map((row) => (
                         <tr key={row.id}>
-                          <td><strong>{row.archivo}</strong><div style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>{row.id}</div></td>
-                          <td>{row.fecha}</td>
-                          <td>{row.total}</td>
-                          <td style={{ color: '#15803d', fontWeight: 700 }}>{row.importados}</td>
-                          <td style={{ color: row.rechazados ? '#b45309' : 'var(--muted)', fontWeight: 700 }}>{row.rechazados}</td>
-                          <td><Tag variant={row.estado === 'Completada' ? 'success' : row.estado === 'Fallida' ? 'danger' : 'warning'}>{row.estado}</Tag></td>
-                          <td>{row.usuario}</td>
+                          <td><strong>{row.fileName}</strong><div style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>{row.id}</div></td>
+                          <td>{row.importTypeLabel}</td>
+                          <td>{formatImportDate(row.createdAt)}</td>
+                          <td>{row.totalRows}</td>
+                          <td style={{ color: '#15803d', fontWeight: 700 }}>{row.insertedRows}</td>
+                          <td style={{ color: row.skippedRows ? '#b45309' : 'var(--muted)', fontWeight: 700 }}>{row.skippedRows}</td>
+                          <td>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              <Tag variant={row.statusVariant}>{row.statusLabel}</Tag>
+                              {row.statusKey === 'processing' && (
+                                <div style={{ fontSize: 11, color: '#666' }}>
+                                  {row.totalRows
+                                    ? `${row.processedRows} / ${row.totalRows} (${Math.round((row.processedRows / Math.max(row.totalRows, 1)) * 100)}%)`
+                                    : (row.progressPercent !== null && row.progressPercent !== undefined
+                                      ? `${Math.round(row.progressPercent)}%`
+                                      : (row.processedRows ? `${row.processedRows} procesadas` : 'Procesando...'))}
+                                  {row.totalRows || row.progressPercent !== null ? (
+                                    <div style={{ marginTop: 4, height: 4, background: '#F1F5F9', borderRadius: 999 }}>
+                                      <div style={{
+                                        height: '100%',
+                                        width: `${Math.min(100, Math.round(row.totalRows
+                                          ? (row.processedRows / Math.max(row.totalRows, 1)) * 100
+                                          : (row.progressPercent || 0)))}%`,
+                                        background: '#60A5FA',
+                                        borderRadius: 999
+                                      }} />
+                                    </div>
+                                  ) : null}
+                                </div>
+                              )}
+                              {row.statusKey === 'failed' && row.errorMessage ? (
+                                <span style={{ fontSize: 11, color: '#b91c1c' }} title={row.errorMessage}>
+                                  {row.errorMessage}
+                                </span>
+                              ) : null}
+                            </div>
+                          </td>
+                          <td>{row.createdBy}</td>
                           <td>
                             <Button variant="ghost" onClick={() => openImportRows(row.id)}>Ver detalles</Button>
                           </td>

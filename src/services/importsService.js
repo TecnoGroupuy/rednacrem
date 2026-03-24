@@ -201,14 +201,14 @@ const validateCsvByType = ({ headers, rows }, importType) => {
   return validateRows(rows, importType);
 };
 
-export const listImports = async ({ page = 1, pageSize = 8, search = '', importType = 'todos' } = {}) => {
+export const listImports = async ({ page = 1, pageSize = 8, search = '', importType = 'todos', status = 'all' } = {}) => {
   if (hasApiConfigured()) {
     const params = new URLSearchParams({
       page: String(page || 1),
       pageSize: String(pageSize || 8),
       search: String(search || ''),
       importType: String(importType || 'todos'),
-      status: 'processed'
+      status: String(status || 'all')
     });
     const response = await api.get(`/imports?${params.toString()}`);
     return response;
@@ -353,10 +353,12 @@ export const createImportFromCsv = async ({
   if (hasApiConfigured() && normalizedType === 'no_llamar') {
     const headers = fileName ? { 'X-File-Name': fileName } : {};
     const response = await api.post('/imports/no-llamar/jobs', { csv: csvText }, { headers });
-    const jobId = response?.jobId || response?.job_id || null;
+    const job = response?.job || null;
+    const jobId = job?.id || response?.jobId || response?.job_id || null;
     return {
       asyncJob: true,
       jobId,
+      job,
       nombreArchivo: fileName || 'import_no_llamar.csv',
       tipo: normalizedType,
       usuarioId: userId
