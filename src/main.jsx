@@ -5695,13 +5695,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           setImportsError('');
         }
         try {
-          const result = await listImports({ page: importsPage, pageSize: 8, search: importsSearch, importType: importsType, status: 'all' });
-          const items = Array.isArray(result?.data?.items)
-            ? result.data.items
-            : Array.isArray(result?.data?.imports)
-              ? result.data.imports
-              : Array.isArray(result?.items)
-                ? result.items
+          const result = await listImports({ page: importsPage, pageSize: 8, search: importsSearch, importType: importsType, status: '' });
+          const items = Array.isArray(result?.items)
+            ? result.items
+            : Array.isArray(result?.data?.items)
+              ? result.data.items
+              : Array.isArray(result?.data?.imports)
+                ? result.data.imports
                 : Array.isArray(result?.imports)
                   ? result.imports
                   : Array.isArray(result?.data)

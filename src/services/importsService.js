@@ -201,15 +201,15 @@ const validateCsvByType = ({ headers, rows }, importType) => {
   return validateRows(rows, importType);
 };
 
-export const listImports = async ({ page = 1, pageSize = 8, search = '', importType = 'todos', status = 'all' } = {}) => {
+export const listImports = async ({ page = 1, pageSize = 8, search = '', importType = 'todos', status = '' } = {}) => {
   if (hasApiConfigured()) {
     const params = new URLSearchParams({
       page: String(page || 1),
       pageSize: String(pageSize || 8),
       search: String(search || ''),
-      importType: String(importType || 'todos'),
-      status: String(status || 'all')
+      importType: String(importType || 'todos')
     });
+    if (status) params.set('status', String(status));
     const response = await api.get(`/imports?${params.toString()}`);
     return response;
   }
