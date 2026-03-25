@@ -101,6 +101,7 @@ export default function SuperadminWorkbench({
   const [preview, setPreview] = React.useState(null);
   const [previewLoading, setPreviewLoading] = React.useState(false);
   const [previewError, setPreviewError] = React.useState('');
+  const [importSubmitting, setImportSubmitting] = React.useState(false);
   const fileInputRef = React.useRef(null);
   const [dragActive, setDragActive] = React.useState(false);
 
@@ -484,6 +485,8 @@ export default function SuperadminWorkbench({
   };
 
   const confirmImport = async () => {
+    if (importSubmitting) return;
+    setImportSubmitting(true);
     setPreviewError('');
     try {
       const created = await createImportFromCsv({ fileName: importDraft.fileName, csvText: importDraft.csvText, userId: 'usr-001', importType: importDraft.importType });
@@ -496,6 +499,8 @@ export default function SuperadminWorkbench({
       loadActivity();
     } catch (err) {
       setPreviewError(err.message || 'No se pudo completar la importación.');
+    } finally {
+      setImportSubmitting(false);
     }
   };
 
@@ -855,7 +860,13 @@ export default function SuperadminWorkbench({
                   </div>
                   <div className="wizard-actions" style={{ justifyContent: 'flex-end' }}>
                     <Button variant="ghost" onClick={() => setShowImportFlow(false)}>Cancelar</Button>
-                    <Button icon={<CheckCircle2 size={16} />} onClick={confirmImport} disabled={!preview || !importDraft.fileName}>Confirmar importación</Button>
+                    <Button
+                      icon={<CheckCircle2 size={16} />}
+                      onClick={confirmImport}
+                      disabled={!preview || !importDraft.fileName || importSubmitting}
+                    >
+                      {importSubmitting ? 'Importando...' : 'Confirmar importación'}
+                    </Button>
                   </div>
                 </div>
               </div>

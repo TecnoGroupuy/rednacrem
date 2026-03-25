@@ -965,25 +965,549 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
     }
 
     function SupervisorDashboard() {
-      const metrics = [
-        { title: 'Equipo activo', value: '8 agentes', change: 2.1, label: 'asistencia', trend: 'up', icon: Users, bg: 'rgba(37,99,235,0.12)', color: '#2563eb' },
-        { title: 'Ventas del día', value: '24', change: 15, label: 'vs. ayer', trend: 'up', icon: TrendingUp, bg: 'rgba(21,128,61,0.12)', color: '#15803d' },
-        { title: 'Conversión', value: '28%', change: 3.0, label: 'sobre promedio', trend: 'up', icon: Target, bg: 'rgba(124,58,237,0.12)', color: '#7c3aed' },
-        { title: 'Lotes activos', value: '3', change: -8, label: 'en cola', trend: 'up', icon: Layers, bg: 'rgba(217,119,6,0.12)', color: '#d97706' }
+      const [detailAgent, setDetailAgent] = React.useState(null);
+      const [detailTab, setDetailTab] = React.useState('resumen');
+      const dates = ['Martes 24 mar 2026', 'Lunes 23 mar 2026', 'Viernes 21 mar 2026'];
+      const [dateIndex, setDateIndex] = React.useState(0);
+      const summaryCards = [
+        { label: 'Agentes activos', value: '3 / 4', sub: '1 requiere atención' },
+        { label: 'Total llamadas', value: '147', sub: 'Meta del equipo: 160' },
+        { label: 'Total ventas', value: '21', sub: 'Meta: 24' },
+        { label: 'Conv. promedio', value: '14%', sub: '↑ vs ayer 12%' }
       ];
+      const agents = [
+        { name: 'Juan Pérez', calls: 45, sales: 8, conversion: 18, status: 'Excelente', pauses: { count: 2, minutes: 35 }, login: '08:02', workTime: '7h 49m' },
+        { name: 'Laura Fernández', calls: 39, sales: 6, conversion: 15, status: 'Activo', pauses: { count: 2, minutes: 31 }, login: '08:00', workTime: '7h 51m' },
+        { name: 'Pedro González', calls: 34, sales: 5, conversion: 14, status: 'Activo', pauses: { count: 2, minutes: 33 }, login: '08:05', workTime: '7h 44m' },
+        { name: 'Sofía Martínez', calls: 29, sales: 2, conversion: 7, status: 'Atención', pauses: { count: 3, minutes: 52 }, login: '08:10', workTime: '7h 38m', highlight: true }
+      ];
+      const agentDetailsByName = {
+        'Juan Pérez': {
+          shift: '08:00 — 17:00 · Lunes 24 mar 2026',
+          status: 'Excelente',
+          kpis: [
+            { label: 'Llamadas', value: '45', sub: 'Meta: 40' },
+            { label: 'Ventas', value: '8', sub: 'Meta: 6' },
+            { label: 'Conversión', value: '18%', sub: 'Promedio equipo: 14%' },
+            { label: 'Tiempo productivo', value: '87%', sub: '7h 49m de 9h' }
+          ],
+          timeline: [
+            { label: 'Trabajo', minutes: 154, color: '#93c5fd' },
+            { label: 'Descanso', minutes: 22, color: '#fdba74' },
+            { label: 'Trabajo', minutes: 138, color: '#93c5fd' },
+            { label: 'Baño', minutes: 12, color: '#86efac' },
+            { label: 'Trabajo', minutes: 117, color: '#93c5fd' },
+            { label: 'Descanso', minutes: 17, color: '#fdba74' },
+            { label: 'Trabajo', minutes: 60, color: '#93c5fd' }
+          ],
+          activity: [
+            { time: '08:02', event: 'Login', duration: '—', note: '' },
+            { time: '08:02', event: 'Trabajo', duration: '2h 34m', note: '' },
+            { time: '10:36', event: 'Descanso', duration: '18m', note: '' },
+            { time: '10:54', event: 'Trabajo', duration: '2h 21m', note: '' },
+            { time: '13:15', event: 'Baño', duration: '12m', note: '⚠ +2m' },
+            { time: '13:27', event: 'Trabajo', duration: '1h 48m', note: '' },
+            { time: '15:15', event: 'Descanso', duration: '17m', note: '' },
+            { time: '15:32', event: 'Trabajo', duration: '1h 06m', note: '' },
+            { time: '16:58', event: 'Logout', duration: '—', note: '' }
+          ],
+          pauses: [
+            { time: '10:36', type: 'Descanso', duration: '18m' },
+            { time: '13:15', type: 'Baño', duration: '12m' },
+            { time: '15:15', type: 'Descanso', duration: '17m' }
+          ],
+          calls: [
+            { time: '16:22', duration: '4m 12s', client: 'María López', result: 'Venta' },
+            { time: '16:04', duration: '2m 55s', client: 'Carlos Suárez', result: 'No venta' },
+            { time: '15:48', duration: '6m 08s', client: 'Ana Torres', result: 'Venta' },
+            { time: '15:31', duration: '1m 40s', client: 'Roberto Gil', result: 'Callback' },
+            { time: '15:10', duration: '3m 22s', client: 'Lucía Méndez', result: 'No venta' }
+          ]
+        },
+        'Laura Fernández': {
+          shift: '08:00 — 17:00 · Lunes 24 mar 2026',
+          status: 'Activo',
+          kpis: [
+            { label: 'Llamadas', value: '39', sub: 'Meta: 40' },
+            { label: 'Ventas', value: '6', sub: 'Meta: 6' },
+            { label: 'Conversión', value: '15%', sub: 'Promedio equipo: 14%' },
+            { label: 'Tiempo productivo', value: '82%', sub: '7h 20m de 9h' }
+          ],
+          timeline: [
+            { label: 'Trabajo', minutes: 145, color: '#93c5fd' },
+            { label: 'Descanso', minutes: 20, color: '#fdba74' },
+            { label: 'Trabajo', minutes: 132, color: '#93c5fd' },
+            { label: 'Baño', minutes: 8, color: '#86efac' },
+            { label: 'Trabajo', minutes: 145, color: '#93c5fd' },
+            { label: 'Descanso', minutes: 15, color: '#fdba74' },
+            { label: 'Trabajo', minutes: 55, color: '#93c5fd' }
+          ],
+          activity: [
+            { time: '08:01', event: 'Login', duration: '—', note: '' },
+            { time: '08:01', event: 'Trabajo', duration: '2h 25m', note: '' },
+            { time: '10:26', event: 'Descanso', duration: '20m', note: '' },
+            { time: '10:46', event: 'Trabajo', duration: '2h 12m', note: '' },
+            { time: '12:58', event: 'Baño', duration: '8m', note: '' },
+            { time: '13:06', event: 'Trabajo', duration: '2h 25m', note: '' },
+            { time: '15:31', event: 'Descanso', duration: '15m', note: '' },
+            { time: '15:46', event: 'Trabajo', duration: '55m', note: '' },
+            { time: '16:41', event: 'Logout', duration: '—', note: '' }
+          ],
+          pauses: [
+            { time: '10:26', type: 'Descanso', duration: '20m' },
+            { time: '12:58', type: 'Baño', duration: '8m' },
+            { time: '15:31', type: 'Descanso', duration: '15m' }
+          ],
+          calls: [
+            { time: '16:12', duration: '3m 18s', client: 'Nicolás Pérez', result: 'Venta' },
+            { time: '15:44', duration: '1m 12s', client: 'Claudia Rey', result: 'No venta' },
+            { time: '15:02', duration: '4m 32s', client: 'Mariela Díaz', result: 'Callback' },
+            { time: '14:41', duration: '2m 05s', client: 'Agustín Silva', result: 'Venta' },
+            { time: '14:06', duration: '2m 58s', client: 'Carla Ramos', result: 'No venta' }
+          ]
+        },
+        'Pedro González': {
+          shift: '08:00 — 17:00 · Lunes 24 mar 2026',
+          status: 'Activo',
+          kpis: [
+            { label: 'Llamadas', value: '34', sub: 'Meta: 40' },
+            { label: 'Ventas', value: '5', sub: 'Meta: 6' },
+            { label: 'Conversión', value: '14%', sub: 'Promedio equipo: 14%' },
+            { label: 'Tiempo productivo', value: '79%', sub: '7h 05m de 9h' }
+          ],
+          timeline: [
+            { label: 'Trabajo', minutes: 140, color: '#93c5fd' },
+            { label: 'Descanso', minutes: 22, color: '#fdba74' },
+            { label: 'Trabajo', minutes: 120, color: '#93c5fd' },
+            { label: 'Baño', minutes: 10, color: '#86efac' },
+            { label: 'Trabajo', minutes: 140, color: '#93c5fd' },
+            { label: 'Descanso', minutes: 18, color: '#fdba74' },
+            { label: 'Trabajo', minutes: 50, color: '#93c5fd' }
+          ],
+          activity: [
+            { time: '08:03', event: 'Login', duration: '—', note: '' },
+            { time: '08:03', event: 'Trabajo', duration: '2h 20m', note: '' },
+            { time: '10:23', event: 'Descanso', duration: '22m', note: '' },
+            { time: '10:45', event: 'Trabajo', duration: '2h 00m', note: '' },
+            { time: '12:45', event: 'Baño', duration: '10m', note: '' },
+            { time: '12:55', event: 'Trabajo', duration: '2h 20m', note: '' },
+            { time: '15:15', event: 'Descanso', duration: '18m', note: '' },
+            { time: '15:33', event: 'Trabajo', duration: '50m', note: '' },
+            { time: '16:23', event: 'Logout', duration: '—', note: '' }
+          ],
+          pauses: [
+            { time: '10:23', type: 'Descanso', duration: '22m' },
+            { time: '12:45', type: 'Baño', duration: '10m' },
+            { time: '15:15', type: 'Descanso', duration: '18m' }
+          ],
+          calls: [
+            { time: '16:01', duration: '3m 01s', client: 'Hugo Ríos', result: 'No venta' },
+            { time: '15:26', duration: '2m 44s', client: 'Florencia Vidal', result: 'Venta' },
+            { time: '15:05', duration: '3m 10s', client: 'Darío Costa', result: 'No venta' },
+            { time: '14:18', duration: '2m 37s', client: 'Rocío Pérez', result: 'Callback' },
+            { time: '13:52', duration: '4m 02s', client: 'Marcos Sosa', result: 'Venta' }
+          ]
+        },
+        'Sofía Martínez': {
+          shift: '08:00 — 17:00 · Lunes 24 mar 2026',
+          status: 'Atención',
+          kpis: [
+            { label: 'Llamadas', value: '29', sub: 'Meta: 40 · falta 11', alert: true },
+            { label: 'Ventas', value: '2', sub: 'Meta: 6 · falta 4', alert: true },
+            { label: 'Conversión', value: '7%', sub: 'Mínimo: 10%', alert: true },
+            { label: 'Tiempo productivo', value: '71%', sub: '6h 22m de 9h', alert: true }
+          ],
+          alerts: [
+            {
+              title: 'Conversión por debajo del mínimo',
+              detail: '7% actual vs. mínimo aceptable de 10%. Promedio del equipo hoy: 14%. Diferencia: −7 puntos.'
+            },
+            {
+              title: 'Baño extendido — 13:35',
+              detail: 'Duración: 12 min (límite: 10 min). Excedió 2 minutos. Segunda vez en la semana.'
+            },
+            {
+              title: 'Tiempo total de pausas elevado',
+              detail: '52 min en pausas (3 eventos). Promedio del equipo hoy: 33 min. +19 min sobre el promedio.'
+            }
+          ],
+          timeline: [
+            { label: 'Trabajo', minutes: 120, color: '#93c5fd' },
+            { label: 'Descanso', minutes: 35, color: '#fdba74' },
+            { label: 'Trabajo', minutes: 105, color: '#93c5fd' },
+            { label: 'Baño extendido', minutes: 12, color: '#f59e0b' },
+            { label: 'Baño', minutes: 2, color: '#86efac' },
+            { label: 'Trabajo', minutes: 90, color: '#93c5fd' },
+            { label: 'Descanso', minutes: 25, color: '#fdba74' },
+            { label: 'Trabajo', minutes: 45, color: '#93c5fd' }
+          ],
+          activity: [
+            { time: '08:05', event: 'Login', duration: '—', note: '' },
+            { time: '08:05', event: 'Trabajo', duration: '2h 00m', note: '' },
+            { time: '10:05', event: 'Descanso', duration: '35m', note: '+6m sobre límite', overLimit: true },
+            { time: '10:40', event: 'Trabajo', duration: '1h 45m', note: '' },
+            { time: '12:25', event: 'Baño', duration: '12m', note: '+2m · 2da vez en semana', overLimit: true },
+            { time: '12:39', event: 'Trabajo', duration: '1h 30m', note: '' },
+            { time: '14:09', event: 'Descanso', duration: '25m', note: '+4m sobre límite', overLimit: true },
+            { time: '14:34', event: 'Trabajo', duration: '45m', note: '' },
+            { time: '15:19', event: 'Logout', duration: '—', note: '' }
+          ],
+          pauses: [
+            { time: '10:05', type: 'Descanso', duration: '35m' },
+            { time: '12:25', type: 'Baño', duration: '14m' },
+            { time: '14:09', type: 'Descanso', duration: '25m' }
+          ],
+          calls: [
+            { time: '14:52', duration: '2m 01s', client: 'Lorena Ruiz', result: 'No venta' },
+            { time: '14:23', duration: '0m 52s', client: 'Gonzalo Núñez', result: 'No venta', shortCall: true },
+            { time: '13:50', duration: '3m 45s', client: 'Mirta Prado', result: 'Callback' },
+            { time: '13:12', duration: '2m 18s', client: 'Aníbal Costa', result: 'No venta' },
+            { time: '12:44', duration: '4m 26s', client: 'Patricia Alves', result: 'Venta' }
+          ],
+          week: {
+            trend: [
+              { day: 'Lun', value: 12 },
+              { day: 'Mar', value: 7 },
+              { day: 'Mié', value: 10 },
+              { day: 'Jue', value: 9 },
+              { day: 'Vie', value: 11 }
+            ],
+            summary: [
+              { label: 'Promedio semana', value: '9.8%' },
+              { label: 'Alertas acumuladas', value: '5' },
+              { label: 'Baños extendidos', value: '2' }
+            ]
+          }
+        }
+      };
+      const activityBadge = (event) => {
+        const key = String(event || '').toLowerCase();
+        if (key.includes('login')) return { bg: 'rgba(59,130,246,0.15)', color: '#2563eb' };
+        if (key.includes('trab')) return { bg: 'rgba(59,130,246,0.15)', color: '#2563eb' };
+        if (key.includes('desc')) return { bg: 'rgba(249,115,22,0.16)', color: '#b45309' };
+        if (key.includes('baño') || key.includes('bano')) return { bg: 'rgba(16,185,129,0.16)', color: '#15803d' };
+        return { bg: 'rgba(148,163,184,0.2)', color: '#475569' };
+      };
+      const callBadge = (result) => {
+        const key = String(result || '').toLowerCase();
+        if (key.includes('venta')) return { bg: 'rgba(22,163,74,0.16)', color: '#15803d' };
+        if (key.includes('callback')) return { bg: 'rgba(251,191,36,0.2)', color: '#b45309' };
+        return { bg: 'rgba(148,163,184,0.2)', color: '#475569' };
+      };
+      const conversionBarColor = (value, status) => {
+        if (status === 'Atención') return '#f59e0b';
+        if (value >= 16) return '#22c55e';
+        if (value >= 12) return '#3b82f6';
+        return '#f97316';
+      };
+      const pauseBadgeStyle = (minutes, status) => {
+        const isHigh = minutes >= 45 || status === 'Atención';
+        return {
+          fontWeight: isHigh ? 700 : 500,
+          color: isHigh ? '#b45309' : 'inherit'
+        };
+      };
+      const isAttentionView = detailAgent?.name === 'Sofía Martínez';
       return (
         <div className="view">
-          <section className="metrics-grid">{metrics.map((item) => <MetricCard key={item.title} item={item} />)}</section>
           <section className="content-grid">
-            <Panel className="span-12" title="Rendimiento del equipo" subtitle="Actividad consolidada del día">
+            <Panel
+              className="span-12"
+              title="Rendimiento del equipo"
+              subtitle="Actividad consolidada del día"
+              action={(
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Button variant="ghost" onClick={() => setDateIndex((prev) => Math.min(dates.length - 1, prev + 1))} disabled={dateIndex >= dates.length - 1}>‹</Button>
+                  <div style={{ padding: '8px 16px', borderRadius: 12, border: '1px solid rgba(15,23,42,0.12)', background: '#fff', fontWeight: 600 }}>{dates[dateIndex]}</div>
+                  <Button variant="ghost" onClick={() => setDateIndex((prev) => Math.max(0, prev - 1))} disabled={dateIndex <= 0}>›</Button>
+                </div>
+              )}
+            >
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 14 }}>
+                {summaryCards.map((card) => (
+                  <div key={card.label} style={{ background: 'rgba(248,250,252,0.9)', border: '1px solid rgba(15,23,42,0.08)', borderRadius: 14, padding: 12 }}>
+                    <div style={{ color: '#64748b', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{card.label}</div>
+                    <div style={{ fontSize: '1.35rem', fontWeight: 700 }}>{card.value}</div>
+                    <div style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>{card.sub}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginBottom: 14, padding: 12, borderRadius: 12, background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(217,119,6,0.35)', color: '#92400e', fontWeight: 600 }}>
+                Sofía Martínez requiere atención — conversión por debajo del mínimo (7%) y baño extendido a las 13:35.
+              </div>
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>Agente</th><th>Llamadas</th><th>Ventas</th><th>Conversión</th><th>Estado</th><th>Acción</th></tr></thead>
-                  <tbody>{[{ name: 'Juan Pérez', calls: 45, sales: 8, conversion: '18%', status: 'Excelente' }, { name: 'Laura Fernández', calls: 39, sales: 6, conversion: '15%', status: 'Activo' }, { name: 'Pedro González', calls: 34, sales: 5, conversion: '14%', status: 'Activo' }, { name: 'Sofía Martínez', calls: 29, sales: 2, conversion: '7%', status: 'Atención' }].map((row) => <tr key={row.name}><td><div className="person"><div className="person-badge">{initials(row.name)}</div><strong>{row.name}</strong></div></td><td>{row.calls}</td><td>{row.sales}</td><td>{row.conversion}</td><td><Tag variant={statusVariant(row.status)}>{row.status}</Tag></td><td><Button variant="ghost" icon={<Eye size={16} />}>Ver</Button></td></tr>)}</tbody>
+                  <thead><tr><th>Agente</th><th>Llamadas</th><th>Ventas</th><th>Conversión</th><th>Estado</th><th>Pausas</th><th>Acción</th></tr></thead>
+                  <tbody>{agents.map((row) => (
+                    <tr key={row.name} style={row.highlight ? { background: 'rgba(251,191,36,0.18)' } : undefined}>
+                      <td>
+                        <div className="person">
+                          <div className="person-badge">{initials(row.name)}</div>
+                          <div>
+                            <strong>{row.name}</strong>
+                            <div style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>Login {row.login} · {row.workTime}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>{row.calls}</td>
+                      <td>{row.sales}</td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ flex: 1, height: 6, borderRadius: 999, background: 'rgba(148,163,184,0.35)' }}>
+                            <div style={{ width: `${row.conversion}%`, height: '100%', borderRadius: 999, background: conversionBarColor(row.conversion, row.status) }}></div>
+                          </div>
+                          <strong>{row.conversion}%</strong>
+                        </div>
+                      </td>
+                      <td><Tag variant={statusVariant(row.status)}>{row.status}</Tag></td>
+                      <td style={pauseBadgeStyle(row.pauses.minutes, row.status)}>{row.pauses.count} · {row.pauses.minutes}m</td>
+                      <td><Button variant="ghost" icon={<Eye size={16} />} onClick={() => { setDetailTab('resumen'); setDetailAgent({ ...row, detail: agentDetailsByName[row.name] }); }}>Ver</Button></td>
+                    </tr>
+                  ))}</tbody>
                 </table>
               </div>
             </Panel>
           </section>
+          {detailAgent ? (
+            <div className="lot-wizard-overlay" onClick={() => setDetailAgent(null)}>
+              <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 980 }}>
+                <div className="lot-wizard-header">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div className="person-badge" style={{ width: 44, height: 44 }}>{initials(detailAgent.name)}</div>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <h3 style={{ margin: 0 }}>{detailAgent.name}</h3>
+                        <Tag variant={statusVariant(detailAgent.status)}>{detailAgent.status}</Tag>
+                      </div>
+                      <div style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>{detailAgent.detail?.shift}</div>
+                    </div>
+                  </div>
+                  <button className="icon-button" style={{ width: 36, height: 36 }} onClick={() => setDetailAgent(null)}><X size={16} color="#152235" /></button>
+                </div>
+                {isAttentionView ? (
+                  <>
+                    <div style={{ marginBottom: 14, padding: 12, borderRadius: 12, background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.35)', color: '#b45309', fontWeight: 600 }}>
+                      Alertas activas del turno
+                    </div>
+                    <div style={{ display: 'grid', gap: 10, marginBottom: 16 }}>
+                      {(detailAgent.detail?.alerts || []).map((alert) => (
+                        <div key={alert.title} style={{ border: '1px solid rgba(180,83,9,0.35)', background: 'rgba(251,191,36,0.12)', padding: 12, borderRadius: 12 }}>
+                          <div style={{ fontWeight: 700, marginBottom: 4 }}>{alert.title}</div>
+                          <div style={{ color: '#78350f' }}>{alert.detail}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 16 }}>
+                      {(detailAgent.detail?.kpis || []).map((kpi) => (
+                        <div key={kpi.label} style={{ background: 'rgba(248,250,252,0.9)', border: `1px solid ${kpi.alert ? 'rgba(249,115,22,0.65)' : 'rgba(15,23,42,0.08)'}`, borderRadius: 14, padding: 14 }}>
+                          <div style={{ color: '#64748b', fontSize: '0.8rem' }}>{kpi.label}</div>
+                          <div style={{ fontSize: '1.4rem', fontWeight: 700 }}>{kpi.value}</div>
+                          <div style={{ color: kpi.alert ? '#b45309' : 'var(--muted)', fontSize: '0.8rem', fontWeight: kpi.alert ? 700 : 400 }}>
+                            {kpi.sub}
+                          </div>
+                          <div style={{ marginTop: 6, fontSize: '0.75rem', fontWeight: 700, color: kpi.alert ? '#b45309' : '#15803d' }}>
+                            {kpi.alert ? '↓ bajo la meta' : '↑ vs meta'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+                      <Button variant="secondary" icon={<AlertTriangle size={16} />}>Enviar alerta</Button>
+                      <Button variant="secondary" icon={<Calendar size={16} />}>Agendar feedback</Button>
+                      <Button variant="ghost" icon={<Download size={16} />}>Exportar PDF</Button>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+                      {['resumen', 'actividad', 'llamadas', 'semana'].map((tab) => (
+                        <button
+                          key={tab}
+                          type="button"
+                          onClick={() => setDetailTab(tab)}
+                          style={{
+                            padding: '8px 14px',
+                            borderRadius: 12,
+                            border: detailTab === tab ? '1px solid rgba(180,83,9,0.7)' : '1px solid rgba(15,23,42,0.12)',
+                            background: detailTab === tab ? 'rgba(251,191,36,0.12)' : '#fff',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            textTransform: 'capitalize'
+                          }}
+                        >
+                          {tab === 'semana' ? 'Esta semana' : tab}
+                        </button>
+                      ))}
+                    </div>
+                    {detailTab === 'resumen' ? (
+                      <>
+                        <div style={{ background: 'rgba(248,250,252,0.7)', border: '1px solid rgba(15,23,42,0.08)', borderRadius: 14, padding: 16, marginBottom: 18 }}>
+                          <div style={{ fontWeight: 700, marginBottom: 10 }}>Línea de tiempo del turno</div>
+                          <div style={{ display: 'flex', height: 32, borderRadius: 999, overflow: 'hidden' }}>
+                            {(detailAgent.detail?.timeline || []).map((segment, idx) => (
+                              <div key={`${segment.label}-${idx}`} style={{ flexGrow: segment.minutes, background: segment.color }} title={`${segment.label} · ${segment.minutes}m`}></div>
+                            ))}
+                          </div>
+                          <div style={{ display: 'flex', gap: 14, marginTop: 10, fontSize: '0.82rem', color: 'var(--muted)', flexWrap: 'wrap' }}>
+                            <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 4, background: '#93c5fd', marginRight: 6 }}></span>Trabajo</span>
+                            <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 4, background: '#fdba74', marginRight: 6 }}></span>Descanso</span>
+                            <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 4, background: '#f59e0b', marginRight: 6 }}></span>Baño extendido</span>
+                            <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 4, background: '#86efac', marginRight: 6 }}></span>Baño</span>
+                          </div>
+                        </div>
+                      </>
+                    ) : null}
+                    {detailTab === 'actividad' ? (
+                      <div className="table-wrap">
+                        <table>
+                          <thead><tr><th>Hora</th><th>Evento</th><th>Duración</th><th>Observación</th></tr></thead>
+                          <tbody>
+                            {(detailAgent.detail?.activity || []).map((row, idx) => {
+                              const badge = activityBadge(row.event);
+                              return (
+                                <tr key={`${row.event}-${idx}`} style={row.overLimit ? { background: 'rgba(254,226,226,0.6)' } : undefined}>
+                                  <td>{row.time}</td>
+                                  <td><span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, background: badge.bg, color: badge.color, fontWeight: 600, fontSize: '0.75rem' }}>{row.event}</span></td>
+                                  <td style={{ color: row.overLimit ? '#b91c1c' : 'inherit', fontWeight: row.overLimit ? 700 : 500 }}>{row.duration}</td>
+                                  <td style={{ color: row.overLimit ? '#b45309' : 'var(--muted)', fontWeight: row.overLimit ? 700 : 400 }}>{row.note || '—'}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : null}
+                    {detailTab === 'llamadas' ? (
+                      <div className="table-wrap">
+                        <table>
+                          <thead><tr><th>Hora</th><th>Duración</th><th>Cliente</th><th>Resultado</th></tr></thead>
+                          <tbody>
+                            {(detailAgent.detail?.calls || []).map((row, idx) => {
+                              const badge = callBadge(row.result);
+                              const shortWarning = row.shortCall && row.result.toLowerCase().includes('venta') === false;
+                              return (
+                                <tr key={`${row.client}-${idx}`} style={shortWarning ? { background: 'rgba(254,226,226,0.6)' } : undefined}>
+                                  <td>{row.time}</td>
+                                  <td style={{ color: shortWarning ? '#b91c1c' : 'inherit', fontWeight: shortWarning ? 700 : 500 }}>{row.duration}{shortWarning ? ' ⚠' : ''}</td>
+                                  <td>{row.client}</td>
+                                  <td><span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, background: badge.bg, color: badge.color, fontWeight: 600, fontSize: '0.75rem' }}>{row.result}</span></td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : null}
+                    {detailTab === 'semana' ? (
+                      <div>
+                        <div style={{ marginBottom: 12, fontWeight: 700 }}>Tendencia de conversión</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, alignItems: 'end', height: 140, marginBottom: 16 }}>
+                          {(detailAgent.detail?.week?.trend || []).map((item) => (
+                            <div key={item.day} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                              <div style={{ width: '100%', height: `${item.value * 8}px`, background: 'rgba(251,191,36,0.7)', borderRadius: 8 }}></div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{item.day}</div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="table-wrap" style={{ marginBottom: 14 }}>
+                          <table>
+                            <thead><tr><th>Día</th><th>Conversión</th><th>Alertas</th></tr></thead>
+                            <tbody>
+                              {(detailAgent.detail?.week?.trend || []).map((item) => (
+                                <tr key={`row-${item.day}`}>
+                                  <td>{item.day}</td>
+                                  <td>{item.value}%</td>
+                                  <td>{item.value < 10 ? '⚠ Conversión baja' : '—'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+                          {(detailAgent.detail?.week?.summary || []).map((row) => (
+                            <div key={row.label} style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 12, padding: 12, background: '#fff' }}>
+                              <div style={{ color: '#64748b', fontSize: '0.78rem' }}>{row.label}</div>
+                              <div style={{ fontWeight: 700 }}>{row.value}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 12 }}>
+                      {(detailAgent.detail?.kpis || []).map((kpi) => (
+                        <div key={kpi.label} style={{ background: 'rgba(248,250,252,0.9)', border: '1px solid rgba(15,23,42,0.08)', borderRadius: 14, padding: 14 }}>
+                          <div style={{ color: '#64748b', fontSize: '0.8rem' }}>{kpi.label}</div>
+                          <div style={{ fontSize: '1.4rem', fontWeight: 700 }}>{kpi.value}</div>
+                          <div style={{ color: 'var(--muted)', fontSize: '0.8rem' }}>{kpi.sub}</div>
+                          <div style={{ marginTop: 6, fontSize: '0.75rem', fontWeight: 700, color: '#15803d' }}>↑ vs meta</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+                      <Button variant="secondary" icon={<AlertTriangle size={16} />}>Enviar alerta</Button>
+                      <Button variant="secondary" icon={<Calendar size={16} />}>Agendar feedback</Button>
+                      <Button variant="ghost" icon={<Download size={16} />}>Exportar PDF</Button>
+                    </div>
+                    <div style={{ background: 'rgba(248,250,252,0.7)', border: '1px solid rgba(15,23,42,0.08)', borderRadius: 14, padding: 16, marginBottom: 18 }}>
+                      <div style={{ fontWeight: 700, marginBottom: 10 }}>Línea de tiempo del turno</div>
+                      <div style={{ display: 'flex', height: 32, borderRadius: 999, overflow: 'hidden' }}>
+                        {(detailAgent.detail?.timeline || []).map((segment, idx) => (
+                          <div key={`${segment.label}-${idx}`} style={{ flexGrow: segment.minutes, background: segment.color }} title={`${segment.label} · ${segment.minutes}m`}></div>
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', gap: 14, marginTop: 10, fontSize: '0.82rem', color: 'var(--muted)', flexWrap: 'wrap' }}>
+                        <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 4, background: '#93c5fd', marginRight: 6 }}></span>Trabajo</span>
+                        <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 4, background: '#fdba74', marginRight: 6 }}></span>Descanso</span>
+                        <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 4, background: '#86efac', marginRight: 6 }}></span>Baño</span>
+                      </div>
+                    </div>
+                    <div style={{ marginBottom: 18 }}>
+                      <div style={{ fontWeight: 700, marginBottom: 8 }}>Registro de actividad</div>
+                      <div className="table-wrap">
+                        <table>
+                          <thead><tr><th>Hora</th><th>Tipo</th><th>Duración</th><th>Observación</th></tr></thead>
+                          <tbody>
+                            {(detailAgent.detail?.activity || []).map((row, idx) => {
+                              const badge = activityBadge(row.event);
+                              return (
+                                <tr key={`${row.event}-${idx}`}>
+                                  <td>{row.time}</td>
+                                  <td><span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, background: badge.bg, color: badge.color, fontWeight: 600, fontSize: '0.75rem' }}>{row.event}</span></td>
+                                  <td>{row.duration}</td>
+                                  <td style={{ color: row.note ? '#b45309' : 'var(--muted)', fontWeight: row.note ? 600 : 400 }}>{row.note || '—'}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, marginBottom: 8 }}>Últimas llamadas del día</div>
+                      <div className="table-wrap">
+                        <table>
+                          <thead><tr><th>Hora</th><th>Duración</th><th>Cliente</th><th>Resultado</th></tr></thead>
+                          <tbody>
+                            {(detailAgent.detail?.calls || []).map((row, idx) => {
+                              const badge = callBadge(row.result);
+                              return (
+                                <tr key={`${row.client}-${idx}`}>
+                                  <td>{row.time}</td>
+                                  <td>{row.duration}</td>
+                                  <td>{row.client}</td>
+                                  <td><span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, background: badge.bg, color: badge.color, fontWeight: 600, fontSize: '0.75rem' }}>{row.result}</span></td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          ) : null}
         </div>
       );
     }
