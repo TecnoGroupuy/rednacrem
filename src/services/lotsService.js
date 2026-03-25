@@ -84,13 +84,13 @@ export const updateLot = async (lotId, patch) => {
 
 export const listSellersAsync = async () => {
   if (hasApiConfigured()) {
-    const response = await api.get('/sellers');
-    const items = response?.data || response?.items || response || [];
+    const response = await api.get('/api/supervisor/agents');
+    const items = response?.agents || response?.items || response?.data?.agents || response?.data?.items || response?.data || [];
     return (Array.isArray(items) ? items : []).map((u) => ({
-      id: String(u.id || ''),
-      nombre: u.nombre || '',
-      apellido: u.apellido || '',
-      label: `${u.nombre || ''} ${u.apellido || ''}`.trim() || u.email || ''
+      id: String(u.id || u.agent_id || u.agente_id || u.user_id || ''),
+      nombre: u.nombre || u.name || u.first_name || '',
+      apellido: u.apellido || u.last_name || '',
+      label: `${u.nombre || u.name || ''} ${u.apellido || u.last_name || ''}`.trim() || u.email || u.username || ''
     }));
   }
   return [];

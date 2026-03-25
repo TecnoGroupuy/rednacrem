@@ -140,14 +140,28 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
   React.useEffect(() => {
     const loadOptions = async () => {
       try {
+        const today = new Date();
+        const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
         const [sellersResponse, sourcesResponse, departmentsResponse, areaResponse] = await Promise.all([
-          fetchJson('/sellers', { token }),
+          fetchJson('/api/supervisor/agents', { token }),
           fetchJson('/lead-sources', { token }).catch((error) => (error.status === 404 ? [] : Promise.reject(error))),
           fetchJson('/departamentos', { token }).catch((error) => (error.status === 404 ? [] : Promise.reject(error))),
           fetchJson('/area-codes', { token }).catch((error) => (error.status === 404 ? [] : Promise.reject(error)))
         ]);
-        const sellersList = sellersResponse?.data || sellersResponse?.items || sellersResponse || [];
-        setSellers(Array.isArray(sellersList) ? sellersList : []);
+        const sellersList = sellersResponse?.agents
+          || sellersResponse?.items
+          || sellersResponse?.data?.agents
+          || sellersResponse?.data?.items
+          || sellersResponse?.data
+          || [];
+        const normalizedSellers = (Array.isArray(sellersList) ? sellersList : []).map((seller) => ({
+          id: String(seller?.id || seller?.agent_id || seller?.agente_id || seller?.user_id || ''),
+          nombre: seller?.nombre || seller?.name || seller?.first_name || '',
+          apellido: seller?.apellido || seller?.last_name || '',
+          email: seller?.email || '',
+          label: `${seller?.nombre || seller?.name || ''} ${seller?.apellido || seller?.last_name || ''}`.trim() || seller?.email || seller?.username || ''
+        }));
+        setSellers(normalizedSellers);
         const sourcesList = sourcesResponse?.data || sourcesResponse?.items || sourcesResponse || [];
         const departmentsList = departmentsResponse?.data || departmentsResponse?.items || departmentsResponse || [];
         const areaList = areaResponse?.data || areaResponse?.items || areaResponse || [];
@@ -1553,7 +1567,5 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
     </div>
   );
 }
-
-
 
 
