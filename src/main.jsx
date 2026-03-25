@@ -1087,10 +1087,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, [parsePercent]);
 
       const socketBase = React.useMemo(() => {
+        const explicit = teamConfig?.socketUrl || teamConfig?.realtimeUrl || '';
+        if (explicit) return explicit;
         const base = getApiBaseUrl() || '';
         if (!base) return '';
         return base.replace(/\/prod\/?$/i, '');
-      }, []);
+      }, [teamConfig]);
 
       React.useEffect(() => {
         let active = true;
@@ -1157,6 +1159,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, [detailAgent?.id, formatDateYmd, selectedDate]);
 
       React.useEffect(() => {
+        if (!teamConfig) return () => {};
+        if (teamConfig?.socketEnabled === false || teamConfig?.realtimeEnabled === false) return () => {};
         if (!socketBase) return () => {};
         const socket = io(socketBase, {
           transports: ['websocket'],
@@ -3795,9 +3799,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const selectedLot = lotSummaries.find((lot) => lot.id === selectedLotId) || lotSummaries[0] || null;
 
       const sellerSummary = React.useMemo(() => sellers.map((seller) => {
-        const scoped = contacts.filter((contact) => contact.assignedTo === seller);
+        const sellerLabel = typeof seller === 'string' ? seller : (seller.label || `${seller.nombre || seller.name || ''} ${seller.apellido || ''}`.trim() || seller.email || '');
+        const scoped = contacts.filter((contact) => contact.assignedTo === sellerLabel);
         return {
-          seller,
+          seller: sellerLabel,
           assigned: scoped.length,
           venta: scoped.filter((contact) => contact.status === 'venta').length,
           seguimiento: scoped.filter((contact) => contact.status === 'seguimiento').length,
