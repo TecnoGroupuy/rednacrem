@@ -105,7 +105,8 @@ import { getEffectiveRoleForUi, getVisibleNavItemsForRole, hasRealRole } from '.
 import { useRolEfectivo } from './hooks/useRolEfectivo.js';
 import AuthGate from './components/auth/AuthGate.jsx';
 import { downloadCsvFile } from './utils/importWizardHelpers.js';
-import { getApiClient } from './services/apiClient.js';
+import { getApiClient, getApiBaseUrl } from './services/apiClient.js';
+import { io } from 'socket.io-client';
 import {
   createInitialModuleStates,
   persistModuleStates,
@@ -965,22 +966,240 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
     }
 
     function SupervisorDashboard() {
+      const { user: authUser } = useAuth();
       const [detailAgent, setDetailAgent] = React.useState(null);
       const [detailTab, setDetailTab] = React.useState('resumen');
-      const dates = ['Martes 24 mar 2026', 'Lunes 23 mar 2026', 'Viernes 21 mar 2026'];
-      const [dateIndex, setDateIndex] = React.useState(0);
-      const summaryCards = [
-        { label: 'Agentes activos', value: '3 / 4', sub: '1 requiere atención' },
-        { label: 'Total llamadas', value: '147', sub: 'Meta del equipo: 160' },
-        { label: 'Total ventas', value: '21', sub: 'Meta: 24' },
-        { label: 'Conv. promedio', value: '14%', sub: '↑ vs ayer 12%' }
-      ];
-      const agents = [
-        { name: 'Juan Pérez', calls: 45, sales: 8, conversion: 18, status: 'Excelente', pauses: { count: 2, minutes: 35 }, login: '08:02', workTime: '7h 49m' },
-        { name: 'Laura Fernández', calls: 39, sales: 6, conversion: 15, status: 'Activo', pauses: { count: 2, minutes: 31 }, login: '08:00', workTime: '7h 51m' },
-        { name: 'Pedro González', calls: 34, sales: 5, conversion: 14, status: 'Activo', pauses: { count: 2, minutes: 33 }, login: '08:05', workTime: '7h 44m' },
-        { name: 'Sofía Martínez', calls: 29, sales: 2, conversion: 7, status: 'Atención', pauses: { count: 3, minutes: 52 }, login: '08:10', workTime: '7h 38m', highlight: true }
-      ];
+      const [selectedDate, setSelectedDate] = React.useState(() => new Date());
+      const [teamSummary, setTeamSummary] = React.useState(null);
+      const [teamLoading, setTeamLoading] = React.useState(false);
+      const [teamError, setTeamError] = React.useState('');
+      const [detailLoading, setDetailLoading] = React.useState(false);
+      const [detailError, setDetailError] = React.useState('');
+      const [teamConfig, setTeamConfig] = React.useState(null);
+      const [detailData, setDetailData] = React.useState(null);
+      const [detailWeek, setDetailWeek] = React.useState(null);
+      const formatDateLabel = React.useCallback((value) => {
+        try {
+          return value.toLocaleDateString('es-UY', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' });
+        } catch {
+          return '';
+        }
+      }, []);
+      const formatDateYmd = React.useCallback((value) => {
+        if (!value) return '';
+        const year = value.getFullYear();
+        const month = String(value.getMonth() + 1).padStart(2, '0');
+        const day = String(value.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }, []);
+      const parsePercent = React.useCallback((value) => {
+        if (value === null || value === undefined) return 0;
+        const numeric = Number(String(value).replace('%', '').trim());
+        if (Number.isNaN(numeric)) return 0;
+        return numeric <= 1 ? Math.round(numeric * 100) : numeric;
+      }, []);
+      const toMinutes = React.useCallback((value) => {
+        if (value === null || value === undefined) return 0;
+        if (typeof value === 'number') return value;
+        const raw = String(value);
+        const match = /(\d+)\s*h\s*(\d+)?/i.exec(raw);
+        if (match) {
+          const hours = Number(match[1] || 0);
+          const mins = Number(match[2] || 0);
+          return hours * 60 + mins;
+        }
+        const minsMatch = /(\d+)\s*m/i.exec(raw);
+        if (minsMatch) return Number(minsMatch[1] || 0);
+        const numeric = Number(raw);
+        return Number.isNaN(numeric) ? 0 : numeric;
+      }, []);
+      const buildAgentRow = React.useCallback((item) => {
+        const pausesMinutes = toMinutes(item?.pausesMinutes ?? item?.pausasMinutos ?? item?.pausas_minutos ?? item?.pauses?.minutes ?? 0);
+        const pausesCount = Number(item?.pausesCount ?? item?.pausasCantidad ?? item?.pauses?.count ?? 0);
+        const conversion = parsePercent(item?.conversion ?? item?.conversionRate ?? item?.conversion_percent ?? item?.conversionPercent ?? 0);
+        const status = item?.status || item?.estado || item?.statusLabel || 'Activo';
+        const name = item?.name || item?.nombre || item?.agent_name || '—';
+        return {
+          id: item?.id || item?.agente_id || item?.agent_id || name,
+          name,
+          calls: Number(item?.calls ?? item?.llamadas ?? 0),
+          sales: Number(item?.sales ?? item?.ventas ?? 0),
+          conversion,
+          status,
+          pauses: { count: pausesCount, minutes: pausesMinutes },
+          login: item?.login || item?.login_at || item?.ingreso || '—',
+          workTime: item?.workTime || item?.tiempo_productivo || item?.work_time || '—',
+          highlight: String(status).toLowerCase().includes('atencion') || String(status).toLowerCase().includes('atención')
+        };
+      }, [parsePercent, toMinutes]);
+      const mapSummaryCards = React.useCallback((summary, agentsList) => {
+        if (summary) {
+          return [
+            { label: 'Agentes activos', value: summary?.agentsActive || summary?.agentesActivos || `${summary?.activos || 0} / ${summary?.total || 0}`, sub: summary?.attentionCount ? `${summary.attentionCount} requiere atención` : (summary?.nota || '') },
+            { label: 'Total llamadas', value: summary?.calls || summary?.llamadas || '0', sub: summary?.callsGoal ? `Meta del equipo: ${summary.callsGoal}` : '' },
+            { label: 'Total ventas', value: summary?.sales || summary?.ventas || '0', sub: summary?.salesGoal ? `Meta: ${summary.salesGoal}` : '' },
+            { label: 'Conv. promedio', value: summary?.avgConversion ? `${parsePercent(summary.avgConversion)}%` : '0%', sub: summary?.avgConversionNote || '' }
+          ];
+        }
+        const totalAgents = agentsList.length || 0;
+        const attentionCount = agentsList.filter((agent) => agent.highlight).length;
+        const totalCalls = agentsList.reduce((acc, agent) => acc + Number(agent.calls || 0), 0);
+        const totalSales = agentsList.reduce((acc, agent) => acc + Number(agent.sales || 0), 0);
+        const avgConversion = totalAgents ? Math.round(agentsList.reduce((acc, agent) => acc + Number(agent.conversion || 0), 0) / totalAgents) : 0;
+        return [
+          { label: 'Agentes activos', value: `${totalAgents - attentionCount} / ${totalAgents}`, sub: attentionCount ? `${attentionCount} requiere atención` : '' },
+          { label: 'Total llamadas', value: String(totalCalls), sub: '' },
+          { label: 'Total ventas', value: String(totalSales), sub: '' },
+          { label: 'Conv. promedio', value: `${avgConversion}%`, sub: '' }
+        ];
+      }, [parsePercent]);
+
+      const normalizeDetail = React.useCallback((data, weekData, fallbackDetail) => {
+        const raw = data?.detail || data?.agent || data?.data || data || {};
+        const shift = raw.shift || raw.turno || raw.shiftLabel || raw.shift_label || fallbackDetail?.shift || '';
+        const status = raw.status || raw.estado || fallbackDetail?.status || 'Activo';
+        let kpis = raw.kpis || raw.metrics || raw.kpi || null;
+        if (!Array.isArray(kpis)) {
+          kpis = [
+            { label: 'Llamadas', value: String(raw.calls ?? raw.llamadas ?? fallbackDetail?.kpis?.[0]?.value ?? '0'), sub: raw.callsGoal ? `Meta: ${raw.callsGoal}` : fallbackDetail?.kpis?.[0]?.sub || '' },
+            { label: 'Ventas', value: String(raw.sales ?? raw.ventas ?? fallbackDetail?.kpis?.[1]?.value ?? '0'), sub: raw.salesGoal ? `Meta: ${raw.salesGoal}` : fallbackDetail?.kpis?.[1]?.sub || '' },
+            { label: 'Conversión', value: `${parsePercent(raw.conversion ?? raw.conversionRate ?? fallbackDetail?.kpis?.[2]?.value ?? 0)}%`, sub: raw.conversionMin ? `Mínimo: ${raw.conversionMin}%` : fallbackDetail?.kpis?.[2]?.sub || '' },
+            { label: 'Tiempo productivo', value: raw.productivePercent ? `${parsePercent(raw.productivePercent)}%` : (fallbackDetail?.kpis?.[3]?.value || '—'), sub: raw.productiveTime ? `${raw.productiveTime}` : fallbackDetail?.kpis?.[3]?.sub || '' }
+          ];
+        }
+        const timeline = raw.timeline || raw.timelineSegments || raw.turnoTimeline || fallbackDetail?.timeline || [];
+        const activity = raw.activity || raw.events || raw.eventos || fallbackDetail?.activity || [];
+        const pauses = raw.pauses || raw.breaks || raw.pausas || fallbackDetail?.pauses || [];
+        const calls = raw.calls || raw.lastCalls || raw.ultimasLlamadas || fallbackDetail?.calls || [];
+        const alerts = raw.alerts || raw.warnings || raw.alertas || fallbackDetail?.alerts || [];
+        const week = weekData?.week || weekData?.data || weekData || fallbackDetail?.week || null;
+        return {
+          shift,
+          status,
+          kpis,
+          timeline,
+          activity,
+          pauses,
+          calls,
+          alerts,
+          week
+        };
+      }, [parsePercent]);
+
+      const socketBase = React.useMemo(() => {
+        const base = getApiBaseUrl() || '';
+        if (!base) return '';
+        return base.replace(/\/prod\/?$/i, '');
+      }, []);
+
+      React.useEffect(() => {
+        let active = true;
+        const api = getApiClient();
+        const fetchConfig = async () => {
+          try {
+            const response = await api.get('/api/config');
+            if (active) setTeamConfig(response || null);
+          } catch {
+            if (active) setTeamConfig(null);
+          }
+        };
+        fetchConfig();
+        return () => { active = false; };
+      }, []);
+
+      React.useEffect(() => {
+        let active = true;
+        const api = getApiClient();
+        const dateStr = formatDateYmd(selectedDate);
+        setTeamLoading(true);
+        setTeamError('');
+        api.get(`/api/supervisor/team-summary?fecha=${dateStr}`)
+          .then((response) => {
+            if (!active) return;
+            setTeamSummary(response || null);
+          })
+          .catch((err) => {
+            if (!active) return;
+            setTeamError(err?.message || 'No se pudo cargar el resumen del equipo.');
+          })
+          .finally(() => {
+            if (!active) return;
+            setTeamLoading(false);
+          });
+        return () => { active = false; };
+      }, [formatDateYmd, selectedDate]);
+
+      React.useEffect(() => {
+        if (!detailAgent?.id) return () => {};
+        let active = true;
+        const api = getApiClient();
+        const dateStr = formatDateYmd(selectedDate);
+        setDetailLoading(true);
+        setDetailError('');
+        Promise.all([
+          api.get(`/api/supervisor/agent-detail/${detailAgent.id}?fecha=${dateStr}`),
+          api.get(`/api/supervisor/agent-week/${detailAgent.id}?fecha=${dateStr}`)
+        ])
+          .then(([detailResponse, weekResponse]) => {
+            if (!active) return;
+            setDetailData(detailResponse || null);
+            setDetailWeek(weekResponse || null);
+          })
+          .catch((err) => {
+            if (!active) return;
+            setDetailError(err?.message || 'No se pudo cargar el detalle del agente.');
+          })
+          .finally(() => {
+            if (!active) return;
+            setDetailLoading(false);
+          });
+        return () => { active = false; };
+      }, [detailAgent?.id, formatDateYmd, selectedDate]);
+
+      React.useEffect(() => {
+        if (!socketBase) return () => {};
+        const socket = io(socketBase, {
+          transports: ['websocket'],
+          withCredentials: true,
+          auth: authUser?.accessToken ? { token: authUser.accessToken } : undefined
+        });
+        const api = getApiClient();
+        const refreshDetail = () => {
+          if (!detailAgent?.id) return;
+          const dateStr = formatDateYmd(selectedDate);
+          Promise.all([
+            api.get(`/api/supervisor/agent-detail/${detailAgent.id}?fecha=${dateStr}`),
+            api.get(`/api/supervisor/agent-week/${detailAgent.id}?fecha=${dateStr}`)
+          ]).then(([detailResponse, weekResponse]) => {
+            setDetailData(detailResponse || null);
+            setDetailWeek(weekResponse || null);
+          }).catch(() => {});
+        };
+        socket.on('team_update', (payload) => {
+          if (payload) setTeamSummary(payload);
+        });
+        socket.on('agent_event', (payload) => {
+          const agentId = payload?.agentId || payload?.agente_id || payload?.agent_id || payload?.id;
+          if (detailAgent?.id && agentId && String(agentId) === String(detailAgent.id)) {
+            refreshDetail();
+          }
+        });
+        socket.on('new_alert', (payload) => {
+          const agentId = payload?.agentId || payload?.agente_id || payload?.agent_id || payload?.id;
+          if (detailAgent?.id && agentId && String(agentId) === String(detailAgent.id)) {
+            refreshDetail();
+          }
+        });
+        socket.on('new_call', (payload) => {
+          const agentId = payload?.agentId || payload?.agente_id || payload?.agent_id || payload?.id;
+          if (detailAgent?.id && agentId && String(agentId) === String(detailAgent.id)) {
+            refreshDetail();
+          }
+        });
+        return () => {
+          socket.disconnect();
+        };
+      }, [authUser?.accessToken, detailAgent?.id, formatDateYmd, selectedDate, socketBase]);
       const agentDetailsByName = {
         'Juan Pérez': {
           shift: '08:00 — 17:00 · Lunes 24 mar 2026',
@@ -1180,6 +1399,37 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           }
         }
       };
+      const fallbackAgents = [
+        { name: 'Juan Pérez', calls: 45, sales: 8, conversion: 18, status: 'Excelente', pauses: { count: 2, minutes: 35 }, login: '08:02', workTime: '7h 49m' },
+        { name: 'Laura Fernández', calls: 39, sales: 6, conversion: 15, status: 'Activo', pauses: { count: 2, minutes: 31 }, login: '08:00', workTime: '7h 51m' },
+        { name: 'Pedro González', calls: 34, sales: 5, conversion: 14, status: 'Activo', pauses: { count: 2, minutes: 33 }, login: '08:05', workTime: '7h 44m' },
+        { name: 'Sofía Martínez', calls: 29, sales: 2, conversion: 7, status: 'Atención', pauses: { count: 3, minutes: 52 }, login: '08:10', workTime: '7h 38m', highlight: true }
+      ];
+      const teamAgents = React.useMemo(() => {
+        const items = teamSummary?.agents || teamSummary?.items || teamSummary?.team || teamSummary?.data?.agents || teamSummary?.data?.items || [];
+        if (Array.isArray(items) && items.length) {
+          return items.map(buildAgentRow);
+        }
+        return fallbackAgents;
+      }, [buildAgentRow, teamSummary]);
+      const summaryCards = React.useMemo(() => {
+        const summary = teamSummary?.summary || teamSummary?.kpis || teamSummary?.data?.summary || null;
+        return mapSummaryCards(summary, teamAgents);
+      }, [mapSummaryCards, teamAgents, teamSummary]);
+      const attentionNote = React.useMemo(() => {
+        if (teamSummary?.attentionNote) return teamSummary.attentionNote;
+        const attentionAgent = teamAgents.find((agent) => agent.highlight);
+        if (attentionAgent) {
+          return `${attentionAgent.name} requiere atención — conversión por debajo del mínimo (${attentionAgent.conversion}%).`;
+        }
+        return '';
+      }, [teamAgents, teamSummary]);
+      const avgPauseMinutes = React.useMemo(() => {
+        if (teamSummary?.avgPauseMinutes) return Number(teamSummary.avgPauseMinutes) || 0;
+        if (!teamAgents.length) return 0;
+        const total = teamAgents.reduce((acc, agent) => acc + Number(agent.pauses?.minutes || 0), 0);
+        return Math.round(total / Math.max(teamAgents.length, 1));
+      }, [teamAgents, teamSummary]);
       const activityBadge = (event) => {
         const key = String(event || '').toLowerCase();
         if (key.includes('login')) return { bg: 'rgba(59,130,246,0.15)', color: '#2563eb' };
@@ -1201,13 +1451,16 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return '#f97316';
       };
       const pauseBadgeStyle = (minutes, status) => {
-        const isHigh = minutes >= 45 || status === 'Atención';
+        const isHigh = (avgPauseMinutes ? minutes >= avgPauseMinutes : minutes >= 45) || status === 'Atención';
         return {
           fontWeight: isHigh ? 700 : 500,
           color: isHigh ? '#b45309' : 'inherit'
         };
       };
-      const isAttentionView = detailAgent?.name === 'Sofía Martínez';
+      const fallbackDetail = detailAgent?.name ? agentDetailsByName[detailAgent.name] : null;
+      const activeDetail = normalizeDetail(detailData, detailWeek, fallbackDetail);
+      const detailStatus = activeDetail?.status || detailAgent?.status || 'Activo';
+      const isAttentionView = detailStatus.toLowerCase().includes('atencion') || detailStatus.toLowerCase().includes('atención');
       return (
         <div className="view">
           <section className="content-grid">
@@ -1217,9 +1470,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               subtitle="Actividad consolidada del día"
               action={(
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Button variant="ghost" onClick={() => setDateIndex((prev) => Math.min(dates.length - 1, prev + 1))} disabled={dateIndex >= dates.length - 1}>‹</Button>
-                  <div style={{ padding: '8px 16px', borderRadius: 12, border: '1px solid rgba(15,23,42,0.12)', background: '#fff', fontWeight: 600 }}>{dates[dateIndex]}</div>
-                  <Button variant="ghost" onClick={() => setDateIndex((prev) => Math.max(0, prev - 1))} disabled={dateIndex <= 0}>›</Button>
+                  <Button variant="ghost" onClick={() => setSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - 1))}>‹</Button>
+                  <div style={{ padding: '8px 16px', borderRadius: 12, border: '1px solid rgba(15,23,42,0.12)', background: '#fff', fontWeight: 600 }}>{formatDateLabel(selectedDate)}</div>
+                  <Button variant="ghost" onClick={() => setSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 1))}>›</Button>
                 </div>
               )}
             >
@@ -1232,13 +1485,17 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   </div>
                 ))}
               </div>
-              <div style={{ marginBottom: 14, padding: 12, borderRadius: 12, background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(217,119,6,0.35)', color: '#92400e', fontWeight: 600 }}>
-                Sofía Martínez requiere atención — conversión por debajo del mínimo (7%) y baño extendido a las 13:35.
-              </div>
+              {attentionNote ? (
+                <div style={{ marginBottom: 14, padding: 12, borderRadius: 12, background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(217,119,6,0.35)', color: '#92400e', fontWeight: 600 }}>
+                  {attentionNote}
+                </div>
+              ) : null}
+              {teamLoading ? <div style={{ marginBottom: 12, color: 'var(--muted)' }}>Cargando resumen del equipo...</div> : null}
+              {teamError ? <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 600 }}>{teamError}</div> : null}
               <div className="table-wrap">
                 <table>
                   <thead><tr><th>Agente</th><th>Llamadas</th><th>Ventas</th><th>Conversión</th><th>Estado</th><th>Pausas</th><th>Acción</th></tr></thead>
-                  <tbody>{agents.map((row) => (
+                  <tbody>{teamAgents.map((row) => (
                     <tr key={row.name} style={row.highlight ? { background: 'rgba(251,191,36,0.18)' } : undefined}>
                       <td>
                         <div className="person">
@@ -1261,7 +1518,20 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       </td>
                       <td><Tag variant={statusVariant(row.status)}>{row.status}</Tag></td>
                       <td style={pauseBadgeStyle(row.pauses.minutes, row.status)}>{row.pauses.count} · {row.pauses.minutes}m</td>
-                      <td><Button variant="ghost" icon={<Eye size={16} />} onClick={() => { setDetailTab('resumen'); setDetailAgent({ ...row, detail: agentDetailsByName[row.name] }); }}>Ver</Button></td>
+                      <td>
+                        <Button
+                          variant="ghost"
+                          icon={<Eye size={16} />}
+                          onClick={() => {
+                            setDetailTab('resumen');
+                            setDetailData(null);
+                            setDetailWeek(null);
+                            setDetailAgent({ id: row.id, name: row.name, status: row.status });
+                          }}
+                        >
+                          Ver
+                        </Button>
+                      </td>
                     </tr>
                   ))}</tbody>
                 </table>
@@ -1277,20 +1547,22 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <h3 style={{ margin: 0 }}>{detailAgent.name}</h3>
-                        <Tag variant={statusVariant(detailAgent.status)}>{detailAgent.status}</Tag>
+                        <Tag variant={statusVariant(detailStatus)}>{detailStatus}</Tag>
                       </div>
-                      <div style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>{detailAgent.detail?.shift}</div>
+                      <div style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>{activeDetail?.shift}</div>
                     </div>
                   </div>
                   <button className="icon-button" style={{ width: 36, height: 36 }} onClick={() => setDetailAgent(null)}><X size={16} color="#152235" /></button>
                 </div>
+                {detailLoading ? <div style={{ marginBottom: 12, color: 'var(--muted)' }}>Cargando detalle del agente...</div> : null}
+                {detailError ? <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 600 }}>{detailError}</div> : null}
                 {isAttentionView ? (
                   <>
                     <div style={{ marginBottom: 14, padding: 12, borderRadius: 12, background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.35)', color: '#b45309', fontWeight: 600 }}>
                       Alertas activas del turno
                     </div>
                     <div style={{ display: 'grid', gap: 10, marginBottom: 16 }}>
-                      {(detailAgent.detail?.alerts || []).map((alert) => (
+                      {(activeDetail?.alerts || []).map((alert) => (
                         <div key={alert.title} style={{ border: '1px solid rgba(180,83,9,0.35)', background: 'rgba(251,191,36,0.12)', padding: 12, borderRadius: 12 }}>
                           <div style={{ fontWeight: 700, marginBottom: 4 }}>{alert.title}</div>
                           <div style={{ color: '#78350f' }}>{alert.detail}</div>
@@ -1298,7 +1570,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       ))}
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 16 }}>
-                      {(detailAgent.detail?.kpis || []).map((kpi) => (
+                      {(activeDetail?.kpis || []).map((kpi) => (
                         <div key={kpi.label} style={{ background: 'rgba(248,250,252,0.9)', border: `1px solid ${kpi.alert ? 'rgba(249,115,22,0.65)' : 'rgba(15,23,42,0.08)'}`, borderRadius: 14, padding: 14 }}>
                           <div style={{ color: '#64748b', fontSize: '0.8rem' }}>{kpi.label}</div>
                           <div style={{ fontSize: '1.4rem', fontWeight: 700 }}>{kpi.value}</div>
@@ -1341,7 +1613,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         <div style={{ background: 'rgba(248,250,252,0.7)', border: '1px solid rgba(15,23,42,0.08)', borderRadius: 14, padding: 16, marginBottom: 18 }}>
                           <div style={{ fontWeight: 700, marginBottom: 10 }}>Línea de tiempo del turno</div>
                           <div style={{ display: 'flex', height: 32, borderRadius: 999, overflow: 'hidden' }}>
-                            {(detailAgent.detail?.timeline || []).map((segment, idx) => (
+                            {(activeDetail?.timeline || []).map((segment, idx) => (
                               <div key={`${segment.label}-${idx}`} style={{ flexGrow: segment.minutes, background: segment.color }} title={`${segment.label} · ${segment.minutes}m`}></div>
                             ))}
                           </div>
@@ -1359,7 +1631,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         <table>
                           <thead><tr><th>Hora</th><th>Evento</th><th>Duración</th><th>Observación</th></tr></thead>
                           <tbody>
-                            {(detailAgent.detail?.activity || []).map((row, idx) => {
+                            {(activeDetail?.activity || []).map((row, idx) => {
                               const badge = activityBadge(row.event);
                               return (
                                 <tr key={`${row.event}-${idx}`} style={row.overLimit ? { background: 'rgba(254,226,226,0.6)' } : undefined}>
@@ -1379,7 +1651,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         <table>
                           <thead><tr><th>Hora</th><th>Duración</th><th>Cliente</th><th>Resultado</th></tr></thead>
                           <tbody>
-                            {(detailAgent.detail?.calls || []).map((row, idx) => {
+                            {(activeDetail?.calls || []).map((row, idx) => {
                               const badge = callBadge(row.result);
                               const shortWarning = row.shortCall && row.result.toLowerCase().includes('venta') === false;
                               return (
@@ -1399,7 +1671,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       <div>
                         <div style={{ marginBottom: 12, fontWeight: 700 }}>Tendencia de conversión</div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, alignItems: 'end', height: 140, marginBottom: 16 }}>
-                          {(detailAgent.detail?.week?.trend || []).map((item) => (
+                          {(activeDetail?.week?.trend || []).map((item) => (
                             <div key={item.day} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                               <div style={{ width: '100%', height: `${item.value * 8}px`, background: 'rgba(251,191,36,0.7)', borderRadius: 8 }}></div>
                               <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{item.day}</div>
@@ -1410,7 +1682,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           <table>
                             <thead><tr><th>Día</th><th>Conversión</th><th>Alertas</th></tr></thead>
                             <tbody>
-                              {(detailAgent.detail?.week?.trend || []).map((item) => (
+                              {(activeDetail?.week?.trend || []).map((item) => (
                                 <tr key={`row-${item.day}`}>
                                   <td>{item.day}</td>
                                   <td>{item.value}%</td>
@@ -1421,7 +1693,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           </table>
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
-                          {(detailAgent.detail?.week?.summary || []).map((row) => (
+                          {(activeDetail?.week?.summary || []).map((row) => (
                             <div key={row.label} style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 12, padding: 12, background: '#fff' }}>
                               <div style={{ color: '#64748b', fontSize: '0.78rem' }}>{row.label}</div>
                               <div style={{ fontWeight: 700 }}>{row.value}</div>
@@ -1434,7 +1706,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 ) : (
                   <>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 12 }}>
-                      {(detailAgent.detail?.kpis || []).map((kpi) => (
+                      {(activeDetail?.kpis || []).map((kpi) => (
                         <div key={kpi.label} style={{ background: 'rgba(248,250,252,0.9)', border: '1px solid rgba(15,23,42,0.08)', borderRadius: 14, padding: 14 }}>
                           <div style={{ color: '#64748b', fontSize: '0.8rem' }}>{kpi.label}</div>
                           <div style={{ fontSize: '1.4rem', fontWeight: 700 }}>{kpi.value}</div>
@@ -1451,7 +1723,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <div style={{ background: 'rgba(248,250,252,0.7)', border: '1px solid rgba(15,23,42,0.08)', borderRadius: 14, padding: 16, marginBottom: 18 }}>
                       <div style={{ fontWeight: 700, marginBottom: 10 }}>Línea de tiempo del turno</div>
                       <div style={{ display: 'flex', height: 32, borderRadius: 999, overflow: 'hidden' }}>
-                        {(detailAgent.detail?.timeline || []).map((segment, idx) => (
+                        {(activeDetail?.timeline || []).map((segment, idx) => (
                           <div key={`${segment.label}-${idx}`} style={{ flexGrow: segment.minutes, background: segment.color }} title={`${segment.label} · ${segment.minutes}m`}></div>
                         ))}
                       </div>
@@ -1467,7 +1739,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         <table>
                           <thead><tr><th>Hora</th><th>Tipo</th><th>Duración</th><th>Observación</th></tr></thead>
                           <tbody>
-                            {(detailAgent.detail?.activity || []).map((row, idx) => {
+                              {(activeDetail?.activity || []).map((row, idx) => {
                               const badge = activityBadge(row.event);
                               return (
                                 <tr key={`${row.event}-${idx}`}>
@@ -1488,7 +1760,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         <table>
                           <thead><tr><th>Hora</th><th>Duración</th><th>Cliente</th><th>Resultado</th></tr></thead>
                           <tbody>
-                            {(detailAgent.detail?.calls || []).map((row, idx) => {
+                            {(activeDetail?.calls || []).map((row, idx) => {
                               const badge = callBadge(row.result);
                               return (
                                 <tr key={`${row.client}-${idx}`}>
