@@ -973,41 +973,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       ];
       return (
         <div className="view">
-          <section className="hero">
-            <div className="hero-panel">
-              <Tag variant="info">Supervisión en tiempo real</Tag>
-              <h1 className="hero-title">Equipo comercial alineado, medido y accionable.</h1>
-              <p className="hero-copy">La jornada muestra buen volumen de llamadas y mejor calidad de seguimiento. El foco está en sostener cierres y redistribuir contactos con mayor prioridad.</p>
-              <div className="hero-kpis">
-                <div className="hero-kpi"><div className="hero-kpi-label">Contactos calientes</div><div className="hero-kpi-value">63</div></div>
-                <div className="hero-kpi"><div className="hero-kpi-label">Seguimientos vencidos</div><div className="hero-kpi-value">5</div></div>
-                <div className="hero-kpi"><div className="hero-kpi-label">Tiempo medio</div><div className="hero-kpi-value">6m 12s</div></div>
-              </div>
-              <div className="hero-grid"></div>
-            </div>
-            <Panel title="Comandos del día" subtitle="Gestión táctica del supervisor"><div className="toolbar"><Button icon={<Layers size={18} />}>Crear lote</Button><Button variant="secondary" icon={<Filter size={18} />}>Filtrar equipo</Button><Button variant="ghost" icon={<Download size={18} />}>Exportar corte</Button></div></Panel>
-          </section>
           <section className="metrics-grid">{metrics.map((item) => <MetricCard key={item.title} item={item} />)}</section>
           <section className="content-grid">
-            <Panel className="span-8" title="Rendimiento del equipo" subtitle="Actividad consolidada del día">
+            <Panel className="span-12" title="Rendimiento del equipo" subtitle="Actividad consolidada del día">
               <div className="table-wrap">
                 <table>
                   <thead><tr><th>Agente</th><th>Llamadas</th><th>Ventas</th><th>Conversión</th><th>Estado</th><th>Acción</th></tr></thead>
                   <tbody>{[{ name: 'Juan Pérez', calls: 45, sales: 8, conversion: '18%', status: 'Excelente' }, { name: 'Laura Fernández', calls: 39, sales: 6, conversion: '15%', status: 'Activo' }, { name: 'Pedro González', calls: 34, sales: 5, conversion: '14%', status: 'Activo' }, { name: 'Sofía Martínez', calls: 29, sales: 2, conversion: '7%', status: 'Atención' }].map((row) => <tr key={row.name}><td><div className="person"><div className="person-badge">{initials(row.name)}</div><strong>{row.name}</strong></div></td><td>{row.calls}</td><td>{row.sales}</td><td>{row.conversion}</td><td><Tag variant={statusVariant(row.status)}>{row.status}</Tag></td><td><Button variant="ghost" icon={<Eye size={16} />}>Ver</Button></td></tr>)}</tbody>
                 </table>
-              </div>
-            </Panel>
-            <Panel className="span-4" title="Calidad de seguimiento" subtitle="Distribución de gestiones">
-              <div style={{ width: '100%', height: 260 }}>
-                <ResponsiveContainer>
-                  <AreaChart data={[{ day: 'Lun', score: 62 }, { day: 'Mar', score: 70 }, { day: 'Mié', score: 66 }, { day: 'Jue', score: 74 }, { day: 'Vie', score: 79 }]}>
-                    <CartesianGrid stroke="rgba(20,34,53,0.08)" vertical={false} />
-                    <XAxis dataKey="day" stroke="#69788d" />
-                    <YAxis stroke="#69788d" />
-                    <Tooltip contentStyle={{ borderRadius: 18, border: '1px solid rgba(20,34,53,0.08)' }} />
-                    <Area type="monotone" dataKey="score" stroke="#2563eb" fill="rgba(37,99,235,0.18)" strokeWidth={3} />
-                  </AreaChart>
-                </ResponsiveContainer>
               </div>
             </Panel>
           </section>

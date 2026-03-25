@@ -329,24 +329,36 @@ export const createImportFromCsv = async ({
       const headers = fileName ? { 'X-File-Name': fileName } : {};
       const response = await api.post('/imports/clients', { csv: csvText }, { headers });
       effectiveBatchId = response?.batchId || response?.batch_id || null;
+      return {
+        id: String(effectiveBatchId || ''),
+        nombreArchivo: fileName || `import_${effectiveBatchId || Date.now()}.csv`,
+        fecha: new Date().toISOString(),
+        tipo: normalizedType,
+        totalRegistros: Number(response?.total || response?.imported || 0) + Number(response?.failed || 0),
+        importados: Number(response?.imported || response?.inserted || 0),
+        rechazados: Number(response?.failed || response?.errors || 0),
+        estado: Number(response?.failed || response?.errors || 0)
+          ? (Number(response?.imported || response?.inserted || 0) ? 'Con observaciones' : 'Fallida')
+          : 'Completada',
+        usuarioId: userId,
+        rowErrors: [],
+        report: response?.report || null
+      };
     }
     maybeThrow(!effectiveBatchId, 'No se pudo generar el lote de importación.');
-    const query = createProducts ? '?createProducts=true' : '';
-    const response = await api.post(`/imports/clients/${effectiveBatchId}/process${query}`, {});
+    // Backend auto-procesa al subir el CSV, no llamar /process para evitar duplicados.
     return {
       id: String(effectiveBatchId),
       nombreArchivo: fileName || `import_${effectiveBatchId}.csv`,
       fecha: new Date().toISOString(),
       tipo: normalizedType,
-      totalRegistros: Number(response?.imported || 0) + Number(response?.failed || 0),
-      importados: Number(response?.imported || 0),
-      rechazados: Number(response?.failed || 0),
-      estado: Number(response?.failed || 0)
-        ? (Number(response?.imported || 0) ? 'Con observaciones' : 'Fallida')
-        : 'Completada',
+      totalRegistros: 0,
+      importados: 0,
+      rechazados: 0,
+      estado: 'En proceso',
       usuarioId: userId,
       rowErrors: [],
-      report: response?.report || null
+      report: null
     };
   }
 
