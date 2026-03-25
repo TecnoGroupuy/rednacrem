@@ -249,32 +249,6 @@ export const getNoCallImportJob = async (jobId) => {
 
 export const previewCsvText = async (csvText, { importType = 'clientes', fileName = '' } = {}) => {
   const normalizedType = normalizeImportType(importType);
-  if (hasApiConfigured() && normalizedType === 'clientes') {
-    const headers = fileName ? { 'X-File-Name': fileName } : {};
-    const response = await api.post('/imports/clients', { csv: csvText }, { headers });
-    const total = Number(response?.total || 0);
-    const valid = Number(response?.valid || 0);
-    const errors = Number(response?.errors || 0);
-    return {
-      headers: [],
-      rows: [],
-      summary: {
-        total,
-        importados: valid,
-        rechazados: errors
-      },
-      validRows: [],
-      rowErrors: [],
-      importType: normalizedType,
-      importTypeLabel: IMPORT_TYPES[normalizedType].label,
-      batchId: response?.batchId || null,
-      rejectedMissingDocumento: response?.rejectedMissingDocumento || 0,
-      newProducts: response?.newProducts || [],
-      newProductsCount: response?.newProductsCount || 0,
-      skippedEmptyRows: 0,
-      usesBackend: true
-    };
-  }
   if (normalizedType === 'no_llamar') {
     // Validación liviana local: solo conteo y teléfono obligatorio.
     const parsed = parseCsv(csvText);
@@ -300,6 +274,7 @@ export const previewCsvText = async (csvText, { importType = 'clientes', fileNam
       usesBackend: false
     };
   }
+  // Para clientes usamos preview local para evitar doble POST (el backend auto-procesa).
   await delay(220);
   const parsed = parseCsv(csvText);
   const validation = validateCsvByType(parsed, normalizedType);
