@@ -1484,6 +1484,18 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           const m = total % 60;
           return h ? `${h}h ${m}m` : `${m}m`;
         };
+        const formatDuration = (inicio, fin) => {
+          if (!inicio) return '—';
+          const start = new Date(inicio);
+          const end = fin ? new Date(fin) : new Date();
+          if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '—';
+          const totalSeconds = Math.floor((end - start) / 1000);
+          if (totalSeconds < 60) return `${totalSeconds}s`;
+          const mins = Math.floor(totalSeconds / 60);
+          const hours = Math.floor(mins / 60);
+          if (hours > 0) return `${hours}h ${mins % 60}m`;
+          return `${mins}m`;
+        };
         const formatMinutesWithRaw = (mins) => {
           if (mins === null || mins === undefined) return '—';
           const total = Math.max(0, Number(mins) || 0);
@@ -1515,7 +1527,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               end: evt?.fin || '',
               duration: computed === null ? null : computed,
               inProgress: !evt?.fin && !duration,
-              startMinutes: toTimeMinutes(evt?.inicio)
+              startMinutes: toTimeMinutes(evt?.inicio),
+              rawInicio: evt?.inicio || '',
+              rawFin: evt?.fin || ''
             };
           })
           .filter(Boolean)
@@ -1619,7 +1633,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               <div style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 12, padding: 10, maxHeight: 200, overflowY: 'auto', background: '#fff', marginTop: 8 }}>
                 {parsed.length ? parsed.map((evt, idx) => {
                   const label = labelByType[evt.type] || evt.type;
-                  const durationLabel = evt.inProgress ? 'En curso' : (evt.duration ? formatMinutes(evt.duration) : '');
+                  const durationLabel = evt.inProgress ? 'En curso' : formatDuration(evt.rawInicio, evt.rawFin);
                   return (
                     <div key={`detail-${idx}`} style={{ display: 'grid', gridTemplateColumns: '90px 1fr 120px', gap: 10, padding: '6px 4px', borderBottom: '1px solid rgba(148,163,184,0.2)' }}>
                       <div>{evt.start}</div>
