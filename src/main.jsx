@@ -984,20 +984,20 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         } catch {
           return '';
         }
-      }, [clientPage, clientPageSize, clientSearchDebounced]);
+      }, []);
       const formatDateYmd = React.useCallback((value) => {
         if (!value) return '';
         const year = value.getFullYear();
         const month = String(value.getMonth() + 1).padStart(2, '0');
         const day = String(value.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
-      }, [clientPage, clientPageSize, clientSearchDebounced]);
+      }, []);
       const parsePercent = React.useCallback((value) => {
         if (value === null || value === undefined) return 0;
         const numeric = Number(String(value).replace('%', '').trim());
         if (Number.isNaN(numeric)) return 0;
         return numeric <= 1 ? Math.round(numeric * 100) : numeric;
-      }, [clientPage, clientPageSize, clientSearchDebounced]);
+      }, []);
       const toMinutes = React.useCallback((value) => {
         if (value === null || value === undefined) return 0;
         if (typeof value === 'number') return value;
@@ -1012,7 +1012,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         if (minsMatch) return Number(minsMatch[1] || 0);
         const numeric = Number(raw);
         return Number.isNaN(numeric) ? 0 : numeric;
-      }, [clientPage, clientPageSize, clientSearchDebounced]);
+      }, []);
       const buildAgentRow = React.useCallback((item) => {
         const pausesMinutes = toMinutes(item?.pausesMinutes ?? item?.pausasMinutos ?? item?.pausas_minutos ?? item?.pauses?.minutes ?? 0);
         const pausesCount = Number(item?.pausesCount ?? item?.pausasCantidad ?? item?.pauses?.count ?? 0);
@@ -1188,7 +1188,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         };
         fetchConfig();
         return () => { active = false; };
-      }, [clientPage, clientPageSize, clientSearchDebounced]);
+      }, []);
 
       React.useEffect(() => {
         let active = true;
@@ -1747,7 +1747,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         } catch {
           localStorage.removeItem('cliente_pendiente_alta');
         }
-      }, [clientPage, clientPageSize, clientSearchDebounced]);
+      }, []);
       const contactosAsignados = assignedData.total;
       const gestionados = stats?.tocados || 0;
       const ventasCerradas = stats?.ventas || 0;
@@ -3190,7 +3190,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           }
         };
         cargar();
-      }, [clientPage, clientPageSize, clientSearchDebounced]);
+      }, []);
 
       const formatFechaVenta = (iso) => {
         if (!iso) return '—';
@@ -6394,14 +6394,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         importDeleteToastRef.current = setTimeout(() => {
           setImportDeleteToast('');
         }, 4200);
-      }, [clientPage, clientPageSize, clientSearchDebounced]);
+      }, []);
 
       React.useEffect(() => () => {
         if (importDeleteToastRef.current) {
           clearTimeout(importDeleteToastRef.current);
           importDeleteToastRef.current = null;
         }
-      }, [clientPage, clientPageSize, clientSearchDebounced]);
+      }, []);
 
       const resolveImportId = React.useCallback((row = {}) => (
         row.id || row.batchId || row.batch_id || row.jobId || row.job_id || null
