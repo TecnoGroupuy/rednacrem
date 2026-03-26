@@ -1014,31 +1014,56 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return Number.isNaN(numeric) ? 0 : numeric;
       }, []);
       const buildAgentRow = React.useCallback((item) => {
-        const pausesMinutes = toMinutes(item?.pausesMinutes ?? item?.pausasMinutos ?? item?.pausas_minutos ?? item?.pauses?.minutes ?? 0);
-        const pausesCount = Number(item?.pausesCount ?? item?.pausasCantidad ?? item?.pauses?.count ?? 0);
-        const conversion = parsePercent(item?.conversion ?? item?.conversionRate ?? item?.conversion_percent ?? item?.conversionPercent ?? 0);
+        const pausesMinutes = toMinutes(
+          item?.pausesMinutes ??
+          item?.pausasMinutos ??
+          item?.pausas_minutos ??
+          item?.tiempo_total_pausas_minutos ??
+          item?.pauses?.minutes ??
+          0
+        );
+        const pausesCount = Number(
+          item?.pausesCount ??
+          item?.pausasCantidad ??
+          item?.cantidad_pausas ??
+          item?.pauses?.count ??
+          0
+        );
+        const conversion = parsePercent(
+          item?.conversion ??
+          item?.conversionRate ??
+          item?.conversion_percent ??
+          item?.conversionPercent ??
+          0
+        );
         const status = item?.status || item?.estado || item?.statusLabel || 'Activo';
         const name = item?.name || item?.nombre || item?.agent_name || '—';
+        const login = item?.login || item?.login_at || item?.ingreso || item?.login_time || '—';
+        const totalCalls = Number(item?.calls ?? item?.llamadas ?? item?.total_llamadas ?? 0);
+        const totalSales = Number(item?.sales ?? item?.ventas ?? item?.total_ventas ?? 0);
+        const workMinutes = toMinutes(item?.workTime ?? item?.tiempo_productivo ?? item?.work_time ?? item?.tiempo_conectado_minutos ?? 0);
+        const workTime = workMinutes ? `${Math.floor(workMinutes / 60)}h ${workMinutes % 60}m` : (item?.workTime || item?.tiempo_productivo || item?.work_time || '—');
         return {
           id: item?.id || item?.agente_id || item?.agent_id || name,
           name,
-          calls: Number(item?.calls ?? item?.llamadas ?? 0),
-          sales: Number(item?.sales ?? item?.ventas ?? 0),
+          calls: totalCalls,
+          sales: totalSales,
           conversion,
           status,
           pauses: { count: pausesCount, minutes: pausesMinutes },
-          login: item?.login || item?.login_at || item?.ingreso || '—',
-          workTime: item?.workTime || item?.tiempo_productivo || item?.work_time || '—',
+          login,
+          workTime,
           highlight: String(status).toLowerCase().includes('atencion') || String(status).toLowerCase().includes('atención')
         };
       }, [parsePercent, toMinutes]);
       const mapSummaryCards = React.useCallback((summary, agentsList) => {
-        if (summary) {
+        const normalizedSummary = summary || null;
+        if (normalizedSummary) {
           return [
-            { label: 'Agentes activos', value: summary?.agentsActive || summary?.agentesActivos || `${summary?.activos || 0} / ${summary?.total || 0}`, sub: summary?.attentionCount ? `${summary.attentionCount} requiere atención` : (summary?.nota || '') },
-            { label: 'Total llamadas', value: summary?.calls || summary?.llamadas || '0', sub: summary?.callsGoal ? `Meta del equipo: ${summary.callsGoal}` : '' },
-            { label: 'Total ventas', value: summary?.sales || summary?.ventas || '0', sub: summary?.salesGoal ? `Meta: ${summary.salesGoal}` : '' },
-            { label: 'Conv. promedio', value: summary?.avgConversion ? `${parsePercent(summary.avgConversion)}%` : '0%', sub: summary?.avgConversionNote || '' }
+            { label: 'Agentes activos', value: normalizedSummary?.agentsActive || normalizedSummary?.agentesActivos || `${normalizedSummary?.activos ?? normalizedSummary?.agentes_activos ?? 0} / ${normalizedSummary?.total ?? normalizedSummary?.agentes_total ?? 0}`, sub: normalizedSummary?.attentionCount ? `${normalizedSummary.attentionCount} requiere atención` : (normalizedSummary?.nota || '') },
+            { label: 'Total llamadas', value: normalizedSummary?.calls ?? normalizedSummary?.llamadas ?? normalizedSummary?.total_llamadas ?? '0', sub: normalizedSummary?.callsGoal ?? normalizedSummary?.meta_llamadas ? `Meta del equipo: ${normalizedSummary.callsGoal ?? normalizedSummary.meta_llamadas}` : '' },
+            { label: 'Total ventas', value: normalizedSummary?.sales ?? normalizedSummary?.ventas ?? normalizedSummary?.total_ventas ?? '0', sub: normalizedSummary?.salesGoal ?? normalizedSummary?.meta_ventas ? `Meta: ${normalizedSummary.salesGoal ?? normalizedSummary.meta_ventas}` : '' },
+            { label: 'Conv. promedio', value: normalizedSummary?.avgConversion ?? normalizedSummary?.conversion_promedio ? `${parsePercent(normalizedSummary.avgConversion ?? normalizedSummary.conversion_promedio)}%` : '0%', sub: normalizedSummary?.avgConversionNote || '' }
           ];
         }
         if (!agentsList.length) {
@@ -1382,11 +1407,15 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return [];
       }, [buildAgentRow, teamSummary]);
       const summaryCards = React.useMemo(() => {
-        const summary = teamSummary?.summary || teamSummary?.kpis || teamSummary?.data?.summary || null;
+        const summary = teamSummary?.summary || teamSummary?.kpis || teamSummary?.resumen_equipo || teamSummary?.data?.summary || null;
         return mapSummaryCards(summary, teamAgents);
       }, [mapSummaryCards, teamAgents, teamSummary]);
       const attentionNote = React.useMemo(() => {
         if (teamSummary?.attentionNote) return teamSummary.attentionNote;
+        if (teamSummary?.alertas_activas?.length) {
+          const first = teamSummary.alertas_activas[0];
+          return `${first?.agente_nombre || 'Agente'} requiere atención — ${first?.descripcion || ''}`.trim();
+        }
         return '';
       }, [teamAgents, teamSummary]);
       const avgPauseMinutes = React.useMemo(() => {
