@@ -1082,97 +1082,34 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         ];
       }, [parsePercent]);
 
-      const shouldApplyTeamUpdate = React.useCallback((payload) => {
-        if (!payload || payload?.ok === false) return false;
-        const list = payload?.agents || payload?.items || payload?.team || payload?.data?.agents || payload?.data?.items || [];
-        const hasAgents = Array.isArray(list) && list.length > 0;
-        const summary = payload?.summary || payload?.kpis || payload?.data?.summary || null;
-        const summaryHasData = summary && [
-          summary.calls, summary.llamadas,
-          summary.sales, summary.ventas,
-          summary.avgConversion, summary.conversion, summary.conversion_promedio
-        ].some((value) => Number(value || 0) > 0);
-        const agentsHaveData = hasAgents && list.some((agent) => (
-          Number(agent?.calls ?? agent?.llamadas ?? 0) > 0 ||
-          Number(agent?.sales ?? agent?.ventas ?? 0) > 0 ||
-          Number(agent?.conversion ?? agent?.conversionRate ?? agent?.conversion_percent ?? 0) > 0 ||
-          Number(agent?.pausesMinutes ?? agent?.pausasMinutos ?? agent?.pauses?.minutes ?? 0) > 0
-        ));
-        return (hasAgents && (agentsHaveData || summaryHasData)) || summaryHasData;
+      const normalizeTeamPayload = React.useCallback((payload) => {
+        if (!payload) return null;
+        const base = payload?.data || payload;
+        const agents = base?.agents || base?.agentes || base?.items || base?.team || base?.data?.agents || base?.data?.agentes || base?.data?.items || [];
+        const summary = base?.summary || base?.resumen_equipo || base?.kpis || base?.data?.summary || null;
+        const alertas = base?.alertas_activas || base?.alerts || base?.data?.alertas_activas || [];
+        return { ...base, agents, summary, alertas_activas: alertas };
       }, []);
 
-      const mergeTeamSummaryPayload = React.useCallback((prev, next) => {
-        if (!next) return prev || null;
-        if (!prev) return next;
-        const extractAgents = (obj) => obj?.agents || obj?.agentes || obj?.items || obj?.team || obj?.data?.agents || obj?.data?.agentes || obj?.data?.items || [];
-        const prevAgents = extractAgents(prev);
-        const nextAgents = extractAgents(next);
-        const prevById = new Map(prevAgents.map((agent) => {
-          const key = agent?.id || agent?.agente_id || agent?.agent_id || agent?.name || agent?.nombre;
-          return [String(key), agent];
-        }));
-        const mergedAgents = Array.isArray(nextAgents) ? nextAgents.map((agent) => {
-          const key = agent?.id || agent?.agente_id || agent?.agent_id || agent?.name || agent?.nombre;
-          const prevAgent = prevById.get(String(key)) || null;
-          if (!prevAgent) return agent;
-          const merged = { ...prevAgent, ...agent };
-          const hasLoginFields = ['login', 'login_at', 'ingreso'].some((k) => Object.prototype.hasOwnProperty.call(agent, k));
-          if (!hasLoginFields) {
-            merged.login = prevAgent.login;
-            merged.login_at = prevAgent.login_at;
-            merged.ingreso = prevAgent.ingreso;
-          }
-          const hasWorkFields = ['workTime', 'tiempo_productivo', 'work_time'].some((k) => Object.prototype.hasOwnProperty.call(agent, k));
-          if (!hasWorkFields) {
-            merged.workTime = prevAgent.workTime;
-            merged.tiempo_productivo = prevAgent.tiempo_productivo;
-            merged.work_time = prevAgent.work_time;
-          }
-          const hasPauseFields = ['pauses', 'pausesMinutes', 'pausasMinutos', 'pausas_minutos', 'pausesCount', 'pausasCantidad']
-            .some((k) => Object.prototype.hasOwnProperty.call(agent, k));
-          if (!hasPauseFields && prevAgent?.pauses) {
-            merged.pauses = prevAgent.pauses;
-          }
-          return merged;
-        }) : nextAgents;
-        const merged = { ...prev, ...next };
-        const nextSummary = next?.summary || next?.kpis || next?.data?.summary;
-        const prevSummary = prev?.summary || prev?.kpis || prev?.data?.summary;
-        if (!nextSummary && prevSummary) {
-          merged.summary = prevSummary;
-        }
-        if (!merged.attentionNote && prev?.attentionNote) {
-          merged.attentionNote = prev.attentionNote;
-        }
-        if (!merged.alertas_activas && prev?.alertas_activas) {
-          merged.alertas_activas = prev.alertas_activas;
-        }
-        if (!merged.resumen_equipo && prev?.resumen_equipo) {
-          merged.resumen_equipo = prev.resumen_equipo;
-        }
-        if (merged?.data?.summary === undefined && prev?.data?.summary) {
-          merged.data = { ...(merged.data || {}), summary: prev.data.summary };
-        }
-        if (merged.agents !== undefined) {
-          merged.agents = mergedAgents;
-        } else if (merged.agentes !== undefined) {
-          merged.agentes = mergedAgents;
-        } else if (merged.items !== undefined) {
-          merged.items = mergedAgents;
-        } else if (merged.team !== undefined) {
-          merged.team = mergedAgents;
-        } else if (merged.data?.agents !== undefined || merged.data?.agentes !== undefined || merged.data?.items !== undefined) {
-          merged.data = {
-            ...(merged.data || {}),
-            agents: merged.data?.agents !== undefined ? mergedAgents : merged.data?.agents,
-            agentes: merged.data?.agentes !== undefined ? mergedAgents : merged.data?.agentes,
-            items: merged.data?.items !== undefined ? mergedAgents : merged.data?.items
-          };
-        } else {
-          merged.agents = mergedAgents;
-        }
-        return merged;
-      }, []);
+      const shouldApplyTeamUpdate = React.useCallback((payload) => {
+        const normalized = normalizeTeamPayload(payload);
+        if (!normalized || normalized?.ok === false) return false;
+        const list = normalized?.agents || [];
+        const hasAgents = Array.isArray(list) && list.length > 0;
+        const summary = normalized?.summary || null;
+        const summaryHasData = summary && [
+          summary.calls, summary.llamadas, summary.total_llamadas,
+          summary.sales, summary.ventas, summary.total_ventas,
+          summary.avgConversion, summary.conversion_promedio
+        ].some((value) => Number(value || 0) > 0);
+        const agentsHaveData = hasAgents && list.some((agent) => (
+          Number(agent?.calls ?? agent?.llamadas ?? agent?.total_llamadas ?? 0) > 0 ||
+          Number(agent?.sales ?? agent?.ventas ?? agent?.total_ventas ?? 0) > 0 ||
+          Number(agent?.conversion ?? agent?.conversionRate ?? agent?.conversion_percent ?? 0) > 0 ||
+          Number(agent?.pausesMinutes ?? agent?.pausasMinutos ?? agent?.tiempo_total_pausas_minutos ?? 0) > 0
+        ));
+        return (hasAgents && (agentsHaveData || summaryHasData)) || summaryHasData;
+      }, [normalizeTeamPayload]);
 
 
       const normalizeDetail = React.useCallback((data, weekData, fallbackDetail) => {
@@ -1319,7 +1256,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             if (!active) return;
             if (response?.fecha && response.fecha !== dateStr) return;
             if (response?.data?.fecha && response.data.fecha !== dateStr) return;
-            setTeamSummary(response || null);
+            const normalized = normalizeTeamPayload(response);
+            setTeamSummary(normalized || response || null);
           })
           .catch((err) => {
             if (!active) return;
@@ -1330,7 +1268,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             setTeamLoading(false);
           });
         return () => { active = false; };
-      }, [formatDateYmd, selectedDate]);
+      }, [formatDateYmd, selectedDate, normalizeTeamPayload]);
 
       React.useEffect(() => {
         if (!detailAgent?.id) return () => {};
@@ -1384,7 +1322,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           const payloadDate = payload?.fecha || payload?.data?.fecha || '';
           if (payloadDate && payloadDate !== formatDateYmd(selectedDate)) return;
           if (!shouldApplyTeamUpdate(payload)) return;
-          setTeamSummary((prev) => mergeTeamSummaryPayload(prev, payload));
+          const normalized = normalizeTeamPayload(payload);
+          if (normalized) setTeamSummary(normalized);
         });
         socket.on('agent_event', (payload) => {
           const agentId = payload?.agentId || payload?.agente_id || payload?.agent_id || payload?.id;
@@ -1407,7 +1346,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return () => {
           socket.disconnect();
         };
-      }, [authUser?.accessToken, detailAgent?.id, formatDateYmd, selectedDate, socketBase, shouldApplyTeamUpdate, mergeTeamSummaryPayload]);
+      }, [authUser?.accessToken, detailAgent?.id, formatDateYmd, selectedDate, socketBase, shouldApplyTeamUpdate, normalizeTeamPayload]);
       const teamAgents = React.useMemo(() => {
         const items = teamSummary?.agents || teamSummary?.agentes || teamSummary?.items || teamSummary?.team || teamSummary?.data?.agents || teamSummary?.data?.agentes || teamSummary?.data?.items || [];
         if (Array.isArray(items) && items.length) {
