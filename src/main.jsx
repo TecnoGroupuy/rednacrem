@@ -7491,12 +7491,24 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           setPausaInicio('');
           setMostrarPausa(false);
         }
+        if (next.id === 'supervisor') {
+          const api = getApiClient();
+          const agenteId = authUser?.id || authUser?.sub || authUser?.username || '';
+          if (agenteId) {
+            api.post('/api/agent/event', { agente_id: agenteId, tipo: 'SUPERVISOR' }).catch(() => {});
+          }
+        }
       };
 
       const volverAlTrabajo = () => {
         setMostrarPausa(false);
         setPausaInicio('');
         setEstadoUsuario('disponible');
+        const api = getApiClient();
+        const agenteId = authUser?.id || authUser?.sub || authUser?.username || '';
+        if (agenteId) {
+          api.post('/api/agent/event', { agente_id: agenteId, tipo: 'TRABAJO' }).catch(() => {});
+        }
       };
 
       const handleLogout = async () => {
