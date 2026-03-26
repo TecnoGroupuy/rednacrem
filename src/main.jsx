@@ -1014,6 +1014,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return Number.isNaN(numeric) ? 0 : numeric;
       }, []);
       const buildAgentRow = React.useCallback((item) => {
+        console.log('[DEBUG ROW INPUT]', item?.login, item?.workTime, item?.name);
         const pausesMinutes = toMinutes(
           item?.pausesMinutes ??
           item?.pausasMinutos ??
@@ -1258,6 +1259,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             if (response?.fecha && response.fecha !== dateStr) return;
             if (response?.data?.fecha && response.data.fecha !== dateStr) return;
             const normalized = normalizeTeamPayload(response);
+            console.log('[DEBUG GET]', JSON.stringify(normalized?.agents?.slice(0, 1)));
             setTeamSummary(normalized || response || null);
           })
           .catch((err) => {
@@ -1324,6 +1326,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           if (payloadDate && payloadDate !== formatDateYmd(selectedDate)) return;
           if (!shouldApplyTeamUpdate(payload)) return;
           const normalized = normalizeTeamPayload(payload);
+          console.log('[DEBUG TEAM_UPDATE]', JSON.stringify(normalized?.agents?.slice(0, 1)));
           if (normalized) setTeamSummary(normalized);
         });
         socket.on('agent_event', (payload) => {
