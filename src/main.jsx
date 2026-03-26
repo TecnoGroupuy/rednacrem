@@ -7492,11 +7492,19 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           setPausaInicio('');
           setMostrarPausa(false);
         }
-        if (next.id === 'supervisor') {
+        const tipoMap = {
+          bano: 'BAÑO',
+          descanso: 'DESCANSO',
+          supervisor: 'SUPERVISOR'
+        };
+        const tipo = tipoMap[next.id];
+        if (tipo) {
           const api = getApiClient();
-          const agenteId = authUser?.id || authUser?.sub || authUser?.username || '';
+          const agenteId = authUser?.id;
           if (agenteId) {
-            api.post('/api/agent/event', { agente_id: agenteId, tipo: 'SUPERVISOR' }).catch(() => {});
+            api.post('/api/agent/event', { agente_id: agenteId, tipo }).catch(console.error);
+          } else {
+            console.warn('Sin authUser.id');
           }
         }
       };
@@ -7507,9 +7515,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setPausaInicio('');
         setEstadoUsuario('disponible');
         const api = getApiClient();
-        const agenteId = authUser?.id || authUser?.sub || authUser?.username || '';
+        const agenteId = authUser?.id;
         if (agenteId) {
-          api.post('/api/agent/event', { agente_id: agenteId, tipo: 'TRABAJO' }).catch(() => {});
+          api.post('/api/agent/event', { agente_id: agenteId, tipo: 'TRABAJO' }).catch(console.error);
+        } else {
+          console.warn('Sin authUser.id');
         }
       };
 
