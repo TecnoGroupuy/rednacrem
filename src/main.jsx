@@ -7250,6 +7250,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const today = new Date().toLocaleDateString('es-UY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
       const oidcAuth = useOidcAuth();
       const { user, logout } = useAuth();
+      const authUser = user;
       const { rolReal, rolEfectivo, esSuperadmin } = useRolEfectivo();
       const role = rolEfectivo;
       const [route, setRoute] = React.useState('dashboard_global');
