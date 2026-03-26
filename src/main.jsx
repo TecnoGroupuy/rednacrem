@@ -1122,6 +1122,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         api.get(`/api/supervisor/team-summary?fecha=${dateStr}`)
           .then((response) => {
             if (!active) return;
+            if (response?.fecha && response.fecha !== dateStr) return;
+            if (response?.data?.fecha && response.data.fecha !== dateStr) return;
             setTeamSummary(response || null);
           })
           .catch((err) => {
@@ -1184,6 +1186,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           }).catch(() => {});
         };
         socket.on('team_update', (payload) => {
+          const payloadDate = payload?.fecha || payload?.data?.fecha || '';
+          if (payloadDate && payloadDate !== formatDateYmd(selectedDate)) return;
           if (payload) setTeamSummary(payload);
         });
         socket.on('agent_event', (payload) => {
