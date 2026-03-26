@@ -7483,6 +7483,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
       const handleEstadoUsuario = (estadoId) => {
         const next = resolveEstadoUsuario(estadoId);
+        console.log('ENVIANDO EVENTO', next.id);
         setEstadoUsuario(next.id);
         if (next.bloqueaPantalla) {
           setPausaInicio(new Date().toISOString());
@@ -7501,6 +7502,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       };
 
       const volverAlTrabajo = () => {
+        console.log('ENVIANDO EVENTO', 'TRABAJO');
         setMostrarPausa(false);
         setPausaInicio('');
         setEstadoUsuario('disponible');
