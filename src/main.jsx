@@ -970,6 +970,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [detailAgent, setDetailAgent] = React.useState(null);
       const [detailTab, setDetailTab] = React.useState('resumen');
       const [selectedDate, setSelectedDate] = React.useState(() => new Date());
+      const [activityExpanded, setActivityExpanded] = React.useState(false);
       const [teamSummary, setTeamSummary] = React.useState(null);
       const [teamLoading, setTeamLoading] = React.useState(false);
       const [teamError, setTeamError] = React.useState('');
@@ -1338,6 +1339,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, [detailAgent?.id, formatDateYmd, selectedDate]);
 
       React.useEffect(() => {
+        setActivityExpanded(false);
+      }, [detailAgent?.id]);
+
+      React.useEffect(() => {
         if (!teamConfig) return () => {};
         if (teamConfig?.socketEnabled === false || teamConfig?.realtimeEnabled === false) return () => {};
         if (!socketBase) return () => {};
@@ -1631,17 +1636,25 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       </>
                     ) : null}
                     {detailTab === 'actividad' ? (
-                      <div style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 14, padding: 12, maxHeight: 280, overflowY: 'auto' }}>
+                      <div style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 16, padding: 14, maxHeight: 400, overflowY: 'auto', background: 'rgba(248,250,252,0.7)' }}>
                         {(() => {
-                          const order = ['login', 'trabajo', 'baño', 'bano', 'descanso', 'supervisor', 'logout'];
-                          const labelByType = {
-                            login: 'Ingreso (Login)',
-                            trabajo: 'Trabajo',
-                            baño: 'Baño',
-                            bano: 'Baño',
-                            descanso: 'Descanso',
-                            supervisor: 'Con supervisor',
-                            logout: 'Cierre (Logout)'
+                          const rawEvents = Array.isArray(activeDetail?.activityRaw) ? activeDetail.activityRaw : [];
+                          const normalizeType = (value) => {
+                            const key = String(value || '').toLowerCase();
+                            if (key === 'login') return 'login';
+                            if (key === 'logout') return 'logout';
+                            if (key === 'trabajo') return 'trabajo';
+                            if (key === 'descanso') return 'descanso';
+                            if (key === 'supervisor') return 'supervisor';
+                            if (key === 'baño' || key === 'bano') return 'bano';
+                            return '';
+                          };
+                          const formatMinutes = (mins) => {
+                            if (mins === null || mins === undefined) return '—';
+                            const total = Math.max(0, Number(mins) || 0);
+                            const h = Math.floor(total / 60);
+                            const m = total % 60;
+                            return h ? `${h}h ${m}m` : `${m}m`;
                           };
                           const diffMinutes = (start, end) => {
                             if (!start || !end) return null;
@@ -1650,41 +1663,66 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) return null;
                             return Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
                           };
-                          const formatMinutes = (mins) => {
-                            if (mins === null || mins === undefined) return '—';
-                            const h = Math.floor(mins / 60);
-                            const m = mins % 60;
-                            return h ? `${h}h ${m}m` : `${m}m`;
-                          };
-                          const rawEvents = Array.isArray(activeDetail?.activityRaw) ? activeDetail.activityRaw : [];
-                          const grouped = order.map((type) => {
-                            const events = rawEvents.filter((evt) => String(evt?.tipo || '').toLowerCase() === type);
-                            const occurrences = events.map((evt) => {
+                          const parsed = rawEvents
+                            .map((evt) => {
+                              const type = normalizeType(evt?.tipo);
+                              if (!type) return null;
                               const duration = Number(evt?.duracion_minutos ?? evt?.duracion ?? evt?.minutes ?? 0);
                               const computed = duration || diffMinutes(evt?.inicio, evt?.fin);
                               return {
+                                type,
                                 start: evt?.inicio || '—',
+                                end: evt?.fin || '',
                                 duration: computed === null ? null : computed,
                                 inProgress: !evt?.fin && !duration
                               };
-                            });
-                            const totalMinutes = occurrences.reduce((acc, occ) => acc + (occ.duration || 0), 0);
-                            return { type, label: labelByType[type], occurrences, totalMinutes };
+                            })
+                            .filter(Boolean);
+                          const typeOrder = ['login', 'trabajo', 'bano', 'descanso', 'supervisor', 'logout'];
+                          const labelByType = {
+                            login: 'Ingreso (Login)',
+                            trabajo: 'Trabajo',
+                            bano: 'Baño',
+                            descanso: 'Descanso',
+                            supervisor: 'Con supervisor',
+                            logout: 'Cierre (Logout)'
+                          };
+                          const iconByType = {
+                            login: '🟢',
+                            trabajo: '🟢',
+                            bano: '🟢',
+                            descanso: '🟡',
+                            supervisor: '🔵',
+                            logout: '🔴'
+                          };
+                          const grouped = typeOrder.map((type) => {
+                            const events = parsed.filter((evt) => evt.type === type);
+                            const totalMinutes = events.reduce((acc, evt) => acc + (evt.duration || 0), 0);
+                            return { type, events, totalMinutes, count: events.length };
                           });
+                          const firstLogin = parsed.find((evt) => evt.type === 'login');
+                          const lastLogout = [...parsed].reverse().find((evt) => evt.type === 'logout');
+                          const totalWork = grouped.find((row) => row.type === 'trabajo')?.totalMinutes || 0;
+                          const totalPausas = (grouped.find((row) => row.type === 'bano')?.totalMinutes || 0)
+                            + (grouped.find((row) => row.type === 'descanso')?.totalMinutes || 0)
+                            + (grouped.find((row) => row.type === 'supervisor')?.totalMinutes || 0);
+                          const totalJornada = totalWork + totalPausas;
                           return (
-                            <div style={{ display: 'grid', gap: 10 }}>
+                            <div style={{ display: 'grid', gap: 12 }}>
                               {grouped.map((row) => (
-                                <div key={row.type} style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: 12, alignItems: 'start' }}>
-                                  <div style={{ fontWeight: 700 }}>{row.label}</div>
-                                  <div style={{ color: 'var(--muted)', fontSize: '0.86rem' }}>
-                                    {row.occurrences.length ? (
+                                <div key={row.type} style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 12, alignItems: 'start' }}>
+                                  <div style={{ fontWeight: 700 }}>{iconByType[row.type]} {labelByType[row.type]}</div>
+                                  <div style={{ color: 'var(--muted)', fontSize: '0.88rem' }}>
+                                    {row.count ? (
                                       <>
-                                        {row.occurrences.map((occ, idx) => (
+                                        {row.events.map((evt, idx) => (
                                           <span key={`${row.type}-${idx}`} style={{ marginRight: 12 }}>
-                                            {occ.start} · {occ.inProgress ? 'En curso' : formatMinutes(occ.duration)}
+                                            {evt.start} {evt.inProgress ? '· En curso' : `· ${formatMinutes(evt.duration)}`}
                                           </span>
                                         ))}
-                                        <span style={{ fontWeight: 700 }}>→ Total: {formatMinutes(row.totalMinutes)} ({row.occurrences.length} vez{row.occurrences.length === 1 ? '' : 'es'})</span>
+                                        <span style={{ fontWeight: 700 }}>
+                                          → Total: {formatMinutes(row.totalMinutes)} ({row.count} vez{row.count === 1 ? '' : 'es'})
+                                        </span>
                                       </>
                                     ) : (
                                       <span>—</span>
@@ -1692,6 +1730,30 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                   </div>
                                 </div>
                               ))}
+                              <div style={{ borderTop: '1px dashed rgba(148,163,184,0.6)', paddingTop: 10, color: 'var(--muted)', fontSize: '0.88rem' }}>
+                                {firstLogin ? `Ingreso ${firstLogin.start}` : 'Ingreso —'} · {lastLogout ? `Cierre ${lastLogout.start}` : 'Cierre —'}
+                                <span style={{ marginLeft: 10 }}>Total jornada: {formatMinutes(totalJornada)}</span>
+                                <span style={{ marginLeft: 10 }}>Trabajo efectivo: {formatMinutes(totalWork)}</span>
+                                <span style={{ marginLeft: 10 }}>Pausas: {formatMinutes(totalPausas)}</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setActivityExpanded((prev) => !prev)}
+                                style={{ border: '1px solid rgba(15,23,42,0.1)', borderRadius: 10, padding: '8px 12px', background: '#fff', fontWeight: 600, cursor: 'pointer', width: 'fit-content' }}
+                              >
+                                {activityExpanded ? 'Ocultar detalle' : 'Ver detalle'}
+                              </button>
+                              {activityExpanded ? (
+                                <div style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 12, padding: 10, maxHeight: 250, overflowY: 'auto', background: '#fff' }}>
+                                  {parsed.length ? parsed.map((evt, idx) => (
+                                    <div key={`detail-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 4px', borderBottom: '1px solid rgba(148,163,184,0.2)' }}>
+                                      <div>{evt.start}</div>
+                                      <div>{labelByType[evt.type]}</div>
+                                      <div>{evt.inProgress ? 'En curso' : formatMinutes(evt.duration)}</div>
+                                    </div>
+                                  )) : <div style={{ color: 'var(--muted)' }}>Sin eventos.</div>}
+                                </div>
+                              ) : null}
                             </div>
                           );
                         })()}
