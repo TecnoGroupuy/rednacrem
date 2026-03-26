@@ -984,20 +984,20 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         } catch {
           return '';
         }
-      }, []);
+      }, [clientPage, clientPageSize, clientSearchDebounced]);
       const formatDateYmd = React.useCallback((value) => {
         if (!value) return '';
         const year = value.getFullYear();
         const month = String(value.getMonth() + 1).padStart(2, '0');
         const day = String(value.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
-      }, []);
+      }, [clientPage, clientPageSize, clientSearchDebounced]);
       const parsePercent = React.useCallback((value) => {
         if (value === null || value === undefined) return 0;
         const numeric = Number(String(value).replace('%', '').trim());
         if (Number.isNaN(numeric)) return 0;
         return numeric <= 1 ? Math.round(numeric * 100) : numeric;
-      }, []);
+      }, [clientPage, clientPageSize, clientSearchDebounced]);
       const toMinutes = React.useCallback((value) => {
         if (value === null || value === undefined) return 0;
         if (typeof value === 'number') return value;
@@ -1012,7 +1012,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         if (minsMatch) return Number(minsMatch[1] || 0);
         const numeric = Number(raw);
         return Number.isNaN(numeric) ? 0 : numeric;
-      }, []);
+      }, [clientPage, clientPageSize, clientSearchDebounced]);
       const buildAgentRow = React.useCallback((item) => {
         const pausesMinutes = toMinutes(item?.pausesMinutes ?? item?.pausasMinutos ?? item?.pausas_minutos ?? item?.pauses?.minutes ?? 0);
         const pausesCount = Number(item?.pausesCount ?? item?.pausasCantidad ?? item?.pauses?.count ?? 0);
@@ -1188,7 +1188,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         };
         fetchConfig();
         return () => { active = false; };
-      }, []);
+      }, [clientPage, clientPageSize, clientSearchDebounced]);
 
       React.useEffect(() => {
         let active = true;
@@ -1747,7 +1747,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         } catch {
           localStorage.removeItem('cliente_pendiente_alta');
         }
-      }, []);
+      }, [clientPage, clientPageSize, clientSearchDebounced]);
       const contactosAsignados = assignedData.total;
       const gestionados = stats?.tocados || 0;
       const ventasCerradas = stats?.ventas || 0;
@@ -3190,7 +3190,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           }
         };
         cargar();
-      }, []);
+      }, [clientPage, clientPageSize, clientSearchDebounced]);
 
       const formatFechaVenta = (iso) => {
         if (!iso) return '—';
@@ -5425,6 +5425,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const [clientMetrics, setClientMetrics] = React.useState(() => buildClientMetricCards());
         const [clientRows, setClientRows] = React.useState([]);
         const [clientSearch, setClientSearch] = React.useState('');
+        const [clientSearchDebounced, setClientSearchDebounced] = React.useState('');
+        const [clientPage, setClientPage] = React.useState(1);
+        const [clientPageSize] = React.useState(50);
+        const [clientTotal, setClientTotal] = React.useState(0);
         const [clientsLoading, setClientsLoading] = React.useState(true);
         const [clientsError, setClientsError] = React.useState('');
         const [selectedClient, setSelectedClient] = React.useState(null);
@@ -5480,10 +5484,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         let canceled = false;
         setClientsLoading(true);
         setClientsError('');
-        fetchClientsDirectory()
-          .then(({ table }) => {
+        fetchClientsDirectory({ page: clientPage, limit: clientPageSize, search: clientSearchDebounced })
+          .then(({ table, total }) => {
             if (canceled) return;
             setClientRows(table);
+            setClientTotal(Number(total || 0));
           })
           .catch(() => {
             if (canceled) return;
@@ -5494,7 +5499,18 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             setClientsLoading(false);
           });
         return () => { canceled = true; };
-      }, []);
+      }, [clientPage, clientPageSize, clientSearchDebounced]);
+
+      React.useEffect(() => {
+        const timer = window.setTimeout(() => {
+          setClientSearchDebounced(clientSearch.trim());
+        }, 400);
+        return () => window.clearTimeout(timer);
+      }, [clientSearch]);
+
+      React.useEffect(() => {
+        setClientPage(1);
+      }, [clientSearchDebounced]);
 
       const filteredClients = React.useMemo(() => {
         const term = String(clientSearch || '').trim().toLowerCase();
@@ -5514,6 +5530,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           return values.some((value) => value.includes(term));
         });
       }, [clientRows, clientSearch]);
+
+      const totalPages = Math.max(1, Math.ceil((clientTotal || 0) / clientPageSize));
 
       const handleViewFicha = React.useCallback(async (clientId) => {
         const found = clientRows.find((item) => item.id === clientId);
@@ -5575,10 +5593,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             setSelectedClient((prev) => (prev && prev.id === updatedId ? { ...prev, ...detail } : detail));
           })
           .catch(() => {});
-        fetchClientsDirectory()
-          .then(({ table }) => setClientRows(table))
+        fetchClientsDirectory({ page: clientPage, limit: clientPageSize, search: clientSearchDebounced })
+          .then(({ table, total }) => {
+            setClientRows(table);
+            setClientTotal(Number(total || 0));
+          })
           .catch(() => {});
-      }, []);
+      }, [clientPage, clientPageSize, clientSearchDebounced]);
 
       const handleDeleteClient = React.useCallback(async (clientId, clientName) => {
         if (!clientId) return;
@@ -5588,17 +5609,18 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         try {
           await deleteClient(clientId);
           const [directory, metrics] = await Promise.all([
-            fetchClientsDirectory(),
+            fetchClientsDirectory({ page: clientPage, limit: clientPageSize, search: clientSearchDebounced }),
             fetchClientsMetrics()
           ]);
           setClientRows(directory.table);
+          setClientTotal(Number(directory.total || 0));
           setClientMetrics(buildClientMetricCards(metrics));
           setSelectedClient((prev) => (prev && prev.id === clientId ? null : prev));
         } catch (err) {
           const message = err?.message || 'No se pudo eliminar el cliente.';
           setClientsError(message);
         }
-      }, []);
+      }, [clientPage, clientPageSize, clientSearchDebounced]);
 
         const handleCloseFicha = () => {
           setSelectedClient(null);
@@ -5686,10 +5708,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           try {
             await createContactWithProducts(payload);
             const [directory, metrics] = await Promise.all([
-              fetchClientsDirectory(),
+              fetchClientsDirectory({ page: clientPage, limit: clientPageSize, search: clientSearchDebounced }),
               fetchClientsMetrics()
             ]);
             setClientRows(directory.table);
+            setClientTotal(Number(directory.total || 0));
             setClientMetrics(buildClientMetricCards(metrics));
             handleCloseNewClient();
             try { localStorage.removeItem('cliente_pendiente_alta'); } catch {}
@@ -5699,7 +5722,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               setNewClientError('Ya existe un contacto con ese documento o email.');
             } else if (status === 422) {
               try {
-                const directory = await fetchClientsDirectory();
+                const directory = await fetchClientsDirectory({ page: clientPage, limit: clientPageSize, search: clientSearchDebounced });
                 const match = directory?.table?.find((row) => {
                   const doc = newClientDraft.contact.documento || '';
                   const email = newClientDraft.contact.email || '';
@@ -5708,6 +5731,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 if (match) {
                   const metrics = await fetchClientsMetrics().catch(() => null);
                   setClientRows(directory.table);
+                  setClientTotal(Number(directory.total || 0));
                   if (metrics) setClientMetrics(buildClientMetricCards(metrics));
                   handleCloseNewClient();
                   return;
@@ -5716,7 +5740,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               setNewClientError(err?.details?.message || 'Hay errores de validación en el formulario.');
             } else {
               try {
-                const directory = await fetchClientsDirectory();
+                const directory = await fetchClientsDirectory({ page: clientPage, limit: clientPageSize, search: clientSearchDebounced });
                 const match = directory?.table?.find((row) => {
                   const doc = newClientDraft.contact.documento || '';
                   const email = newClientDraft.contact.email || '';
@@ -5725,6 +5749,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 if (match) {
                   const metrics = await fetchClientsMetrics().catch(() => null);
                   setClientRows(directory.table);
+                  setClientTotal(Number(directory.total || 0));
                   if (metrics) setClientMetrics(buildClientMetricCards(metrics));
                   handleCloseNewClient();
                   return;
@@ -5858,6 +5883,16 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   <thead><tr><th>Cliente</th><th>Fecha de alta</th><th>Producto</th><th>Cuota</th><th>Estado</th><th>Acción</th></tr></thead>
                   <tbody>{renderClientRows()}</tbody>
                 </table>
+              </div>
+              <div className="toolbar" style={{ justifyContent: 'space-between', marginTop: 12 }}>
+                <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>
+                  Mostrando {filteredClients.length} de {clientTotal || 0}
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <Button variant="ghost" disabled={clientPage <= 1} onClick={() => setClientPage((prev) => Math.max(1, prev - 1))}>Anterior</Button>
+                  <div style={{ fontWeight: 600 }}>Página {clientPage} de {totalPages}</div>
+                  <Button variant="ghost" disabled={clientPage >= totalPages} onClick={() => setClientPage((prev) => Math.min(totalPages, prev + 1))}>Siguiente</Button>
+                </div>
               </div>
             </Panel>
           </section>
@@ -6353,14 +6388,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         importDeleteToastRef.current = setTimeout(() => {
           setImportDeleteToast('');
         }, 4200);
-      }, []);
+      }, [clientPage, clientPageSize, clientSearchDebounced]);
 
       React.useEffect(() => () => {
         if (importDeleteToastRef.current) {
           clearTimeout(importDeleteToastRef.current);
           importDeleteToastRef.current = null;
         }
-      }, []);
+      }, [clientPage, clientPageSize, clientSearchDebounced]);
 
       const resolveImportId = React.useCallback((row = {}) => (
         row.id || row.batchId || row.batch_id || row.jobId || row.job_id || null

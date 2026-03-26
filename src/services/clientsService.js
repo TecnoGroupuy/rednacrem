@@ -313,7 +313,7 @@ export const searchPortfolioClients = async (term) => {
       return text.includes(query);
     });
   }
-  const { portfolio = [], table = [] } = await fetchClientsDirectory();
+  const { portfolio = [], table = [] } = await fetchClientsDirectory({ page: 1, limit: 50, search: term });
   const base = portfolio.length ? portfolio : table;
   return base
     .map((client) => ({
@@ -344,7 +344,7 @@ export const fetchContactsList = async () => {
   return items.map(mapBackendContactRow);
 };
 
-export const fetchClientsDirectory = async () => {
+export const fetchClientsDirectory = async ({ page = 1, limit = null, search = '' } = {}) => {
   if (!hasApiConfigured()) {
     const fallback = listPortfolioClients();
     return {
@@ -361,18 +361,54 @@ export const fetchClientsDirectory = async () => {
         cuotasPagas: 0,
         carenciaCuotas: 0
       })),
-      portfolio: fallback
+      portfolio: fallback,
+      total: fallback.length,
+      page,
+      pageSize: limit || fallback.length
     };
   }
 
-  const response = await api.get('/clients');
+  const params = new URLSearchParams();
+  if (limit) {
+    params.set('limit', String(limit));
+    if (page) params.set('page', String(page));
+  }
+  if (search) params.set('search', search);
+  const query = params.toString();
+  const response = await api.get(`/clients${query ? `?${query}` : ''}`);
   const items = Array.isArray(response)
     ? response
     : (Array.isArray(response?.items)
         ? response.items
         : (Array.isArray(response?.clients)
             ? response.clients
-            : (Array.isArray(response?.data) ? response.data : [])));
+            : (Array.isArray(response?.data?.items)
+                ? response.data.items
+                : (Array.isArray(response?.data?.clients)
+                    ? response.data.clients
+                    : (Array.isArray(response?.data) ? response.data : [])))));
+  const total = Number(
+    response?.total ??
+    response?.pagination?.total ??
+    response?.data?.total ??
+    response?.data?.pagination?.total ??
+    items.length
+  );
+  const currentPage = Number(
+    response?.page ??
+    response?.pagination?.page ??
+    response?.data?.page ??
+    response?.data?.pagination?.page ??
+    page
+  );
+  const pageSize = Number(
+    response?.limit ??
+    response?.pagination?.limit ??
+    response?.data?.limit ??
+    response?.data?.pagination?.limit ??
+    limit ??
+    items.length
+  );
   const portfolio = items.map(mapBackendPortfolioRow);
   const table = portfolio.map((item) => ({
     id: item.id,
@@ -391,7 +427,7 @@ export const fetchClientsDirectory = async () => {
     cuotasPagas: item.cuotasPagas,
     carenciaCuotas: item.carenciaCuotas
   }));
-  return { table, portfolio };
+  return { table, portfolio, total, page: currentPage, pageSize };
 };
 
 export const fetchClientsMetrics = async () => {
