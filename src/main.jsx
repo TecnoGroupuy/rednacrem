@@ -1057,6 +1057,26 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         ];
       }, [parsePercent]);
 
+      const shouldApplyTeamUpdate = React.useCallback((payload) => {
+        if (!payload || payload?.ok === false) return false;
+        const list = payload?.agents || payload?.items || payload?.team || payload?.data?.agents || payload?.data?.items || [];
+        const hasAgents = Array.isArray(list) && list.length > 0;
+        const summary = payload?.summary || payload?.kpis || payload?.data?.summary || null;
+        const summaryHasData = summary && [
+          summary.calls, summary.llamadas,
+          summary.sales, summary.ventas,
+          summary.avgConversion, summary.conversion, summary.conversion_promedio
+        ].some((value) => Number(value || 0) > 0);
+        const agentsHaveData = hasAgents && list.some((agent) => (
+          Number(agent?.calls ?? agent?.llamadas ?? 0) > 0 ||
+          Number(agent?.sales ?? agent?.ventas ?? 0) > 0 ||
+          Number(agent?.conversion ?? agent?.conversionRate ?? agent?.conversion_percent ?? 0) > 0 ||
+          Number(agent?.pausesMinutes ?? agent?.pausasMinutos ?? agent?.pauses?.minutes ?? 0) > 0
+        ));
+        return (hasAgents && (agentsHaveData || summaryHasData)) || summaryHasData;
+      }, []);
+
+
       const normalizeDetail = React.useCallback((data, weekData, fallbackDetail) => {
         if (!data && !weekData && !fallbackDetail) return null;
         const raw = data?.detail || data?.agent || data?.data || data || {};
@@ -1331,24 +1351,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         if (value >= 12) return '#3b82f6';
         return '#f97316';
       };
-      const shouldApplyTeamUpdate = React.useCallback((payload) => {
-        if (!payload || payload?.ok === false) return false;
-        const list = payload?.agents || payload?.items || payload?.team || payload?.data?.agents || payload?.data?.items || [];
-        const hasAgents = Array.isArray(list) && list.length > 0;
-        const summary = payload?.summary || payload?.kpis || payload?.data?.summary || null;
-        const summaryHasData = summary && [
-          summary.calls, summary.llamadas,
-          summary.sales, summary.ventas,
-          summary.avgConversion, summary.conversion, summary.conversion_promedio
-        ].some((value) => Number(value || 0) > 0);
-        const agentsHaveData = hasAgents && list.some((agent) => (
-          Number(agent?.calls ?? agent?.llamadas ?? 0) > 0 ||
-          Number(agent?.sales ?? agent?.ventas ?? 0) > 0 ||
-          Number(agent?.conversion ?? agent?.conversionRate ?? agent?.conversion_percent ?? 0) > 0 ||
-          Number(agent?.pausesMinutes ?? agent?.pausasMinutos ?? agent?.pauses?.minutes ?? 0) > 0
-        ));
-        return (hasAgents && (agentsHaveData || summaryHasData)) || summaryHasData;
-      }, []);
       const pauseBadgeStyle = (minutes, status) => {
         const isHigh = (avgPauseMinutes ? minutes >= avgPauseMinutes : minutes >= 45) || status === 'Atención';
         return {
