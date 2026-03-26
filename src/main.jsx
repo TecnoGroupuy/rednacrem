@@ -1104,7 +1104,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const mergeTeamSummaryPayload = React.useCallback((prev, next) => {
         if (!next) return prev || null;
         if (!prev) return next;
-        const extractAgents = (obj) => obj?.agents || obj?.items || obj?.team || obj?.data?.agents || obj?.data?.items || [];
+        const extractAgents = (obj) => obj?.agents || obj?.agentes || obj?.items || obj?.team || obj?.data?.agents || obj?.data?.agentes || obj?.data?.items || [];
         const prevAgents = extractAgents(prev);
         const nextAgents = extractAgents(next);
         const prevById = new Map(prevAgents.map((agent) => {
@@ -1144,19 +1144,28 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         if (!merged.attentionNote && prev?.attentionNote) {
           merged.attentionNote = prev.attentionNote;
         }
+        if (!merged.alertas_activas && prev?.alertas_activas) {
+          merged.alertas_activas = prev.alertas_activas;
+        }
+        if (!merged.resumen_equipo && prev?.resumen_equipo) {
+          merged.resumen_equipo = prev.resumen_equipo;
+        }
         if (merged?.data?.summary === undefined && prev?.data?.summary) {
           merged.data = { ...(merged.data || {}), summary: prev.data.summary };
         }
         if (merged.agents !== undefined) {
           merged.agents = mergedAgents;
+        } else if (merged.agentes !== undefined) {
+          merged.agentes = mergedAgents;
         } else if (merged.items !== undefined) {
           merged.items = mergedAgents;
         } else if (merged.team !== undefined) {
           merged.team = mergedAgents;
-        } else if (merged.data?.agents !== undefined || merged.data?.items !== undefined) {
+        } else if (merged.data?.agents !== undefined || merged.data?.agentes !== undefined || merged.data?.items !== undefined) {
           merged.data = {
             ...(merged.data || {}),
             agents: merged.data?.agents !== undefined ? mergedAgents : merged.data?.agents,
+            agentes: merged.data?.agentes !== undefined ? mergedAgents : merged.data?.agentes,
             items: merged.data?.items !== undefined ? mergedAgents : merged.data?.items
           };
         } else {
@@ -1400,7 +1409,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         };
       }, [authUser?.accessToken, detailAgent?.id, formatDateYmd, selectedDate, socketBase, shouldApplyTeamUpdate, mergeTeamSummaryPayload]);
       const teamAgents = React.useMemo(() => {
-        const items = teamSummary?.agents || teamSummary?.items || teamSummary?.team || teamSummary?.data?.agents || teamSummary?.data?.items || [];
+        const items = teamSummary?.agents || teamSummary?.agentes || teamSummary?.items || teamSummary?.team || teamSummary?.data?.agents || teamSummary?.data?.agentes || teamSummary?.data?.items || [];
         if (Array.isArray(items) && items.length) {
           return items.map(buildAgentRow);
         }
