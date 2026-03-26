@@ -1060,8 +1060,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const normalizeDetail = React.useCallback((data, weekData, fallbackDetail) => {
         if (!data && !weekData && !fallbackDetail) return null;
         const raw = data?.detail || data?.agent || data?.data || data || {};
-        const shift = raw.shift || raw.turno || raw.shiftLabel || raw.shift_label || fallbackDetail?.shift || '';
-        const status = raw.status || raw.estado || fallbackDetail?.status || 'Activo';
+        const agent = raw.agente || raw.agent || raw.user || {};
+        const metrics = raw.metricas || raw.metrics || raw.kpis || raw.summary || {};
+        const shiftStart = agent.turno_inicio || raw.turno_inicio || '';
+        const shiftEnd = agent.turno_fin || raw.turno_fin || '';
+        const shift = raw.shift || raw.turno || raw.shiftLabel || raw.shift_label || (shiftStart || shiftEnd ? `${shiftStart || '—'} — ${shiftEnd || '—'}` : '') || fallbackDetail?.shift || '';
+        const status = agent.estado || raw.status || raw.estado || fallbackDetail?.status || 'Activo';
         const countFrom = (value) => {
           if (Array.isArray(value)) return value.length;
           if (value && typeof value === 'object') {
@@ -1070,33 +1074,94 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           }
           return Number(value ?? 0);
         };
-        const callsCount = countFrom(raw.callsCount ?? raw.calls_total ?? raw.llamadas_total ?? raw.llamadas ?? raw.calls);
-        const salesCount = countFrom(raw.salesCount ?? raw.sales_total ?? raw.ventas_total ?? raw.ventas ?? raw.sales);
-        const conversionRaw = raw.conversion ?? raw.conversionRate ?? raw.pct_conversion ?? raw.conversion_pct ?? raw.conversionPercent;
+        const callsCount = countFrom(
+          metrics.total_llamadas ?? metrics.calls ?? metrics.llamadas ??
+          raw.callsCount ?? raw.calls_total ?? raw.llamadas_total ?? raw.llamadas ?? raw.calls
+        );
+        const salesCount = countFrom(
+          metrics.total_ventas ?? metrics.sales ?? metrics.ventas ??
+          raw.salesCount ?? raw.sales_total ?? raw.ventas_total ?? raw.ventas ?? raw.sales
+        );
+        const conversionRaw = metrics.conversion ?? metrics.conversionRate ??
+          raw.conversion ?? raw.conversionRate ?? raw.pct_conversion ?? raw.conversion_pct ?? raw.conversionPercent;
         const derivedConversion = callsCount ? Math.round((salesCount / callsCount) * 100) : 0;
         let kpis = raw.kpis || raw.metrics || raw.kpi || null;
         if (!Array.isArray(kpis)) {
           kpis = [
-            { label: 'Llamadas', value: String(Number.isFinite(callsCount) ? callsCount : 0), sub: raw.callsGoal ? `Meta: ${raw.callsGoal}` : fallbackDetail?.kpis?.[0]?.sub || '' },
-            { label: 'Ventas', value: String(Number.isFinite(salesCount) ? salesCount : 0), sub: raw.salesGoal ? `Meta: ${raw.salesGoal}` : fallbackDetail?.kpis?.[1]?.sub || '' },
-            { label: 'Conversión', value: `${parsePercent(conversionRaw ?? derivedConversion ?? fallbackDetail?.kpis?.[2]?.value ?? 0)}%`, sub: raw.conversionMin ? `Mínimo: ${raw.conversionMin}%` : fallbackDetail?.kpis?.[2]?.sub || '' },
-            { label: 'Tiempo productivo', value: raw.productivePercent ? `${parsePercent(raw.productivePercent)}%` : (fallbackDetail?.kpis?.[3]?.value || '—'), sub: raw.productiveTime ? `${raw.productiveTime}` : fallbackDetail?.kpis?.[3]?.sub || '' }
+            { label: 'Llamadas', value: String(Number.isFinite(callsCount) ? callsCount : 0), sub: metrics.meta_llamadas ? `Meta: ${metrics.meta_llamadas}` : (raw.callsGoal ? `Meta: ${raw.callsGoal}` : fallbackDetail?.kpis?.[0]?.sub || '') },
+            { label: 'Ventas', value: String(Number.isFinite(salesCount) ? salesCount : 0), sub: metrics.meta_ventas ? `Meta: ${metrics.meta_ventas}` : (raw.salesGoal ? `Meta: ${raw.salesGoal}` : fallbackDetail?.kpis?.[1]?.sub || '') },
+            { label: 'Conversión', value: `${parsePercent(conversionRaw ?? derivedConversion ?? fallbackDetail?.kpis?.[2]?.value ?? 0)}%`, sub: metrics.conversion_promedio_equipo ? `Promedio equipo: ${parsePercent(metrics.conversion_promedio_equipo)}%` : (raw.conversionMin ? `Mínimo: ${raw.conversionMin}%` : fallbackDetail?.kpis?.[2]?.sub || '') },
+            { label: 'Tiempo productivo', value: metrics.porcentaje_productivo ? `${parsePercent(metrics.porcentaje_productivo)}%` : (raw.productivePercent ? `${parsePercent(raw.productivePercent)}%` : (fallbackDetail?.kpis?.[3]?.value || '—')), sub: metrics.tiempo_productivo_minutos ? `${metrics.tiempo_productivo_minutos}m` : (raw.productiveTime ? `${raw.productiveTime}` : fallbackDetail?.kpis?.[3]?.sub || '') }
           ];
         }
-        const timeline = raw.timeline || raw.timelineSegments || raw.turnoTimeline || raw.segments || fallbackDetail?.timeline || [];
+        const rawEvents = raw.eventos || raw.events || raw.activity || raw.events_turno || [];
+        const timeline = raw.timeline || raw.timelineSegments || raw.turnoTimeline || raw.segments || fallbackDetail?.timeline || (Array.isArray(rawEvents) ? rawEvents.map((event) => {
+          const tipo = String(event?.tipo || '').toLowerCase();
+          const label = tipo === 'login' ? 'Trabajo' : tipo === 'trabajo' ? 'Trabajo' : tipo === 'descanso' ? 'Descanso' : (tipo === 'baño' || tipo === 'bano') ? 'Baño' : tipo === 'supervisor' ? 'Supervisor' : 'Trabajo';
+          const minutes = Number(event?.duracion_minutos ?? event?.duracion ?? event?.minutes ?? 0) || Number(event?.porcentaje_ancho ?? 0) || 1;
+          const color = label === 'Trabajo' ? '#93c5fd' : label === 'Descanso' ? '#fdba74' : label === 'Supervisor' ? '#c4b5fd' : '#86efac';
+          const extended = event?.excedido;
+          return { label: extended && (label === 'Baño' || label === 'Descanso') ? `${label} extendido` : label, minutes, color };
+        }) : []);
         const activityCandidate = raw.activity || raw.events || raw.eventos || raw.events_turno || fallbackDetail?.activity || [];
-        const callsCandidate = raw.callsList || raw.lastCalls || raw.ultimasLlamadas || raw.calls || fallbackDetail?.calls || [];
-        const pauses = raw.pauses || raw.breaks || raw.pausas || fallbackDetail?.pauses || [];
-        const alerts = raw.alerts || raw.warnings || raw.alertas || fallbackDetail?.alerts || [];
-        const week = weekData?.week || weekData?.data || weekData || fallbackDetail?.week || null;
+        const activity = Array.isArray(activityCandidate) ? activityCandidate.map((event) => {
+          const tipo = String(event?.tipo || event?.event || '').toLowerCase();
+          const label = tipo === 'login' ? 'Login' : tipo === 'logout' ? 'Logout' : tipo === 'trabajo' ? 'Trabajo' : tipo === 'descanso' ? 'Descanso' : (tipo === 'baño' || tipo === 'bano') ? 'Baño' : tipo === 'supervisor' ? 'Supervisor' : (event?.event || event?.tipo || '—');
+          const duration = Number(event?.duracion_minutos ?? event?.duracion ?? event?.minutes ?? 0);
+          const exceso = Number(event?.exceso_minutos ?? 0);
+          return {
+            time: event?.inicio || event?.hora || '',
+            event: label,
+            duration: Number.isFinite(duration) && duration ? `${duration}m` : '—',
+            note: exceso ? `+${exceso}m sobre límite` : '',
+            overLimit: Boolean(event?.excedido)
+          };
+        }) : [];
+        const callsCandidate = raw.llamadas || raw.callsList || raw.lastCalls || raw.ultimasLlamadas || raw.calls || fallbackDetail?.calls || [];
+        const calls = Array.isArray(callsCandidate) ? callsCandidate.map((call) => {
+          const seconds = Number(call?.duracion_segundos ?? call?.duracion ?? 0);
+          const minutes = Math.floor(seconds / 60);
+          const remaining = seconds % 60;
+          const duration = seconds ? `${minutes}m ${String(remaining).padStart(2, '0')}s` : '—';
+          const resultRaw = String(call?.resultado || call?.result || '').toLowerCase();
+          const result = resultRaw === 'venta' ? 'Venta' : resultRaw === 'callback' ? 'Callback' : resultRaw === 'no_contesta' ? 'No contesta' : 'No venta';
+          return {
+            time: call?.hora || '',
+            duration,
+            client: call?.cliente_nombre || call?.cliente || '—',
+            result,
+            shortCall: seconds > 0 ? seconds < 60 : false
+          };
+        }) : [];
+        const pauses = raw.pausas || raw.pauses || raw.breaks || fallbackDetail?.pauses || [];
+        const alertsCandidate = raw.alertas || raw.alerts || raw.warnings || fallbackDetail?.alerts || [];
+        const alerts = Array.isArray(alertsCandidate) ? alertsCandidate.map((alert) => ({
+          title: alert?.titulo || alert?.title || alert?.tipo || 'Alerta',
+          detail: alert?.descripcion || alert?.detail || ''
+        })) : alertsCandidate;
+        let week = weekData?.week || weekData?.data || weekData || fallbackDetail?.week || null;
+        if (week && Array.isArray(week?.dias)) {
+          const trend = week.dias.map((day) => ({
+            day: day.dia_nombre || day.dia || day.fecha || '',
+            value: Number(day.conversion ?? 0)
+          }));
+          const resumen = week.resumen || {};
+          const summary = [
+            { label: 'Conversión promedio', value: `${parsePercent(resumen.conversion_promedio_semana ?? 0)}%` },
+            { label: 'Total alertas', value: String(resumen.total_alertas_semana ?? 0) },
+            { label: 'Total ventas', value: String(resumen.total_ventas_semana ?? 0) },
+            { label: 'Total llamadas', value: String(resumen.total_llamadas_semana ?? 0) }
+          ];
+          week = { trend, summary };
+        }
         return {
           shift,
           status,
           kpis,
           timeline,
-          activity: Array.isArray(activityCandidate) ? activityCandidate : [],
+          activity,
           pauses,
-          calls: Array.isArray(callsCandidate) ? callsCandidate : [],
+          calls,
           alerts,
           week
         };
