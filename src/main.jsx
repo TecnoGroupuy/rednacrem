@@ -1458,6 +1458,174 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         };
       };
       const activeDetail = normalizeDetail(detailData, detailWeek, null);
+      const renderActivitySummary = (detail) => {
+        const rawEvents = Array.isArray(detail?.activityRaw) ? detail.activityRaw : [];
+        const normalizeType = (value) => {
+          const key = String(value || '').toLowerCase();
+          if (key === 'login') return 'login';
+          if (key === 'logout') return 'logout';
+          if (key === 'trabajo') return 'trabajo';
+          if (key === 'descanso') return 'descanso';
+          if (key === 'supervisor') return 'supervisor';
+          if (key === 'baño' || key === 'bano') return 'bano';
+          return '';
+        };
+        const formatMinutes = (mins) => {
+          if (mins === null || mins === undefined) return '—';
+          const total = Math.max(0, Number(mins) || 0);
+          const h = Math.floor(total / 60);
+          const m = total % 60;
+          return h ? `${h}h ${m}m` : `${m}m`;
+        };
+        const formatMinutesWithRaw = (mins) => {
+          if (mins === null || mins === undefined) return '—';
+          const total = Math.max(0, Number(mins) || 0);
+          if (!total) return '—';
+          return total >= 60 ? `${total}m → ${formatMinutes(total)}` : `${total}m`;
+        };
+        const toTimeMinutes = (value) => {
+          if (!value) return null;
+          const [h, m] = String(value).split(':').map(Number);
+          if ([h, m].some((n) => Number.isNaN(n))) return null;
+          return h * 60 + m;
+        };
+        const diffMinutes = (start, end) => {
+          if (!start || !end) return null;
+          const startMin = toTimeMinutes(start);
+          const endMin = toTimeMinutes(end);
+          if (startMin === null || endMin === null) return null;
+          return Math.max(0, endMin - startMin);
+        };
+        const parsed = rawEvents
+          .map((evt) => {
+            const type = normalizeType(evt?.tipo);
+            if (!type) return null;
+            const duration = Number(evt?.duracion_minutos ?? evt?.duracion ?? evt?.minutes ?? 0);
+            const computed = duration || diffMinutes(evt?.inicio, evt?.fin);
+            return {
+              type,
+              start: evt?.inicio || '—',
+              end: evt?.fin || '',
+              duration: computed === null ? null : computed,
+              inProgress: !evt?.fin && !duration,
+              startMinutes: toTimeMinutes(evt?.inicio)
+            };
+          })
+          .filter(Boolean)
+          .sort((a, b) => (a.startMinutes ?? 0) - (b.startMinutes ?? 0));
+        const typeOrder = ['login', 'trabajo', 'bano', 'descanso', 'supervisor', 'logout'];
+        const labelByType = {
+          login: 'Ingreso',
+          trabajo: 'Trabajo efectivo',
+          bano: 'Baño',
+          descanso: 'Descanso',
+          supervisor: 'Con supervisor',
+          logout: 'Cierre'
+        };
+        const iconByType = {
+          login: '🟢',
+          trabajo: '🟢',
+          bano: '🟢',
+          descanso: '🟡',
+          supervisor: '🔵',
+          logout: '🔴'
+        };
+        const grouped = typeOrder.map((type) => {
+          const events = parsed.filter((evt) => evt.type === type);
+          const totalMinutes = events.reduce((acc, evt) => acc + (evt.duration || 0), 0);
+          return { type, events, totalMinutes, count: events.length };
+        });
+        const firstLogin = parsed.find((evt) => evt.type === 'login');
+        const lastLogout = [...parsed].reverse().find((evt) => evt.type === 'logout');
+        const totalWork = grouped.find((row) => row.type === 'trabajo')?.totalMinutes || 0;
+        const totalPausas = (grouped.find((row) => row.type === 'bano')?.totalMinutes || 0)
+          + (grouped.find((row) => row.type === 'descanso')?.totalMinutes || 0)
+          + (grouped.find((row) => row.type === 'supervisor')?.totalMinutes || 0);
+        const totalJornada = totalWork + totalPausas;
+        const summaryRows = [
+          { type: 'login', label: labelByType.login, icon: iconByType.login, text: firstLogin?.start || '—' },
+          { type: 'trabajo', label: labelByType.trabajo, icon: iconByType.trabajo, text: formatMinutesWithRaw(totalWork), indent: true },
+          ...['descanso', 'bano', 'supervisor'].map((type) => {
+            const row = grouped.find((item) => item.type === type);
+            const first = row?.events?.[0];
+            const detail = row?.count
+              ? `${first?.start || '—'} · ${first?.inProgress ? 'En curso' : formatMinutes(first?.duration)}`
+              : '—';
+            return { type, label: labelByType[type], icon: iconByType[type], text: detail };
+          }),
+          { type: 'logout', label: labelByType.logout, icon: iconByType.logout, text: lastLogout?.start || '—' }
+        ];
+        const multiRows = grouped.filter((row) => row.count > 1 && ['bano', 'descanso', 'supervisor'].includes(row.type));
+        const summaryRowsByType = ['trabajo', 'bano', 'descanso', 'supervisor'].map((type) => {
+          const row = grouped.find((item) => item.type === type);
+          return {
+            type,
+            label: labelByType[type],
+            count: row?.count || 0,
+            totalMinutes: row?.totalMinutes || 0
+          };
+        });
+        return (
+          <div style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 16, padding: 14, maxHeight: 400, overflowY: 'auto', background: 'rgba(248,250,252,0.7)' }}>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>Registro de actividad</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', border: '1px solid rgba(15,23,42,0.08)', borderRadius: 12, background: '#fff', marginBottom: 12 }}>
+              {[
+                { label: 'Ingreso', value: firstLogin?.start || '—', icon: iconByType.login },
+                { label: 'Cierre', value: lastLogout?.start || '—', icon: iconByType.logout },
+                { label: 'Jornada total', value: formatMinutes(totalJornada), icon: '⏱' }
+              ].map((item, idx, arr) => (
+                <div
+                  key={item.label}
+                  style={{
+                    padding: '10px 12px',
+                    borderRight: idx < arr.length - 1 ? '1px solid rgba(148,163,184,0.35)' : 'none',
+                    background: idx % 2 === 0 ? 'rgba(248,250,252,0.9)' : '#fff'
+                  }}
+                >
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{item.icon} {item.label}</div>
+                  <div style={{ fontWeight: 700 }}>{item.value}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 12, overflow: 'hidden', background: '#fff' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 140px', gap: 0, padding: '8px 12px', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid rgba(148,163,184,0.2)' }}>
+                <div>Actividad</div>
+                <div>Veces</div>
+                <div>Tiempo total</div>
+              </div>
+              {summaryRowsByType.map((row) => (
+                <div key={`summary-${row.type}`} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 140px', gap: 0, padding: '10px 12px', borderBottom: '1px solid rgba(148,163,184,0.2)' }}>
+                  <div style={{ fontWeight: 600 }}>{row.label}</div>
+                  <div>{row.count || '—'}</div>
+                  <div>{row.count ? formatMinutes(row.totalMinutes) : '—'}</div>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setActivityExpanded((prev) => !prev)}
+              style={{ border: '1px solid rgba(15,23,42,0.1)', borderRadius: 10, padding: '8px 12px', background: '#fff', fontWeight: 600, cursor: 'pointer', width: 'fit-content', marginTop: 12 }}
+            >
+              {activityExpanded ? 'Ocultar detalle' : 'Ver detalle cronológico'}
+            </button>
+            {activityExpanded ? (
+              <div style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 12, padding: 10, maxHeight: 200, overflowY: 'auto', background: '#fff', marginTop: 8 }}>
+                {parsed.length ? parsed.map((evt, idx) => {
+                  const label = labelByType[evt.type] || evt.type;
+                  const durationLabel = evt.inProgress ? 'En curso' : (evt.duration ? formatMinutes(evt.duration) : '');
+                  return (
+                    <div key={`detail-${idx}`} style={{ display: 'grid', gridTemplateColumns: '90px 1fr 120px', gap: 10, padding: '6px 4px', borderBottom: '1px solid rgba(148,163,184,0.2)' }}>
+                      <div>{evt.start}</div>
+                      <div>{label}</div>
+                      <div>{durationLabel || '—'}</div>
+                    </div>
+                  );
+                }) : <div style={{ color: 'var(--muted)' }}>Sin eventos.</div>}
+              </div>
+            ) : null}
+          </div>
+        );
+      };
       const detailStatus = activeDetail?.status || detailAgent?.status || 'Activo';
       const isAttentionView = detailStatus.toLowerCase().includes('atencion') || detailStatus.toLowerCase().includes('atención');
       return (
@@ -1495,7 +1663,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               {teamError ? <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 600 }}>{teamError}</div> : null}
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>Agente</th><th>Llamadas</th><th>Ventas</th><th>Conversión</th><th>Estado</th><th>Pausas</th><th>Acción</th></tr></thead>
+                  <thead><tr><th>Agente</th><th>Llamadas</th><th>Ventas</th><th>Conversión</th><th>Estado</th><th>Acción</th></tr></thead>
                   <tbody>{teamAgents.map((row) => (
                     <tr key={row.name} style={row.highlight ? { background: 'rgba(251,191,36,0.18)' } : undefined}>
                       <td>
@@ -1517,7 +1685,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         </div>
                       </td>
                       <td><Tag variant={statusVariant(row.status)}>{row.status}</Tag></td>
-                      <td style={pauseBadgeStyle(row.pauses.minutes, row.status)}>{row.pauses.count} · {row.pauses.minutes}m</td>
                       <td>
                         <Button
                           variant="ghost"
@@ -1636,128 +1803,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       </>
                     ) : null}
                     {detailTab === 'actividad' ? (
-                      <div style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 16, padding: 14, maxHeight: 400, overflowY: 'auto', background: 'rgba(248,250,252,0.7)' }}>
-                        {(() => {
-                          const rawEvents = Array.isArray(activeDetail?.activityRaw) ? activeDetail.activityRaw : [];
-                          const normalizeType = (value) => {
-                            const key = String(value || '').toLowerCase();
-                            if (key === 'login') return 'login';
-                            if (key === 'logout') return 'logout';
-                            if (key === 'trabajo') return 'trabajo';
-                            if (key === 'descanso') return 'descanso';
-                            if (key === 'supervisor') return 'supervisor';
-                            if (key === 'baño' || key === 'bano') return 'bano';
-                            return '';
-                          };
-                          const formatMinutes = (mins) => {
-                            if (mins === null || mins === undefined) return '—';
-                            const total = Math.max(0, Number(mins) || 0);
-                            const h = Math.floor(total / 60);
-                            const m = total % 60;
-                            return h ? `${h}h ${m}m` : `${m}m`;
-                          };
-                          const diffMinutes = (start, end) => {
-                            if (!start || !end) return null;
-                            const [sh, sm] = String(start).split(':').map(Number);
-                            const [eh, em] = String(end).split(':').map(Number);
-                            if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) return null;
-                            return Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
-                          };
-                          const parsed = rawEvents
-                            .map((evt) => {
-                              const type = normalizeType(evt?.tipo);
-                              if (!type) return null;
-                              const duration = Number(evt?.duracion_minutos ?? evt?.duracion ?? evt?.minutes ?? 0);
-                              const computed = duration || diffMinutes(evt?.inicio, evt?.fin);
-                              return {
-                                type,
-                                start: evt?.inicio || '—',
-                                end: evt?.fin || '',
-                                duration: computed === null ? null : computed,
-                                inProgress: !evt?.fin && !duration
-                              };
-                            })
-                            .filter(Boolean);
-                          const typeOrder = ['login', 'trabajo', 'bano', 'descanso', 'supervisor', 'logout'];
-                          const labelByType = {
-                            login: 'Ingreso (Login)',
-                            trabajo: 'Trabajo',
-                            bano: 'Baño',
-                            descanso: 'Descanso',
-                            supervisor: 'Con supervisor',
-                            logout: 'Cierre (Logout)'
-                          };
-                          const iconByType = {
-                            login: '🟢',
-                            trabajo: '🟢',
-                            bano: '🟢',
-                            descanso: '🟡',
-                            supervisor: '🔵',
-                            logout: '🔴'
-                          };
-                          const grouped = typeOrder.map((type) => {
-                            const events = parsed.filter((evt) => evt.type === type);
-                            const totalMinutes = events.reduce((acc, evt) => acc + (evt.duration || 0), 0);
-                            return { type, events, totalMinutes, count: events.length };
-                          });
-                          const firstLogin = parsed.find((evt) => evt.type === 'login');
-                          const lastLogout = [...parsed].reverse().find((evt) => evt.type === 'logout');
-                          const totalWork = grouped.find((row) => row.type === 'trabajo')?.totalMinutes || 0;
-                          const totalPausas = (grouped.find((row) => row.type === 'bano')?.totalMinutes || 0)
-                            + (grouped.find((row) => row.type === 'descanso')?.totalMinutes || 0)
-                            + (grouped.find((row) => row.type === 'supervisor')?.totalMinutes || 0);
-                          const totalJornada = totalWork + totalPausas;
-                          return (
-                            <div style={{ display: 'grid', gap: 12 }}>
-                              {grouped.map((row) => (
-                                <div key={row.type} style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 12, alignItems: 'start' }}>
-                                  <div style={{ fontWeight: 700 }}>{iconByType[row.type]} {labelByType[row.type]}</div>
-                                  <div style={{ color: 'var(--muted)', fontSize: '0.88rem' }}>
-                                    {row.count ? (
-                                      <>
-                                        {row.events.map((evt, idx) => (
-                                          <span key={`${row.type}-${idx}`} style={{ marginRight: 12 }}>
-                                            {evt.start} {evt.inProgress ? '· En curso' : `· ${formatMinutes(evt.duration)}`}
-                                          </span>
-                                        ))}
-                                        <span style={{ fontWeight: 700 }}>
-                                          → Total: {formatMinutes(row.totalMinutes)} ({row.count} vez{row.count === 1 ? '' : 'es'})
-                                        </span>
-                                      </>
-                                    ) : (
-                                      <span>—</span>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                              <div style={{ borderTop: '1px dashed rgba(148,163,184,0.6)', paddingTop: 10, color: 'var(--muted)', fontSize: '0.88rem' }}>
-                                {firstLogin ? `Ingreso ${firstLogin.start}` : 'Ingreso —'} · {lastLogout ? `Cierre ${lastLogout.start}` : 'Cierre —'}
-                                <span style={{ marginLeft: 10 }}>Total jornada: {formatMinutes(totalJornada)}</span>
-                                <span style={{ marginLeft: 10 }}>Trabajo efectivo: {formatMinutes(totalWork)}</span>
-                                <span style={{ marginLeft: 10 }}>Pausas: {formatMinutes(totalPausas)}</span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => setActivityExpanded((prev) => !prev)}
-                                style={{ border: '1px solid rgba(15,23,42,0.1)', borderRadius: 10, padding: '8px 12px', background: '#fff', fontWeight: 600, cursor: 'pointer', width: 'fit-content' }}
-                              >
-                                {activityExpanded ? 'Ocultar detalle' : 'Ver detalle'}
-                              </button>
-                              {activityExpanded ? (
-                                <div style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 12, padding: 10, maxHeight: 250, overflowY: 'auto', background: '#fff' }}>
-                                  {parsed.length ? parsed.map((evt, idx) => (
-                                    <div key={`detail-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 4px', borderBottom: '1px solid rgba(148,163,184,0.2)' }}>
-                                      <div>{evt.start}</div>
-                                      <div>{labelByType[evt.type]}</div>
-                                      <div>{evt.inProgress ? 'En curso' : formatMinutes(evt.duration)}</div>
-                                    </div>
-                                  )) : <div style={{ color: 'var(--muted)' }}>Sin eventos.</div>}
-                                </div>
-                              ) : null}
-                            </div>
-                          );
-                        })()}
-                      </div>
+                      renderActivitySummary(activeDetail)
                     ) : null}
                     {detailTab === 'llamadas' ? (
                       <div className="table-wrap">
@@ -1847,25 +1893,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       </div>
                     </div>
                     <div style={{ marginBottom: 18 }}>
-                      <div style={{ fontWeight: 700, marginBottom: 8 }}>Registro de actividad</div>
-                      <div className="table-wrap">
-                        <table>
-                          <thead><tr><th>Hora</th><th>Tipo</th><th>Duración</th><th>Observación</th></tr></thead>
-                          <tbody>
-                              {(activeDetail?.activity || []).map((row, idx) => {
-                              const badge = activityBadge(row.event);
-                              return (
-                                <tr key={`${row.event}-${idx}`}>
-                                  <td>{row.time}</td>
-                                  <td><span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, background: badge.bg, color: badge.color, fontWeight: 600, fontSize: '0.75rem' }}>{row.event}</span></td>
-                                  <td>{row.duration}</td>
-                                  <td style={{ color: row.note ? '#b45309' : 'var(--muted)', fontWeight: row.note ? 600 : 400 }}>{row.note || '—'}</td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
+                      {renderActivitySummary(activeDetail)}
                     </div>
                     <div>
                       <div style={{ fontWeight: 700, marginBottom: 8 }}>Últimas llamadas del día</div>
