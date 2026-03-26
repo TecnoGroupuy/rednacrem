@@ -1062,19 +1062,31 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const raw = data?.detail || data?.agent || data?.data || data || {};
         const shift = raw.shift || raw.turno || raw.shiftLabel || raw.shift_label || fallbackDetail?.shift || '';
         const status = raw.status || raw.estado || fallbackDetail?.status || 'Activo';
+        const countFrom = (value) => {
+          if (Array.isArray(value)) return value.length;
+          if (value && typeof value === 'object') {
+            const maybe = value.count ?? value.total ?? value.value;
+            return Number(maybe ?? 0);
+          }
+          return Number(value ?? 0);
+        };
+        const callsCount = countFrom(raw.callsCount ?? raw.calls_total ?? raw.llamadas_total ?? raw.llamadas ?? raw.calls);
+        const salesCount = countFrom(raw.salesCount ?? raw.sales_total ?? raw.ventas_total ?? raw.ventas ?? raw.sales);
+        const conversionRaw = raw.conversion ?? raw.conversionRate ?? raw.pct_conversion ?? raw.conversion_pct ?? raw.conversionPercent;
+        const derivedConversion = callsCount ? Math.round((salesCount / callsCount) * 100) : 0;
         let kpis = raw.kpis || raw.metrics || raw.kpi || null;
         if (!Array.isArray(kpis)) {
           kpis = [
-            { label: 'Llamadas', value: String(raw.calls ?? raw.llamadas ?? fallbackDetail?.kpis?.[0]?.value ?? '0'), sub: raw.callsGoal ? `Meta: ${raw.callsGoal}` : fallbackDetail?.kpis?.[0]?.sub || '' },
-            { label: 'Ventas', value: String(raw.sales ?? raw.ventas ?? fallbackDetail?.kpis?.[1]?.value ?? '0'), sub: raw.salesGoal ? `Meta: ${raw.salesGoal}` : fallbackDetail?.kpis?.[1]?.sub || '' },
-            { label: 'Conversión', value: `${parsePercent(raw.conversion ?? raw.conversionRate ?? fallbackDetail?.kpis?.[2]?.value ?? 0)}%`, sub: raw.conversionMin ? `Mínimo: ${raw.conversionMin}%` : fallbackDetail?.kpis?.[2]?.sub || '' },
+            { label: 'Llamadas', value: String(Number.isFinite(callsCount) ? callsCount : 0), sub: raw.callsGoal ? `Meta: ${raw.callsGoal}` : fallbackDetail?.kpis?.[0]?.sub || '' },
+            { label: 'Ventas', value: String(Number.isFinite(salesCount) ? salesCount : 0), sub: raw.salesGoal ? `Meta: ${raw.salesGoal}` : fallbackDetail?.kpis?.[1]?.sub || '' },
+            { label: 'Conversión', value: `${parsePercent(conversionRaw ?? derivedConversion ?? fallbackDetail?.kpis?.[2]?.value ?? 0)}%`, sub: raw.conversionMin ? `Mínimo: ${raw.conversionMin}%` : fallbackDetail?.kpis?.[2]?.sub || '' },
             { label: 'Tiempo productivo', value: raw.productivePercent ? `${parsePercent(raw.productivePercent)}%` : (fallbackDetail?.kpis?.[3]?.value || '—'), sub: raw.productiveTime ? `${raw.productiveTime}` : fallbackDetail?.kpis?.[3]?.sub || '' }
           ];
         }
-        const timeline = raw.timeline || raw.timelineSegments || raw.turnoTimeline || fallbackDetail?.timeline || [];
-        const activity = raw.activity || raw.events || raw.eventos || fallbackDetail?.activity || [];
+        const timeline = raw.timeline || raw.timelineSegments || raw.turnoTimeline || raw.segments || fallbackDetail?.timeline || [];
+        const activityCandidate = raw.activity || raw.events || raw.eventos || raw.events_turno || fallbackDetail?.activity || [];
+        const callsCandidate = raw.callsList || raw.lastCalls || raw.ultimasLlamadas || raw.calls || fallbackDetail?.calls || [];
         const pauses = raw.pauses || raw.breaks || raw.pausas || fallbackDetail?.pauses || [];
-        const calls = raw.calls || raw.lastCalls || raw.ultimasLlamadas || fallbackDetail?.calls || [];
         const alerts = raw.alerts || raw.warnings || raw.alertas || fallbackDetail?.alerts || [];
         const week = weekData?.week || weekData?.data || weekData || fallbackDetail?.week || null;
         return {
@@ -1082,9 +1094,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           status,
           kpis,
           timeline,
-          activity,
+          activity: Array.isArray(activityCandidate) ? activityCandidate : [],
           pauses,
-          calls,
+          calls: Array.isArray(callsCandidate) ? callsCandidate : [],
           alerts,
           week
         };
