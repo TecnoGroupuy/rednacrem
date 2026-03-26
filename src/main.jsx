@@ -1398,7 +1398,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const picked = firstMatch || fallback || alerts[0];
         const label = String(picked?.agente_nombre || '').trim();
         if (!label) return '';
-        return `${label} requiere atención — ${picked?.descripcion || ''}`.trim();
+        return `${label} requiere atención — Conversión`.trim();
       }, [teamAgents, teamSummary]);
       const avgPauseMinutes = React.useMemo(() => {
         if (teamSummary?.avgPauseMinutes) return Number(teamSummary.avgPauseMinutes) || 0;
