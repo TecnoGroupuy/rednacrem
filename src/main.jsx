@@ -1113,6 +1113,24 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return (hasAgents && (agentsHaveData || summaryHasData)) || summaryHasData;
       }, [normalizeTeamPayload]);
 
+      const mergeTeamAgents = React.useCallback((prev, next) => {
+        if (!next?.agents) return prev || next || null;
+        if (!prev?.agents) return next;
+        const prevById = new Map(prev.agents.map((agent) => [String(agent?.id || agent?.name || agent?.nombre || ''), agent]));
+        const mergedAgents = next.agents.map((agent) => {
+          const key = String(agent?.id || agent?.name || agent?.nombre || '');
+          const prevAgent = prevById.get(key);
+          if (!prevAgent) return agent;
+          const merged = { ...prevAgent, ...agent };
+          if (agent.login == null || agent.login === '') merged.login = prevAgent.login;
+          if (agent.workTime == null || agent.workTime === '') merged.workTime = prevAgent.workTime;
+          if (agent.pausesMinutes == null) merged.pausesMinutes = prevAgent.pausesMinutes;
+          if (agent.pausesCount == null) merged.pausesCount = prevAgent.pausesCount;
+          return merged;
+        });
+        return { ...prev, ...next, agents: mergedAgents };
+      }, []);
+
 
       const normalizeDetail = React.useCallback((data, weekData, fallbackDetail) => {
         if (!data && !weekData && !fallbackDetail) return null;
@@ -1327,7 +1345,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           if (!shouldApplyTeamUpdate(payload)) return;
           const normalized = normalizeTeamPayload(payload);
           console.log('[DEBUG TEAM_UPDATE]', JSON.stringify(normalized?.agents?.slice(0, 1)));
-          if (normalized) setTeamSummary(normalized);
+          if (normalized) {
+            setTeamSummary((prev) => {
+              const prevNorm = normalizeTeamPayload(prev) || prev;
+              return mergeTeamAgents(prevNorm, normalized);
+            });
+          }
         });
         socket.on('agent_event', (payload) => {
           const agentId = payload?.agentId || payload?.agente_id || payload?.agent_id || payload?.id;
@@ -1350,7 +1373,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return () => {
           socket.disconnect();
         };
-      }, [authUser?.accessToken, detailAgent?.id, formatDateYmd, selectedDate, socketBase, shouldApplyTeamUpdate, normalizeTeamPayload]);
+      }, [authUser?.accessToken, detailAgent?.id, formatDateYmd, selectedDate, socketBase, shouldApplyTeamUpdate, normalizeTeamPayload, mergeTeamAgents]);
       const teamAgents = React.useMemo(() => {
         const items = teamSummary?.agents || teamSummary?.items || teamSummary?.team || teamSummary?.data?.agents || teamSummary?.data?.items || [];
         if (Array.isArray(items) && items.length) {
