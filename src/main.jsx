@@ -975,7 +975,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
     function SupervisorDashboard() {
       const { user: authUser } = useAuth();
       const [detailAgent, setDetailAgent] = React.useState(null);
-      const [detailTab, setDetailTab] = React.useState('resumen');
+      const [detailTab, setDetailTab] = React.useState('actividad');
       const [selectedDate, setSelectedDate] = React.useState(() => new Date());
       const [activityExpanded, setActivityExpanded] = React.useState(false);
       const [teamSummary, setTeamSummary] = React.useState(null);
@@ -1465,6 +1465,47 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         };
       };
       const activeDetail = normalizeDetail(detailData, detailWeek, null);
+      const renderTimeline = (detail) => {
+        const rawEvents = Array.isArray(detail?.activityRaw) ? detail.activityRaw : [];
+        const toTimeMinutes = (value) => {
+          if (!value) return null;
+          const [h, m] = String(value).split(':').map(Number);
+          if ([h, m].some((n) => Number.isNaN(n))) return null;
+          return h * 60 + m;
+        };
+        const normalized = rawEvents
+          .map((evt) => ({
+            tipo: String(evt?.tipo || '').toLowerCase(),
+            inicio: evt?.inicio || '',
+            fin: evt?.fin || '',
+            startMinutes: toTimeMinutes(evt?.inicio)
+          }))
+          .filter((evt) => evt.tipo);
+        const firstLogin = normalized.find((evt) => evt.tipo === 'login');
+        const lastLogout = [...normalized].reverse().find((evt) => evt.tipo === 'logout');
+        const startLabel = firstLogin?.inicio || '—';
+        const endLabel = lastLogout?.fin || lastLogout?.inicio || '—';
+        return (
+          <div style={{ background: 'rgba(248,250,252,0.7)', border: '1px solid rgba(15,23,42,0.08)', borderRadius: 14, padding: 16, marginTop: 16 }}>
+            <div style={{ fontWeight: 700, marginBottom: 10 }}>Línea de tiempo del turno</div>
+            <div style={{ display: 'flex', height: 32, borderRadius: 999, overflow: 'hidden' }}>
+              {(detail?.timeline || []).map((segment, idx) => (
+                <div key={`${segment.label}-${idx}`} style={{ flexGrow: segment.minutes, background: segment.color }} title={`${segment.label} · ${segment.minutes}m`}></div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: '0.82rem', color: 'var(--muted)' }}>
+              <span>{startLabel}</span>
+              <span>{endLabel}</span>
+            </div>
+            <div style={{ display: 'flex', gap: 14, marginTop: 10, fontSize: '0.82rem', color: 'var(--muted)', flexWrap: 'wrap' }}>
+              <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 4, background: '#93c5fd', marginRight: 6 }}></span>Trabajo</span>
+              <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 4, background: '#fdba74', marginRight: 6 }}></span>Descanso</span>
+              <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 4, background: '#f59e0b', marginRight: 6 }}></span>Baño extendido</span>
+              <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 4, background: '#86efac', marginRight: 6 }}></span>Baño</span>
+            </div>
+          </div>
+        );
+      };
       const renderActivitySummary = (detail) => {
         const rawEvents = Array.isArray(detail?.activityRaw) ? detail.activityRaw : [];
         const normalizeType = (value) => {
@@ -1780,13 +1821,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         </div>
                       ))}
                     </div>
-                    <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
-                      <Button variant="secondary" icon={<AlertTriangle size={16} />}>Enviar alerta</Button>
-                      <Button variant="secondary" icon={<Calendar size={16} />}>Agendar feedback</Button>
-                      <Button variant="ghost" icon={<Download size={16} />}>Exportar PDF</Button>
-                    </div>
                     <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-                      {['resumen', 'actividad', 'llamadas', 'semana'].map((tab) => (
+                      {['actividad', 'llamadas', 'semana'].map((tab) => (
                         <button
                           key={tab}
                           type="button"
@@ -1805,26 +1841,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         </button>
                       ))}
                     </div>
-                    {detailTab === 'resumen' ? (
-                      <>
-                        <div style={{ background: 'rgba(248,250,252,0.7)', border: '1px solid rgba(15,23,42,0.08)', borderRadius: 14, padding: 16, marginBottom: 18 }}>
-                          <div style={{ fontWeight: 700, marginBottom: 10 }}>Línea de tiempo del turno</div>
-                          <div style={{ display: 'flex', height: 32, borderRadius: 999, overflow: 'hidden' }}>
-                            {(activeDetail?.timeline || []).map((segment, idx) => (
-                              <div key={`${segment.label}-${idx}`} style={{ flexGrow: segment.minutes, background: segment.color }} title={`${segment.label} · ${segment.minutes}m`}></div>
-                            ))}
-                          </div>
-                          <div style={{ display: 'flex', gap: 14, marginTop: 10, fontSize: '0.82rem', color: 'var(--muted)', flexWrap: 'wrap' }}>
-                            <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 4, background: '#93c5fd', marginRight: 6 }}></span>Trabajo</span>
-                            <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 4, background: '#fdba74', marginRight: 6 }}></span>Descanso</span>
-                            <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 4, background: '#f59e0b', marginRight: 6 }}></span>Baño extendido</span>
-                            <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 4, background: '#86efac', marginRight: 6 }}></span>Baño</span>
-                          </div>
-                        </div>
-                      </>
-                    ) : null}
                     {detailTab === 'actividad' ? (
-                      renderActivitySummary(activeDetail)
+                      <>
+                        {renderActivitySummary(activeDetail)}
+                        {renderTimeline(activeDetail)}
+                      </>
                     ) : null}
                     {detailTab === 'llamadas' ? (
                       <div className="table-wrap">
@@ -1895,26 +1916,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         </div>
                       ))}
                     </div>
-                    <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
-                      <Button variant="secondary" icon={<AlertTriangle size={16} />}>Enviar alerta</Button>
-                      <Button variant="secondary" icon={<Calendar size={16} />}>Agendar feedback</Button>
-                      <Button variant="ghost" icon={<Download size={16} />}>Exportar PDF</Button>
-                    </div>
-                    <div style={{ background: 'rgba(248,250,252,0.7)', border: '1px solid rgba(15,23,42,0.08)', borderRadius: 14, padding: 16, marginBottom: 18 }}>
-                      <div style={{ fontWeight: 700, marginBottom: 10 }}>Línea de tiempo del turno</div>
-                      <div style={{ display: 'flex', height: 32, borderRadius: 999, overflow: 'hidden' }}>
-                        {(activeDetail?.timeline || []).map((segment, idx) => (
-                          <div key={`${segment.label}-${idx}`} style={{ flexGrow: segment.minutes, background: segment.color }} title={`${segment.label} · ${segment.minutes}m`}></div>
-                        ))}
-                      </div>
-                      <div style={{ display: 'flex', gap: 14, marginTop: 10, fontSize: '0.82rem', color: 'var(--muted)', flexWrap: 'wrap' }}>
-                        <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 4, background: '#93c5fd', marginRight: 6 }}></span>Trabajo</span>
-                        <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 4, background: '#fdba74', marginRight: 6 }}></span>Descanso</span>
-                        <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 4, background: '#86efac', marginRight: 6 }}></span>Baño</span>
-                      </div>
-                    </div>
                     <div style={{ marginBottom: 18 }}>
                       {renderActivitySummary(activeDetail)}
+                      {renderTimeline(activeDetail)}
                     </div>
                     <div>
                       <div style={{ fontWeight: 700, marginBottom: 8 }}>Últimas llamadas del día</div>
