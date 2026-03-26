@@ -3711,15 +3711,21 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           if (sellerId && contact.assignedToId && String(contact.assignedToId) === String(sellerId)) return true;
           return contact.assignedTo === sellerLabel;
         });
+        const assigned = scoped.length;
+        const ventas = scoped.filter((contact) => contact.status === 'venta').length;
         return {
           seller: sellerLabel,
-          assigned: scoped.length,
-          venta: scoped.filter((contact) => contact.status === 'venta').length,
+          contact: typeof seller === 'object'
+            ? (seller.email || seller.phone || seller.telefono || seller.celular || '')
+            : '',
+          assigned,
+          venta: ventas,
           seguimiento: scoped.filter((contact) => contact.status === 'seguimiento').length,
           rellamar: scoped.filter((contact) => contact.status === 'rellamar').length,
           no_contesta: scoped.filter((contact) => contact.status === 'no_contesta').length,
           rechazo: scoped.filter((contact) => contact.status === 'rechazo').length,
-          dato_erroneo: scoped.filter((contact) => contact.status === 'dato_erroneo').length
+          dato_erroneo: scoped.filter((contact) => contact.status === 'dato_erroneo').length,
+          efectividad: assigned ? Math.round((ventas / assigned) * 100) : 0
         };
       }), [contacts, sellers]);
 
@@ -3908,9 +3914,22 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               <Panel className="span-12" title="Seguimiento de vendedores" subtitle="Vista resumida operativa">
                 <div className="table-wrap">
                   <table>
-                    <thead><tr><th>Vendedor</th><th>Asignados</th><th>Ventas</th><th>Seguimientos</th><th>Rellamadas</th><th>No contesta</th><th>Rechazos</th><th>Datos erroneos</th></tr></thead>
+                    <thead><tr><th>Vendedor</th><th>Asignados</th><th>Ventas</th><th>Seguimientos</th><th>Rellamadas</th><th>No contesta</th><th>Rechazos</th><th>Datos erroneos</th><th>Contacto</th><th>Efectividad</th></tr></thead>
                     <tbody>
-                      {sellerSummary.map((row) => <tr key={row.seller}><td><strong>{row.seller}</strong></td><td>{row.assigned}</td><td>{row.venta}</td><td>{row.seguimiento}</td><td>{row.rellamar}</td><td>{row.no_contesta}</td><td>{row.rechazo}</td><td>{row.dato_erroneo}</td></tr>)}
+                      {sellerSummary.map((row) => (
+                        <tr key={row.seller}>
+                          <td><strong>{row.seller}</strong></td>
+                          <td>{row.assigned}</td>
+                          <td>{row.venta}</td>
+                          <td>{row.seguimiento}</td>
+                          <td>{row.rellamar}</td>
+                          <td>{row.no_contesta}</td>
+                          <td>{row.rechazo}</td>
+                          <td>{row.dato_erroneo}</td>
+                          <td>{row.contact || '—'}</td>
+                          <td>{row.efectividad}%</td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
