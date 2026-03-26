@@ -1041,6 +1041,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             { label: 'Conv. promedio', value: summary?.avgConversion ? `${parsePercent(summary.avgConversion)}%` : '0%', sub: summary?.avgConversionNote || '' }
           ];
         }
+        if (!agentsList.length) {
+          return [];
+        }
         const totalAgents = agentsList.length || 0;
         const attentionCount = agentsList.filter((agent) => agent.highlight).length;
         const totalCalls = agentsList.reduce((acc, agent) => acc + Number(agent.calls || 0), 0);
@@ -1055,6 +1058,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, [parsePercent]);
 
       const normalizeDetail = React.useCallback((data, weekData, fallbackDetail) => {
+        if (!data && !weekData && !fallbackDetail) return null;
         const raw = data?.detail || data?.agent || data?.data || data || {};
         const shift = raw.shift || raw.turno || raw.shiftLabel || raw.shift_label || fallbackDetail?.shift || '';
         const status = raw.status || raw.estado || fallbackDetail?.status || 'Activo';
@@ -1204,217 +1208,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           socket.disconnect();
         };
       }, [authUser?.accessToken, detailAgent?.id, formatDateYmd, selectedDate, socketBase]);
-      const agentDetailsByName = {
-        'Juan Pérez': {
-          shift: '08:00 — 17:00 · Lunes 24 mar 2026',
-          status: 'Excelente',
-          kpis: [
-            { label: 'Llamadas', value: '45', sub: 'Meta: 40' },
-            { label: 'Ventas', value: '8', sub: 'Meta: 6' },
-            { label: 'Conversión', value: '18%', sub: 'Promedio equipo: 14%' },
-            { label: 'Tiempo productivo', value: '87%', sub: '7h 49m de 9h' }
-          ],
-          timeline: [
-            { label: 'Trabajo', minutes: 154, color: '#93c5fd' },
-            { label: 'Descanso', minutes: 22, color: '#fdba74' },
-            { label: 'Trabajo', minutes: 138, color: '#93c5fd' },
-            { label: 'Baño', minutes: 12, color: '#86efac' },
-            { label: 'Trabajo', minutes: 117, color: '#93c5fd' },
-            { label: 'Descanso', minutes: 17, color: '#fdba74' },
-            { label: 'Trabajo', minutes: 60, color: '#93c5fd' }
-          ],
-          activity: [
-            { time: '08:02', event: 'Login', duration: '—', note: '' },
-            { time: '08:02', event: 'Trabajo', duration: '2h 34m', note: '' },
-            { time: '10:36', event: 'Descanso', duration: '18m', note: '' },
-            { time: '10:54', event: 'Trabajo', duration: '2h 21m', note: '' },
-            { time: '13:15', event: 'Baño', duration: '12m', note: '⚠ +2m' },
-            { time: '13:27', event: 'Trabajo', duration: '1h 48m', note: '' },
-            { time: '15:15', event: 'Descanso', duration: '17m', note: '' },
-            { time: '15:32', event: 'Trabajo', duration: '1h 06m', note: '' },
-            { time: '16:58', event: 'Logout', duration: '—', note: '' }
-          ],
-          pauses: [
-            { time: '10:36', type: 'Descanso', duration: '18m' },
-            { time: '13:15', type: 'Baño', duration: '12m' },
-            { time: '15:15', type: 'Descanso', duration: '17m' }
-          ],
-          calls: [
-            { time: '16:22', duration: '4m 12s', client: 'María López', result: 'Venta' },
-            { time: '16:04', duration: '2m 55s', client: 'Carlos Suárez', result: 'No venta' },
-            { time: '15:48', duration: '6m 08s', client: 'Ana Torres', result: 'Venta' },
-            { time: '15:31', duration: '1m 40s', client: 'Roberto Gil', result: 'Callback' },
-            { time: '15:10', duration: '3m 22s', client: 'Lucía Méndez', result: 'No venta' }
-          ]
-        },
-        'Laura Fernández': {
-          shift: '08:00 — 17:00 · Lunes 24 mar 2026',
-          status: 'Activo',
-          kpis: [
-            { label: 'Llamadas', value: '39', sub: 'Meta: 40' },
-            { label: 'Ventas', value: '6', sub: 'Meta: 6' },
-            { label: 'Conversión', value: '15%', sub: 'Promedio equipo: 14%' },
-            { label: 'Tiempo productivo', value: '82%', sub: '7h 20m de 9h' }
-          ],
-          timeline: [
-            { label: 'Trabajo', minutes: 145, color: '#93c5fd' },
-            { label: 'Descanso', minutes: 20, color: '#fdba74' },
-            { label: 'Trabajo', minutes: 132, color: '#93c5fd' },
-            { label: 'Baño', minutes: 8, color: '#86efac' },
-            { label: 'Trabajo', minutes: 145, color: '#93c5fd' },
-            { label: 'Descanso', minutes: 15, color: '#fdba74' },
-            { label: 'Trabajo', minutes: 55, color: '#93c5fd' }
-          ],
-          activity: [
-            { time: '08:01', event: 'Login', duration: '—', note: '' },
-            { time: '08:01', event: 'Trabajo', duration: '2h 25m', note: '' },
-            { time: '10:26', event: 'Descanso', duration: '20m', note: '' },
-            { time: '10:46', event: 'Trabajo', duration: '2h 12m', note: '' },
-            { time: '12:58', event: 'Baño', duration: '8m', note: '' },
-            { time: '13:06', event: 'Trabajo', duration: '2h 25m', note: '' },
-            { time: '15:31', event: 'Descanso', duration: '15m', note: '' },
-            { time: '15:46', event: 'Trabajo', duration: '55m', note: '' },
-            { time: '16:41', event: 'Logout', duration: '—', note: '' }
-          ],
-          pauses: [
-            { time: '10:26', type: 'Descanso', duration: '20m' },
-            { time: '12:58', type: 'Baño', duration: '8m' },
-            { time: '15:31', type: 'Descanso', duration: '15m' }
-          ],
-          calls: [
-            { time: '16:12', duration: '3m 18s', client: 'Nicolás Pérez', result: 'Venta' },
-            { time: '15:44', duration: '1m 12s', client: 'Claudia Rey', result: 'No venta' },
-            { time: '15:02', duration: '4m 32s', client: 'Mariela Díaz', result: 'Callback' },
-            { time: '14:41', duration: '2m 05s', client: 'Agustín Silva', result: 'Venta' },
-            { time: '14:06', duration: '2m 58s', client: 'Carla Ramos', result: 'No venta' }
-          ]
-        },
-        'Pedro González': {
-          shift: '08:00 — 17:00 · Lunes 24 mar 2026',
-          status: 'Activo',
-          kpis: [
-            { label: 'Llamadas', value: '34', sub: 'Meta: 40' },
-            { label: 'Ventas', value: '5', sub: 'Meta: 6' },
-            { label: 'Conversión', value: '14%', sub: 'Promedio equipo: 14%' },
-            { label: 'Tiempo productivo', value: '79%', sub: '7h 05m de 9h' }
-          ],
-          timeline: [
-            { label: 'Trabajo', minutes: 140, color: '#93c5fd' },
-            { label: 'Descanso', minutes: 22, color: '#fdba74' },
-            { label: 'Trabajo', minutes: 120, color: '#93c5fd' },
-            { label: 'Baño', minutes: 10, color: '#86efac' },
-            { label: 'Trabajo', minutes: 140, color: '#93c5fd' },
-            { label: 'Descanso', minutes: 18, color: '#fdba74' },
-            { label: 'Trabajo', minutes: 50, color: '#93c5fd' }
-          ],
-          activity: [
-            { time: '08:03', event: 'Login', duration: '—', note: '' },
-            { time: '08:03', event: 'Trabajo', duration: '2h 20m', note: '' },
-            { time: '10:23', event: 'Descanso', duration: '22m', note: '' },
-            { time: '10:45', event: 'Trabajo', duration: '2h 00m', note: '' },
-            { time: '12:45', event: 'Baño', duration: '10m', note: '' },
-            { time: '12:55', event: 'Trabajo', duration: '2h 20m', note: '' },
-            { time: '15:15', event: 'Descanso', duration: '18m', note: '' },
-            { time: '15:33', event: 'Trabajo', duration: '50m', note: '' },
-            { time: '16:23', event: 'Logout', duration: '—', note: '' }
-          ],
-          pauses: [
-            { time: '10:23', type: 'Descanso', duration: '22m' },
-            { time: '12:45', type: 'Baño', duration: '10m' },
-            { time: '15:15', type: 'Descanso', duration: '18m' }
-          ],
-          calls: [
-            { time: '16:01', duration: '3m 01s', client: 'Hugo Ríos', result: 'No venta' },
-            { time: '15:26', duration: '2m 44s', client: 'Florencia Vidal', result: 'Venta' },
-            { time: '15:05', duration: '3m 10s', client: 'Darío Costa', result: 'No venta' },
-            { time: '14:18', duration: '2m 37s', client: 'Rocío Pérez', result: 'Callback' },
-            { time: '13:52', duration: '4m 02s', client: 'Marcos Sosa', result: 'Venta' }
-          ]
-        },
-        'Sofía Martínez': {
-          shift: '08:00 — 17:00 · Lunes 24 mar 2026',
-          status: 'Atención',
-          kpis: [
-            { label: 'Llamadas', value: '29', sub: 'Meta: 40 · falta 11', alert: true },
-            { label: 'Ventas', value: '2', sub: 'Meta: 6 · falta 4', alert: true },
-            { label: 'Conversión', value: '7%', sub: 'Mínimo: 10%', alert: true },
-            { label: 'Tiempo productivo', value: '71%', sub: '6h 22m de 9h', alert: true }
-          ],
-          alerts: [
-            {
-              title: 'Conversión por debajo del mínimo',
-              detail: '7% actual vs. mínimo aceptable de 10%. Promedio del equipo hoy: 14%. Diferencia: −7 puntos.'
-            },
-            {
-              title: 'Baño extendido — 13:35',
-              detail: 'Duración: 12 min (límite: 10 min). Excedió 2 minutos. Segunda vez en la semana.'
-            },
-            {
-              title: 'Tiempo total de pausas elevado',
-              detail: '52 min en pausas (3 eventos). Promedio del equipo hoy: 33 min. +19 min sobre el promedio.'
-            }
-          ],
-          timeline: [
-            { label: 'Trabajo', minutes: 120, color: '#93c5fd' },
-            { label: 'Descanso', minutes: 35, color: '#fdba74' },
-            { label: 'Trabajo', minutes: 105, color: '#93c5fd' },
-            { label: 'Baño extendido', minutes: 12, color: '#f59e0b' },
-            { label: 'Baño', minutes: 2, color: '#86efac' },
-            { label: 'Trabajo', minutes: 90, color: '#93c5fd' },
-            { label: 'Descanso', minutes: 25, color: '#fdba74' },
-            { label: 'Trabajo', minutes: 45, color: '#93c5fd' }
-          ],
-          activity: [
-            { time: '08:05', event: 'Login', duration: '—', note: '' },
-            { time: '08:05', event: 'Trabajo', duration: '2h 00m', note: '' },
-            { time: '10:05', event: 'Descanso', duration: '35m', note: '+6m sobre límite', overLimit: true },
-            { time: '10:40', event: 'Trabajo', duration: '1h 45m', note: '' },
-            { time: '12:25', event: 'Baño', duration: '12m', note: '+2m · 2da vez en semana', overLimit: true },
-            { time: '12:39', event: 'Trabajo', duration: '1h 30m', note: '' },
-            { time: '14:09', event: 'Descanso', duration: '25m', note: '+4m sobre límite', overLimit: true },
-            { time: '14:34', event: 'Trabajo', duration: '45m', note: '' },
-            { time: '15:19', event: 'Logout', duration: '—', note: '' }
-          ],
-          pauses: [
-            { time: '10:05', type: 'Descanso', duration: '35m' },
-            { time: '12:25', type: 'Baño', duration: '14m' },
-            { time: '14:09', type: 'Descanso', duration: '25m' }
-          ],
-          calls: [
-            { time: '14:52', duration: '2m 01s', client: 'Lorena Ruiz', result: 'No venta' },
-            { time: '14:23', duration: '0m 52s', client: 'Gonzalo Núñez', result: 'No venta', shortCall: true },
-            { time: '13:50', duration: '3m 45s', client: 'Mirta Prado', result: 'Callback' },
-            { time: '13:12', duration: '2m 18s', client: 'Aníbal Costa', result: 'No venta' },
-            { time: '12:44', duration: '4m 26s', client: 'Patricia Alves', result: 'Venta' }
-          ],
-          week: {
-            trend: [
-              { day: 'Lun', value: 12 },
-              { day: 'Mar', value: 7 },
-              { day: 'Mié', value: 10 },
-              { day: 'Jue', value: 9 },
-              { day: 'Vie', value: 11 }
-            ],
-            summary: [
-              { label: 'Promedio semana', value: '9.8%' },
-              { label: 'Alertas acumuladas', value: '5' },
-              { label: 'Baños extendidos', value: '2' }
-            ]
-          }
-        }
-      };
-      const fallbackAgents = [
-        { name: 'Juan Pérez', calls: 45, sales: 8, conversion: 18, status: 'Excelente', pauses: { count: 2, minutes: 35 }, login: '08:02', workTime: '7h 49m' },
-        { name: 'Laura Fernández', calls: 39, sales: 6, conversion: 15, status: 'Activo', pauses: { count: 2, minutes: 31 }, login: '08:00', workTime: '7h 51m' },
-        { name: 'Pedro González', calls: 34, sales: 5, conversion: 14, status: 'Activo', pauses: { count: 2, minutes: 33 }, login: '08:05', workTime: '7h 44m' },
-        { name: 'Sofía Martínez', calls: 29, sales: 2, conversion: 7, status: 'Atención', pauses: { count: 3, minutes: 52 }, login: '08:10', workTime: '7h 38m', highlight: true }
-      ];
       const teamAgents = React.useMemo(() => {
         const items = teamSummary?.agents || teamSummary?.items || teamSummary?.team || teamSummary?.data?.agents || teamSummary?.data?.items || [];
         if (Array.isArray(items) && items.length) {
           return items.map(buildAgentRow);
         }
-        return fallbackAgents;
+        return [];
       }, [buildAgentRow, teamSummary]);
       const summaryCards = React.useMemo(() => {
         const summary = teamSummary?.summary || teamSummary?.kpis || teamSummary?.data?.summary || null;
@@ -1422,10 +1221,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, [mapSummaryCards, teamAgents, teamSummary]);
       const attentionNote = React.useMemo(() => {
         if (teamSummary?.attentionNote) return teamSummary.attentionNote;
-        const attentionAgent = teamAgents.find((agent) => agent.highlight);
-        if (attentionAgent) {
-          return `${attentionAgent.name} requiere atención — conversión por debajo del mínimo (${attentionAgent.conversion}%).`;
-        }
         return '';
       }, [teamAgents, teamSummary]);
       const avgPauseMinutes = React.useMemo(() => {
@@ -1461,8 +1256,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           color: isHigh ? '#b45309' : 'inherit'
         };
       };
-      const fallbackDetail = detailAgent?.name ? agentDetailsByName[detailAgent.name] : null;
-      const activeDetail = normalizeDetail(detailData, detailWeek, fallbackDetail);
+      const activeDetail = normalizeDetail(detailData, detailWeek, null);
       const detailStatus = activeDetail?.status || detailAgent?.status || 'Activo';
       const isAttentionView = detailStatus.toLowerCase().includes('atencion') || detailStatus.toLowerCase().includes('atención');
       return (
@@ -1480,15 +1274,17 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 </div>
               )}
             >
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 14 }}>
-                {summaryCards.map((card) => (
-                  <div key={card.label} style={{ background: 'rgba(248,250,252,0.9)', border: '1px solid rgba(15,23,42,0.08)', borderRadius: 14, padding: 12 }}>
-                    <div style={{ color: '#64748b', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{card.label}</div>
-                    <div style={{ fontSize: '1.35rem', fontWeight: 700 }}>{card.value}</div>
-                    <div style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>{card.sub}</div>
-                  </div>
-                ))}
-              </div>
+              {summaryCards.length ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 14 }}>
+                  {summaryCards.map((card) => (
+                    <div key={card.label} style={{ background: 'rgba(248,250,252,0.9)', border: '1px solid rgba(15,23,42,0.08)', borderRadius: 14, padding: 12 }}>
+                      <div style={{ color: '#64748b', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{card.label}</div>
+                      <div style={{ fontSize: '1.35rem', fontWeight: 700 }}>{card.value}</div>
+                      <div style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>{card.sub}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
               {attentionNote ? (
                 <div style={{ marginBottom: 14, padding: 12, borderRadius: 12, background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(217,119,6,0.35)', color: '#92400e', fontWeight: 600 }}>
                   {attentionNote}
@@ -1539,6 +1335,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     </tr>
                   ))}</tbody>
                 </table>
+                {!teamLoading && !teamAgents.length ? (
+                  <div style={{ padding: 16, color: 'var(--muted)' }}>No hay datos reales para esta fecha.</div>
+                ) : null}
               </div>
             </Panel>
           </section>
@@ -1560,6 +1359,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 </div>
                 {detailLoading ? <div style={{ marginBottom: 12, color: 'var(--muted)' }}>Cargando detalle del agente...</div> : null}
                 {detailError ? <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 600 }}>{detailError}</div> : null}
+                {!detailLoading && !detailError && !activeDetail ? (
+                  <div style={{ marginBottom: 12, color: 'var(--muted)' }}>No hay detalle disponible para este agente.</div>
+                ) : null}
                 {isAttentionView ? (
                   <>
                     <div style={{ marginBottom: 14, padding: 12, borderRadius: 12, background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.35)', color: '#b45309', fontWeight: 600 }}>
