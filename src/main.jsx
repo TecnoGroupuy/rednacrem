@@ -4165,8 +4165,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             no_contesta: Number(item.no_contesta ?? 0),
             rechazo: Number(item.rechazos ?? 0),
             dato_erroneo: Number(item.datos_erroneos ?? 0),
-            contact: item.contacto ?? 0,
-            efectividad: Number(item.efectividad ?? 0)
+            contact: Number(item.contacto ?? 0) || 0,
+            efectividad: Number(item.efectividad ?? 0) || 0
           }))
           : sellerSummary;
         return (
@@ -4200,8 +4200,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           <td>{row.no_contesta}</td>
                           <td>{row.rechazo}</td>
                           <td>{row.dato_erroneo}</td>
-                          <td>{Number(row.contact || 0)}%</td>
-                          <td>{row.efectividad}%</td>
+                          <td>{Number(row.contact || 0) || 0}%</td>
+                          <td>{Number(row.efectividad || 0) || 0}%</td>
                         </tr>
                       ))}
                     </tbody>
