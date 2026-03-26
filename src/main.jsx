@@ -1170,11 +1170,29 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           ];
         }
         const rawEvents = raw.eventos || raw.events || raw.activity || raw.events_turno || [];
+        const diffMinutes = (start, end) => {
+          if (!start || !end) return 0;
+          const [sh, sm] = String(start).split(':').map(Number);
+          const [eh, em] = String(end).split(':').map(Number);
+          if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) return 0;
+          return Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
+        };
         const timeline = raw.timeline || raw.timelineSegments || raw.turnoTimeline || raw.segments || fallbackDetail?.timeline || (Array.isArray(rawEvents) ? rawEvents.map((event) => {
           const tipo = String(event?.tipo || '').toLowerCase();
-          const label = tipo === 'login' ? 'Trabajo' : tipo === 'trabajo' ? 'Trabajo' : tipo === 'descanso' ? 'Descanso' : (tipo === 'baño' || tipo === 'bano') ? 'Baño' : tipo === 'supervisor' ? 'Supervisor' : 'Trabajo';
-          const minutes = Number(event?.duracion_minutos ?? event?.duracion ?? event?.minutes ?? 0) || Number(event?.porcentaje_ancho ?? 0) || 1;
-          const color = label === 'Trabajo' ? '#93c5fd' : label === 'Descanso' ? '#fdba74' : label === 'Supervisor' ? '#c4b5fd' : '#86efac';
+          const label = tipo === 'login' ? 'Trabajo'
+            : tipo === 'trabajo' ? 'Trabajo'
+              : tipo === 'descanso' ? 'Descanso'
+                : (tipo === 'baño' || tipo === 'bano') ? 'Baño'
+                  : tipo === 'supervisor' ? 'Con supervisor'
+                    : tipo === 'logout' ? 'Logout'
+                      : 'Trabajo';
+          const duration = Number(event?.duracion_minutos ?? event?.duracion ?? event?.minutes ?? 0);
+          const minutes = duration || diffMinutes(event?.inicio, event?.fin) || Number(event?.porcentaje_ancho ?? 0) || 1;
+          const color = label === 'Trabajo' ? '#93c5fd'
+            : label === 'Descanso' ? '#fdba74'
+              : label === 'Con supervisor' ? '#c4b5fd'
+                : label === 'Logout' ? '#e2e8f0'
+                  : '#86efac';
           const extended = event?.excedido;
           return { label: extended && (label === 'Baño' || label === 'Descanso') ? `${label} extendido` : label, minutes, color };
         }) : []);
@@ -1235,6 +1253,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           kpis,
           timeline,
           activity,
+          activityRaw: Array.isArray(rawEvents) ? rawEvents : [],
           pauses,
           calls,
           alerts,
@@ -1612,23 +1631,70 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       </>
                     ) : null}
                     {detailTab === 'actividad' ? (
-                      <div className="table-wrap">
-                        <table>
-                          <thead><tr><th>Hora</th><th>Evento</th><th>Duración</th><th>Observación</th></tr></thead>
-                          <tbody>
-                            {(activeDetail?.activity || []).map((row, idx) => {
-                              const badge = activityBadge(row.event);
-                              return (
-                                <tr key={`${row.event}-${idx}`} style={row.overLimit ? { background: 'rgba(254,226,226,0.6)' } : undefined}>
-                                  <td>{row.time}</td>
-                                  <td><span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, background: badge.bg, color: badge.color, fontWeight: 600, fontSize: '0.75rem' }}>{row.event}</span></td>
-                                  <td style={{ color: row.overLimit ? '#b91c1c' : 'inherit', fontWeight: row.overLimit ? 700 : 500 }}>{row.duration}</td>
-                                  <td style={{ color: row.overLimit ? '#b45309' : 'var(--muted)', fontWeight: row.overLimit ? 700 : 400 }}>{row.note || '—'}</td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                      <div style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 14, padding: 12, maxHeight: 280, overflowY: 'auto' }}>
+                        {(() => {
+                          const order = ['login', 'trabajo', 'baño', 'bano', 'descanso', 'supervisor', 'logout'];
+                          const labelByType = {
+                            login: 'Ingreso (Login)',
+                            trabajo: 'Trabajo',
+                            baño: 'Baño',
+                            bano: 'Baño',
+                            descanso: 'Descanso',
+                            supervisor: 'Con supervisor',
+                            logout: 'Cierre (Logout)'
+                          };
+                          const diffMinutes = (start, end) => {
+                            if (!start || !end) return null;
+                            const [sh, sm] = String(start).split(':').map(Number);
+                            const [eh, em] = String(end).split(':').map(Number);
+                            if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) return null;
+                            return Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
+                          };
+                          const formatMinutes = (mins) => {
+                            if (mins === null || mins === undefined) return '—';
+                            const h = Math.floor(mins / 60);
+                            const m = mins % 60;
+                            return h ? `${h}h ${m}m` : `${m}m`;
+                          };
+                          const rawEvents = Array.isArray(activeDetail?.activityRaw) ? activeDetail.activityRaw : [];
+                          const grouped = order.map((type) => {
+                            const events = rawEvents.filter((evt) => String(evt?.tipo || '').toLowerCase() === type);
+                            const occurrences = events.map((evt) => {
+                              const duration = Number(evt?.duracion_minutos ?? evt?.duracion ?? evt?.minutes ?? 0);
+                              const computed = duration || diffMinutes(evt?.inicio, evt?.fin);
+                              return {
+                                start: evt?.inicio || '—',
+                                duration: computed === null ? null : computed,
+                                inProgress: !evt?.fin && !duration
+                              };
+                            });
+                            const totalMinutes = occurrences.reduce((acc, occ) => acc + (occ.duration || 0), 0);
+                            return { type, label: labelByType[type], occurrences, totalMinutes };
+                          });
+                          return (
+                            <div style={{ display: 'grid', gap: 10 }}>
+                              {grouped.map((row) => (
+                                <div key={row.type} style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: 12, alignItems: 'start' }}>
+                                  <div style={{ fontWeight: 700 }}>{row.label}</div>
+                                  <div style={{ color: 'var(--muted)', fontSize: '0.86rem' }}>
+                                    {row.occurrences.length ? (
+                                      <>
+                                        {row.occurrences.map((occ, idx) => (
+                                          <span key={`${row.type}-${idx}`} style={{ marginRight: 12 }}>
+                                            {occ.start} · {occ.inProgress ? 'En curso' : formatMinutes(occ.duration)}
+                                          </span>
+                                        ))}
+                                        <span style={{ fontWeight: 700 }}>→ Total: {formatMinutes(row.totalMinutes)} ({row.occurrences.length} vez{row.occurrences.length === 1 ? '' : 'es'})</span>
+                                      </>
+                                    ) : (
+                                      <span>—</span>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
                       </div>
                     ) : null}
                     {detailTab === 'llamadas' ? (
