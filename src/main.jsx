@@ -1479,7 +1479,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           <div className="person-badge">{initials(row.name)}</div>
                           <div>
                             <strong>{row.name}</strong>
-                            <div style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>Login {row.login} · {row.workTime}</div>
                           </div>
                         </div>
                       </td>
@@ -1503,7 +1502,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             setDetailTab('resumen');
                             setDetailData(null);
                             setDetailWeek(null);
-                            setDetailAgent({ id: row.id, name: row.name, status: row.status });
+                            setDetailAgent({ id: row.id, name: row.name, status: row.status, login: row.login, workTime: row.workTime });
                           }}
                         >
                           Ver
@@ -1525,9 +1524,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div className="person-badge" style={{ width: 44, height: 44 }}>{initials(detailAgent.name)}</div>
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                         <h3 style={{ margin: 0 }}>{detailAgent.name}</h3>
                         <Tag variant={statusVariant(detailStatus)}>{detailStatus}</Tag>
+                        <span style={{ color: 'var(--muted)', fontSize: '0.86rem' }}>
+                          Login {detailAgent?.login || '—'} · {detailAgent?.workTime || '—'}
+                        </span>
                       </div>
                       <div style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>{activeDetail?.shift}</div>
                     </div>
