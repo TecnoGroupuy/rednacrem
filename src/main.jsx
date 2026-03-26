@@ -1085,8 +1085,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const normalizeTeamPayload = React.useCallback((payload) => {
         if (!payload) return null;
         const base = payload?.data || payload;
-        const agents = base?.agents || base?.agentes || base?.items || base?.team || base?.data?.agents || base?.data?.agentes || base?.data?.items || [];
-        const summary = base?.summary || base?.resumen_equipo || base?.kpis || base?.data?.summary || null;
+        // Prefer "agents" (en inglés) porque ya viene normalizado con login/workTime.
+        const agents = base?.agents || base?.data?.agents || base?.items || base?.team || base?.data?.items || [];
+        const summary = base?.summary || base?.data?.summary || base?.kpis || null;
         const alertas = base?.alertas_activas || base?.alerts || base?.data?.alertas_activas || [];
         return { ...base, agents, summary, alertas_activas: alertas };
       }, []);
@@ -1348,7 +1349,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         };
       }, [authUser?.accessToken, detailAgent?.id, formatDateYmd, selectedDate, socketBase, shouldApplyTeamUpdate, normalizeTeamPayload]);
       const teamAgents = React.useMemo(() => {
-        const items = teamSummary?.agents || teamSummary?.agentes || teamSummary?.items || teamSummary?.team || teamSummary?.data?.agents || teamSummary?.data?.agentes || teamSummary?.data?.items || [];
+        const items = teamSummary?.agents || teamSummary?.items || teamSummary?.team || teamSummary?.data?.agents || teamSummary?.data?.items || [];
         if (Array.isArray(items) && items.length) {
           return items.map(buildAgentRow);
         }
