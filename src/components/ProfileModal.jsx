@@ -64,6 +64,7 @@ export default function ProfileModal({ isOpen, onClose, user, onSave, roleMeta =
   const [saving, setSaving] = React.useState(false);
   const [success, setSuccess] = React.useState(false);
   const [shakeField, setShakeField] = React.useState('');
+  const [saveError, setSaveError] = React.useState('');
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -72,6 +73,7 @@ export default function ProfileModal({ isOpen, onClose, user, onSave, roleMeta =
     setSaving(false);
     setSuccess(false);
     setShakeField('');
+    setSaveError('');
   }, [isOpen, user]);
 
   React.useEffect(() => {
@@ -140,13 +142,22 @@ export default function ProfileModal({ isOpen, onClose, user, onSave, roleMeta =
     event.preventDefault();
     if (!validateAll()) return;
     setSaving(true);
+    setSaveError('');
     await new Promise((resolve) => window.setTimeout(resolve, 1200));
-    if (onSave) onSave(form);
-    setSaving(false);
-    setSuccess(true);
-    window.setTimeout(() => {
-      onClose();
-    }, 700);
+    try {
+      if (onSave) {
+        await Promise.resolve(onSave(form));
+      }
+      setSaving(false);
+      setSuccess(true);
+      window.setTimeout(() => {
+        onClose();
+      }, 700);
+    } catch (err) {
+      const message = err?.message || 'No se pudo guardar el perfil.';
+      setSaveError(message);
+      setSaving(false);
+    }
   };
 
   const { setVistaRol, restaurarVistaRol } = useAuth();
@@ -311,6 +322,7 @@ export default function ProfileModal({ isOpen, onClose, user, onSave, roleMeta =
                 {saving ? 'Guardando...' : 'Guardar y continuar'}
               </button>
             </div>
+            {saveError ? <p className="profile-error" style={{ marginTop: 10 }}>{saveError}</p> : null}
             </form>
             {canViewRoles ? (
             <aside className="profile-role-section">

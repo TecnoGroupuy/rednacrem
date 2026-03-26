@@ -7371,7 +7371,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
     function App() {
       const today = new Date().toLocaleDateString('es-UY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
       const oidcAuth = useOidcAuth();
-      const { user, logout } = useAuth();
+      const { user, logout, refreshSession } = useAuth();
       const authUser = user;
       const { rolReal, rolEfectivo, esSuperadmin } = useRolEfectivo();
       const role = rolEfectivo;
@@ -7692,6 +7692,26 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setShowProfileModal(false);
       };
 
+      const handleSaveProfile = React.useCallback(async (form) => {
+        const api = getApiClient();
+        const payload = {
+          fullName: form.fullName,
+          email: form.email,
+          phone: form.phone,
+          extension: form.extension || '',
+          department: form.department
+        };
+        const response = await api.put('/api/users/me', payload);
+        if (!response?.ok) {
+          const message = response?.message || 'No se pudo guardar el perfil.';
+          throw new Error(message);
+        }
+        if (refreshSession) {
+          await refreshSession();
+        }
+        return response;
+      }, [refreshSession]);
+
       const effectiveRoleForUi = getEffectiveRoleForUi({ rolEfectivo: role, rolReal, fallback: 'atencion_cliente' });
       const navItems = getVisibleNavItemsForRole({
         roleNav: roleNavWithBadges,
@@ -7981,7 +8001,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           </div>
 
           {mostrarPausa ? <PauseOverlay status={estadoConfig} startedAt={pausaInicio} onResume={volverAlTrabajo} /> : null}
-          <ProfileModal isOpen={showProfileModal} onClose={handleCloseProfile} user={currentUser} roleMeta={ROLE_META} />
+          <ProfileModal isOpen={showProfileModal} onClose={handleCloseProfile} user={currentUser} roleMeta={ROLE_META} onSave={handleSaveProfile} />
         </>
       );
     }
