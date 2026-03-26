@@ -512,7 +512,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               <div style={{ marginTop: 12, borderRadius: 14, border: '1px solid rgba(148,163,184,0.2)', background: 'rgba(2,6,23,0.5)', padding: '10px 12px', color: 'rgba(203,213,225,0.86)' }}>
                 Iniciado a las {startedLabel}
               </div>
-              <button className="button primary" style={{ marginTop: 16, width: '100%', justifyContent: 'center' }} onClick={onResume}>
+              <button
+                className="button primary"
+                style={{ marginTop: 16, width: '100%', justifyContent: 'center' }}
+                onClick={() => {
+                  console.log('[DEBUG BOTON] click en Volver al trabajo', new Date().toISOString());
+                  onResume();
+                }}
+              >
                 Volver al trabajo
               </button>
               <div style={{ marginTop: 10, color: 'rgba(148,163,184,0.78)', fontSize: '0.8rem' }}>Presiona el botón cuando estés listo para continuar</div>
@@ -7973,6 +7980,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             const agenteId = authUser?.id;
             console.log('[EVENTO] agenteId:', agenteId);
             if (agenteId) {
+              console.log('[DEBUG ESTADO] enviando tipo:', tipo, new Date().toISOString());
               api.post('/api/agent/event', { agente_id: agenteId, tipo })
                 .then((r) => console.log('[EVENTO] OK', r?.status))
                 .catch((e) => console.error('[EVENTO] ERROR', e));
@@ -7996,6 +8004,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           const agenteId = authUser?.id;
           console.log('[EVENTO] agenteId:', agenteId);
           if (agenteId) {
+            console.log('[DEBUG TRABAJO] enviando TRABAJO', new Date().toISOString());
             api.post('/api/agent/event', { agente_id: agenteId, tipo: 'TRABAJO' })
               .then((r) => console.log('[EVENTO] OK', r?.status))
               .catch((e) => console.error('[EVENTO] ERROR', e));
