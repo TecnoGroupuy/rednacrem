@@ -1,6 +1,6 @@
 ﻿import React from 'react';
 import { getBusinessSession } from '../services/sessionService.js';
-import { setApiAccessTokenGetter, ApiError } from '../services/apiClient.js';
+import { setApiAccessTokenGetter, ApiError, getApiClient } from '../services/apiClient.js';
 
 const AuthContext = React.createContext(null);
 
@@ -198,6 +198,11 @@ export function AuthProvider({ children, fallbackRole = null }) {
         error: ''
       };
 
+      const api = getApiClient();
+      const agenteId = nextUser?.id || sessionData?.id || '';
+      if (agenteId) {
+        api.post('/api/agent/event', { agente_id: agenteId, tipo: 'LOGIN' }).catch(() => {});
+      }
       setAuthSession(nextSession);
       return nextSession;
     } catch (err) {

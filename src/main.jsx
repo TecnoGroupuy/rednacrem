@@ -7499,12 +7499,20 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         };
         const tipo = tipoMap[next.id];
         if (tipo) {
-          const api = getApiClient();
-          const agenteId = authUser?.id;
-          if (agenteId) {
-            api.post('/api/agent/event', { agente_id: agenteId, tipo }).catch(console.error);
-          } else {
-            console.warn('Sin authUser.id');
+          console.log('[EVENTO] tipo:', tipo);
+          try {
+            const api = getApiClient();
+            const agenteId = authUser?.id;
+            console.log('[EVENTO] agenteId:', agenteId);
+            if (agenteId) {
+              api.post('/api/agent/event', { agente_id: agenteId, tipo })
+                .then((r) => console.log('[EVENTO] OK', r?.status))
+                .catch((e) => console.error('[EVENTO] ERROR', e));
+            } else {
+              console.warn('[EVENTO] Sin authUser.id');
+            }
+          } catch (e) {
+            console.error('[EVENTO] EXCEPCION', e);
           }
         }
       };
@@ -7514,16 +7522,29 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setMostrarPausa(false);
         setPausaInicio('');
         setEstadoUsuario('disponible');
-        const api = getApiClient();
-        const agenteId = authUser?.id;
-        if (agenteId) {
-          api.post('/api/agent/event', { agente_id: agenteId, tipo: 'TRABAJO' }).catch(console.error);
-        } else {
-          console.warn('Sin authUser.id');
+        console.log('[EVENTO] tipo:', 'TRABAJO');
+        try {
+          const api = getApiClient();
+          const agenteId = authUser?.id;
+          console.log('[EVENTO] agenteId:', agenteId);
+          if (agenteId) {
+            api.post('/api/agent/event', { agente_id: agenteId, tipo: 'TRABAJO' })
+              .then((r) => console.log('[EVENTO] OK', r?.status))
+              .catch((e) => console.error('[EVENTO] ERROR', e));
+          } else {
+            console.warn('[EVENTO] Sin authUser.id');
+          }
+        } catch (e) {
+          console.error('[EVENTO] EXCEPCION', e);
         }
       };
 
       const handleLogout = async () => {
+        const api = getApiClient();
+        const agenteId = authUser?.id || '';
+        if (agenteId) {
+          api.post('/api/agent/event', { agente_id: agenteId, tipo: 'LOGOUT' }).catch(() => {});
+        }
         // 1) Cerrar sesion OIDC local para evitar estado stale en el frontend.
         if (oidcAuth?.removeUser) {
           try {
