@@ -3682,8 +3682,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const selectedLot = lotSummaries.find((lot) => lot.id === selectedLotId) || lotSummaries[0] || null;
 
       const sellerSummary = React.useMemo(() => sellers.map((seller) => {
-        const sellerLabel = typeof seller === 'string' ? seller : (seller.label || `${seller.nombre || seller.name || ''} ${seller.apellido || ''}`.trim() || seller.email || '');
-        const scoped = contacts.filter((contact) => contact.assignedTo === sellerLabel);
+        const sellerLabel = typeof seller === 'string'
+          ? seller
+          : (seller.label || `${seller.nombre || seller.name || ''} ${seller.apellido || ''}`.trim() || seller.email || '');
+        const sellerId = typeof seller === 'object' ? (seller.id || seller.seller_id || seller.user_id || '') : '';
+        const scoped = contacts.filter((contact) => {
+          if (sellerId && contact.assignedToId && String(contact.assignedToId) === String(sellerId)) return true;
+          return contact.assignedTo === sellerLabel;
+        });
         return {
           seller: sellerLabel,
           assigned: scoped.length,

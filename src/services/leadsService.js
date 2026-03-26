@@ -203,7 +203,8 @@ export const listCommercialContactsAsync = async () => {
         direccion: item.direccion || '',
         source: 'import',
         productId: '',
-        assignedTo: item.assigned_to_name || '',
+        assignedTo: item.assigned_to_name || item.vendedor_nombre || '',
+        assignedToId: item.assigned_to_id || item.assigned_to || item.vendedor_id || item.seller_id || '',
         loadedAt: (item.created_at || '').slice(0, 10),
         lotId: item.batch_id || '',
         status,
@@ -622,4 +623,3 @@ export const fetchNextLeadAsync = async () => {
   }
   return { data: null, message: 'API no configurada' };
 };
-
