@@ -3789,6 +3789,18 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [wizardAssignMode, setWizardAssignMode] = React.useState('individual');
       const [wizardSeller, setWizardSeller] = React.useState('');
       const [wizardGroupSellers, setWizardGroupSellers] = React.useState([]);
+      const [sellerSummaryRows, setSellerSummaryRows] = React.useState(null);
+      const [sellerSummaryLoading, setSellerSummaryLoading] = React.useState(false);
+      const [sellerSummaryError, setSellerSummaryError] = React.useState('');
+      const [sellerSummaryDate, setSellerSummaryDate] = React.useState(() => new Date());
+
+      const formatDateYmdLocal = React.useCallback((value) => {
+        if (!value) return '';
+        const year = value.getFullYear();
+        const month = String(value.getMonth() + 1).padStart(2, '0');
+        const day = String(value.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }, []);
       const [wizardError, setWizardError] = React.useState('');
       const [basePage, setBasePage] = React.useState(1);
       const basePageSize = 12;
@@ -3933,6 +3945,35 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           efectividad: assigned ? Math.round((ventas / assigned) * 100) : 0
         };
       }), [contacts, sellers]);
+
+      React.useEffect(() => {
+        if (route !== 'seguimiento_vendedores') return;
+        let active = true;
+        const api = getApiClient();
+        const dateStr = formatDateYmdLocal(sellerSummaryDate);
+        setSellerSummaryLoading(true);
+        setSellerSummaryError('');
+        api.get(`/api/supervisor/sellers-summary?fecha=${dateStr}`)
+          .then((response) => {
+            if (!active) return;
+            const items = response?.items || response?.data?.items || [];
+            if (Array.isArray(items)) {
+              setSellerSummaryRows(items);
+            } else {
+              setSellerSummaryRows([]);
+            }
+          })
+          .catch((err) => {
+            if (!active) return;
+            setSellerSummaryError(err?.message || 'No se pudo cargar el resumen de vendedores.');
+            setSellerSummaryRows(null);
+          })
+          .finally(() => {
+            if (!active) return;
+            setSellerSummaryLoading(false);
+          });
+        return () => { active = false; };
+      }, [formatDateYmdLocal, route, sellerSummaryDate]);
 
       const toggleSelection = (id) => {
         setSelectedIds((prev) => prev.includes(id) ? prev.filter((current) => current !== id) : [...prev, id]);
@@ -4113,15 +4154,43 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }
 
       if (route === 'seguimiento_vendedores') {
+        const dateLabel = sellerSummaryDate.toLocaleDateString('es-UY', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' });
+        const effectiveRows = Array.isArray(sellerSummaryRows) && sellerSummaryRows.length
+          ? sellerSummaryRows.map((item) => ({
+            seller: `${item.nombre || ''} ${item.apellido || ''}`.trim() || item.name || '—',
+            assigned: Number(item.asignados ?? 0),
+            venta: Number(item.ventas ?? 0),
+            seguimiento: Number(item.seguimientos ?? 0),
+            rellamar: Number(item.rellamadas ?? 0),
+            no_contesta: Number(item.no_contesta ?? 0),
+            rechazo: Number(item.rechazos ?? 0),
+            dato_erroneo: Number(item.datos_erroneos ?? 0),
+            contact: item.contacto ?? '—',
+            efectividad: Number(item.efectividad ?? 0)
+          }))
+          : sellerSummary;
         return (
           <div className="view">
             <section className="content-grid">
-              <Panel className="span-12" title="Seguimiento de vendedores" subtitle="Vista resumida operativa">
+              <Panel
+                className="span-12"
+                title="Seguimiento de vendedores"
+                subtitle="Vista resumida operativa"
+                action={(
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Button variant="ghost" onClick={() => setSellerSummaryDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - 1))}>‹</Button>
+                    <div style={{ padding: '8px 16px', borderRadius: 12, border: '1px solid rgba(15,23,42,0.12)', background: '#fff', fontWeight: 600 }}>{dateLabel}</div>
+                    <Button variant="ghost" onClick={() => setSellerSummaryDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 1))}>›</Button>
+                  </div>
+                )}
+              >
+                {sellerSummaryLoading ? <div style={{ marginBottom: 12, color: 'var(--muted)' }}>Cargando resumen...</div> : null}
+                {sellerSummaryError ? <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 600 }}>{sellerSummaryError}</div> : null}
                 <div className="table-wrap">
                   <table>
                     <thead><tr><th>Vendedor</th><th>Asignados</th><th>Ventas</th><th>Seguimientos</th><th>Rellamadas</th><th>No contesta</th><th>Rechazos</th><th>Datos erroneos</th><th>Contacto</th><th>Efectividad</th></tr></thead>
                     <tbody>
-                      {sellerSummary.map((row) => (
+                      {effectiveRows.map((row) => (
                         <tr key={row.seller}>
                           <td><strong>{row.seller}</strong></td>
                           <td>{row.assigned}</td>
@@ -4137,6 +4206,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       ))}
                     </tbody>
                   </table>
+                  {!sellerSummaryLoading && !effectiveRows.length ? (
+                    <div style={{ padding: 16, color: 'var(--muted)' }}>No hay datos reales para esta fecha.</div>
+                  ) : null}
                 </div>
               </Panel>
             </section>
