@@ -151,6 +151,7 @@ export default function ProfileModal({ isOpen, onClose, user, onSave, roleMeta =
 
   const { setVistaRol, restaurarVistaRol } = useAuth();
   const { rolReal, rolEfectivo, esVistaSimulada } = useRolEfectivo();
+  const canViewRoles = rolReal === 'superadministrador';
 
   const roleOptions = ROLE_OVERVIEW
     .map((entry) => ({ ...entry, ...(roleMeta[entry.id] || {}) }))
@@ -311,6 +312,7 @@ export default function ProfileModal({ isOpen, onClose, user, onSave, roleMeta =
               </button>
             </div>
             </form>
+            {canViewRoles ? (
             <aside className="profile-role-section">
             <div className="profile-role-header">
               <div>
@@ -348,6 +350,7 @@ export default function ProfileModal({ isOpen, onClose, user, onSave, roleMeta =
               ) : null}
             </details>
           </aside>
+            ) : null}
         </div>
 
         {success ? (
