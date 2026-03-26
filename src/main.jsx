@@ -1525,6 +1525,16 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           const m = total % 60;
           return h ? `${h}h ${m}m` : `${m}m`;
         };
+        const formatSeconds = (secs) => {
+          if (secs === null || secs === undefined) return '—';
+          const total = Math.max(0, Math.floor(Number(secs) || 0));
+          const h = Math.floor(total / 3600);
+          const m = Math.floor((total % 3600) / 60);
+          const s = total % 60;
+          if (h > 0) return `${h}h ${m}m ${s}s`;
+          if (m > 0) return `${m}m ${s}s`;
+          return `${s}s`;
+        };
         const formatDuration = (inicio, fin) => {
           if (!inicio) return '—';
           const start = new Date(inicio);
@@ -1549,6 +1559,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           if ([h, m].some((n) => Number.isNaN(n))) return null;
           return h * 60 + m;
         };
+        const toSecondsFromTimestamp = (value) => {
+          if (!value) return null;
+          const parsed = new Date(value);
+          if (Number.isNaN(parsed.getTime())) return null;
+          return Math.floor(parsed.getTime() / 1000);
+        };
         const diffMinutes = (start, end) => {
           if (!start || !end) return null;
           const startMin = toTimeMinutes(start);
@@ -1556,17 +1572,27 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           if (startMin === null || endMin === null) return null;
           return Math.max(0, endMin - startMin);
         };
+        const diffSeconds = (start, end) => {
+          if (!start || !end) return null;
+          const startSec = toSecondsFromTimestamp(start);
+          const endSec = toSecondsFromTimestamp(end);
+          if (startSec === null || endSec === null) return null;
+          return Math.max(0, endSec - startSec);
+        };
         const parsed = rawEvents
           .map((evt) => {
             const type = normalizeType(evt?.tipo);
             if (!type) return null;
             const duration = Number(evt?.duracion_minutos ?? evt?.duracion ?? evt?.minutes ?? 0);
             const computed = duration || diffMinutes(evt?.inicio, evt?.fin);
+            const durationSeconds = diffSeconds(evt?.inicio, evt?.fin)
+              ?? (Number.isFinite(duration) ? Math.round(duration * 60) : null);
             return {
               type,
               start: evt?.inicio || '—',
               end: evt?.fin || '',
               duration: computed === null ? null : computed,
+              durationSeconds,
               inProgress: !evt?.fin && !duration,
               startMinutes: toTimeMinutes(evt?.inicio),
               rawInicio: evt?.inicio || '',
@@ -1595,15 +1621,21 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const grouped = typeOrder.map((type) => {
           const events = parsed.filter((evt) => evt.type === type);
           const totalMinutes = events.reduce((acc, evt) => acc + (evt.duration || 0), 0);
-          return { type, events, totalMinutes, count: events.length };
+          const totalSeconds = events.reduce((acc, evt) => acc + (evt.durationSeconds || 0), 0);
+          return { type, events, totalMinutes, totalSeconds, count: events.length };
         });
         const firstLogin = parsed.find((evt) => evt.type === 'login');
         const lastLogout = [...parsed].reverse().find((evt) => evt.type === 'logout');
         const totalWork = grouped.find((row) => row.type === 'trabajo')?.totalMinutes || 0;
+        const totalWorkSeconds = grouped.find((row) => row.type === 'trabajo')?.totalSeconds || 0;
         const totalPausas = (grouped.find((row) => row.type === 'bano')?.totalMinutes || 0)
           + (grouped.find((row) => row.type === 'descanso')?.totalMinutes || 0)
           + (grouped.find((row) => row.type === 'supervisor')?.totalMinutes || 0);
+        const totalPausasSeconds = (grouped.find((row) => row.type === 'bano')?.totalSeconds || 0)
+          + (grouped.find((row) => row.type === 'descanso')?.totalSeconds || 0)
+          + (grouped.find((row) => row.type === 'supervisor')?.totalSeconds || 0);
         const totalJornada = totalWork + totalPausas;
+        const totalJornadaSeconds = totalWorkSeconds + totalPausasSeconds;
         const summaryRows = [
           { type: 'login', label: labelByType.login, icon: iconByType.login, text: firstLogin?.start || '—' },
           { type: 'trabajo', label: labelByType.trabajo, icon: iconByType.trabajo, text: formatMinutesWithRaw(totalWork), indent: true },
@@ -1624,7 +1656,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             type,
             label: labelByType[type],
             count: row?.count || 0,
-            totalMinutes: row?.totalMinutes || 0
+            totalMinutes: row?.totalMinutes || 0,
+            totalSeconds: row?.totalSeconds || 0
           };
         });
         return (
@@ -1634,7 +1667,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               {[
                 { label: 'Ingreso', value: firstLogin?.start || '—', icon: iconByType.login },
                 { label: 'Cierre', value: lastLogout?.start || '—', icon: iconByType.logout },
-                { label: 'Jornada total', value: formatMinutes(totalJornada), icon: '⏱' }
+                { label: 'Jornada total', value: formatSeconds(totalJornadaSeconds), icon: '⏱' }
               ].map((item, idx, arr) => (
                 <div
                   key={item.label}
@@ -1659,7 +1692,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 <div key={`summary-${row.type}`} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 140px', gap: 0, padding: '10px 12px', borderBottom: '1px solid rgba(148,163,184,0.2)' }}>
                   <div style={{ fontWeight: 600 }}>{row.label}</div>
                   <div>{row.count || '—'}</div>
-                  <div>{row.count ? formatMinutes(row.totalMinutes) : '—'}</div>
+                  <div>{row.count ? formatSeconds(row.totalSeconds) : '—'}</div>
                 </div>
               ))}
             </div>
