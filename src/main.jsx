@@ -1387,11 +1387,18 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, [mapSummaryCards, teamAgents, teamSummary]);
       const attentionNote = React.useMemo(() => {
         if (teamSummary?.attentionNote) return teamSummary.attentionNote;
-        if (teamSummary?.alertas_activas?.length) {
-          const first = teamSummary.alertas_activas[0];
-          return `${first?.agente_nombre || 'Agente'} requiere atención — ${first?.descripcion || ''}`.trim();
-        }
-        return '';
+        const alerts = Array.isArray(teamSummary?.alertas_activas) ? teamSummary.alertas_activas : [];
+        if (!alerts.length) return '';
+        const knownNames = new Set(teamAgents.map((agent) => String(agent.name || '').trim()).filter(Boolean));
+        const firstMatch = alerts.find((alert) => {
+          const name = String(alert?.agente_nombre || '').trim();
+          return name && knownNames.has(name);
+        });
+        const fallback = alerts.find((alert) => String(alert?.agente_nombre || '').trim());
+        const picked = firstMatch || fallback || alerts[0];
+        const label = String(picked?.agente_nombre || '').trim();
+        if (!label) return '';
+        return `${label} requiere atención — ${picked?.descripcion || ''}`.trim();
       }, [teamAgents, teamSummary]);
       const avgPauseMinutes = React.useMemo(() => {
         if (teamSummary?.avgPauseMinutes) return Number(teamSummary.avgPauseMinutes) || 0;
