@@ -5,12 +5,30 @@ import { getApiClient } from '../services/apiClient.js';
 const PAGE_SIZE = 50;
 
 const normalizeOption = (value) => String(value || '').trim();
+function ColHeader({ campo, label, ordenActual, onOrden }) {
+  const activo = ordenActual.campo === campo;
+  const icono = !activo ? '↕' : ordenActual.direccion === 'asc' ? '↑' : '↓';
+  return (
+    <th
+      onClick={() => onOrden({
+        campo,
+        direccion: activo && ordenActual.direccion === 'asc' ? 'desc' : 'asc'
+      })}
+      style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+    >
+      {label} <span style={{ opacity: activo ? 1 : 0.3, fontSize: '11px' }}>{icono}</span>
+    </th>
+  );
+}
 
 export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const api = React.useMemo(() => getApiClient(), []);
   const [metrics, setMetrics] = React.useState({ total: 0, enGestion: 0, recuperados: 0, rechazados: 0 });
   const [items, setItems] = React.useState([]);
-  const [filters, setFilters] = React.useState({ producto: 'todos', departamento: 'todos', search: '' });
+  const [filtroProducto, setFiltroProducto] = React.useState('');
+  const [filtroDepartamento, setFiltroDepartamento] = React.useState('');
+  const [filtroBusqueda, setFiltroBusqueda] = React.useState('');
+  const [orden, setOrden] = React.useState({ campo: '', direccion: 'asc' });
   const [filterOptions, setFilterOptions] = React.useState({ productos: [], departamentos: [] });
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
@@ -65,14 +83,12 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     setLoading(true);
     setError('');
     try {
-      const params = new URLSearchParams({
-        page: String(page),
-        limit: String(PAGE_SIZE)
-      });
-      if (filters.producto && filters.producto !== 'todos') params.set('producto', filters.producto);
-      if (filters.departamento && filters.departamento !== 'todos') params.set('departamento', filters.departamento);
-      if (filters.search) params.set('search', filters.search);
-      const response = await api.get(`/api/recupero/contactos?${params}`);
+      const url = `/api/recupero/contactos?page=${page}&limit=${PAGE_SIZE}`
+        + (filtroProducto ? `&producto=${encodeURIComponent(filtroProducto)}` : '')
+        + (filtroDepartamento ? `&departamento=${encodeURIComponent(filtroDepartamento)}` : '')
+        + (filtroBusqueda ? `&search=${encodeURIComponent(filtroBusqueda)}` : '')
+        + (orden.campo ? `&sort=${orden.campo}&dir=${orden.direccion}` : '');
+      const response = await api.get(url);
       const rows = response?.items || response?.data?.items || [];
       const totalCount = Number(response?.total ?? response?.data?.total ?? rows.length);
       setItems(Array.isArray(rows) ? rows : []);
@@ -90,7 +106,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     } finally {
       setLoading(false);
     }
-  }, [api, filters.departamento, filters.producto, filters.search, page, metrics.total, metrics.enGestion, metrics.convertidos]);
+  }, [api, filtroDepartamento, filtroProducto, filtroBusqueda, orden, page, metrics.total, metrics.enGestion, metrics.convertidos]);
 
   React.useEffect(() => {
     loadFilters();
@@ -99,6 +115,11 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   React.useEffect(() => {
     loadRecupero();
   }, [loadRecupero]);
+
+  React.useEffect(() => {
+    setPage(1);
+    loadRecupero();
+  }, [filtroProducto, filtroDepartamento, filtroBusqueda, orden]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleSelection = (id) => {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
@@ -215,10 +236,10 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
             <select
               className="input"
               style={{ width: 220 }}
-              value={filters.producto}
-              onChange={(event) => setFilters((prev) => ({ ...prev, producto: event.target.value }))}
+              value={filtroProducto}
+              onChange={(event) => setFiltroProducto(event.target.value)}
             >
-              <option value="todos">Producto</option>
+              <option value="">Producto</option>
               {filterOptions.productos.map((item) => {
                 const value = normalizeOption(item);
                 return <option key={value} value={value}>{value}</option>;
@@ -227,10 +248,10 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
             <select
               className="input"
               style={{ width: 220 }}
-              value={filters.departamento}
-              onChange={(event) => setFilters((prev) => ({ ...prev, departamento: event.target.value }))}
+              value={filtroDepartamento}
+              onChange={(event) => setFiltroDepartamento(event.target.value)}
             >
-              <option value="todos">Departamento</option>
+              <option value="">Departamento</option>
               {filterOptions.departamentos.map((item) => {
                 const value = normalizeOption(item);
                 return <option key={value} value={value}>{value}</option>;
@@ -240,8 +261,8 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
               className="input"
               style={{ minWidth: 240 }}
               placeholder="Buscar por nombre o teléfono"
-              value={filters.search}
-              onChange={(event) => setFilters((prev) => ({ ...prev, search: event.target.value }))}
+              value={filtroBusqueda}
+              onChange={(event) => setFiltroBusqueda(event.target.value)}
             />
             <Button variant="secondary" icon={<Filter size={16} />}>Filtros</Button>
             <Button variant="ghost" icon={<RefreshCw size={16} />} onClick={loadRecupero}>Actualizar</Button>
@@ -256,12 +277,12 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                 <tr>
                   <th></th>
                   <th>Contacto</th>
-                  <th>Edad</th>
-                  <th>Teléfono</th>
-                  <th>Departamento</th>
-                  <th>Producto</th>
-                  <th>Precio</th>
-                  <th>Fecha de baja</th>
+                  <ColHeader campo="edad" label="Edad" ordenActual={orden} onOrden={setOrden} />
+                  <ColHeader campo="telefono" label="Teléfono" ordenActual={orden} onOrden={setOrden} />
+                  <ColHeader campo="departamento" label="Departamento" ordenActual={orden} onOrden={setOrden} />
+                  <ColHeader campo="nombre_producto" label="Producto" ordenActual={orden} onOrden={setOrden} />
+                  <ColHeader campo="precio" label="Precio" ordenActual={orden} onOrden={setOrden} />
+                  <ColHeader campo="fecha_baja" label="Fecha de baja" ordenActual={orden} onOrden={setOrden} />
                 </tr>
               </thead>
               <tbody>
