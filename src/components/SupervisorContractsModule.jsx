@@ -41,9 +41,21 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
 
   const loadSellers = React.useCallback(async () => {
     try {
-      const response = await api.get('/api/users?role=vendedor');
-      const itemsList = response?.items || response?.data?.items || response?.data || [];
-      setSellers(Array.isArray(itemsList) ? itemsList : []);
+      const response = await api.get('/api/supervisor/agents');
+      const itemsList = response?.agents
+        || response?.items
+        || response?.data?.agents
+        || response?.data?.items
+        || response?.data
+        || [];
+      const normalized = (Array.isArray(itemsList) ? itemsList : []).map((seller) => ({
+        id: String(seller?.id || seller?.agent_id || seller?.agente_id || seller?.user_id || ''),
+        nombre: seller?.nombre || seller?.name || seller?.first_name || '',
+        apellido: seller?.apellido || seller?.last_name || '',
+        email: seller?.email || '',
+        label: `${seller?.nombre || seller?.name || ''} ${seller?.apellido || seller?.last_name || ''}`.trim() || seller?.email || seller?.username || ''
+      }));
+      setSellers(normalized);
     } catch {
       setSellers([]);
     }
@@ -60,7 +72,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       if (filters.producto && filters.producto !== 'todos') params.set('producto', filters.producto);
       if (filters.departamento && filters.departamento !== 'todos') params.set('departamento', filters.departamento);
       if (filters.search) params.set('search', filters.search);
-      const response = await api.get(`/api/recupero?${params}`);
+      const response = await api.get(`/api/recupero/contactos?${params}`);
       const rows = response?.items || response?.data?.items || [];
       const totalCount = Number(response?.total ?? response?.data?.total ?? rows.length);
       setItems(Array.isArray(rows) ? rows : []);
@@ -275,7 +287,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                           checked={selectedSellers.includes(seller.id)}
                           onChange={() => toggleSeller(seller.id)}
                         />
-                        <span>{seller.nombre || seller.name || seller.email || 'Vendedor'}</span>
+                        <span>{seller.label || seller.nombre || seller.email || 'Vendedor'}</span>
                       </label>
                     )) : <div style={{ color: 'var(--muted)' }}>Sin vendedores disponibles.</div>}
                   </div>
