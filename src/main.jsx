@@ -1322,6 +1322,32 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, [formatDateYmd, selectedDate, normalizeTeamPayload]);
 
       React.useEffect(() => {
+        const list = teamSummary?.agents || teamSummary?.agentes || teamSummary?.items || teamSummary?.team || [];
+        if (!Array.isArray(list) || !list.length) {
+          setJornadaAgents([]);
+          return () => {};
+        }
+        const baseAgents = list.map(buildJornadaBase);
+        setJornadaAgents(baseAgents);
+        let active = true;
+        const api = getApiClient();
+        const dateStr = formatDateYmd(selectedDate);
+        Promise.all(
+          baseAgents.map((agent) => api.get(`/api/supervisor/agent-detail/${agent.id}?fecha=${dateStr}`)
+            .then((response) => ({ id: agent.id, response }))
+            .catch(() => null))
+        ).then((results) => {
+          if (!active) return;
+          setJornadaAgents((prev) => prev.map((agent) => {
+            const hit = results.find((item) => item && String(item.id) === String(agent.id));
+            if (!hit?.response) return agent;
+            return buildJornadaFromDetail(agent, hit.response, selectedDate);
+          }));
+        });
+        return () => { active = false; };
+      }, [buildJornadaBase, buildJornadaFromDetail, formatDateYmd, selectedDate, teamSummary]);
+
+      React.useEffect(() => {
         let active = true;
         const api = getApiClient();
         const dateStr = formatDateYmd(selectedDate);
@@ -1403,6 +1429,18 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               setSellerSummaryLoading(false);
             });
         };
+        const refreshJornadaAgent = (agentId) => {
+          if (!agentId) return;
+          const dateStr = formatDateYmd(selectedDate);
+          api.get(`/api/supervisor/agent-detail/${agentId}?fecha=${dateStr}`)
+            .then((response) => {
+              setJornadaAgents((prev) => prev.map((agent) => {
+                if (String(agent.id) !== String(agentId)) return agent;
+                return buildJornadaFromDetail(agent, response, selectedDate);
+              }));
+            })
+            .catch(() => {});
+        };
         const refreshDetail = () => {
           if (!detailAgent?.id) return;
           const dateStr = formatDateYmd(selectedDate);
@@ -1438,6 +1476,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           if (detailAgent?.id && agentId && String(agentId) === String(detailAgent.id)) {
             refreshDetail();
           }
+          if (agentId) {
+            refreshJornadaAgent(agentId);
+          }
         });
         socket.on('new_alert', (payload) => {
           const agentId = payload?.agentId || payload?.agente_id || payload?.agent_id || payload?.id;
@@ -1454,7 +1495,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return () => {
           socket.disconnect();
         };
-      }, [authUser?.accessToken, detailAgent?.id, formatDateYmd, selectedDate, socketBase, shouldApplyTeamUpdate, normalizeTeamPayload, mergeTeamAgents]);
+      }, [authUser?.accessToken, buildJornadaFromDetail, detailAgent?.id, formatDateYmd, selectedDate, socketBase, shouldApplyTeamUpdate, normalizeTeamPayload, mergeTeamAgents]);
       const teamAgents = React.useMemo(() => {
         const items = teamSummary?.agents || teamSummary?.items || teamSummary?.team || teamSummary?.data?.agents || teamSummary?.data?.items || [];
         if (Array.isArray(items) && items.length) {
@@ -1622,6 +1663,139 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <span style={{ fontSize: 12, color: '#64748b', minWidth: 28, textAlign: 'right' }}>{value}</span>
           </div>
         );
+      };
+      const [jornadaView, setJornadaView] = React.useState('cards');
+      const [jornadaFilter, setJornadaFilter] = React.useState('todos');
+      const [jornadaAgents, setJornadaAgents] = React.useState([]);
+      const jornadaColors = React.useMemo(() => ([
+        '#6366f1', '#f59e0b', '#10b981', '#3b82f6', '#ec4899'
+      ]), []);
+      const getJornadaColor = React.useCallback((name) => {
+        const safe = String(name || '');
+        const sum = safe.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+        return jornadaColors[sum % jornadaColors.length];
+      }, [jornadaColors]);
+      const buildJornadaBase = React.useCallback((agent) => {
+        const nombre = agent?.nombre || agent?.name || '';
+        const apellido = agent?.apellido || '';
+        const fullName = `${nombre} ${apellido}`.trim() || nombre || agent?.name || '—';
+        const initials = agent?.iniciales || `${nombre[0] || ''}${apellido[0] || ''}`.trim().toUpperCase() || 'U';
+        return {
+          id: agent?.id || agent?.agente_id || agent?.agent_id || fullName,
+          name: fullName,
+          avatar: initials,
+          color: agent?.color || getJornadaColor(fullName),
+          currentState: 'disponible',
+          stateStartTime: new Date(),
+          loginTime: agent?.login_time || agent?.login || agent?.ingreso || agent?.login_time || agent?.login_at || '—',
+          logoutTime: agent?.logout_time || agent?.logout || agent?.salida || agent?.logout_time || null,
+          times: { disponible: 0, descanso: 0, baño: 0, capacitacion: 0 },
+          schedule: []
+        };
+      }, [getJornadaColor]);
+      const jornadaTypeMap = React.useCallback((raw) => {
+        const key = String(raw || '').toLowerCase();
+        if (key.includes('login')) return { type: 'login', label: 'Inicio' };
+        if (key.includes('logout')) return { type: 'fin', label: 'Fin' };
+        if (key.includes('trab')) return { type: 'disponible', label: 'Disp' };
+        if (key.includes('desc')) return { type: 'descanso', label: 'Descanso' };
+        if (key.includes('baño') || key.includes('bano')) return { type: 'baño', label: 'Baño' };
+        if (key.includes('superv')) return { type: 'capacitacion', label: 'Capacit' };
+        return { type: 'disponible', label: 'Disp' };
+      }, []);
+      const buildJornadaFromDetail = React.useCallback((base, detail, dateRef) => {
+        const eventos = detail?.eventos || detail?.events || [];
+        const toMinutes = (start, end) => {
+          if (!start || !end) return 0;
+          const [sh, sm] = String(start).split(':').map(Number);
+          const [eh, em] = String(end).split(':').map(Number);
+          if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) return 0;
+          return Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
+        };
+        const buildDate = (time) => {
+          if (!time) return new Date();
+          const [h, m] = String(time).split(':').map(Number);
+          if ([h, m].some((n) => Number.isNaN(n))) return new Date();
+          return new Date(dateRef.getFullYear(), dateRef.getMonth(), dateRef.getDate(), h, m);
+        };
+        const schedule = eventos.map((evt) => {
+          const map = jornadaTypeMap(evt?.tipo);
+          return {
+            start: evt?.inicio || '',
+            end: evt?.fin ?? null,
+            type: map.type,
+            label: map.label
+          };
+        });
+        const times = { disponible: 0, descanso: 0, baño: 0, capacitacion: 0 };
+        eventos.forEach((evt) => {
+          const map = jornadaTypeMap(evt?.tipo);
+          if (!['disponible', 'descanso', 'baño', 'capacitacion'].includes(map.type)) return;
+          const duration = Number(evt?.duracion_minutos ?? 0);
+          if (duration > 0) {
+            times[map.type] += duration;
+            return;
+          }
+          if (evt?.inicio) {
+            const end = evt?.fin || `${new Date().getHours()}:${String(new Date().getMinutes()).padStart(2, '0')}`;
+            times[map.type] += toMinutes(evt.inicio, end);
+          }
+        });
+        const lastEvent = [...eventos].reverse().find((evt) => evt?.inicio);
+        const lastMap = jornadaTypeMap(lastEvent?.tipo);
+        const currentState = lastMap.type === 'login' ? 'disponible' : lastMap.type;
+        return {
+          ...base,
+          currentState: currentState === 'fin' ? 'fin' : currentState,
+          stateStartTime: lastEvent?.inicio ? buildDate(lastEvent.inicio) : base.stateStartTime,
+          loginTime: detail?.agente?.turno_inicio || base.loginTime,
+          logoutTime: detail?.agente?.turno_fin || base.logoutTime,
+          times,
+          schedule
+        };
+      }, [jornadaTypeMap]);
+      const formatDuration = (minutes) => {
+        const h = Math.floor(minutes / 60);
+        const m = minutes % 60;
+        return `${h}h ${m}m`;
+      };
+      const formatTimeSince = (date) => {
+        const diff = Math.max(0, Math.floor((Date.now() - new Date(date).getTime()) / 60000));
+        if (diff < 60) return `${diff} min`;
+        const h = Math.floor(diff / 60);
+        const m = diff % 60;
+        return `${h}h ${m}m`;
+      };
+      const filteredJornadaAgents = React.useMemo(() => {
+        if (jornadaFilter === 'todos') return jornadaAgents;
+        return jornadaAgents.filter((agent) => agent.currentState === jornadaFilter);
+      }, [jornadaAgents, jornadaFilter]);
+      const jornadaCounters = React.useMemo(() => ({
+        active: jornadaAgents.filter((agent) => agent.currentState !== 'fin').length,
+        pause: jornadaAgents.filter((agent) => agent.currentState === 'descanso' || agent.currentState === 'baño').length,
+        finished: jornadaAgents.filter((agent) => agent.currentState === 'fin').length
+      }), [jornadaAgents]);
+      const jornadaAvgDisponible = React.useMemo(() => {
+        if (!jornadaAgents.length) return 0;
+        const total = jornadaAgents.reduce((acc, agent) => acc + Number(agent?.times?.disponible || 0), 0);
+        return Math.round(total / Math.max(jornadaAgents.length, 1));
+      }, [jornadaAgents]);
+      const jornadaHours = React.useMemo(() => Array.from({ length: 10 }, (_, i) => 9 + i), []);
+      const stateBadgeStyle = (state) => {
+        if (state === 'disponible') return { background: '#d1fae5', color: '#065f46' };
+        if (state === 'descanso') return { background: '#fef3c7', color: '#92400e' };
+        if (state === 'baño') return { background: '#fef9c3', color: '#854d0e' };
+        if (state === 'capacitacion') return { background: '#ede9fe', color: '#5b21b6' };
+        if (state === 'fin') return { background: '#f1f5f9', color: '#475569', border: '2px dashed #cbd5e1' };
+        return { background: '#e2e8f0', color: '#334155' };
+      };
+      const stateLabel = (state) => {
+        if (state === 'disponible') return 'Disponible';
+        if (state === 'descanso') return 'Descanso';
+        if (state === 'baño') return 'Baño';
+        if (state === 'capacitacion') return 'Capacitación';
+        if (state === 'fin') return 'Jornada Finalizada';
+        return 'Estado';
       };
       const activeDetail = normalizeDetail(detailData, detailWeek, null);
       const renderTimeline = (detail) => {
@@ -1890,8 +2064,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           <section className="content-grid">
             <Panel
               className="span-12"
-              title="Rendimiento del equipo"
-              subtitle="Actividad consolidada del día"
+              title="Seguimiento de vendedores"
+              subtitle="Medición diaria por vendedor"
               action={(
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <Button variant="ghost" onClick={() => setSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - 1))}>‹</Button>
@@ -1900,9 +2074,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 </div>
               )}
             >
-              <div style={{ padding: 8, color: 'var(--muted)' }}>
-                Vista de rendimiento removida. Datos listos para nuevo diseño.
-              </div>
+              <div style={{ padding: 8, color: 'var(--muted)' }} />
             </Panel>
           </section>
           <section className="content-grid">
@@ -1973,6 +2145,306 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 <span>{sellerSummary.length} vendedores</span>
                 <span>Total gestiones: {sellerTotalGestiones}</span>
               </div>
+            </Panel>
+          </section>
+          <section className="content-grid">
+            <Panel className="span-12">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, marginBottom: 16 }}>
+                <div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Log de Jornada Laboral</div>
+                  <div style={{ color: '#64748b', fontSize: 13 }}>Seguimiento de tiempos y estados · {formatDateLabel(selectedDate)}</div>
+                </div>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#dbeafe', color: '#1e40af', padding: '8px 16px', borderRadius: 999, fontSize: 12, fontWeight: 700 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 999, background: '#3b82f6', display: 'inline-block' }}></span>
+                  Tracking Activo
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 18 }}>
+                <div style={{ background: '#fff', borderRadius: 12, borderLeft: '4px solid #10b981', padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 }}>En Jornada</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', marginTop: 6 }}>{jornadaCounters.active}</div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>Sesiones iniciadas</div>
+                </div>
+                <div style={{ background: '#fff', borderRadius: 12, borderLeft: '4px solid #f59e0b', padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 }}>En Pausa</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', marginTop: 6 }}>{jornadaCounters.pause}</div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>Descanso o baño</div>
+                </div>
+                <div style={{ background: '#fff', borderRadius: 12, borderLeft: '4px solid #64748b', padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 }}>Finalizados</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', marginTop: 6 }}>{jornadaCounters.finished}</div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>Jornada completada</div>
+                </div>
+                <div style={{ background: '#fff', borderRadius: 12, borderLeft: '4px solid #3b82f6', padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 }}>Promedio Disponible</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', marginTop: 6 }}>{formatDuration(jornadaAvgDisponible)}</div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>Tiempo productivo</div>
+                </div>
+              </div>
+
+              <div style={{ background: '#fff', borderRadius: 12, padding: '10px 14px', marginBottom: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflowX: 'auto' }}>
+                <div style={{ display: 'flex', gap: 10, minWidth: 'max-content' }}>
+                  {[
+                    { key: 'todos', label: 'Todos', dot: '#334155' },
+                    { key: 'disponible', label: 'Disponible', dot: '#10b981' },
+                    { key: 'descanso', label: 'Descanso', dot: '#f59e0b' },
+                    { key: 'baño', label: 'Baño', dot: '#eab308' },
+                    { key: 'capacitacion', label: 'Capacitación', dot: '#8b5cf6' },
+                    { key: 'fin', label: 'Fin', dot: '#64748b' }
+                  ].map((item) => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => setJornadaFilter(item.key)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '8px 16px',
+                        borderRadius: 999,
+                        border: `2px solid ${jornadaFilter === item.key ? '#0f172a' : '#e2e8f0'}`,
+                        background: jornadaFilter === item.key ? '#0f172a' : '#fff',
+                        color: jornadaFilter === item.key ? '#fff' : '#475569',
+                        fontWeight: 700,
+                        fontSize: 13,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <span style={{ width: 8, height: 8, borderRadius: 999, background: item.dot, display: 'inline-block' }}></span>
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Registro de Actividad</div>
+                <div style={{ display: 'flex', background: '#e2e8f0', padding: 4, borderRadius: 8 }}>
+                  {[
+                    { key: 'cards', label: 'Vista Actual' },
+                    { key: 'timeline', label: 'Timeline 09-18h' }
+                  ].map((item) => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => setJornadaView(item.key)}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: 6,
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontWeight: 700,
+                        fontSize: 13,
+                        background: jornadaView === item.key ? '#fff' : 'transparent',
+                        color: jornadaView === item.key ? '#0f172a' : '#64748b',
+                        boxShadow: jornadaView === item.key ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                      }}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {jornadaView === 'cards' ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16, marginBottom: 16 }}>
+                  {filteredJornadaAgents.map((agent) => {
+                    const isFinished = agent.currentState === 'fin';
+                    const isLongPause = (agent.currentState === 'baño' && agent.times.baño > 15)
+                      || (agent.currentState === 'descanso' && agent.times.descanso > 30);
+                    const totalWorked = agent.times.disponible;
+                    const progress = Math.min((totalWorked / 480) * 100, 100);
+                    return (
+                      <div
+                        key={agent.id}
+                        style={{
+                          background: isFinished ? '#f8fafc' : '#fff',
+                          borderRadius: 16,
+                          padding: 20,
+                          border: `2px solid ${isLongPause ? '#ef4444' : 'transparent'}`,
+                          boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
+                        }}
+                      >
+                        {isFinished ? (
+                          <div style={{ display: 'inline-flex', padding: '4px 10px', borderRadius: 999, background: '#64748b', color: '#fff', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 10 }}>
+                            Finalizado
+                          </div>
+                        ) : null}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <div style={{ width: 44, height: 44, borderRadius: '50%', background: agent.color, color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              {agent.avatar}
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 700, fontSize: 15 }}>{agent.name}</div>
+                              <div style={{ fontSize: 12, color: '#94a3b8' }}>
+                                Inicio: {agent.loginTime}{agent.logoutTime ? ` · Fin: ${agent.logoutTime}` : ''}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 999, marginBottom: 14, width: '100%', justifyContent: 'center', ...stateBadgeStyle(agent.currentState) }}>
+                          {agent.currentState === 'fin' ? stateLabel(agent.currentState) : `En ${stateLabel(agent.currentState)} · ${formatTimeSince(agent.stateStartTime)}`}
+                        </div>
+                        <div style={{ background: '#f8fafc', borderRadius: 12, padding: 12, marginBottom: 14 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                            <div style={{ width: 80, fontSize: 12, color: '#64748b' }}>Disponible</div>
+                            <div style={{ flex: 1, height: 28, background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                              <div style={{ width: `${Math.min((agent.times.disponible / 480) * 100, 100)}%`, height: '100%', background: '#10b981', display: 'flex', alignItems: 'center', padding: '0 10px', color: '#fff', fontSize: 12, fontWeight: 700 }}>
+                                {formatDuration(agent.times.disponible)}
+                              </div>
+                            </div>
+                          </div>
+                          {agent.times.descanso > 0 ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                              <div style={{ width: 80, fontSize: 12, color: '#64748b' }}>Descansos</div>
+                              <div style={{ flex: 1, height: 28, background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                                <div style={{ width: `${Math.min((agent.times.descanso / 60) * 100, 100)}%`, height: '100%', background: '#f59e0b', display: 'flex', alignItems: 'center', padding: '0 10px', color: '#fff', fontSize: 12, fontWeight: 700 }}>
+                                  {formatDuration(agent.times.descanso)}
+                                </div>
+                              </div>
+                            </div>
+                          ) : null}
+                          {agent.times.baño > 0 ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                              <div style={{ width: 80, fontSize: 12, color: '#64748b' }}>Baños</div>
+                              <div style={{ flex: 1, height: 28, background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                                <div style={{ width: `${Math.min((agent.times.baño / 30) * 100, 100)}%`, height: '100%', background: '#eab308', display: 'flex', alignItems: 'center', padding: '0 10px', color: '#422006', fontSize: 12, fontWeight: 700 }}>
+                                  {formatDuration(agent.times.baño)}
+                                </div>
+                              </div>
+                            </div>
+                          ) : null}
+                          {agent.times.capacitacion > 0 ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <div style={{ width: 80, fontSize: 12, color: '#64748b' }}>Capacit.</div>
+                              <div style={{ flex: 1, height: 28, background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                                <div style={{ width: `${Math.min((agent.times.capacitacion / 120) * 100, 100)}%`, height: '100%', background: '#8b5cf6', display: 'flex', alignItems: 'center', padding: '0 10px', color: '#fff', fontSize: 12, fontWeight: 700 }}>
+                                  {formatDuration(agent.times.capacitacion)}
+                                </div>
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                          <div style={{ background: '#f8fafc', borderRadius: 10, padding: 12, textAlign: 'center' }}>
+                            <div style={{ fontSize: 18, fontWeight: 700 }}>{formatDuration(totalWorked)}</div>
+                            <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tiempo Productivo</div>
+                          </div>
+                          <div style={{ background: '#f8fafc', borderRadius: 10, padding: 12, textAlign: 'center' }}>
+                            <div style={{ fontSize: 18, fontWeight: 700, color: isFinished ? '#0f172a' : '#ea580c' }}>
+                              {isFinished ? '8h 00m' : formatDuration(Math.max(0, 480 - totalWorked))}
+                            </div>
+                            <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                              {isFinished ? 'Total Jornada' : 'Restante Est.'}
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ marginTop: 12, height: 6, background: '#e2e8f0', borderRadius: 999, overflow: 'hidden' }}>
+                          <div style={{ width: `${progress}%`, height: '100%', background: '#6366f1' }}></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{ background: '#fff', borderRadius: 16, padding: 16, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', overflowX: 'auto' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '140px repeat(10, 1fr)', gap: 4, marginBottom: 8, minWidth: 1000 }}>
+                    <div></div>
+                    {jornadaHours.map((hour) => (
+                      <div key={hour} style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, color: '#64748b', padding: 6, background: '#f8fafc', borderRadius: 6 }}>
+                        {String(hour).padStart(2, '0')}:00
+                      </div>
+                    ))}
+                  </div>
+                  {filteredJornadaAgents.map((agent) => (
+                    <div key={`timeline-${agent.id}`} style={{ display: 'grid', gridTemplateColumns: '140px repeat(10, 1fr)', gap: 4, marginBottom: 6, minWidth: 1000, alignItems: 'center' }}>
+                      <div style={{ fontWeight: 600, fontSize: 13, color: '#0f172a', padding: '10px 12px', background: '#f8fafc', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ width: 24, height: 24, borderRadius: '50%', background: agent.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
+                          {agent.avatar}
+                        </div>
+                        {agent.name}
+                      </div>
+                      {jornadaHours.map((hour) => {
+                        const hourStart = hour * 60;
+                        const hourEnd = (hour + 1) * 60;
+                        return (
+                          <div key={`${agent.id}-${hour}`} style={{ height: 46, background: '#f8fafc', borderRadius: 4, position: 'relative', overflow: 'hidden' }}>
+                            {(agent.schedule || []).map((block, idx) => {
+                              if (!block.start) return null;
+                              const [startH, startM] = block.start.split(':').map(Number);
+                              const blockStart = startH * 60 + startM;
+                              let blockEnd;
+                              if (block.end) {
+                                const [endH, endM] = block.end.split(':').map(Number);
+                                blockEnd = endH * 60 + endM;
+                              } else {
+                                const now = new Date();
+                                blockEnd = now.getHours() * 60 + now.getMinutes();
+                              }
+                              if (blockStart >= hourEnd || blockEnd <= hourStart) return null;
+                              const relStart = Math.max(0, blockStart - hourStart);
+                              const relEnd = Math.min(60, blockEnd - hourStart);
+                              const width = ((relEnd - relStart) / 60) * 100;
+                              const left = (relStart / 60) * 100;
+                              const blockColor = block.type === 'login' ? '#059669'
+                                : block.type === 'disponible' ? '#34d399'
+                                  : block.type === 'descanso' ? '#f59e0b'
+                                    : block.type === 'baño' ? '#eab308'
+                                      : block.type === 'capacitacion' ? '#8b5cf6'
+                                        : '#64748b';
+                              return (
+                                <div
+                                  key={`${agent.id}-${hour}-${idx}`}
+                                  style={{
+                                    position: 'absolute',
+                                    left: `${left}%`,
+                                    width: `${width}%`,
+                                    height: '100%',
+                                    borderRadius: 4,
+                                    background: block.type === 'fin'
+                                      ? 'repeating-linear-gradient(45deg, #94a3b8, #94a3b8 6px, #64748b 6px, #64748b 12px)'
+                                      : blockColor,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: 9,
+                                    fontWeight: 700,
+                                    color: '#fff',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    padding: '0 2px'
+                                  }}
+                                  title={`${agent.name}: ${block.start}-${block.end || 'Ahora'} ${block.label}`}
+                                >
+                                  {block.label}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center', marginTop: 16, paddingTop: 12, borderTop: '1px solid #e2e8f0' }}>
+                    {[
+                      { label: 'Inicio', color: '#059669' },
+                      { label: 'Disponible', color: '#34d399' },
+                      { label: 'Descanso', color: '#f59e0b' },
+                      { label: 'Baño', color: '#eab308' },
+                      { label: 'Capacitación', color: '#8b5cf6' },
+                      { label: 'Fin', color: 'repeating-linear-gradient(45deg, #94a3b8, #94a3b8 6px, #64748b 6px, #64748b 12px)' }
+                    ].map((item) => (
+                      <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#475569' }}>
+                        <span style={{ width: 16, height: 16, borderRadius: 4, background: item.color, display: 'inline-block' }}></span>
+                        {item.label}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </Panel>
           </section>
           {detailAgent ? (
