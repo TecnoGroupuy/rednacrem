@@ -175,7 +175,7 @@ const ROLE_NAV = [
       { path: 'solicitudes_registro', label: 'Solicitudes registro', caption: 'Aprobación vendedores', roles: ['supervisor'], icon: Bell },
       { path: 'agenda', label: 'Agenda', caption: 'Compromisos del día', roles: ['vendedor'], icon: Calendar },
       { path: 'soporte', label: 'Atención al cliente', caption: 'Tickets y llamadas', roles: ['atencion_cliente'], icon: Headphones, badge: 12 },
-      { path: 'contratos', label: 'Contrataciones', caption: 'Altas y renovaciones', roles: ['director', 'supervisor', 'operaciones'], icon: FileText },
+      { path: 'contratos', label: 'Recupero', caption: 'Cartera de clientes', roles: ['director', 'supervisor', 'operaciones'], icon: FileText },
       { path: 'pagos', label: 'Pagos', caption: 'Cobranza y convenios', roles: ['director', 'operaciones'], icon: CreditCard },
       { path: 'servicios', label: 'Servicios', caption: 'Circuito operativo', roles: ['director', 'operaciones'], icon: Briefcase, badge: 12 },
       { path: 'proveedores', label: 'Proveedores', caption: 'Red de soporte', roles: ['director', 'operaciones'], icon: Building2 },
@@ -8900,7 +8900,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           return (
             <UiRoleGate
               allowRoles={['supervisor']}
-              fallback={<PlaceholderView title="Contrataciones" subtitle="Sin visibilidad para este rol en la vista actual." cta="Volver al foco" />}
+              fallback={<PlaceholderView title="Recupero" subtitle="Sin visibilidad para este rol en la vista actual." cta="Volver al foco" />}
             >
               <SupervisorContractsModule Panel={Panel} Button={Button} Tag={Tag} />
             </UiRoleGate>
