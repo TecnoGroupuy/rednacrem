@@ -4126,19 +4126,27 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         });
         const assigned = scoped.length;
         const ventas = scoped.filter((contact) => contact.status === 'venta').length;
+        const seguimientos = scoped.filter((contact) => contact.status === 'seguimiento').length;
+        const rellamadas = scoped.filter((contact) => contact.status === 'rellamar').length;
+        const no_contesta = scoped.filter((contact) => contact.status === 'no_contesta').length;
+        const rechazos = scoped.filter((contact) => contact.status === 'rechazo').length;
+        const datos_erroneos = scoped.filter((contact) => contact.status === 'dato_erroneo').length;
+        const total_gestionado = ventas + seguimientos + rellamadas + no_contesta + rechazos + datos_erroneos;
+        const datos_utiles = ventas + seguimientos + rechazos;
+        const contacto = total_gestionado > 0 ? Math.round((datos_utiles / total_gestionado) * 100) : 0;
+        const efectividad = datos_utiles > 0 ? Math.round((ventas / datos_utiles) * 100) : 0;
         return {
           seller: sellerLabel,
-          contact: typeof seller === 'object'
-            ? (seller.email || seller.phone || seller.telefono || seller.celular || '')
-            : '',
+          contact: contacto,
           assigned,
+          total_gestionado,
           venta: ventas,
-          seguimiento: scoped.filter((contact) => contact.status === 'seguimiento').length,
-          rellamar: scoped.filter((contact) => contact.status === 'rellamar').length,
-          no_contesta: scoped.filter((contact) => contact.status === 'no_contesta').length,
-          rechazo: scoped.filter((contact) => contact.status === 'rechazo').length,
-          dato_erroneo: scoped.filter((contact) => contact.status === 'dato_erroneo').length,
-          efectividad: assigned ? Math.round((ventas / assigned) * 100) : 0
+          seguimiento: seguimientos,
+          rellamar: rellamadas,
+          no_contesta,
+          rechazo: rechazos,
+          dato_erroneo: datos_erroneos,
+          efectividad
         };
       }), [contacts, sellers]);
 
@@ -4352,18 +4360,30 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       if (route === 'seguimiento_vendedores') {
         const dateLabel = sellerSummaryDate.toLocaleDateString('es-UY', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' });
         const effectiveRows = Array.isArray(sellerSummaryRows) && sellerSummaryRows.length
-          ? sellerSummaryRows.map((item) => ({
-            seller: `${item.nombre || ''} ${item.apellido || ''}`.trim() || item.name || '—',
-            assigned: Number(item.asignados ?? 0),
-            venta: Number(item.ventas ?? 0),
-            seguimiento: Number(item.seguimientos ?? 0),
-            rellamar: Number(item.rellamadas ?? 0),
-            no_contesta: Number(item.no_contesta ?? 0),
-            rechazo: Number(item.rechazos ?? 0),
-            dato_erroneo: Number(item.datos_erroneos ?? 0),
-            contact: Number(item.contacto ?? 0) || 0,
-            efectividad: Number(item.efectividad ?? 0) || 0
-          }))
+          ? sellerSummaryRows.map((item) => {
+            const venta = Number(item.ventas ?? 0);
+            const seguimiento = Number(item.seguimientos ?? 0);
+            const rellamar = Number(item.rellamadas ?? 0);
+            const no_contesta = Number(item.no_contesta ?? 0);
+            const rechazo = Number(item.rechazos ?? 0);
+            const dato_erroneo = Number(item.datos_erroneos ?? 0);
+            const total_gestionado = Number(
+              item.total_gestionado ?? item.gestionados ?? (venta + seguimiento + rellamar + no_contesta + rechazo + dato_erroneo)
+            );
+            return ({
+              seller: `${item.nombre || ''} ${item.apellido || ''}`.trim() || item.name || '—',
+              assigned: Number(item.asignados ?? 0),
+              total_gestionado,
+              venta,
+              seguimiento,
+              rellamar,
+              no_contesta,
+              rechazo,
+              dato_erroneo,
+              contact: Number(item.contacto ?? 0) || 0,
+              efectividad: Number(item.efectividad ?? 0) || 0
+            });
+          })
           : sellerSummary;
         return (
           <div className="view">
@@ -4384,12 +4404,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 {sellerSummaryError ? <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 600 }}>{sellerSummaryError}</div> : null}
                 <div className="table-wrap">
                   <table>
-                    <thead><tr><th>Vendedor</th><th>Asignados</th><th>Ventas</th><th>Seguimientos</th><th>Rellamadas</th><th>No contesta</th><th>Rechazos</th><th>Datos erroneos</th><th>Contacto</th><th>Efectividad</th></tr></thead>
+                    <thead><tr><th>Vendedor</th><th>Asignados</th><th>Gestiones del día</th><th>Ventas</th><th>Seguimientos</th><th>Rellamadas</th><th>No contesta</th><th>Rechazos</th><th>Datos erroneos</th><th>Contacto</th><th>Efectividad</th></tr></thead>
                     <tbody>
                       {effectiveRows.map((row) => (
                         <tr key={row.seller}>
                           <td><strong>{row.seller}</strong></td>
                           <td>{row.assigned}</td>
+                          <td>{row.total_gestionado}</td>
                           <td>{row.venta}</td>
                           <td>{row.seguimiento}</td>
                           <td>{row.rellamar}</td>
