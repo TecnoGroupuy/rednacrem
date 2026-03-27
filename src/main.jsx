@@ -3615,8 +3615,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <div style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 12, padding: 12 }}>
                       <div style={{ fontWeight: 700, marginBottom: 8 }}>Producto</div>
                       <div style={{ display: 'grid', gap: 10 }}>
-                        {renderDetailField('Producto', pickValue(selectedSale, ['producto', 'producto_nombre', 'nombre_producto', 'plan', 'servicio']))}
-                        {renderDetailField('Cuota', pickValue(selectedSale, ['cuota', 'monto', 'precio']))}
+                        {renderDetailField('Producto', pickValue(selectedSale, ['nombre_producto', 'producto', 'producto_nombre', 'servicio']))}
+                        {renderDetailField('Cuota', pickValue(selectedSale, ['plan', 'cuota']))}
+                        {renderDetailField('Precio', pickValue(selectedSale, ['precio', 'monto']))}
+                        {renderDetailField('Estado', pickValue(selectedSale, ['producto_estado']))}
                         {renderDetailField('Lote', pickValue(selectedSale, ['nombre_lote', 'lote']))}
                         {renderDetailField('Nota', pickValue(selectedSale, ['nota_venta', 'nota']))}
                       </div>
@@ -3624,10 +3626,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <div style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 12, padding: 12 }}>
                       <div style={{ fontWeight: 700, marginBottom: 8 }}>Pago</div>
                       <div style={{ display: 'grid', gap: 10 }}>
-                        {renderDetailField('Método de pago', pickValue(selectedSale, ['metodo_pago', 'metodoDePago', 'payment_method', 'forma_pago']))}
-                        {renderDetailField('Banco', pickValue(selectedSale, ['banco', 'bank']))}
-                        {renderDetailField('Tarjeta', pickValue(selectedSale, ['tarjeta', 'card_type', 'card_last4']))}
-                        {renderDetailField('Estado', pickValue(selectedSale, ['estado_pago', 'payment_status', 'estado']))}
+                        {renderDetailField('Método de pago', pickValue(selectedSale, ['medio_pago', 'metodo_pago', 'metodoDePago', 'payment_method', 'forma_pago']))}
                       </div>
                     </div>
                   </div>
