@@ -3537,6 +3537,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           <div style={{ fontWeight: 600 }}>{value || '—'}</div>
         </div>
       );
+      const handleOpenSaleDetail = (row) => {
+        setSelectedSale(row);
+      };
       return (
         <div className="view">
           <section className="content-grid">
@@ -3556,7 +3559,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         <tr
                           key={row.id || row.contacto_id || nombre + telefono}
                           style={{ cursor: 'pointer' }}
-                          onClick={() => setSelectedSale(row)}
+                          onClick={() => handleOpenSaleDetail(row)}
                         >
                           <td>
                             <div className="person">
