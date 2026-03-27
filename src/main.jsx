@@ -3511,9 +3511,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           setLoadingVentas(true);
           try {
             const api = getApiClient();
-            const data = await api.get('/clients/my-sales');
-            if (data.success || data.ok) {
-              setVentas(Array.isArray(data.data) ? data.data : []);
+            const data = await api.get('/sales/mine');
+            if (data?.success || data?.ok) {
+              const items = data?.items || data?.data?.items || data?.data || [];
+              setVentas(Array.isArray(items) ? items : []);
             }
           } catch (err) {
             console.error('[my-sales] error:', err);
@@ -3567,9 +3568,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   <thead><tr><th>Contacto</th><th>Teléfono</th><th>Ubicación</th><th>Lote</th><th>Nota</th><th>Fecha</th></tr></thead>
                   <tbody>
                     {ventas.map((row) => {
-                      const nombre = [row.nombre, row.apellido].filter(Boolean).join(' ') || '—';
-                      const telefono = row.celular || row.telefono || '—';
-                      const ubicacion = [row.departamento, row.localidad].filter(Boolean).join(', ') || '—';
+                      const nombre = [row.nombre, row.apellido].filter(Boolean).join(' ')
+                        || [row.contact_nombre, row.contact_apellido].filter(Boolean).join(' ')
+                        || '—';
+                      const telefono = row.celular || row.telefono || row.phone || '—';
+                      const ubicacion = row.ubicacion
+                        || [row.departamento, row.localidad].filter(Boolean).join(', ')
+                        || '—';
                       const nota = row.nota_venta
                         ? (row.nota_venta.length > 40 ? row.nota_venta.slice(0, 40) + '…' : row.nota_venta)
                         : '—';
