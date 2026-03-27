@@ -2003,6 +2003,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: small ? '4px 8px' : '7px 11px', borderRadius: 999, border: '1px solid ' + meta.border, background: meta.bg, color: meta.color, fontWeight: 700, fontSize: small ? '0.73rem' : '0.8rem' }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: meta.color }}></span>{meta.label}</span>;
     }
 
+    const getTodayYmdLocal = () => new Date().toLocaleDateString('en-CA');
+
     const formatNextAction = (value) => {
       if (!value) return '-';
       if (value.includes('T')) {
@@ -2027,6 +2029,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           setLoadingDash(true);
           try {
             const api = getApiClient();
+            const hoy = getTodayYmdLocal();
 
             const contactosData = await api.get('/leads/assigned?page=1&limit=200&tab=todos');
             if (contactosData.success || contactosData.ok) {
@@ -2036,7 +2039,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               });
             }
 
-            const statsData = await api.get('/leads/daily-stats');
+            const statsData = await api.get(`/leads/daily-stats?fecha=${hoy}`);
             if (statsData.success || statsData.ok) {
               setStats(statsData.data);
             }
@@ -2187,7 +2190,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
       const loadStats = React.useCallback(async () => {
         try {
-          const d = await api.get('/leads/daily-stats');
+          const hoy = getTodayYmdLocal();
+          const d = await api.get(`/leads/daily-stats?fecha=${hoy}`);
           console.log('[daily-stats]:', d);
           console.log('[daily-stats] respuesta completa:', JSON.stringify(d.data));
           if (d?.success || d?.ok) setStats(d.data);
@@ -2197,6 +2201,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, []); // eslint-disable-line react-hooks/exhaustive-deps
       const refreshSilencioso = React.useCallback(async () => {
         try {
+          const hoy = getTodayYmdLocal();
           const params = new URLSearchParams({
             page: String(page),
             limit: String(LIMIT),
@@ -2210,7 +2215,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             setTotalContactos(contactosData?.data?.total || 0);
           }
 
-          const statsData = await api.get('/leads/daily-stats');
+          const statsData = await api.get(`/leads/daily-stats?fecha=${hoy}`);
           if (statsData?.success || statsData?.ok) setStats(statsData.data);
         } catch (err) {
           console.error('[refresh] error silencioso:', err);
