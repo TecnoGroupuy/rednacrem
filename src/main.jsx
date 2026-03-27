@@ -1900,68 +1900,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 </div>
               )}
             >
-              {summaryCards.length ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 14 }}>
-                  {summaryCards.map((card) => (
-                    <div key={card.label} style={{ background: 'rgba(248,250,252,0.9)', border: '1px solid rgba(15,23,42,0.08)', borderRadius: 14, padding: 12 }}>
-                      <div style={{ color: '#64748b', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{card.label}</div>
-                      <div style={{ fontSize: '1.35rem', fontWeight: 700 }}>{card.value}</div>
-                      <div style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>{card.sub}</div>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-              {attentionNote ? (
-                <div style={{ marginBottom: 14, padding: 12, borderRadius: 12, background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(217,119,6,0.35)', color: '#92400e', fontWeight: 600 }}>
-                  {attentionNote}
-                </div>
-              ) : null}
-              {teamLoading ? <div style={{ marginBottom: 12, color: 'var(--muted)' }}>Cargando resumen del equipo...</div> : null}
-              {teamError ? <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 600 }}>{teamError}</div> : null}
-              <div className="table-wrap">
-                <table>
-                  <thead><tr><th>Agente</th><th>Llamadas</th><th>Ventas</th><th>Conversión</th><th>Estado</th><th>Acción</th></tr></thead>
-                  <tbody>{teamAgents.map((row) => (
-                    <tr key={row.name} style={row.highlight ? { background: 'rgba(251,191,36,0.18)' } : undefined}>
-                      <td>
-                        <div className="person">
-                          <div className="person-badge">{initials(row.name)}</div>
-                          <div>
-                            <strong>{row.name}</strong>
-                          </div>
-                        </div>
-                      </td>
-                      <td>{row.calls}</td>
-                      <td>{row.sales}</td>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{ flex: 1, height: 6, borderRadius: 999, background: 'rgba(148,163,184,0.35)' }}>
-                            <div style={{ width: `${row.conversion}%`, height: '100%', borderRadius: 999, background: conversionBarColor(row.conversion, row.status) }}></div>
-                          </div>
-                          <strong>{row.conversion}%</strong>
-                        </div>
-                      </td>
-                      <td><Tag variant={statusVariant(row.status)}>{row.status}</Tag></td>
-                      <td>
-                        <Button
-                          variant="ghost"
-                          icon={<Eye size={16} />}
-                          onClick={() => {
-                            setDetailTab('resumen');
-                            setDetailData(null);
-                            setDetailWeek(null);
-                            setDetailAgent({ id: row.id, name: row.name, status: row.status, login: row.login, workTime: row.workTime });
-                          }}
-                        >
-                          Ver
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}</tbody>
-                </table>
-                {!teamLoading && !teamAgents.length ? (
-                  <div style={{ padding: 16, color: 'var(--muted)' }}>No hay datos reales para esta fecha.</div>
-                ) : null}
+              <div style={{ padding: 8, color: 'var(--muted)' }}>
+                Vista de rendimiento removida. Datos listos para nuevo diseño.
               </div>
             </Panel>
           </section>
