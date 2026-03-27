@@ -283,6 +283,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                   <ColHeader campo="nombre_producto" label="Producto" ordenActual={orden} onOrden={setOrden} />
                   <ColHeader campo="precio" label="Precio" ordenActual={orden} onOrden={setOrden} />
                   <ColHeader campo="fecha_baja" label="Fecha de baja" ordenActual={orden} onOrden={setOrden} />
+                  <ColHeader campo="ultima_gestion_fecha" label="Última gestión" ordenActual={orden} onOrden={setOrden} />
                 </tr>
               </thead>
               <tbody>
@@ -306,6 +307,18 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                       <td>{row.producto || row.producto_anterior || row.nombre_producto || '—'}</td>
                       <td>{row.precio || row.monto || '—'}</td>
                       <td>{row.fecha_baja || row.fechaBaja ? new Date(row.fecha_baja || row.fechaBaja).toLocaleDateString('es-UY') : '—'}</td>
+                      <td>
+                        {row.ultima_gestion_resultado ? (
+                          <>
+                            <span>{row.ultima_gestion_resultado}</span>
+                            <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginLeft: '6px' }}>
+                              {row.ultima_gestion_fecha ? new Date(row.ultima_gestion_fecha).toLocaleDateString('es-UY') : '—'}
+                            </span>
+                          </>
+                        ) : (
+                          <span style={{ color: 'var(--color-text-secondary)' }}>—</span>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
