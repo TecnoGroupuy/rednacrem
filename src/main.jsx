@@ -1322,32 +1322,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, [formatDateYmd, selectedDate, normalizeTeamPayload]);
 
       React.useEffect(() => {
-        const list = teamSummary?.agents || teamSummary?.agentes || teamSummary?.items || teamSummary?.team || [];
-        if (!Array.isArray(list) || !list.length) {
-          setJornadaAgents([]);
-          return () => {};
-        }
-        const baseAgents = list.map(buildJornadaBase);
-        setJornadaAgents(baseAgents);
-        let active = true;
-        const api = getApiClient();
-        const dateStr = formatDateYmd(selectedDate);
-        Promise.all(
-          baseAgents.map((agent) => api.get(`/api/supervisor/agent-detail/${agent.id}?fecha=${dateStr}`)
-            .then((response) => ({ id: agent.id, response }))
-            .catch(() => null))
-        ).then((results) => {
-          if (!active) return;
-          setJornadaAgents((prev) => prev.map((agent) => {
-            const hit = results.find((item) => item && String(item.id) === String(agent.id));
-            if (!hit?.response) return agent;
-            return buildJornadaFromDetail(agent, hit.response, selectedDate);
-          }));
-        });
-        return () => { active = false; };
-      }, [buildJornadaBase, buildJornadaFromDetail, formatDateYmd, selectedDate, teamSummary]);
-
-      React.useEffect(() => {
         let active = true;
         const api = getApiClient();
         const dateStr = formatDateYmd(selectedDate);
@@ -1402,100 +1376,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       React.useEffect(() => {
         setActivityExpanded(false);
       }, [detailAgent?.id]);
-
-      React.useEffect(() => {
-        if (!teamConfig) return () => {};
-        if (teamConfig?.socketEnabled === false || teamConfig?.realtimeEnabled === false) return () => {};
-        if (!socketBase) return () => {};
-        const socket = io(socketBase, {
-          transports: ['websocket'],
-          withCredentials: true,
-          auth: authUser?.accessToken ? { token: authUser.accessToken } : undefined
-        });
-        const api = getApiClient();
-        const refreshSellerSummary = () => {
-          const dateStr = formatDateYmd(selectedDate);
-          setSellerSummaryLoading(true);
-          setSellerSummaryError('');
-          api.get(`/api/supervisor/sellers-summary?fecha=${dateStr}`)
-            .then((response) => {
-              const items = response?.items || response?.data?.items || [];
-              setSellerSummaryRows(Array.isArray(items) ? items : []);
-            })
-            .catch((err) => {
-              setSellerSummaryError(err?.message || 'No se pudo cargar el resumen de vendedores.');
-            })
-            .finally(() => {
-              setSellerSummaryLoading(false);
-            });
-        };
-        const refreshJornadaAgent = (agentId) => {
-          if (!agentId) return;
-          const dateStr = formatDateYmd(selectedDate);
-          api.get(`/api/supervisor/agent-detail/${agentId}?fecha=${dateStr}`)
-            .then((response) => {
-              setJornadaAgents((prev) => prev.map((agent) => {
-                if (String(agent.id) !== String(agentId)) return agent;
-                return buildJornadaFromDetail(agent, response, selectedDate);
-              }));
-            })
-            .catch(() => {});
-        };
-        const refreshDetail = () => {
-          if (!detailAgent?.id) return;
-          const dateStr = formatDateYmd(selectedDate);
-          Promise.all([
-            api.get(`/api/supervisor/agent-detail/${detailAgent.id}?fecha=${dateStr}`),
-            api.get(`/api/supervisor/agent-week/${detailAgent.id}?fecha=${dateStr}`)
-          ]).then(([detailResponse, weekResponse]) => {
-            setDetailData(detailResponse || null);
-            setDetailWeek(weekResponse || null);
-          }).catch(() => {});
-        };
-        socket.on('team_update', (payload) => {
-          const payloadDate = payload?.fecha || payload?.data?.fecha || '';
-          if (payloadDate && payloadDate !== formatDateYmd(selectedDate)) return;
-          if (!shouldApplyTeamUpdate(payload)) return;
-          const normalized = normalizeTeamPayload(payload);
-          console.log('[DEBUG TEAM_UPDATE]', JSON.stringify(normalized?.agents?.slice(0, 1)));
-          if (normalized) {
-            setTeamSummary((prev) => {
-              const prevNorm = normalizeTeamPayload(prev) || prev;
-              return mergeTeamAgents(prevNorm, normalized);
-            });
-          }
-          refreshSellerSummary();
-        });
-        socket.on('sellers_update', (payload) => {
-          const payloadDate = payload?.fecha || payload?.data?.fecha || '';
-          if (payloadDate && payloadDate !== formatDateYmd(selectedDate)) return;
-          refreshSellerSummary();
-        });
-        socket.on('agent_event', (payload) => {
-          const agentId = payload?.agentId || payload?.agente_id || payload?.agent_id || payload?.id;
-          if (detailAgent?.id && agentId && String(agentId) === String(detailAgent.id)) {
-            refreshDetail();
-          }
-          if (agentId) {
-            refreshJornadaAgent(agentId);
-          }
-        });
-        socket.on('new_alert', (payload) => {
-          const agentId = payload?.agentId || payload?.agente_id || payload?.agent_id || payload?.id;
-          if (detailAgent?.id && agentId && String(agentId) === String(detailAgent.id)) {
-            refreshDetail();
-          }
-        });
-        socket.on('new_call', (payload) => {
-          const agentId = payload?.agentId || payload?.agente_id || payload?.agent_id || payload?.id;
-          if (detailAgent?.id && agentId && String(agentId) === String(detailAgent.id)) {
-            refreshDetail();
-          }
-        });
-        return () => {
-          socket.disconnect();
-        };
-      }, [authUser?.accessToken, buildJornadaFromDetail, detailAgent?.id, formatDateYmd, selectedDate, socketBase, shouldApplyTeamUpdate, normalizeTeamPayload, mergeTeamAgents]);
       const teamAgents = React.useMemo(() => {
         const items = teamSummary?.agents || teamSummary?.items || teamSummary?.team || teamSummary?.data?.agents || teamSummary?.data?.items || [];
         if (Array.isArray(items) && items.length) {
@@ -1797,6 +1677,125 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         if (state === 'fin') return 'Jornada Finalizada';
         return 'Estado';
       };
+      React.useEffect(() => {
+        const list = teamSummary?.agents || teamSummary?.agentes || teamSummary?.items || teamSummary?.team || [];
+        if (!Array.isArray(list) || !list.length) {
+          setJornadaAgents([]);
+          return () => {};
+        }
+        const baseAgents = list.map(buildJornadaBase);
+        setJornadaAgents(baseAgents);
+        let active = true;
+        const api = getApiClient();
+        const dateStr = formatDateYmd(selectedDate);
+        Promise.all(
+          baseAgents.map((agent) => api.get(`/api/supervisor/agent-detail/${agent.id}?fecha=${dateStr}`)
+            .then((response) => ({ id: agent.id, response }))
+            .catch(() => null))
+        ).then((results) => {
+          if (!active) return;
+          setJornadaAgents((prev) => prev.map((agent) => {
+            const hit = results.find((item) => item && String(item.id) === String(agent.id));
+            if (!hit?.response) return agent;
+            return buildJornadaFromDetail(agent, hit.response, selectedDate);
+          }));
+        });
+        return () => { active = false; };
+      }, [buildJornadaBase, buildJornadaFromDetail, formatDateYmd, selectedDate, teamSummary]);
+
+      React.useEffect(() => {
+        if (!teamConfig) return () => {};
+        if (teamConfig?.socketEnabled === false || teamConfig?.realtimeEnabled === false) return () => {};
+        if (!socketBase) return () => {};
+        const socket = io(socketBase, {
+          transports: ['websocket'],
+          withCredentials: true,
+          auth: authUser?.accessToken ? { token: authUser.accessToken } : undefined
+        });
+        const api = getApiClient();
+        const refreshSellerSummary = () => {
+          const dateStr = formatDateYmd(selectedDate);
+          setSellerSummaryLoading(true);
+          setSellerSummaryError('');
+          api.get(`/api/supervisor/sellers-summary?fecha=${dateStr}`)
+            .then((response) => {
+              const items = response?.items || response?.data?.items || [];
+              setSellerSummaryRows(Array.isArray(items) ? items : []);
+            })
+            .catch((err) => {
+              setSellerSummaryError(err?.message || 'No se pudo cargar el resumen de vendedores.');
+            })
+            .finally(() => {
+              setSellerSummaryLoading(false);
+            });
+        };
+        const refreshJornadaAgent = (agentId) => {
+          if (!agentId) return;
+          const dateStr = formatDateYmd(selectedDate);
+          api.get(`/api/supervisor/agent-detail/${agentId}?fecha=${dateStr}`)
+            .then((response) => {
+              setJornadaAgents((prev) => prev.map((agent) => {
+                if (String(agent.id) !== String(agentId)) return agent;
+                return buildJornadaFromDetail(agent, response, selectedDate);
+              }));
+            })
+            .catch(() => {});
+        };
+        const refreshDetail = () => {
+          if (!detailAgent?.id) return;
+          const dateStr = formatDateYmd(selectedDate);
+          Promise.all([
+            api.get(`/api/supervisor/agent-detail/${detailAgent.id}?fecha=${dateStr}`),
+            api.get(`/api/supervisor/agent-week/${detailAgent.id}?fecha=${dateStr}`)
+          ]).then(([detailResponse, weekResponse]) => {
+            setDetailData(detailResponse || null);
+            setDetailWeek(weekResponse || null);
+          }).catch(() => {});
+        };
+        socket.on('team_update', (payload) => {
+          const payloadDate = payload?.fecha || payload?.data?.fecha || '';
+          if (payloadDate && payloadDate !== formatDateYmd(selectedDate)) return;
+          if (!shouldApplyTeamUpdate(payload)) return;
+          const normalized = normalizeTeamPayload(payload);
+          console.log('[DEBUG TEAM_UPDATE]', JSON.stringify(normalized?.agents?.slice(0, 1)));
+          if (normalized) {
+            setTeamSummary((prev) => {
+              const prevNorm = normalizeTeamPayload(prev) || prev;
+              return mergeTeamAgents(prevNorm, normalized);
+            });
+          }
+          refreshSellerSummary();
+        });
+        socket.on('sellers_update', (payload) => {
+          const payloadDate = payload?.fecha || payload?.data?.fecha || '';
+          if (payloadDate && payloadDate !== formatDateYmd(selectedDate)) return;
+          refreshSellerSummary();
+        });
+        socket.on('agent_event', (payload) => {
+          const agentId = payload?.agentId || payload?.agente_id || payload?.agent_id || payload?.id;
+          if (detailAgent?.id && agentId && String(agentId) === String(detailAgent.id)) {
+            refreshDetail();
+          }
+          if (agentId) {
+            refreshJornadaAgent(agentId);
+          }
+        });
+        socket.on('new_alert', (payload) => {
+          const agentId = payload?.agentId || payload?.agente_id || payload?.agent_id || payload?.id;
+          if (detailAgent?.id && agentId && String(agentId) === String(detailAgent.id)) {
+            refreshDetail();
+          }
+        });
+        socket.on('new_call', (payload) => {
+          const agentId = payload?.agentId || payload?.agente_id || payload?.agent_id || payload?.id;
+          if (detailAgent?.id && agentId && String(agentId) === String(detailAgent.id)) {
+            refreshDetail();
+          }
+        });
+        return () => {
+          socket.disconnect();
+        };
+      }, [authUser?.accessToken, buildJornadaFromDetail, detailAgent?.id, formatDateYmd, selectedDate, socketBase, shouldApplyTeamUpdate, normalizeTeamPayload, mergeTeamAgents]);
       const activeDetail = normalizeDetail(detailData, detailWeek, null);
       const renderTimeline = (detail) => {
         const rawEvents = Array.isArray(detail?.activityRaw) ? detail.activityRaw : [];
