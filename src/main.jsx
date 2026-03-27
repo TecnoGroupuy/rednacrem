@@ -981,6 +981,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [teamSummary, setTeamSummary] = React.useState(null);
       const [teamLoading, setTeamLoading] = React.useState(false);
       const [teamError, setTeamError] = React.useState('');
+      const [sellerSummaryRows, setSellerSummaryRows] = React.useState([]);
+      const [sellerSummaryLoading, setSellerSummaryLoading] = React.useState(false);
+      const [sellerSummaryError, setSellerSummaryError] = React.useState('');
       const [detailLoading, setDetailLoading] = React.useState(false);
       const [detailError, setDetailError] = React.useState('');
       const [teamConfig, setTeamConfig] = React.useState(null);
@@ -1319,6 +1322,31 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, [formatDateYmd, selectedDate, normalizeTeamPayload]);
 
       React.useEffect(() => {
+        let active = true;
+        const api = getApiClient();
+        const dateStr = formatDateYmd(selectedDate);
+        setSellerSummaryLoading(true);
+        setSellerSummaryError('');
+        api.get(`/api/supervisor/sellers-summary?fecha=${dateStr}`)
+          .then((response) => {
+            if (!active) return;
+            if (response?.fecha && response.fecha !== dateStr) return;
+            if (response?.data?.fecha && response.data.fecha !== dateStr) return;
+            const items = response?.items || response?.data?.items || [];
+            setSellerSummaryRows(Array.isArray(items) ? items : []);
+          })
+          .catch((err) => {
+            if (!active) return;
+            setSellerSummaryError(err?.message || 'No se pudo cargar el resumen de vendedores.');
+          })
+          .finally(() => {
+            if (!active) return;
+            setSellerSummaryLoading(false);
+          });
+        return () => { active = false; };
+      }, [formatDateYmd, selectedDate]);
+
+      React.useEffect(() => {
         if (!detailAgent?.id) return () => {};
         let active = true;
         const api = getApiClient();
@@ -1359,6 +1387,22 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           auth: authUser?.accessToken ? { token: authUser.accessToken } : undefined
         });
         const api = getApiClient();
+        const refreshSellerSummary = () => {
+          const dateStr = formatDateYmd(selectedDate);
+          setSellerSummaryLoading(true);
+          setSellerSummaryError('');
+          api.get(`/api/supervisor/sellers-summary?fecha=${dateStr}`)
+            .then((response) => {
+              const items = response?.items || response?.data?.items || [];
+              setSellerSummaryRows(Array.isArray(items) ? items : []);
+            })
+            .catch((err) => {
+              setSellerSummaryError(err?.message || 'No se pudo cargar el resumen de vendedores.');
+            })
+            .finally(() => {
+              setSellerSummaryLoading(false);
+            });
+        };
         const refreshDetail = () => {
           if (!detailAgent?.id) return;
           const dateStr = formatDateYmd(selectedDate);
@@ -1382,6 +1426,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               return mergeTeamAgents(prevNorm, normalized);
             });
           }
+          refreshSellerSummary();
+        });
+        socket.on('sellers_update', (payload) => {
+          const payloadDate = payload?.fecha || payload?.data?.fecha || '';
+          if (payloadDate && payloadDate !== formatDateYmd(selectedDate)) return;
+          refreshSellerSummary();
         });
         socket.on('agent_event', (payload) => {
           const agentId = payload?.agentId || payload?.agente_id || payload?.agent_id || payload?.id;
@@ -1463,6 +1513,115 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           fontWeight: isHigh ? 700 : 500,
           color: isHigh ? '#b45309' : 'inherit'
         };
+      };
+      const sellerPercentStyle = (value) => {
+        if (value >= 30) return { bg: 'rgba(34,197,94,0.18)', color: '#166534', dot: '#22c55e' };
+        if (value >= 15) return { bg: 'rgba(234,179,8,0.18)', color: '#854d0e', dot: '#eab308' };
+        return { bg: 'rgba(239,68,68,0.18)', color: '#991b1b', dot: '#ef4444' };
+      };
+      const sellerVentasStyle = (value) => {
+        if (value >= 3) return { bg: 'rgba(34,197,94,0.18)', color: '#166534', dot: '#22c55e' };
+        if (value >= 1) return { bg: 'rgba(234,179,8,0.18)', color: '#854d0e', dot: '#eab308' };
+        return { bg: 'rgba(239,68,68,0.18)', color: '#991b1b', dot: '#ef4444' };
+      };
+      const sellerRechazosStyle = (value) => {
+        if (value <= 5) return { bg: 'rgba(34,197,94,0.18)', color: '#166534', dot: '#22c55e' };
+        if (value <= 12) return { bg: 'rgba(234,179,8,0.18)', color: '#854d0e', dot: '#eab308' };
+        return { bg: 'rgba(239,68,68,0.18)', color: '#991b1b', dot: '#ef4444' };
+      };
+      const sellerSummary = React.useMemo(() => {
+        if (!Array.isArray(sellerSummaryRows) || !sellerSummaryRows.length) return [];
+        return sellerSummaryRows.map((item) => {
+          const ventas = Number(item.ventas ?? 0);
+          const seguimientos = Number(item.seguimientos ?? 0);
+          const rellamadas = Number(item.rellamadas ?? 0);
+          const no_contesta = Number(item.no_contesta ?? 0);
+          const rechazos = Number(item.rechazos ?? 0);
+          const datos_erroneos = Number(item.datos_erroneos ?? 0);
+          const total_gestionado = Number(
+            item.total_gestionado ?? item.gestionados ?? item.gestiones ?? (ventas + seguimientos + rellamadas + no_contesta + rechazos + datos_erroneos)
+          );
+          const nombre = item.nombre || item.name || '';
+          const apellido = item.apellido || '';
+          return {
+            id: item.id || item.seller_id || item.user_id || `${nombre}-${apellido}` || item.email || item.name || item.nombre,
+            nombre,
+            apellido,
+            asignados: Number(item.asignados ?? 0),
+            gestiones: total_gestionado,
+            ventas,
+            seguimientos,
+            rellamadas,
+            no_contesta,
+            rechazos,
+            datos_erroneos,
+            contacto: Number(item.contacto ?? 0) || 0,
+            efectividad: Number(item.efectividad ?? 0) || 0
+          };
+        });
+      }, [sellerSummaryRows]);
+      const sellerMaxGestiones = React.useMemo(() => {
+        if (!sellerSummary.length) return 0;
+        return Math.max(...sellerSummary.map((row) => Number(row.gestiones || 0)));
+      }, [sellerSummary]);
+      const sellerTotalGestiones = React.useMemo(() => (
+        sellerSummary.reduce((acc, row) => acc + Number(row.gestiones || 0), 0)
+      ), [sellerSummary]);
+      const SellerBadge = ({ value, styleFn, suffix = '' }) => {
+        const c = styleFn(value);
+        return (
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '3px 10px',
+            borderRadius: 999,
+            fontWeight: 600,
+            fontSize: 12,
+            background: c.bg,
+            color: c.color,
+            whiteSpace: 'nowrap'
+          }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: c.dot, flexShrink: 0 }} />
+            {value}{suffix}
+          </span>
+        );
+      };
+      const SellerAvatar = ({ nombre, apellido }) => {
+        const name = String(nombre || '');
+        const last = String(apellido || '');
+        const initials = `${name[0] || 'U'}${last[0] || ''}`.trim().toUpperCase() || 'U';
+        const colors = ['#6366f1', '#f59e0b', '#10b981', '#3b82f6', '#ec4899'];
+        const colorIndex = (name.charCodeAt(0) || 0) + (last.charCodeAt(0) || 0);
+        const color = colors[colorIndex % colors.length];
+        return (
+          <span style={{
+            width: 34,
+            height: 34,
+            borderRadius: '50%',
+            background: color,
+            color: '#fff',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontWeight: 700,
+            fontSize: 13,
+            flexShrink: 0
+          }}>
+            {initials}
+          </span>
+        );
+      };
+      const SellerMiniBar = ({ value, max }) => {
+        const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ flex: 1, height: 6, background: 'rgba(148,163,184,0.2)', borderRadius: 999, overflow: 'hidden', minWidth: 60 }}>
+              <div style={{ width: `${pct}%`, height: '100%', background: '#6366f1', borderRadius: 999, transition: 'width 0.4s' }} />
+            </div>
+            <span style={{ fontSize: 12, color: '#64748b', minWidth: 28, textAlign: 'right' }}>{value}</span>
+          </div>
+        );
       };
       const activeDetail = normalizeDetail(detailData, detailWeek, null);
       const renderTimeline = (detail) => {
@@ -1803,6 +1962,76 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 {!teamLoading && !teamAgents.length ? (
                   <div style={{ padding: 16, color: 'var(--muted)' }}>No hay datos reales para esta fecha.</div>
                 ) : null}
+              </div>
+            </Panel>
+          </section>
+          <section className="content-grid">
+            <Panel
+              className="span-12"
+              title="Seguimiento de vendedores"
+              subtitle="Medición diaria por vendedor"
+            >
+              {sellerSummaryLoading ? <div style={{ marginBottom: 12, color: 'var(--muted)' }}>Cargando resumen de vendedores...</div> : null}
+              {sellerSummaryError ? <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 600 }}>{sellerSummaryError}</div> : null}
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Vendedor</th>
+                      <th>Asignados</th>
+                      <th>Gestiones del día</th>
+                      <th>Ventas</th>
+                      <th>Seguimientos</th>
+                      <th>Rellamadas</th>
+                      <th>No contesta</th>
+                      <th>Rechazos</th>
+                      <th>Datos err.</th>
+                      <th>Contacto</th>
+                      <th>Efectividad</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sellerSummary.map((row, idx) => (
+                      <tr key={row.id || `${row.nombre}-${row.apellido}-${idx}`}>
+                        <td>
+                          <div className="person">
+                            <SellerAvatar nombre={row.nombre} apellido={row.apellido} />
+                            <div>
+                              <strong>{`${row.nombre || ''} ${row.apellido || ''}`.trim() || '—'}</strong>
+                            </div>
+                          </div>
+                        </td>
+                        <td>{row.asignados}</td>
+                        <td style={{ minWidth: 130 }}>
+                          <SellerMiniBar value={row.gestiones} max={sellerMaxGestiones} />
+                        </td>
+                        <td>
+                          <SellerBadge value={row.ventas} styleFn={sellerVentasStyle} />
+                        </td>
+                        <td>{row.seguimientos}</td>
+                        <td>{row.rellamadas}</td>
+                        <td>{row.no_contesta}</td>
+                        <td>
+                          <SellerBadge value={row.rechazos} styleFn={sellerRechazosStyle} />
+                        </td>
+                        <td>{row.datos_erroneos}</td>
+                        <td>
+                          <SellerBadge value={row.contacto} styleFn={sellerPercentStyle} suffix="%" />
+                        </td>
+                        <td>
+                          <SellerBadge value={row.efectividad} styleFn={sellerPercentStyle} suffix="%" />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {!sellerSummaryLoading && !sellerSummary.length ? (
+                  <div style={{ padding: 16, color: 'var(--muted)' }}>No hay datos reales para esta fecha.</div>
+                ) : null}
+              </div>
+              <div style={{ marginTop: 10, fontSize: 12, color: '#94a3b8', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                <span>{sellerSummary.length} vendedores</span>
+                <span>Total gestiones: {sellerTotalGestiones}</span>
               </div>
             </Panel>
           </section>
