@@ -232,40 +232,53 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
             </div>
           </div>
 
-          <div className="toolbar" style={{ marginBottom: 12, gap: 10 }}>
-            <select
-              className="input"
-              style={{ width: 220 }}
-              value={filtroProducto}
-              onChange={(event) => setFiltroProducto(event.target.value)}
-            >
-              <option value="">Producto</option>
-              {filterOptions.productos.map((item) => {
-                const value = normalizeOption(item);
-                return <option key={value} value={value}>{value}</option>;
-              })}
-            </select>
-            <select
-              className="input"
-              style={{ width: 220 }}
-              value={filtroDepartamento}
-              onChange={(event) => setFiltroDepartamento(event.target.value)}
-            >
-              <option value="">Departamento</option>
-              {filterOptions.departamentos.map((item) => {
-                const value = normalizeOption(item);
-                return <option key={value} value={value}>{value}</option>;
-              })}
-            </select>
-            <input
-              className="input"
-              style={{ minWidth: 240 }}
-              placeholder="Buscar por nombre o teléfono"
-              value={filtroBusqueda}
-              onChange={(event) => setFiltroBusqueda(event.target.value)}
-            />
-            <Button variant="secondary" icon={<Filter size={16} />}>Filtros</Button>
-            <Button variant="ghost" icon={<RefreshCw size={16} />} onClick={loadRecupero}>Actualizar</Button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: 12, flexWrap: 'wrap' }}>
+            <div className="toolbar" style={{ gap: 10, marginBottom: 0 }}>
+              <select
+                className="input"
+                style={{ width: 220 }}
+                value={filtroProducto}
+                onChange={(event) => setFiltroProducto(event.target.value)}
+              >
+                <option value="">Producto</option>
+                {filterOptions.productos.map((item) => {
+                  const value = normalizeOption(item);
+                  return <option key={value} value={value}>{value}</option>;
+                })}
+              </select>
+              <select
+                className="input"
+                style={{ width: 220 }}
+                value={filtroDepartamento}
+                onChange={(event) => setFiltroDepartamento(event.target.value)}
+              >
+                <option value="">Departamento</option>
+                {filterOptions.departamentos.map((item) => {
+                  const value = normalizeOption(item);
+                  return <option key={value} value={value}>{value}</option>;
+                })}
+              </select>
+              <input
+                className="input"
+                style={{ minWidth: 240 }}
+                placeholder="Buscar por nombre o teléfono"
+                value={filtroBusqueda}
+                onChange={(event) => setFiltroBusqueda(event.target.value)}
+              />
+              <Button variant="secondary" icon={<Filter size={16} />}>Filtros</Button>
+              <Button variant="ghost" icon={<RefreshCw size={16} />} onClick={loadRecupero}>Actualizar</Button>
+            </div>
+
+            {selectedIds.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+                  {selectedIds.length} contactos seleccionados
+                </span>
+                <Button icon={<Plus size={16} />} onClick={openCreateLot}>
+                  Crear lote de recupero
+                </Button>
+              </div>
+            )}
           </div>
 
           {error ? <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 600 }}>{error}</div> : null}
@@ -340,12 +353,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
             </div>
           </div>
 
-          {selectedIds.length ? (
-            <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 12, border: '1px solid rgba(15,23,42,0.12)', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>{selectedIds.length} contactos seleccionados</div>
-              <Button icon={<Plus size={16} />} onClick={openCreateLot}>Crear lote de recupero</Button>
-            </div>
-          ) : null}
         </Panel>
       </section>
 

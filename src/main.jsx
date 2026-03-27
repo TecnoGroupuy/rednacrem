@@ -2177,12 +2177,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [stats, setStats] = React.useState(null);
       const [vistaMetricas, setVistaMetricas] = React.useState('hoy');
       const tabs = [
-        { key: 'todos', label: 'Todos' },
         { key: 'nuevo', label: 'Nuevos' },
         { key: 'no_contesta', label: 'No contesta' },
-        { key: 'rechazo', label: 'Rechazos' }
+        { key: 'rechazo', label: 'Rechazos' },
+        { key: 'todos', label: 'Todos' }
       ];
-      const [tabActivo, setTabActivo] = React.useState('todos');
+      const [tabActivo, setTabActivo] = React.useState('nuevo');
       const [page, setPage] = React.useState(1);
       const [totalPages, setTotalPages] = React.useState(1);
       const [totalContactos, setTotalContactos] = React.useState(0);
