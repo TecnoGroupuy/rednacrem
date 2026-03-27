@@ -8,7 +8,7 @@ const normalizeOption = (value) => String(value || '').trim();
 
 export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const api = React.useMemo(() => getApiClient(), []);
-  const [metrics, setMetrics] = React.useState({ total: 3199, enGestion: 0, convertidos: 0 });
+  const [metrics, setMetrics] = React.useState({ total: 0, enGestion: 0, recuperados: 0, rechazados: 0 });
   const [items, setItems] = React.useState([]);
   const [filters, setFilters] = React.useState({ producto: 'todos', departamento: 'todos', search: '' });
   const [filterOptions, setFilterOptions] = React.useState({ productos: [], departamentos: [] });
@@ -77,11 +77,12 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       const totalCount = Number(response?.total ?? response?.data?.total ?? rows.length);
       setItems(Array.isArray(rows) ? rows : []);
       setTotal(Number.isFinite(totalCount) ? totalCount : 0);
-      setMetrics({
-        total: Number(response?.recuperables ?? response?.data?.recuperables ?? metrics.total),
-        enGestion: Number(response?.en_gestion ?? response?.data?.en_gestion ?? metrics.enGestion),
-        convertidos: Number(response?.convertidos ?? response?.data?.convertidos ?? metrics.convertidos)
-      });
+      setMetrics((prev) => ({
+        total: Number.isFinite(totalCount) ? totalCount : prev.total,
+        enGestion: 0,
+        recuperados: 0,
+        rechazados: 0
+      }));
     } catch (err) {
       setError(err?.message || 'No se pudo cargar Recupero de clientes.');
       setItems([]);
@@ -142,18 +143,71 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     <div className="view">
       <section className="content-grid">
         <Panel className="span-12" title="Recupero de clientes" subtitle="Cartera de clientes para reconversión">
-          <div className="metrics-grid-3" style={{ marginBottom: 16 }}>
-            <div className="metric-card">
-              <div className="metric-label">Total recuperables</div>
-              <div className="metric-value">{metrics.total}</div>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: '12px',
+            marginBottom: '24px'
+          }}>
+            <div style={{
+              background: 'var(--color-background-secondary)',
+              borderRadius: '8px',
+              padding: '12px 16px',
+            }}>
+              <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
+                Disponibles para recupero
+              </div>
+              <div style={{ fontSize: '28px', fontWeight: '500' }}>
+                {Number(metrics.total || 0).toLocaleString('es-UY')}
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
+                sin producto activo
+              </div>
             </div>
-            <div className="metric-card">
-              <div className="metric-label">En gestión</div>
-              <div className="metric-value">{metrics.enGestion}</div>
+            <div style={{
+              background: 'var(--color-background-secondary)',
+              borderRadius: '8px',
+              padding: '12px 16px',
+            }}>
+              <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
+                En gestión
+              </div>
+              <div style={{ fontSize: '28px', fontWeight: '500' }}>
+                {Number(metrics.enGestion || 0).toLocaleString('es-UY')}
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
+                en lotes activos
+              </div>
             </div>
-            <div className="metric-card">
-              <div className="metric-label">Convertidos</div>
-              <div className="metric-value">{metrics.convertidos}</div>
+            <div style={{
+              background: 'var(--color-background-secondary)',
+              borderRadius: '8px',
+              padding: '12px 16px',
+            }}>
+              <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
+                Recuperados
+              </div>
+              <div style={{ fontSize: '28px', fontWeight: '500', color: 'var(--color-text-success)' }}>
+                {Number(metrics.recuperados || 0).toLocaleString('es-UY')}
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
+                volvieron a estar de alta
+              </div>
+            </div>
+            <div style={{
+              background: 'var(--color-background-secondary)',
+              borderRadius: '8px',
+              padding: '12px 16px',
+            }}>
+              <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
+                Rechazados
+              </div>
+              <div style={{ fontSize: '28px', fontWeight: '500', color: 'var(--color-text-danger)' }}>
+                {Number(metrics.rechazados || 0).toLocaleString('es-UY')}
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
+                no quisieron volver
+              </div>
             </div>
           </div>
 
