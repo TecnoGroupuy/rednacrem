@@ -1585,14 +1585,17 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             if (!type) return null;
             const duration = Number(evt?.duracion_minutos ?? evt?.duracion ?? evt?.minutes ?? 0);
             const computed = duration || diffMinutes(evt?.inicio, evt?.fin);
-            const durationSeconds = diffSeconds(evt?.inicio, evt?.fin)
-              ?? (Number.isFinite(duration) ? Math.round(duration * 60) : null);
+            const durationSeconds = Number(evt?.duracion_segundos ?? evt?.duration_seconds ?? evt?.seconds);
+            const computedSeconds = Number.isFinite(durationSeconds)
+              ? durationSeconds
+              : (diffSeconds(evt?.inicio, evt?.fin)
+                ?? (Number.isFinite(duration) ? Math.round(duration * 60) : null));
             return {
               type,
               start: evt?.inicio || '—',
               end: evt?.fin || '',
               duration: computed === null ? null : computed,
-              durationSeconds,
+              durationSeconds: computedSeconds,
               inProgress: !evt?.fin && !duration,
               startMinutes: toTimeMinutes(evt?.inicio),
               rawInicio: evt?.inicio || '',
@@ -3485,6 +3488,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
     function SalesClientsView() {
       const [ventas, setVentas] = React.useState([]);
       const [loadingVentas, setLoadingVentas] = React.useState(true);
+      const [selectedSale, setSelectedSale] = React.useState(null);
 
       React.useEffect(() => {
         const cargar = async () => {
@@ -3515,6 +3519,19 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           return iso;
         }
       };
+      const pickValue = (row, keys, fallback = '—') => {
+        for (const key of keys) {
+          const value = row?.[key];
+          if (value !== undefined && value !== null && String(value).trim() !== '') return value;
+        }
+        return fallback;
+      };
+      const renderDetailField = (label, value) => (
+        <div style={{ display: 'grid', gap: 4 }}>
+          <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
+          <div style={{ fontWeight: 600 }}>{value || '—'}</div>
+        </div>
+      );
       return (
         <div className="view">
           <section className="content-grid">
@@ -3531,7 +3548,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         ? (row.nota_venta.length > 40 ? row.nota_venta.slice(0, 40) + '…' : row.nota_venta)
                         : '—';
                       return (
-                        <tr key={row.id || row.contacto_id || nombre + telefono}>
+                        <tr
+                          key={row.id || row.contacto_id || nombre + telefono}
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => setSelectedSale(row)}
+                        >
                           <td>
                             <div className="person">
                               <div className="person-badge">{initials(nombre)}</div>
@@ -3561,6 +3582,59 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               </div>
             </Panel>
           </section>
+          {selectedSale ? (
+            <div className="lot-wizard-overlay" onClick={() => setSelectedSale(null)}>
+              <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 720 }}>
+                <div className="lot-wizard-header">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div className="person-badge" style={{ width: 42, height: 42 }}>
+                      {initials([selectedSale.nombre, selectedSale.apellido].filter(Boolean).join(' ') || '—')}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>Detalle de la venta</div>
+                      <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>
+                        {formatFechaVenta(selectedSale.fecha_venta)}
+                      </div>
+                    </div>
+                  </div>
+                  <button className="close-btn" onClick={() => setSelectedSale(null)}>×</button>
+                </div>
+                <div className="lot-wizard-content">
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 16 }}>
+                    <div style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 12, padding: 12 }}>
+                      <div style={{ fontWeight: 700, marginBottom: 8 }}>Cliente</div>
+                      <div style={{ display: 'grid', gap: 10 }}>
+                        {renderDetailField('Nombre', [selectedSale.nombre, selectedSale.apellido].filter(Boolean).join(' ') || '—')}
+                        {renderDetailField('Documento', pickValue(selectedSale, ['documento', 'dni', 'cedula']))}
+                        {renderDetailField('Teléfono', pickValue(selectedSale, ['celular', 'telefono', 'phone']))}
+                        {renderDetailField('Email', pickValue(selectedSale, ['email', 'correo']))}
+                        {renderDetailField('Ubicación', [selectedSale.departamento, selectedSale.localidad].filter(Boolean).join(', ') || '—')}
+                        {renderDetailField('Dirección', pickValue(selectedSale, ['direccion', 'domicilio']))}
+                      </div>
+                    </div>
+                    <div style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 12, padding: 12 }}>
+                      <div style={{ fontWeight: 700, marginBottom: 8 }}>Producto</div>
+                      <div style={{ display: 'grid', gap: 10 }}>
+                        {renderDetailField('Producto', pickValue(selectedSale, ['producto', 'producto_nombre', 'nombre_producto', 'plan', 'servicio']))}
+                        {renderDetailField('Cuota', pickValue(selectedSale, ['cuota', 'monto', 'precio']))}
+                        {renderDetailField('Lote', pickValue(selectedSale, ['nombre_lote', 'lote']))}
+                        {renderDetailField('Nota', pickValue(selectedSale, ['nota_venta', 'nota']))}
+                      </div>
+                    </div>
+                    <div style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 12, padding: 12 }}>
+                      <div style={{ fontWeight: 700, marginBottom: 8 }}>Pago</div>
+                      <div style={{ display: 'grid', gap: 10 }}>
+                        {renderDetailField('Método de pago', pickValue(selectedSale, ['metodo_pago', 'metodoDePago', 'payment_method', 'forma_pago']))}
+                        {renderDetailField('Banco', pickValue(selectedSale, ['banco', 'bank']))}
+                        {renderDetailField('Tarjeta', pickValue(selectedSale, ['tarjeta', 'card_type', 'card_last4']))}
+                        {renderDetailField('Estado', pickValue(selectedSale, ['estado_pago', 'payment_status', 'estado']))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       );
     }
