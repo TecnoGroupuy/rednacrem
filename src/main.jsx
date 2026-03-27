@@ -2170,7 +2170,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       last: formatLastGestion(raw.ultima_gestion_real)
     });
 
-    function SalesContactsView({ contacts, selectedId, onSelect, onRegister, salesRecords, products, onAssignFamilySale, onUpdateContact, onVentaCerrada }) {
+    function SalesContactsView({ contacts, selectedId, onSelect, onRegister, salesRecords, products, onAssignFamilySale, onUpdateContact, onVentaCerrada, onOpenNewClient }) {
       const api = getApiClient();
       const [localContacts, setLocalContacts] = React.useState(() => contacts.filter(isSalesActiveContact));
       const [loadingContacts, setLoadingContacts] = React.useState(true);
@@ -2420,7 +2420,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             try { localStorage.setItem('agenda_needs_refresh', 'true'); } catch {}
           }
           closeDrawer();
-          if (estadoGestion === 'venta' && onVentaCerrada) {
+          if (estadoGestion === 'venta') {
             try {
               const borrador = {
                 contacto_id: String(dc.id),
@@ -2439,7 +2439,18 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               };
               localStorage.setItem('cliente_pendiente_alta', JSON.stringify(borrador));
             } catch {}
-            onVentaCerrada(dc);
+            if (onOpenNewClient) {
+              onOpenNewClient({
+                nombre: dc.nombre || dc.name?.split(' ')[0] || '',
+                apellido: dc.apellido || (dc.name?.split(' ').slice(1).join(' ')) || '',
+                telefono: dc.telefono || dc.phone || '',
+                celular: dc.celular || '',
+                documento: dc.documento || '',
+                correo_electronico: dc.correo_electronico || dc.email || ''
+              });
+            } else if (onVentaCerrada) {
+              onVentaCerrada(dc);
+            }
           }
           await refreshSilencioso();
         } catch (err) {
@@ -3490,7 +3501,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       );
     }
 
-    function SalesClientsView() {
+    function SalesClientsView({ onOpenNewClient = null }) {
       const [ventas, setVentas] = React.useState([]);
       const [loadingVentas, setLoadingVentas] = React.useState(true);
       const [selectedSale, setSelectedSale] = React.useState(null);
@@ -3543,7 +3554,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       return (
         <div className="view">
           <section className="content-grid">
-            <Panel className="span-12" title="Mis ventas" subtitle="Contactos que convertiste en clientes">
+            <Panel
+              className="span-12"
+              title="Mis ventas"
+              subtitle="Contactos que convertiste en clientes"
+              action={onOpenNewClient ? (
+                <Button icon={<Plus size={18} />} onClick={() => onOpenNewClient()}>Nuevo cliente</Button>
+              ) : null}
+            >
               <div className="table-wrap">
                 <table>
                   <thead><tr><th>Contacto</th><th>Teléfono</th><th>Ubicación</th><th>Lote</th><th>Nota</th><th>Fecha</th></tr></thead>
@@ -5910,7 +5928,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         );
       }
 
-      function ClientsView({ productsCatalog = [], prefillContact = null, onPrefillUsed = null }) {
+    function ClientsView({ productsCatalog = [], prefillContact = null, onPrefillUsed = null }) {
         const { user: authUser } = useAuth();
         const [clientMetrics, setClientMetrics] = React.useState(() => buildClientMetricCards());
         const [clientRows, setClientRows] = React.useState([]);
@@ -6758,6 +6776,528 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             </>
           )}
         </div>
+      );
+    }
+
+    function NuevoClienteVendedor({ draft = null, onClose, onSuccess, productsCatalog = [] }) {
+      const { user: authUser } = useAuth();
+      const [newClientError, setNewClientError] = React.useState('');
+      const [newClientSaving, setNewClientSaving] = React.useState(false);
+      const [newClientStep, setNewClientStep] = React.useState(0);
+      const [newClientDraft, setNewClientDraft] = React.useState({
+        contact: {
+          nombre: draft?.nombre || '',
+          apellido: draft?.apellido || '',
+          documento: draft?.documento || '',
+          fecha_nacimiento: draft?.fecha_nacimiento || '',
+          telefono: draft?.telefono || '',
+          celular: draft?.celular || '',
+          email: draft?.correo_electronico || draft?.email || '',
+          direccion: draft?.direccion || '',
+          departamento: draft?.departamento || '',
+          pais: draft?.pais || 'Uruguay',
+          status: 'activo'
+        },
+        products: [],
+        sale: {
+          mode: 'logged',
+          externalName: '',
+          medioPago: 'debito'
+        }
+      });
+
+      React.useEffect(() => {
+        if (!draft) return;
+        setNewClientDraft((prev) => ({
+          ...prev,
+          contact: {
+            ...prev.contact,
+            nombre: draft?.nombre || '',
+            apellido: draft?.apellido || '',
+            documento: draft?.documento || '',
+            telefono: draft?.telefono || '',
+            celular: draft?.celular || '',
+            email: draft?.correo_electronico || draft?.email || '',
+            direccion: draft?.direccion || '',
+            departamento: draft?.departamento || ''
+          }
+        }));
+      }, [draft]);
+
+      const handleNewClientContactChange = (field, value) => {
+        setNewClientDraft((prev) => ({
+          ...prev,
+          contact: {
+            ...prev.contact,
+            [field]: value
+          }
+        }));
+        setNewClientError('');
+      };
+
+      const handleToggleProduct = (productId) => {
+        setNewClientDraft((prev) => {
+          const selected = new Set(prev.products);
+          if (selected.has(productId)) {
+            selected.delete(productId);
+          } else {
+            selected.add(productId);
+          }
+          return { ...prev, products: Array.from(selected) };
+        });
+        setNewClientError('');
+      };
+
+      const handleSaleModeChange = (mode) => {
+        setNewClientDraft((prev) => ({
+          ...prev,
+          sale: {
+            ...prev.sale,
+            mode
+          }
+        }));
+        setNewClientError('');
+      };
+
+      const handleSaleExternalNameChange = (value) => {
+        setNewClientDraft((prev) => ({
+          ...prev,
+          sale: {
+            ...prev.sale,
+            externalName: value
+          }
+        }));
+        setNewClientError('');
+      };
+
+      const handleSalePaymentChange = (value) => {
+        setNewClientDraft((prev) => ({
+          ...prev,
+          sale: {
+            ...prev.sale,
+            medioPago: normalizePaymentMethod(value)
+          }
+        }));
+        setNewClientError('');
+      };
+
+      const handleSaveNewClient = async () => {
+        const selectedProducts = productsCatalog.filter((product) => newClientDraft.products.includes(product.id));
+        if (!selectedProducts.length) {
+          setNewClientError('Selecciona al menos un producto para continuar.');
+          return;
+        }
+        const loggedName = [authUser?.nombre, authUser?.apellido].filter(Boolean).join(' ') || authUser?.email || '';
+        const saleMode = newClientDraft.sale?.mode || 'logged';
+        const saleName = saleMode === 'external'
+          ? String(newClientDraft.sale?.externalName || '').trim()
+          : loggedName;
+        if (saleMode === 'external' && !saleName) {
+          setNewClientError('Ingresa el nombre del vendedor externo.');
+          setNewClientStep(2);
+          return;
+        }
+        const contactPayload = {
+          ...newClientDraft.contact,
+          fechaNacimiento: newClientDraft.contact.fechaNacimiento || newClientDraft.contact.fecha_nacimiento || '',
+          fecha_nacimiento: newClientDraft.contact.fecha_nacimiento || newClientDraft.contact.fechaNacimiento || ''
+        };
+        const payload = {
+          contact: contactPayload,
+          products: selectedProducts.map((product) => ({
+            nombreProducto: product.nombre || product.nombreProducto || product.nombre_producto,
+            nombre_producto: product.nombre || product.nombreProducto || product.nombre_producto,
+            plan: product.plan || product.categoria || 'Plan estándar',
+            precio: product.precio,
+            medioPago: normalizePaymentMethod(newClientDraft.sale?.medioPago || product.medioPago || product.medio_pago || 'debito'),
+            medio_pago: normalizePaymentMethod(newClientDraft.sale?.medioPago || product.medioPago || product.medio_pago || 'debito'),
+            fechaAlta: new Date().toISOString().slice(0, 10),
+            estado: 'alta',
+            sellerName: saleName || loggedName || 'Usuario'
+          }))
+        };
+        setNewClientSaving(true);
+        setNewClientError('');
+        try {
+          await createContactWithProducts(payload);
+          if (onSuccess) onSuccess();
+        } catch (err) {
+          const status = err?.status;
+          if (status === 409) {
+            setNewClientError('Ya existe un contacto con ese documento o email.');
+          } else if (status === 422) {
+            setNewClientError(err?.details?.message || 'Hay errores de validación en el formulario.');
+          } else {
+            setNewClientError(err?.message || 'No se pudo guardar el cliente.');
+          }
+        } finally {
+          setNewClientSaving(false);
+        }
+      };
+
+      return (
+        <>
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              backgroundColor: 'rgba(15, 23, 42, 0.5)',
+              zIndex: 45
+            }}
+            onClick={() => onClose && onClose()}
+          />
+          <div
+            style={{
+              position: 'fixed',
+              right: 24,
+              top: 32,
+              bottom: 32,
+              width: 'min(520px, calc(100% - 48px))',
+              backgroundColor: '#fff',
+              borderRadius: 24,
+              boxShadow: '0 24px 60px rgba(15, 23, 42, 0.25)',
+              padding: 24,
+              zIndex: 46,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+              maxHeight: 'calc(100vh - 64px)',
+              overflow: 'hidden'
+            }}
+            className="new-client-modal"
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <p style={{ fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: '#6b7280' }}>Datos del contacto</p>
+                <h3 style={{ margin: '6px 0', fontSize: 20, fontWeight: 600 }}>Nuevo cliente</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => onClose && onClose()}
+                style={{
+                  border: 'none',
+                  background: '#f3f4f6',
+                  borderRadius: '50%',
+                  width: 32,
+                  height: 32,
+                  cursor: 'pointer'
+                }}
+              >
+                <X size={16} color="#475569" />
+              </button>
+            </div>
+            <div className="new-client-steps">
+              <button
+                type="button"
+                className={`new-client-step ${newClientStep === 0 ? 'active' : ''}`}
+                onClick={() => setNewClientStep(0)}
+              >
+                Datos
+              </button>
+              <button
+                type="button"
+                className={`new-client-step ${newClientStep === 1 ? 'active' : ''}`}
+                onClick={() => setNewClientStep(1)}
+              >
+                Productos
+              </button>
+              <button
+                type="button"
+                className={`new-client-step ${newClientStep === 2 ? 'active' : ''}`}
+                onClick={() => setNewClientStep(2)}
+              >
+                Venta
+              </button>
+            </div>
+
+            <div className="new-client-body">
+              {newClientStep === 0 ? (
+                <div>
+                  <h4 style={{ margin: '0 0 12px 0', fontSize: 14, fontWeight: 600 }}>Datos del contacto</h4>
+                  <div className="new-client-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
+                    {[
+                      { label: 'Nombre', field: 'nombre' },
+                      { label: 'Apellido', field: 'apellido' },
+                      { label: 'Documento', field: 'documento' },
+                      { label: 'Fecha de nacimiento', field: 'fecha_nacimiento', type: 'date' },
+                      { label: 'Teléfono', field: 'telefono' },
+                      { label: 'Celular', field: 'celular' },
+                      { label: 'Email', field: 'email' },
+                      { label: 'Dirección', field: 'direccion', full: true },
+                      { label: 'Departamento', field: 'departamento' },
+                      { label: 'País', field: 'pais' }
+                    ].map(({ label, field, type, full }) => (
+                      <label key={field} style={{ fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, gridColumn: full ? '1 / -1' : 'auto' }}>
+                        {label}
+                        <input
+                          type={type || 'text'}
+                          value={newClientDraft.contact[field] || ''}
+                          onChange={(event) => handleNewClientContactChange(field, event.target.value)}
+                          style={{
+                            marginTop: 6,
+                            width: '100%',
+                            padding: '10px 12px',
+                            borderRadius: 12,
+                            border: '1px solid #e5e7eb'
+                          }}
+                        />
+                      </label>
+                    ))}
+                    <label style={{ gridColumn: '1 / -1', fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1 }}>
+                      Estado del contacto
+                      <select
+                        value={newClientDraft.contact.status}
+                        onChange={(event) => handleNewClientContactChange('status', event.target.value)}
+                        style={{
+                          marginTop: 6,
+                          width: '100%',
+                          padding: '10px 12px',
+                          borderRadius: 12,
+                          border: '1px solid #e5e7eb'
+                        }}
+                      >
+                        <option value="activo">Activo</option>
+                        <option value="bloqueado">Bloqueado</option>
+                      </select>
+                    </label>
+                  </div>
+                </div>
+              ) : newClientStep === 1 ? (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+                    <h4 style={{ margin: '0 0 12px 0', fontSize: 14, fontWeight: 600 }}>Productos asociados</h4>
+                    <span style={{ fontSize: 12, color: '#64748b' }}>
+                      {newClientDraft.products.length} seleccionados
+                    </span>
+                  </div>
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    {productsCatalog.map((product) => {
+                      const checked = newClientDraft.products.includes(product.id);
+                      return (
+                        <label
+                          key={product.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: 12,
+                            padding: '12px 14px',
+                            borderRadius: 16,
+                            border: checked ? '1px solid rgba(15, 118, 110, 0.65)' : '1px solid #e5e7eb',
+                            background: checked ? 'rgba(15, 118, 110, 0.08)' : '#fff',
+                            cursor: 'pointer',
+                            boxShadow: checked ? '0 10px 24px rgba(15, 118, 110, 0.12)' : 'none'
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => handleToggleProduct(product.id)}
+                            style={{ marginTop: 4 }}
+                          />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                              <strong style={{ fontSize: 14 }}>{product.nombre}</strong>
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  color: product.activo ? '#047857' : '#b91c1c',
+                                  background: product.activo ? '#ecfdf5' : '#fee2e2',
+                                  borderRadius: 999,
+                                  padding: '3px 8px'
+                                }}
+                              >
+                                {product.activo ? 'Activo' : 'Inactivo'}
+                              </span>
+                            </div>
+                            <div style={{ marginTop: 6, fontSize: 12, color: '#64748b' }}>
+                              {product.categoria || 'General'} · {formatCurrency(product.precio || 0)} {product.moneda || 'UYU'}
+                            </div>
+                            {product.descripcion ? (
+                              <div style={{ marginTop: 6, fontSize: 12, color: '#94a3b8' }}>{product.descripcion}</div>
+                            ) : null}
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {newClientError ? (
+                    <p style={{ marginTop: 10, color: '#b91c1c', fontSize: 12 }}>{newClientError}</p>
+                  ) : null}
+                </div>
+              ) : (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+                    <h4 style={{ margin: '0 0 12px 0', fontSize: 14, fontWeight: 600 }}>Registro de venta</h4>
+                    <span style={{ fontSize: 12, color: '#64748b' }}>Asignar vendedor</span>
+                  </div>
+                  <div style={{ display: 'grid', gap: 12 }}>
+                    <label style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                      padding: '12px 14px',
+                      borderRadius: 14,
+                      border: newClientDraft.sale.mode === 'logged' ? '1px solid rgba(15, 118, 110, 0.65)' : '1px solid #e5e7eb',
+                      background: newClientDraft.sale.mode === 'logged' ? 'rgba(15, 118, 110, 0.08)' : '#fff',
+                      cursor: 'pointer'
+                    }}>
+                      <div>
+                        <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#64748b' }}>Usuario logueado</div>
+                        <div style={{ fontSize: 14, fontWeight: 600 }}>{[authUser?.nombre, authUser?.apellido].filter(Boolean).join(' ') || authUser?.email || 'Usuario'}</div>
+                        {authUser?.email ? <div style={{ fontSize: 12, color: '#94a3b8' }}>{authUser.email}</div> : null}
+                      </div>
+                      <input
+                        type="radio"
+                        name="sale-mode-v"
+                        checked={newClientDraft.sale.mode === 'logged'}
+                        onChange={() => handleSaleModeChange('logged')}
+                      />
+                    </label>
+
+                    <label style={{
+                      display: 'grid',
+                      gap: 8,
+                      padding: '12px 14px',
+                      borderRadius: 14,
+                      border: newClientDraft.sale.mode === 'external' ? '1px solid rgba(15, 118, 110, 0.65)' : '1px solid #e5e7eb',
+                      background: newClientDraft.sale.mode === 'external' ? 'rgba(15, 118, 110, 0.08)' : '#fff',
+                      cursor: 'pointer'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                        <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#64748b' }}>Vendedor externo</div>
+                        <input
+                          type="radio"
+                          name="sale-mode-v"
+                          checked={newClientDraft.sale.mode === 'external'}
+                          onChange={() => handleSaleModeChange('external')}
+                        />
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Escribe el nombre del vendedor"
+                        value={newClientDraft.sale.externalName}
+                        onChange={(event) => handleSaleExternalNameChange(event.target.value)}
+                        disabled={newClientDraft.sale.mode !== 'external'}
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          borderRadius: 12,
+                          border: '1px solid #e5e7eb'
+                        }}
+                      />
+                    </label>
+
+                    <div style={{
+                      display: 'grid',
+                      gap: 8,
+                      padding: '12px 14px',
+                      borderRadius: 14,
+                      border: '1px solid #e5e7eb',
+                      background: '#fff'
+                    }}>
+                      <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#64748b' }}>Medio de pago</div>
+                      <select
+                        value={newClientDraft.sale.medioPago}
+                        onChange={(event) => handleSalePaymentChange(event.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          borderRadius: 12,
+                          border: '1px solid #e5e7eb',
+                          background: '#fff'
+                        }}
+                      >
+                        {[
+                          { value: 'abitab', label: 'ABITAB' },
+                          { value: 'ajupen', label: 'AJUPEN' },
+                          { value: 'ajupen_anp', label: 'AJUPEN ANP' },
+                          { value: 'anjuped', label: 'ANJUPED' },
+                          { value: 'antel', label: 'ANTEL' },
+                          { value: 'cabal', label: 'Cabal' },
+                          { value: 'creditel', label: 'Creditel' },
+                          { value: 'credito', label: 'Crédito' },
+                          { value: 'debito', label: 'Débito' },
+                          { value: 'efectivo', label: 'Efectivo' },
+                          { value: 'master', label: 'MASTER' },
+                          { value: 'mastercard', label: 'MASTERCARD' },
+                          { value: 'mercado_pago', label: 'Mercado Pago' },
+                          { value: 'mi_dinero', label: 'Mi dinero' },
+                          { value: 'oca', label: 'OCA' },
+                          { value: 'pass_card', label: 'PASS CARD' },
+                          { value: 'transferencia', label: 'Transferencia' },
+                          { value: 'visa', label: 'VISA' }
+                        ].map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  {newClientError ? (
+                    <p style={{ marginTop: 10, color: '#b91c1c', fontSize: 12 }}>{newClientError}</p>
+                  ) : null}
+                </div>
+              )}
+            </div>
+
+            <div className="new-client-actions new-client-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+              {newClientStep > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setNewClientStep((prev) => Math.max(0, prev - 1))}
+                  className="new-client-action"
+                  style={{
+                    border: '1px solid #e2e8f0',
+                    background: '#fff',
+                    padding: '10px 18px',
+                    borderRadius: 999,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Atrás
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => onClose && onClose()}
+                className="new-client-action"
+                style={{
+                  border: '1px solid #cbd5f5',
+                  background: '#fff',
+                  padding: '10px 18px',
+                  borderRadius: 999,
+                  cursor: 'pointer'
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (newClientStep < 2) {
+                    setNewClientStep((prev) => Math.min(2, prev + 1));
+                    return;
+                  }
+                  handleSaveNewClient();
+                }}
+                disabled={newClientSaving || (newClientStep === 1 && !newClientDraft.products.length)}
+                className="new-client-action"
+                style={{
+                  border: 'none',
+                  backgroundColor: '#059669',
+                  color: '#fff',
+                  padding: '10px 22px',
+                  borderRadius: 999,
+                  cursor: newClientSaving || (newClientStep === 1 && !newClientDraft.products.length) ? 'not-allowed' : 'pointer',
+                  opacity: newClientSaving || (newClientStep === 1 && !newClientDraft.products.length) ? 0.65 : 1
+                }}
+              >
+                {newClientStep < 2 ? 'Siguiente' : (newClientSaving ? 'Guardando...' : 'Guardar contacto')}
+              </button>
+            </div>
+          </div>
+        </>
       );
     }
 
@@ -7874,7 +8414,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           return '';
         }
       });
-      const [vendorNewClientPrefill, setVendorNewClientPrefill] = React.useState(null);
+      const [vendedorNewClientOpen, setVendedorNewClientOpen] = React.useState(false);
+      const [vendedorNewClientDraft, setVendedorNewClientDraft] = React.useState(null);
       const [salesContacts, setSalesContacts] = React.useState(SALES_CONTACTS_SEED);
       const [supervisorLots, setSupervisorLots] = React.useState(SUPERVISOR_LOTS_SEED);
       const [salesSelectedId, setSalesSelectedId] = React.useState(SALES_CONTACTS_SEED.find(isSalesActiveContact)?.id || null);
@@ -7888,6 +8429,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         () => Object.fromEntries(productsCatalog.map((product) => [product.id, product])),
         [productsCatalog]
       );
+      const handleOpenVendedorNewClient = (prefill = null) => {
+        setVendedorNewClientDraft(prefill);
+        setVendedorNewClientOpen(true);
+      };
       const hasRealSuperadminAccess = hasRealRole({ rolReal, allowedRoles: ['superadministrador'] }) && esSuperadmin;
       const roleNavWithBadges = React.useMemo(
         () => ROLE_NAV.map((item) => {
@@ -8260,7 +8805,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         if (route === 'dashboard') {
           if (role === 'director') return <DirectorDashboard />;
           if (role === 'supervisor') return <SupervisorDashboard />;
-          if (role === 'vendedor') return <SalesDashboard contacts={salesContacts} salesRecords={salesRecords} onGoRoute={setRoute} onVentaCerrada={(contactData) => { setVendorNewClientPrefill(contactData); setRoute('clientes'); }} />;
+          if (role === 'vendedor') return (
+            <SalesDashboard
+              contacts={salesContacts}
+              salesRecords={salesRecords}
+              onGoRoute={setRoute}
+              onVentaCerrada={(contactData) => handleOpenVendedorNewClient(contactData)}
+            />
+          );
           return <OperationsDashboard />;
         }
         if (role === 'supervisor' && ['base_general', 'lotes', 'numeros_error', 'seguimiento_vendedores'].includes(route)) {
@@ -8313,25 +8865,22 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 products={productsCatalog}
                 onAssignFamilySale={assignFamilySale}
                 onUpdateContact={updateSalesContactProfile}
-                onVentaCerrada={(contactData) => {
-                  setVendorNewClientPrefill(contactData);
-                  setRoute('clientes');
-                }}
+                onVentaCerrada={(contactData) => handleOpenVendedorNewClient(contactData)}
+                onOpenNewClient={handleOpenVendedorNewClient}
               />
             );
           }
           return <ContactsView />;
         }
         if (route === 'agenda') {
-          if (role === 'vendedor') return <SalesAgendaView onVentaCerrada={(contactData) => { setVendorNewClientPrefill(contactData); setRoute('clientes'); }} />;
+          if (role === 'vendedor') return <SalesAgendaView onVentaCerrada={(contactData) => handleOpenVendedorNewClient(contactData)} />;
         }
         if (route === 'clientes') {
-          if (role === 'vendedor' && !vendorNewClientPrefill) return <SalesClientsView salesRecords={salesRecords} productsById={productsById} />;
-          if (role === 'vendedor' && vendorNewClientPrefill) return (
-            <ClientsView
-              productsCatalog={productsCatalog}
-              prefillContact={vendorNewClientPrefill}
-              onPrefillUsed={() => setVendorNewClientPrefill(null)}
+          if (role === 'vendedor') return (
+            <SalesClientsView
+              salesRecords={salesRecords}
+              productsById={productsById}
+              onOpenNewClient={handleOpenVendedorNewClient}
             />
           );
           return <ClientsView productsCatalog={productsCatalog} />;
@@ -8488,6 +9037,22 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
           {mostrarPausa ? <PauseOverlay status={estadoConfig} startedAt={pausaInicio} onResume={volverAlTrabajo} /> : null}
           <ProfileModal isOpen={showProfileModal} onClose={handleCloseProfile} user={currentUser} roleMeta={ROLE_META} onSave={handleSaveProfile} />
+          {vendedorNewClientOpen && (
+            <NuevoClienteVendedor
+              draft={vendedorNewClientDraft}
+              productsCatalog={productsCatalog}
+              onClose={() => {
+                setVendedorNewClientOpen(false);
+                setVendedorNewClientDraft(null);
+                try { localStorage.removeItem('cliente_pendiente_alta'); } catch {}
+              }}
+              onSuccess={() => {
+                setVendedorNewClientOpen(false);
+                setVendedorNewClientDraft(null);
+                try { localStorage.removeItem('cliente_pendiente_alta'); } catch {}
+              }}
+            />
+          )}
         </>
       );
     }
