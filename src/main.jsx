@@ -3630,8 +3630,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <div style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 12, padding: 12 }}>
                       <div style={{ fontWeight: 700, marginBottom: 8 }}>Cliente</div>
                       <div style={{ display: 'grid', gap: 10 }}>
-                        {renderDetailField('Nombre', [selectedSale.nombre, selectedSale.apellido].filter(Boolean).join(' ') || '—')}
-                        {renderDetailField('Documento', pickValue(selectedSale, ['documento', 'dni', 'cedula']))}
+                        {renderDetailField('Nombre', [
+                          selectedSale.nombre,
+                          selectedSale.apellido
+                        ].filter(Boolean).join(' ') || [
+                          selectedSale.contact_nombre,
+                          selectedSale.contact_apellido
+                        ].filter(Boolean).join(' ') || '—')}
+                        {renderDetailField('Documento', pickValue(selectedSale, ['documento', 'contact_documento', 'contacto_documento', 'dni', 'cedula']))}
                         {renderDetailField('Teléfono', pickValue(selectedSale, ['celular', 'telefono', 'phone']))}
                         {renderDetailField('Email', pickValue(selectedSale, ['email', 'correo']))}
                         {renderDetailField('Ubicación', [selectedSale.departamento, selectedSale.localidad].filter(Boolean).join(', ') || '—')}
