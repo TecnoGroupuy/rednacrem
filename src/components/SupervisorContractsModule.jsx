@@ -5,6 +5,16 @@ import { getApiClient } from '../services/apiClient.js';
 const PAGE_SIZE = 50;
 
 const normalizeOption = (value) => String(value || '').trim();
+const calcularEdad = (fechaNac) => {
+  if (!fechaNac) return '—';
+  const hoy = new Date();
+  const nac = new Date(fechaNac);
+  if (Number.isNaN(nac.getTime())) return '—';
+  let edad = hoy.getFullYear() - nac.getFullYear();
+  const m = hoy.getMonth() - nac.getMonth();
+  if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
+  return edad;
+};
 
 export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const api = React.useMemo(() => getApiClient(), []);
@@ -202,6 +212,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                 <tr>
                   <th></th>
                   <th>Contacto</th>
+                  <th>Edad</th>
                   <th>Teléfono</th>
                   <th>Departamento</th>
                   <th>Producto</th>
@@ -224,11 +235,12 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                         />
                       </td>
                       <td><strong>{nombre}</strong></td>
+                      <td>{calcularEdad(row.fecha_nacimiento || row.fechaNacimiento || row.birthdate)}</td>
                       <td>{row.telefono || row.phone || '—'}</td>
                       <td>{row.departamento || row.depto || '—'}</td>
                       <td>{row.producto || row.producto_anterior || row.nombre_producto || '—'}</td>
                       <td>{row.precio || row.monto || '—'}</td>
-                      <td>{row.fecha_baja || row.fechaBaja || '—'}</td>
+                      <td>{row.fecha_baja || row.fechaBaja ? new Date(row.fecha_baja || row.fechaBaja).toLocaleDateString('es-UY') : '—'}</td>
                     </tr>
                   );
                 })}
