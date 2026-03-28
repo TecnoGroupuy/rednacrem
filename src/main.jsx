@@ -9,6 +9,7 @@ import {
   DollarSign, Target, Download, Layers, Eye, Calendar, PhoneCall, CreditCard, FileText,
   Filter, Plus, CheckCircle2, Clock, Settings, Zap, BarChart3, Edit3, MoreHorizontal, Trash2,
   MessageSquare, Send, Headphones, Bot, User, Hash, Upload, LogOut, Coffee, Bath, PersonStanding,
+  PauseCircle,
   Info, Shield, ChevronRight
 } from 'lucide-react';
 import {
@@ -330,6 +331,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const b = Number.parseInt(clean.slice(4, 6), 16);
       return `rgba(${r}, ${g}, ${b}, ${alpha})`;
     };
+    const PauseCircleSafe = typeof PauseCircle !== 'undefined' ? PauseCircle : Clock;
 
     const ESTADOS_USUARIO = {
       disponible: {
@@ -343,7 +345,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       inactivo: {
         id: 'inactivo',
         label: 'Inactivo',
-        icon: PauseCircle,
+        icon: PauseCircleSafe,
         color: '#94a3b8',
         bloqueaPantalla: false,
         mensaje: 'Sesión inactiva'
