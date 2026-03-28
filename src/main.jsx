@@ -340,6 +340,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         bloqueaPantalla: false,
         mensaje: 'Listo para atender gestiones'
       },
+      inactivo: {
+        id: 'inactivo',
+        label: 'Inactivo',
+        icon: PauseCircle,
+        color: '#94a3b8',
+        bloqueaPantalla: false,
+        mensaje: 'Sesión inactiva'
+      },
       bano: {
         id: 'bano',
         label: 'Baño',
@@ -9060,6 +9068,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [mostrarPausa, setMostrarPausa] = React.useState(false);
       const [estadoActualLoading, setEstadoActualLoading] = React.useState(false);
       const [estadoActualError, setEstadoActualError] = React.useState('');
+      const [lastActivityAt, setLastActivityAt] = React.useState(Date.now());
+      const [inactivityWarning, setInactivityWarning] = React.useState(false);
       const [showProfileModal, setShowProfileModal] = React.useState(false);
       const [supportNewTickets, setSupportNewTickets] = React.useState(0);
       const [brandLogo, setBrandLogo] = React.useState(() => {
@@ -9210,6 +9220,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return nextLots;
       }, []);
 
+      const registerActivity = React.useCallback(() => {
+        const now = Date.now();
+        setLastActivityAt(now);
+        setInactivityWarning(false);
+      }, []);
+
       const fetchEstadoActual = React.useCallback(async () => {
         setEstadoActualLoading(true);
         setEstadoActualError('');
@@ -9229,7 +9245,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             BANO: 'bano',
             DESCANSO: 'descanso',
             SUPERVISOR: 'supervisor',
-            TRABAJO: 'disponible'
+            TRABAJO: 'disponible',
+            INACTIVO: 'inactivo'
           };
           const mapped = tipoMap[tipo] || 'disponible';
           const requiereBloqueo = Boolean(estado?.requiere_bloqueo);
@@ -9256,6 +9273,35 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         if (!authUser?.id) return;
         fetchEstadoActual();
       }, [authUser?.id, fetchEstadoActual]);
+
+      React.useEffect(() => {
+        const events = ['mousemove', 'keydown', 'click', 'focus'];
+        const handler = () => registerActivity();
+        events.forEach((evt) => window.addEventListener(evt, handler));
+        return () => {
+          events.forEach((evt) => window.removeEventListener(evt, handler));
+        };
+      }, [registerActivity]);
+
+      React.useEffect(() => {
+        if (!authUser?.id) return;
+        const api = getApiClient();
+        const intervalId = window.setInterval(() => {
+          const isWorking = estadoUsuario === 'disponible';
+          const inactiveFor = Date.now() - lastActivityAt;
+          if (isWorking && inactiveFor < 2 * 60 * 1000) {
+            api.post('/api/agente/heartbeat').catch(() => {});
+          }
+          if (isWorking && !mostrarPausa) {
+            if (inactiveFor >= 10 * 60 * 1000) {
+              setInactivityWarning(true);
+            } else {
+              setInactivityWarning(false);
+            }
+          }
+        }, 30000);
+        return () => window.clearInterval(intervalId);
+      }, [authUser?.id, estadoUsuario, lastActivityAt, mostrarPausa]);
 
       React.useEffect(() => {
         if (role !== 'vendedor') return;
@@ -9700,21 +9746,31 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         </>
                       )}
                     </div>
-                    <div style={{ marginTop: 6, color: 'var(--muted)', fontSize: '0.9rem' }}>{today}</div>
-                    {role !== rolReal ? (
-                      <div className="toolbar" style={{ marginTop: 8 }}>
-                        <Tag variant="warning">Modo vista: {ROLE_META[role]?.label || role}</Tag>
-                        <Tag variant="info">Usuario real: {ROLE_META[rolReal]?.label || rolReal}</Tag>
-                      </div>
-                    ) : null}
+                <div style={{ marginTop: 6, color: 'var(--muted)', fontSize: '0.9rem' }}>{today}</div>
+                {role !== rolReal ? (
+                  <div className="toolbar" style={{ marginTop: 8 }}>
+                    <Tag variant="warning">Modo vista: {ROLE_META[role]?.label || role}</Tag>
+                    <Tag variant="info">Usuario real: {ROLE_META[rolReal]?.label || rolReal}</Tag>
                   </div>
-                  {effectiveRoleForUi !== 'vendedor' && (
-                    <div className="searchbox"><Search size={18} color="#69788d" /><input placeholder="Buscar clientes, gestiones o servicios..." /><div className="pill">Demo</div></div>
-                  )}
-                </div>
-              </header>
-              {renderRoute()}
-            </main>
+                ) : null}
+                {estadoUsuario === 'inactivo' ? (
+                  <div className="toolbar" style={{ marginTop: 8 }}>
+                    <Tag variant="warning">Inactivo (sin actividad)</Tag>
+                  </div>
+                ) : null}
+              </div>
+              {effectiveRoleForUi !== 'vendedor' && (
+                <div className="searchbox"><Search size={18} color="#69788d" /><input placeholder="Buscar clientes, gestiones o servicios..." /><div className="pill">Demo</div></div>
+              )}
+            </div>
+          </header>
+          {inactivityWarning && estadoUsuario === 'disponible' && !mostrarPausa ? (
+            <div style={{ margin: '0 24px 12px', padding: '10px 14px', borderRadius: 12, border: '1px solid rgba(251,191,36,0.6)', background: 'rgba(251,191,36,0.15)', color: '#92400e', fontWeight: 600 }}>
+              Estás inactivo, tu sesión pasará a inactiva
+            </div>
+          ) : null}
+          {renderRoute()}
+        </main>
           </div>
 
           {mostrarPausa ? <PauseOverlay status={estadoConfig} startedAt={pausaInicio} onResume={volverAlTrabajo} /> : null}
