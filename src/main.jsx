@@ -9385,6 +9385,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           volverAlTrabajo();
           return;
         }
+        setEstadoUsuario(next.id);
+        if (next.bloqueaPantalla) {
+          setPausaInicio(new Date().toISOString());
+          setMostrarPausa(true);
+        } else {
+          setPausaInicio('');
+          setMostrarPausa(false);
+        }
         const tipoMap = {
           bano: 'BAÑO',
           descanso: 'DESCANSO',
@@ -9398,9 +9406,15 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               .then(() => fetchEstadoActual())
               .catch(() => {
                 setEstadoActualError('No se pudo actualizar el estado.');
+                setMostrarPausa(false);
+                setPausaInicio('');
+                setEstadoUsuario('disponible');
               });
           } catch (e) {
             setEstadoActualError('No se pudo actualizar el estado.');
+            setMostrarPausa(false);
+            setPausaInicio('');
+            setEstadoUsuario('disponible');
           }
         }
       };
