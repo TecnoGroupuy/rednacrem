@@ -2280,7 +2280,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                               <div style={{ width: 80, fontSize: 12, color: '#64748b' }}>Descansos</div>
                               <div style={{ flex: 1, height: 28, background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                                <div style={{ width: `${totalBase ? Math.min((agent.times.descanso / totalBase) * 100, 100) : 0}%`, height: '100%', background: '#f59e0b', display: 'flex', alignItems: 'center', padding: '0 10px', color: '#fff', fontSize: 12, fontWeight: 700 }}>
+                                <div style={{ width: '100%', height: '100%', background: '#f59e0b', display: 'flex', alignItems: 'center', padding: '0 10px', color: '#fff', fontSize: 12, fontWeight: 700 }}>
                                   {labelDescanso}
                                 </div>
                               </div>
@@ -2290,7 +2290,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                               <div style={{ width: 80, fontSize: 12, color: '#64748b' }}>Baños</div>
                               <div style={{ flex: 1, height: 28, background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                                <div style={{ width: `${totalBase ? Math.min((agent.times.baño / totalBase) * 100, 100) : 0}%`, height: '100%', background: '#eab308', display: 'flex', alignItems: 'center', padding: '0 10px', color: '#422006', fontSize: 12, fontWeight: 700 }}>
+                                <div style={{ width: '100%', height: '100%', background: '#eab308', display: 'flex', alignItems: 'center', padding: '0 10px', color: '#422006', fontSize: 12, fontWeight: 700 }}>
                                   {labelBanos}
                                 </div>
                               </div>
@@ -2300,7 +2300,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                               <div style={{ width: 80, fontSize: 12, color: '#64748b' }}>Capacit.</div>
                               <div style={{ flex: 1, height: 28, background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                                <div style={{ width: `${totalBase ? Math.min((agent.times.capacitacion / totalBase) * 100, 100) : 0}%`, height: '100%', background: '#8b5cf6', display: 'flex', alignItems: 'center', padding: '0 10px', color: '#fff', fontSize: 12, fontWeight: 700 }}>
+                                <div style={{ width: '100%', height: '100%', background: '#8b5cf6', display: 'flex', alignItems: 'center', padding: '0 10px', color: '#fff', fontSize: 12, fontWeight: 700 }}>
                                   {labelCapacitacion}
                                 </div>
                               </div>
