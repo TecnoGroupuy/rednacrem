@@ -9058,6 +9058,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [estadoUsuario, setEstadoUsuario] = React.useState('disponible');
       const [pausaInicio, setPausaInicio] = React.useState('');
       const [mostrarPausa, setMostrarPausa] = React.useState(false);
+      const [estadoActualLoading, setEstadoActualLoading] = React.useState(false);
+      const [estadoActualError, setEstadoActualError] = React.useState('');
       const [showProfileModal, setShowProfileModal] = React.useState(false);
       const [supportNewTickets, setSupportNewTickets] = React.useState(0);
       const [brandLogo, setBrandLogo] = React.useState(() => {
@@ -9208,9 +9210,52 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return nextLots;
       }, []);
 
+      const fetchEstadoActual = React.useCallback(async () => {
+        setEstadoActualLoading(true);
+        setEstadoActualError('');
+        try {
+          const api = getApiClient();
+          const response = await api.get('/api/agente/estado-actual');
+          const estado = response?.estado || response?.data?.estado || null;
+          if (!estado) {
+            setEstadoUsuario('disponible');
+            setMostrarPausa(false);
+            setPausaInicio('');
+            return;
+          }
+          const tipo = String(estado?.tipo || '').toUpperCase();
+          const tipoMap = {
+            BAÑO: 'bano',
+            BANO: 'bano',
+            DESCANSO: 'descanso',
+            SUPERVISOR: 'supervisor',
+            TRABAJO: 'disponible'
+          };
+          const mapped = tipoMap[tipo] || 'disponible';
+          const requiereBloqueo = Boolean(estado?.requiere_bloqueo);
+          setEstadoUsuario(mapped);
+          if (requiereBloqueo && ['bano', 'descanso', 'supervisor'].includes(mapped)) {
+            setPausaInicio(estado?.inicio || estado?.inicio_local || new Date().toISOString());
+            setMostrarPausa(true);
+          } else {
+            setPausaInicio('');
+            setMostrarPausa(false);
+          }
+        } catch (err) {
+          setEstadoActualError(err?.message || 'No se pudo obtener el estado actual.');
+        } finally {
+          setEstadoActualLoading(false);
+        }
+      }, []);
+
       React.useEffect(() => {
         Promise.all([refreshContactsFromService(), refreshLotsFromService()]).catch(() => {});
       }, [refreshContactsFromService, refreshLotsFromService]);
+
+      React.useEffect(() => {
+        if (!authUser?.id) return;
+        fetchEstadoActual();
+      }, [authUser?.id, fetchEstadoActual]);
 
       React.useEffect(() => {
         if (role !== 'vendedor') return;
@@ -9288,14 +9333,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
       const handleEstadoUsuario = (estadoId) => {
         const next = resolveEstadoUsuario(estadoId);
-        console.log('ENVIANDO EVENTO', next.id);
-        setEstadoUsuario(next.id);
-        if (next.bloqueaPantalla) {
-          setPausaInicio(new Date().toISOString());
-          setMostrarPausa(true);
-        } else {
-          setPausaInicio('');
-          setMostrarPausa(false);
+        if (next.id === 'disponible') {
+          volverAlTrabajo();
+          return;
         }
         const tipoMap = {
           bano: 'BAÑO',
@@ -9304,45 +9344,34 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         };
         const tipo = tipoMap[next.id];
         if (tipo) {
-          console.log('[EVENTO] tipo:', tipo);
           try {
             const api = getApiClient();
-            const agenteId = authUser?.id;
-            console.log('[EVENTO] agenteId:', agenteId);
-            if (agenteId) {
-              console.log('[DEBUG ESTADO] enviando tipo:', tipo, new Date().toISOString());
-              api.post('/api/agent/event', { agente_id: agenteId, tipo })
-                .then((r) => console.log('[EVENTO] OK', r?.status))
-                .catch((e) => console.error('[EVENTO] ERROR', e));
-            } else {
-              console.warn('[EVENTO] Sin authUser.id');
-            }
+            api.post('/api/agente/estado', { tipo })
+              .then(() => fetchEstadoActual())
+              .catch(() => {
+                setEstadoActualError('No se pudo actualizar el estado.');
+              });
           } catch (e) {
-            console.error('[EVENTO] EXCEPCION', e);
+            setEstadoActualError('No se pudo actualizar el estado.');
           }
         }
       };
 
       const volverAlTrabajo = () => {
-        console.log('ENVIANDO EVENTO', 'TRABAJO');
-        setMostrarPausa(false);
-        setPausaInicio('');
-        setEstadoUsuario('disponible');
-        console.log('[EVENTO] tipo:', 'TRABAJO');
         try {
           const api = getApiClient();
-          const agenteId = authUser?.id;
-          console.log('[EVENTO] agenteId:', agenteId);
-          if (agenteId) {
-            console.log('[DEBUG TRABAJO] enviando TRABAJO', new Date().toISOString());
-            api.post('/api/agent/event', { agente_id: agenteId, tipo: 'TRABAJO' })
-              .then((r) => console.log('[EVENTO] OK', r?.status))
-              .catch((e) => console.error('[EVENTO] ERROR', e));
-          } else {
-            console.warn('[EVENTO] Sin authUser.id');
-          }
+          api.post('/api/agente/volver-al-trabajo')
+            .then(() => {
+              setMostrarPausa(false);
+              setPausaInicio('');
+              setEstadoUsuario('disponible');
+              fetchEstadoActual();
+            })
+            .catch(() => {
+              setEstadoActualError('No se pudo volver al trabajo.');
+            });
         } catch (e) {
-          console.error('[EVENTO] EXCEPCION', e);
+          setEstadoActualError('No se pudo volver al trabajo.');
         }
       };
 
