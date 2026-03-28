@@ -1547,6 +1547,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [jornadaView, setJornadaView] = React.useState('cards');
       const [jornadaFilter, setJornadaFilter] = React.useState('todos');
       const [jornadaAgents, setJornadaAgents] = React.useState([]);
+      const [jornadaLoading, setJornadaLoading] = React.useState(false);
+      const [jornadaError, setJornadaError] = React.useState('');
+      const jornadaTimezone = 'America/Montevideo';
       const jornadaColors = React.useMemo(() => ([
         '#6366f1', '#f59e0b', '#10b981', '#3b82f6', '#ec4899'
       ]), []);
@@ -1555,91 +1558,61 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const sum = safe.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
         return jornadaColors[sum % jornadaColors.length];
       }, [jornadaColors]);
-      const buildJornadaBase = React.useCallback((agent) => {
-        const nombre = agent?.nombre || agent?.name || '';
-        const apellido = agent?.apellido || '';
-        const fullName = `${nombre} ${apellido}`.trim() || nombre || agent?.name || '—';
-        const initials = agent?.iniciales || `${nombre[0] || ''}${apellido[0] || ''}`.trim().toUpperCase() || 'U';
+      const formatDurationFromSeconds = (seconds) => {
+        if (!Number.isFinite(seconds)) return '--';
+        const total = Math.max(0, Math.floor(Number(seconds)));
+        const h = Math.floor(total / 3600);
+        const m = Math.floor((total % 3600) / 60);
+        return `${h}h ${m}m`;
+      };
+      const mapJornadaItem = React.useCallback((item) => {
+        const nombre = item?.nombre || '';
+        const apellido = item?.apellido || '';
+        const fullName = `${nombre} ${apellido}`.trim() || '—';
+        const initials = `${nombre[0] || ''}${apellido[0] || ''}`.trim().toUpperCase() || 'U';
+        const logoutMissing = item?.logout_local == null;
+        const totalJornadaSeg = item?.totalJornadaSeg ?? null;
+        const rawEstado = item?.estado_actual;
+        const normalizedEstado = rawEstado ? String(rawEstado).toUpperCase() : '';
+        const estadoMap = {
+          TRABAJO: { state: 'disponible', label: 'Disponible' },
+          DESCANSO: { state: 'descanso', label: 'En descanso' },
+          BAÑO: { state: 'baño', label: 'En baño' },
+          BANO: { state: 'baño', label: 'En baño' },
+          SUPERVISOR: { state: 'capacitacion', label: 'En capacitación' },
+          LOGOUT: { state: 'fin', label: 'Finalizado' }
+        };
+        const mappedEstado = normalizedEstado ? estadoMap[normalizedEstado] : null;
         return {
-          id: agent?.id || agent?.agente_id || agent?.agent_id || fullName,
+          id: item?.id || fullName,
           name: fullName,
           avatar: initials,
-          color: agent?.color || getJornadaColor(fullName),
-          currentState: 'disponible',
-          stateStartTime: new Date(),
-          loginTime: agent?.login_time || agent?.login || agent?.ingreso || agent?.login_time || agent?.login_at || '—',
-          logoutTime: agent?.logout_time || agent?.logout || agent?.salida || agent?.logout_time || null,
-          times: { disponible: 0, descanso: 0, baño: 0, capacitacion: 0 },
+          color: getJornadaColor(fullName),
+          currentState: mappedEstado?.state || (logoutMissing ? 'disponible' : 'fin'),
+          currentStateLabel: mappedEstado?.label || (logoutMissing ? 'En jornada' : 'Finalizado'),
+          stateStartTime: null,
+          loginTime: item?.login_time || '--',
+          logoutTime: item?.logout_time || (logoutMissing ? 'En curso' : '--'),
+          times: {
+            disponible: Number(item?.disponibleSeg ?? 0),
+            descanso: Number(item?.descansosSeg ?? 0),
+            baño: Number(item?.banosSeg ?? 0),
+            capacitacion: Number(item?.supervisorSeg ?? 0),
+            productivo: Number(item?.tiempoProductivoSeg ?? 0),
+            total: totalJornadaSeg
+          },
+          labels: {
+            productivo: item?.tiempoProductivoLabel,
+            descansos: item?.descansosLabel,
+            banos: item?.banosLabel,
+            supervisor: item?.supervisorLabel,
+            total: item?.totalJornadaLabel
+          },
           schedule: []
         };
       }, [getJornadaColor]);
-      const jornadaTypeMap = React.useCallback((raw) => {
-        const key = String(raw || '').toLowerCase();
-        if (key.includes('login')) return { type: 'login', label: 'Inicio' };
-        if (key.includes('logout')) return { type: 'fin', label: 'Fin' };
-        if (key.includes('trab')) return { type: 'disponible', label: 'Disp' };
-        if (key.includes('desc')) return { type: 'descanso', label: 'Descanso' };
-        if (key.includes('baño') || key.includes('bano')) return { type: 'baño', label: 'Baño' };
-        if (key.includes('superv')) return { type: 'capacitacion', label: 'Capacit' };
-        return { type: 'disponible', label: 'Disp' };
-      }, []);
-      const buildJornadaFromDetail = React.useCallback((base, detail, dateRef) => {
-        const eventos = detail?.eventos || detail?.events || [];
-        const toMinutes = (start, end) => {
-          if (!start || !end) return 0;
-          const [sh, sm] = String(start).split(':').map(Number);
-          const [eh, em] = String(end).split(':').map(Number);
-          if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) return 0;
-          return Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
-        };
-        const buildDate = (time) => {
-          if (!time) return new Date();
-          const [h, m] = String(time).split(':').map(Number);
-          if ([h, m].some((n) => Number.isNaN(n))) return new Date();
-          return new Date(dateRef.getFullYear(), dateRef.getMonth(), dateRef.getDate(), h, m);
-        };
-        const schedule = eventos.map((evt) => {
-          const map = jornadaTypeMap(evt?.tipo);
-          return {
-            start: evt?.inicio || '',
-            end: evt?.fin ?? null,
-            type: map.type,
-            label: map.label
-          };
-        });
-        const times = { disponible: 0, descanso: 0, baño: 0, capacitacion: 0 };
-        eventos.forEach((evt) => {
-          const map = jornadaTypeMap(evt?.tipo);
-          if (!['disponible', 'descanso', 'baño', 'capacitacion'].includes(map.type)) return;
-          const duration = Number(evt?.duracion_minutos ?? 0);
-          if (duration > 0) {
-            times[map.type] += duration;
-            return;
-          }
-          if (evt?.inicio) {
-            const end = evt?.fin || `${new Date().getHours()}:${String(new Date().getMinutes()).padStart(2, '0')}`;
-            times[map.type] += toMinutes(evt.inicio, end);
-          }
-        });
-        const lastEvent = [...eventos].reverse().find((evt) => evt?.inicio);
-        const lastMap = jornadaTypeMap(lastEvent?.tipo);
-        const currentState = lastMap.type === 'login' ? 'disponible' : lastMap.type;
-        return {
-          ...base,
-          currentState: currentState === 'fin' ? 'fin' : currentState,
-          stateStartTime: lastEvent?.inicio ? buildDate(lastEvent.inicio) : base.stateStartTime,
-          loginTime: detail?.agente?.turno_inicio || base.loginTime,
-          logoutTime: detail?.agente?.turno_fin || base.logoutTime,
-          times,
-          schedule
-        };
-      }, [jornadaTypeMap]);
-      const formatDuration = (minutes) => {
-        const h = Math.floor(minutes / 60);
-        const m = minutes % 60;
-        return `${h}h ${m}m`;
-      };
       const formatTimeSince = (date) => {
+        if (!date) return '--';
         const diff = Math.max(0, Math.floor((Date.now() - new Date(date).getTime()) / 60000));
         if (diff < 60) return `${diff} min`;
         const h = Math.floor(diff / 60);
@@ -1678,30 +1651,28 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return 'Estado';
       };
       React.useEffect(() => {
-        const list = teamSummary?.agents || teamSummary?.agentes || teamSummary?.items || teamSummary?.team || [];
-        if (!Array.isArray(list) || !list.length) {
-          setJornadaAgents([]);
-          return () => {};
-        }
-        const baseAgents = list.map(buildJornadaBase);
-        setJornadaAgents(baseAgents);
         let active = true;
         const api = getApiClient();
         const dateStr = formatDateYmd(selectedDate);
-        Promise.all(
-          baseAgents.map((agent) => api.get(`/api/supervisor/agent-detail/${agent.id}?fecha=${dateStr}`)
-            .then((response) => ({ id: agent.id, response }))
-            .catch(() => null))
-        ).then((results) => {
-          if (!active) return;
-          setJornadaAgents((prev) => prev.map((agent) => {
-            const hit = results.find((item) => item && String(item.id) === String(agent.id));
-            if (!hit?.response) return agent;
-            return buildJornadaFromDetail(agent, hit.response, selectedDate);
-          }));
-        });
+        setJornadaLoading(true);
+        setJornadaError('');
+        api.get(`/api/reportes/jornada-diaria?fecha=${dateStr}&timezone=${encodeURIComponent(jornadaTimezone)}`)
+          .then((response) => {
+            if (!active) return;
+            const items = response?.items || response?.data?.items || [];
+            setJornadaAgents(Array.isArray(items) ? items.map(mapJornadaItem) : []);
+          })
+          .catch((err) => {
+            if (!active) return;
+            setJornadaError(err?.message || 'No se pudo cargar el reporte de jornada.');
+            setJornadaAgents([]);
+          })
+          .finally(() => {
+            if (!active) return;
+            setJornadaLoading(false);
+          });
         return () => { active = false; };
-      }, [buildJornadaBase, buildJornadaFromDetail, formatDateYmd, selectedDate, teamSummary]);
+      }, [formatDateYmd, jornadaTimezone, mapJornadaItem, selectedDate]);
 
       React.useEffect(() => {
         if (!teamConfig) return () => {};
@@ -1729,15 +1700,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               setSellerSummaryLoading(false);
             });
         };
-        const refreshJornadaAgent = (agentId) => {
-          if (!agentId) return;
+        const refreshJornadaReport = () => {
           const dateStr = formatDateYmd(selectedDate);
-          api.get(`/api/supervisor/agent-detail/${agentId}?fecha=${dateStr}`)
+          api.get(`/api/reportes/jornada-diaria?fecha=${dateStr}&timezone=${encodeURIComponent(jornadaTimezone)}`)
             .then((response) => {
-              setJornadaAgents((prev) => prev.map((agent) => {
-                if (String(agent.id) !== String(agentId)) return agent;
-                return buildJornadaFromDetail(agent, response, selectedDate);
-              }));
+              const items = response?.items || response?.data?.items || [];
+              setJornadaAgents(Array.isArray(items) ? items.map(mapJornadaItem) : []);
             })
             .catch(() => {});
         };
@@ -1776,9 +1744,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           if (detailAgent?.id && agentId && String(agentId) === String(detailAgent.id)) {
             refreshDetail();
           }
-          if (agentId) {
-            refreshJornadaAgent(agentId);
-          }
+          refreshJornadaReport();
         });
         socket.on('new_alert', (payload) => {
           const agentId = payload?.agentId || payload?.agente_id || payload?.agent_id || payload?.id;
@@ -1795,7 +1761,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return () => {
           socket.disconnect();
         };
-      }, [authUser?.accessToken, buildJornadaFromDetail, detailAgent?.id, formatDateYmd, selectedDate, socketBase, shouldApplyTeamUpdate, normalizeTeamPayload, mergeTeamAgents]);
+      }, [authUser?.accessToken, detailAgent?.id, formatDateYmd, jornadaTimezone, mapJornadaItem, selectedDate, socketBase, shouldApplyTeamUpdate, normalizeTeamPayload, mergeTeamAgents]);
       const activeDetail = normalizeDetail(detailData, detailWeek, null);
       const renderTimeline = (detail) => {
         const rawEvents = Array.isArray(detail?.activityRaw) ? detail.activityRaw : [];
@@ -2079,8 +2045,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           <section className="content-grid">
             <Panel
               className="span-12"
-              title="Seguimiento de vendedores"
-              subtitle="Medición diaria por vendedor"
             >
               {sellerSummaryLoading ? <div style={{ marginBottom: 12, color: 'var(--muted)' }}>Cargando resumen de vendedores...</div> : null}
               {sellerSummaryError ? <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 600 }}>{sellerSummaryError}</div> : null}
@@ -2158,6 +2122,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   Tracking Activo
                 </div>
               </div>
+              {jornadaLoading ? <div style={{ marginBottom: 12, color: 'var(--muted)' }}>Cargando reporte de jornada...</div> : null}
+              {jornadaError ? <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 600 }}>{jornadaError}</div> : null}
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 18 }}>
                 <div style={{ background: '#fff', borderRadius: 12, borderLeft: '4px solid #10b981', padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
@@ -2177,7 +2143,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 </div>
                 <div style={{ background: '#fff', borderRadius: 12, borderLeft: '4px solid #3b82f6', padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
                   <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 }}>Promedio Disponible</div>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', marginTop: 6 }}>{formatDuration(jornadaAvgDisponible)}</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', marginTop: 6 }}>{formatDurationFromSeconds(jornadaAvgDisponible)}</div>
                   <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>Tiempo productivo</div>
                 </div>
               </div>
@@ -2248,12 +2214,22 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
               {jornadaView === 'cards' ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16, marginBottom: 16 }}>
+                  {!filteredJornadaAgents.length ? (
+                    <div style={{ padding: 12, color: 'var(--muted)' }}>No hay datos reales para esta fecha.</div>
+                  ) : null}
                   {filteredJornadaAgents.map((agent) => {
                     const isFinished = agent.currentState === 'fin';
-                    const isLongPause = (agent.currentState === 'baño' && agent.times.baño > 15)
-                      || (agent.currentState === 'descanso' && agent.times.descanso > 30);
+                    const isLongPause = (agent.currentState === 'baño' && agent.times.baño > 900)
+                      || (agent.currentState === 'descanso' && agent.times.descanso > 1800);
+                    const totalBase = agent.times.total || Math.max(agent.times.productivo, agent.times.disponible) || 28800;
                     const totalWorked = agent.times.disponible;
-                    const progress = Math.min((totalWorked / 480) * 100, 100);
+                    const progress = totalBase ? Math.min((totalWorked / totalBase) * 100, 100) : 0;
+                    const labelDisponible = formatDurationFromSeconds(agent.times.disponible);
+                    const labelDescanso = agent.labels?.descansos || formatDurationFromSeconds(agent.times.descanso);
+                    const labelBanos = agent.labels?.banos || formatDurationFromSeconds(agent.times.baño);
+                    const labelCapacitacion = agent.labels?.supervisor || formatDurationFromSeconds(agent.times.capacitacion);
+                    const labelProductivo = agent.labels?.productivo || formatDurationFromSeconds(agent.times.productivo);
+                    const labelTotal = agent.labels?.total || (agent.times.total ? formatDurationFromSeconds(agent.times.total) : '--');
                     return (
                       <div
                         key={agent.id}
@@ -2282,16 +2258,21 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                               </div>
                             </div>
                           </div>
+                          {agent.logoutTime === 'En curso' ? (
+                            <span style={{ fontSize: 11, fontWeight: 700, color: '#2563eb', background: 'rgba(59,130,246,0.12)', padding: '4px 10px', borderRadius: 999 }}>
+                              En curso
+                            </span>
+                          ) : null}
                         </div>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 999, marginBottom: 14, width: '100%', justifyContent: 'center', ...stateBadgeStyle(agent.currentState) }}>
-                          {agent.currentState === 'fin' ? stateLabel(agent.currentState) : `En ${stateLabel(agent.currentState)} · ${formatTimeSince(agent.stateStartTime)}`}
+                          {agent.currentStateLabel || stateLabel(agent.currentState)}
                         </div>
                         <div style={{ background: '#f8fafc', borderRadius: 12, padding: 12, marginBottom: 14 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                             <div style={{ width: 80, fontSize: 12, color: '#64748b' }}>Disponible</div>
                             <div style={{ flex: 1, height: 28, background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                              <div style={{ width: `${Math.min((agent.times.disponible / 480) * 100, 100)}%`, height: '100%', background: '#10b981', display: 'flex', alignItems: 'center', padding: '0 10px', color: '#fff', fontSize: 12, fontWeight: 700 }}>
-                                {formatDuration(agent.times.disponible)}
+                              <div style={{ width: `${totalBase ? Math.min((agent.times.disponible / totalBase) * 100, 100) : 0}%`, height: '100%', background: '#10b981', display: 'flex', alignItems: 'center', padding: '0 10px', color: '#fff', fontSize: 12, fontWeight: 700 }}>
+                                {labelDisponible}
                               </div>
                             </div>
                           </div>
@@ -2299,8 +2280,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                               <div style={{ width: 80, fontSize: 12, color: '#64748b' }}>Descansos</div>
                               <div style={{ flex: 1, height: 28, background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                                <div style={{ width: `${Math.min((agent.times.descanso / 60) * 100, 100)}%`, height: '100%', background: '#f59e0b', display: 'flex', alignItems: 'center', padding: '0 10px', color: '#fff', fontSize: 12, fontWeight: 700 }}>
-                                  {formatDuration(agent.times.descanso)}
+                                <div style={{ width: `${totalBase ? Math.min((agent.times.descanso / totalBase) * 100, 100) : 0}%`, height: '100%', background: '#f59e0b', display: 'flex', alignItems: 'center', padding: '0 10px', color: '#fff', fontSize: 12, fontWeight: 700 }}>
+                                  {labelDescanso}
                                 </div>
                               </div>
                             </div>
@@ -2309,8 +2290,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                               <div style={{ width: 80, fontSize: 12, color: '#64748b' }}>Baños</div>
                               <div style={{ flex: 1, height: 28, background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                                <div style={{ width: `${Math.min((agent.times.baño / 30) * 100, 100)}%`, height: '100%', background: '#eab308', display: 'flex', alignItems: 'center', padding: '0 10px', color: '#422006', fontSize: 12, fontWeight: 700 }}>
-                                  {formatDuration(agent.times.baño)}
+                                <div style={{ width: `${totalBase ? Math.min((agent.times.baño / totalBase) * 100, 100) : 0}%`, height: '100%', background: '#eab308', display: 'flex', alignItems: 'center', padding: '0 10px', color: '#422006', fontSize: 12, fontWeight: 700 }}>
+                                  {labelBanos}
                                 </div>
                               </div>
                             </div>
@@ -2319,8 +2300,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                               <div style={{ width: 80, fontSize: 12, color: '#64748b' }}>Capacit.</div>
                               <div style={{ flex: 1, height: 28, background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                                <div style={{ width: `${Math.min((agent.times.capacitacion / 120) * 100, 100)}%`, height: '100%', background: '#8b5cf6', display: 'flex', alignItems: 'center', padding: '0 10px', color: '#fff', fontSize: 12, fontWeight: 700 }}>
-                                  {formatDuration(agent.times.capacitacion)}
+                                <div style={{ width: `${totalBase ? Math.min((agent.times.capacitacion / totalBase) * 100, 100) : 0}%`, height: '100%', background: '#8b5cf6', display: 'flex', alignItems: 'center', padding: '0 10px', color: '#fff', fontSize: 12, fontWeight: 700 }}>
+                                  {labelCapacitacion}
                                 </div>
                               </div>
                             </div>
@@ -2328,12 +2309,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                           <div style={{ background: '#f8fafc', borderRadius: 10, padding: 12, textAlign: 'center' }}>
-                            <div style={{ fontSize: 18, fontWeight: 700 }}>{formatDuration(totalWorked)}</div>
+                            <div style={{ fontSize: 18, fontWeight: 700 }}>{labelProductivo}</div>
                             <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tiempo Productivo</div>
                           </div>
                           <div style={{ background: '#f8fafc', borderRadius: 10, padding: 12, textAlign: 'center' }}>
                             <div style={{ fontSize: 18, fontWeight: 700, color: isFinished ? '#0f172a' : '#ea580c' }}>
-                              {isFinished ? '8h 00m' : formatDuration(Math.max(0, 480 - totalWorked))}
+                              {isFinished ? labelTotal : (agent.times.total ? formatDurationFromSeconds(Math.max(0, agent.times.total - totalWorked)) : '--')}
                             </div>
                             <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                               {isFinished ? 'Total Jornada' : 'Restante Est.'}
