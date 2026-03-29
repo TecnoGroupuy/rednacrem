@@ -1590,7 +1590,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const initials = `${nombre[0] || ''}${apellido[0] || ''}`.trim().toUpperCase() || 'U';
         const loginLocal = item?.login_local;
         const logoutLocal = item?.logout_local;
-        const logoutMissing = logoutLocal == null;
+        const loginTimeRaw = item?.login_time;
+        const logoutTimeRaw = item?.logout_time;
+        const logoutMissing = logoutTimeRaw == null;
         const totalJornadaSeg = item?.totalJornadaSeg ?? null;
         const isDisconnected = (!loginLocal || !String(loginLocal).trim())
           && (!logoutLocal || !String(logoutLocal).trim())
@@ -1617,8 +1619,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           currentState: isDisconnected ? 'desconectado' : (mappedEstado?.state || (logoutMissing ? 'disponible' : 'fin')),
           currentStateLabel: isDisconnected ? 'Desconectado' : (mappedEstado?.label || (logoutMissing ? 'En jornada' : 'Finalizado')),
           stateStartTime: null,
-          loginTime: isDisconnected ? '--' : (item?.login_time || '--'),
-          logoutTime: isDisconnected ? '--' : (item?.logout_time || (logoutMissing ? 'En curso' : '--')),
+          loginTime: isDisconnected ? '--' : (loginTimeRaw || '--'),
+          logoutTime: isDisconnected ? '--' : (logoutTimeRaw || (logoutMissing ? 'En curso' : '--')),
           times: {
             disponible: Number(item?.disponibleSeg ?? 0),
             descanso: Number(item?.descansosSeg ?? 0),
@@ -2297,7 +2299,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                             <div style={{ width: 80, fontSize: 12, color: '#64748b' }}>Disponible</div>
                             <div style={{ flex: 1, height: 28, background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                              <div style={{ width: `${totalBase ? Math.min((agent.times.disponible / totalBase) * 100, 100) : 0}%`, height: '100%', background: '#10b981', display: 'flex', alignItems: 'center', padding: '0 10px', color: '#fff', fontSize: 12, fontWeight: 700 }}>
+                              <div style={{ width: '100%', height: '100%', background: '#10b981', display: 'flex', alignItems: 'center', padding: '0 10px', color: '#fff', fontSize: 12, fontWeight: 700 }}>
                                 {labelDisponible}
                               </div>
                             </div>
