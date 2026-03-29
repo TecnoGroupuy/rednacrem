@@ -9,7 +9,7 @@ import {
   DollarSign, Target, Download, Layers, Eye, Calendar, PhoneCall, CreditCard, FileText,
   Filter, Plus, CheckCircle2, Clock, Settings, Zap, BarChart3, Edit3, MoreHorizontal, Trash2,
   MessageSquare, Send, Headphones, Bot, User, Hash, Upload, LogOut, Coffee, Bath, PersonStanding,
-  PauseCircle,
+  PauseCircle, XCircle,
   Info, Shield, ChevronRight
 } from 'lucide-react';
 import {
@@ -349,6 +349,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         color: '#94a3b8',
         bloqueaPantalla: false,
         mensaje: 'Sesión inactiva'
+      },
+      desconectado: {
+        id: 'desconectado',
+        label: 'Desconectado',
+        icon: XCircle,
+        color: '#94a3b8',
+        bloqueaPantalla: false,
+        mensaje: 'Sin actividad registrada'
       },
       bano: {
         id: 'bano',
@@ -1580,8 +1588,16 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const apellido = item?.apellido || '';
         const fullName = `${nombre} ${apellido}`.trim() || '—';
         const initials = `${nombre[0] || ''}${apellido[0] || ''}`.trim().toUpperCase() || 'U';
-        const logoutMissing = item?.logout_local == null;
+        const loginLocal = item?.login_local;
+        const logoutLocal = item?.logout_local;
+        const logoutMissing = logoutLocal == null;
         const totalJornadaSeg = item?.totalJornadaSeg ?? null;
+        const isDisconnected = (!loginLocal || !String(loginLocal).trim())
+          && (!logoutLocal || !String(logoutLocal).trim())
+          && Number(item?.tiempoProductivoSeg ?? 0) === 0
+          && Number(item?.descansosSeg ?? 0) === 0
+          && Number(item?.banosSeg ?? 0) === 0
+          && Number(item?.supervisorSeg ?? 0) === 0;
         const rawEstado = item?.estado_actual;
         const normalizedEstado = rawEstado ? String(rawEstado).toUpperCase() : '';
         const estadoMap = {
@@ -1598,11 +1614,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           name: fullName,
           avatar: initials,
           color: getJornadaColor(fullName),
-          currentState: mappedEstado?.state || (logoutMissing ? 'disponible' : 'fin'),
-          currentStateLabel: mappedEstado?.label || (logoutMissing ? 'En jornada' : 'Finalizado'),
+          currentState: isDisconnected ? 'desconectado' : (mappedEstado?.state || (logoutMissing ? 'disponible' : 'fin')),
+          currentStateLabel: isDisconnected ? 'Desconectado' : (mappedEstado?.label || (logoutMissing ? 'En jornada' : 'Finalizado')),
           stateStartTime: null,
-          loginTime: item?.login_time || '--',
-          logoutTime: item?.logout_time || (logoutMissing ? 'En curso' : '--'),
+          loginTime: isDisconnected ? '--' : (item?.login_time || '--'),
+          logoutTime: isDisconnected ? '--' : (item?.logout_time || (logoutMissing ? 'En curso' : '--')),
           times: {
             disponible: Number(item?.disponibleSeg ?? 0),
             descanso: Number(item?.descansosSeg ?? 0),
