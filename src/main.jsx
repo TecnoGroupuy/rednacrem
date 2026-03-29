@@ -466,7 +466,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               <div className="user-menu-separator"></div>
               <div className="user-menu-section-title">Cambiar estado</div>
               <div className="user-menu-actions" style={{ paddingTop: 2 }}>
-                {Object.values(ESTADOS_USUARIO).map((item) => {
+                {Object.values(ESTADOS_USUARIO)
+                  .filter((item) => item.id !== 'inactivo' && item.id !== 'desconectado')
+                  .map((item) => {
                   const ItemIcon = item.icon;
                   const isActive = status.id === item.id;
                   return (
