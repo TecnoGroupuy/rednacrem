@@ -2950,7 +2950,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [drawerContact, setDrawerContact] = React.useState(null);
       const [nextLoading, setNextLoading] = React.useState(false);
       const [nextMessage, setNextMessage] = React.useState('');
-      const [activeTab, setActiveTab] = React.useState('gestion');
+      const [activeTab, setActiveTab] = React.useState('datos');
       const [estadoGestion, setEstadoGestion] = React.useState('');
       const [notaGestion, setNotaGestion] = React.useState('');
       const [fechaAgenda, setFechaAgenda] = React.useState('');
@@ -2964,6 +2964,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [statusOverrides, setStatusOverrides] = React.useState({});
       const [clientePendiente, setClientePendiente] = React.useState(null);
       const [showBannerPendiente, setShowBannerPendiente] = React.useState(false);
+      const [draftCelular, setDraftCelular] = React.useState('');
+      const [draftDireccion, setDraftDireccion] = React.useState('');
 
       React.useEffect(() => {
         try {
@@ -2995,7 +2997,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       );
 
       const resetForm = () => {
-        setActiveTab('gestion');
+        setActiveTab('datos');
         setEstadoGestion('');
         setNotaGestion('');
         setFechaAgenda('');
@@ -3005,6 +3007,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         fechaAgendaRef.current = '';
         horaAgendaRef.current = '';
         setGestionError('');
+        setDraftCelular('');
+        setDraftDireccion('');
       };
 
       const opcionesAgenda = () => {
@@ -3038,6 +3042,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setDrawerContact(c);
         setNextMessage('');
         resetForm();
+        setDraftCelular(c?.celular || pickCellular(c) || '');
+        setDraftDireccion(c?.direccion || '');
         onSelect(c.id || null);
       };
 
@@ -3511,13 +3517,23 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                               <a href={`tel:${(dc.telefono || dc.phone).replace(/\s/g, '')}`} style={{ background: '#1A5C4A', color: '#FFF', borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>📞 Llamar</a>
                             </div>
                           )}
-                          {(dc.celular || pickCellular(dc)) && (dc.celular || pickCellular(dc)) !== (dc.telefono || dc.phone) && (
+                          {(dc.celular || pickCellular(dc)) ? (
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <div>
                                 <p style={{ fontSize: 11, color: '#888', margin: 0 }}>Celular</p>
                                 <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>{dc.celular || pickCellular(dc)}</p>
                               </div>
                               <a href={`tel:${(dc.celular || pickCellular(dc)).replace(/\s/g, '')}`} style={{ background: '#1A5C4A', color: '#FFF', borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>📞 Llamar</a>
+                            </div>
+                          ) : (
+                            <div>
+                              <p style={{ fontSize: 11, color: '#888', margin: '0 0 6px 0' }}>Celular</p>
+                              <input
+                                className="input"
+                                placeholder="Ingresar celular"
+                                value={draftCelular}
+                                onChange={(e) => setDraftCelular(e.target.value)}
+                              />
                             </div>
                           )}
                           {(dc.correo_electronico || dc.email) && (
@@ -3555,34 +3571,39 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         </>
                       )}
 
-                      {(dc.departamento || dc.city || dc.localidad || dc.direccion) && (
-                        <>
-                          <hr style={{ border: 'none', borderTop: '1px solid #F0F0F0', margin: 0 }} />
-                          <div>
-                            <p style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px 0' }}>Ubicación</p>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                              {(dc.departamento || dc.city) && (
-                                <div>
-                                  <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Departamento</p>
-                                  <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{dc.departamento || dc.city}</p>
-                                </div>
-                              )}
-                              {dc.localidad && (
-                                <div>
-                                  <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Localidad</p>
-                                  <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{dc.localidad}</p>
-                                </div>
-                              )}
-                              {dc.direccion && (
-                                <div style={{ gridColumn: '1 / -1' }}>
-                                  <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Dirección</p>
-                                  <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{dc.direccion}</p>
-                                </div>
+                      <>
+                        <hr style={{ border: 'none', borderTop: '1px solid #F0F0F0', margin: 0 }} />
+                        <div>
+                          <p style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px 0' }}>Ubicación</p>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                            {(dc.departamento || dc.city) && (
+                              <div>
+                                <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Departamento</p>
+                                <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{dc.departamento || dc.city}</p>
+                              </div>
+                            )}
+                            {dc.localidad && (
+                              <div>
+                                <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Localidad</p>
+                                <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{dc.localidad}</p>
+                              </div>
+                            )}
+                            <div style={{ gridColumn: '1 / -1' }}>
+                              <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Dirección</p>
+                              {dc.direccion ? (
+                                <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{dc.direccion}</p>
+                              ) : (
+                                <input
+                                  className="input"
+                                  placeholder="Ingresar dirección"
+                                  value={draftDireccion}
+                                  onChange={(e) => setDraftDireccion(e.target.value)}
+                                />
                               )}
                             </div>
                           </div>
-                        </>
-                      )}
+                        </div>
+                      </>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
