@@ -2950,7 +2950,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [drawerContact, setDrawerContact] = React.useState(null);
       const [nextLoading, setNextLoading] = React.useState(false);
       const [nextMessage, setNextMessage] = React.useState('');
-      const [activeTab, setActiveTab] = React.useState('datos');
+      const [activeTab, setActiveTab] = React.useState('gestion');
       const [estadoGestion, setEstadoGestion] = React.useState('');
       const [notaGestion, setNotaGestion] = React.useState('');
       const [fechaAgenda, setFechaAgenda] = React.useState('');
@@ -2995,7 +2995,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       );
 
       const resetForm = () => {
-        setActiveTab('datos');
+        setActiveTab('gestion');
         setEstadoGestion('');
         setNotaGestion('');
         setFechaAgenda('');
@@ -3042,6 +3042,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       };
 
       const closeDrawer = () => {
+        if (!estadoGestion) {
+          setActiveTab('gestion');
+          setGestionError('Seleccioná una codificación para cerrar.');
+          return;
+        }
         setDrawerContact(null);
         resetForm();
         onSelect(null);
@@ -3458,14 +3463,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
           {dc ? (
             <>
-              <div onClick={closeDrawer} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 200 }} />
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 200 }} />
               <div style={{ position: 'fixed', top: 0, right: 0, width: 'min(400px, 100vw)', height: '100%', background: '#fff', boxShadow: '-4px 0 32px rgba(0,0,0,0.15)', zIndex: 201, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '20px 24px 16px', borderBottom: '1px solid #F0F0F0', gap: 12 }}>
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 18, color: '#1A2235', marginBottom: 8 }}>{drawerNombre}</div>
                     <SalesStatusBadge status={drawerEstado} small />
                   </div>
-                  <button onClick={closeDrawer} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#666', padding: 4, borderRadius: 6, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                  <button type="button" aria-label="Cerrar" disabled style={{ background: 'none', border: 'none', cursor: 'not-allowed', color: '#bbb', padding: 4, borderRadius: 6, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
                     <X size={20} />
                   </button>
                 </div>
@@ -3476,7 +3481,20 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       <button
                         key={tab.key}
                         onClick={() => { setActiveTab(tab.key); setGestionError(''); }}
-                        style={{ padding: '8px 18px', border: 'none', background: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', color: activeTab === tab.key ? accentColor : '#888', borderBottom: activeTab === tab.key ? `2px solid ${accentColor}` : '2px solid transparent', marginBottom: -2 }}
+                        style={{
+                          padding: '8px 18px',
+                          border: 'none',
+                          background: activeTab === tab.key
+                            ? 'none'
+                            : (tab.key === 'gestion' ? 'rgba(26,92,74,0.08)' : 'none'),
+                          fontWeight: 700,
+                          fontSize: 13,
+                          cursor: 'pointer',
+                          color: activeTab === tab.key ? accentColor : (tab.key === 'gestion' ? accentColor : '#888'),
+                          borderBottom: activeTab === tab.key ? `2px solid ${accentColor}` : '2px solid transparent',
+                          marginBottom: -2,
+                          borderRadius: tab.key === 'gestion' ? 8 : 0
+                        }}
                       >{tab.label}</button>
                     ))}
                   </div>
@@ -4557,12 +4575,20 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       };
 
       const openHistory = async (row) => {
+        const isValidUuid = (value) => (
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''))
+        );
+        const managementId = row?.management_id || row?.id || '';
+        if (!managementId || !isValidUuid(managementId)) {
+          setError('Seleccione una gestión válida para ver el historial.');
+          return;
+        }
         setHistoryOpen(true);
         setHistoryLoading(true);
         setHistoryError('');
         setHistoryData(null);
         try {
-          const response = await api.get(`/api/codificaciones/${row.id}/historial`);
+          const response = await api.get(`/api/codificaciones/${managementId}/historial`);
           setHistoryData(response?.data || response || null);
         } catch (err) {
           setHistoryError(err?.message || 'No se pudo cargar el historial.');
