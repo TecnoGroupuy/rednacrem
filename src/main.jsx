@@ -4241,6 +4241,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [queryFilters, setQueryFilters] = React.useState({});
       const [sellers, setSellers] = React.useState([]);
       const [catalogo, setCatalogo] = React.useState([]);
+      const [showFilters, setShowFilters] = React.useState(false);
       const [auditOpen, setAuditOpen] = React.useState(false);
       const [auditItem, setAuditItem] = React.useState(null);
       const [auditLoading, setAuditLoading] = React.useState(false);
@@ -4294,6 +4295,36 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         || [row?.vendedor_nombre, row?.vendedor_apellido].filter(Boolean).join(' ').trim()
         || '—';
       const formatSupervisor = (row) => row?.supervisor_nombre_completo || '—';
+
+      const normalizeResultadoLabel = React.useCallback((value) => {
+        if (!value) return '—';
+        const raw = String(value).trim();
+        if (!raw) return '—';
+        const key = raw.toLowerCase();
+        const labelMap = {
+          no_contesta: 'No contesta',
+          no_contesto: 'No contesta',
+          volver_a_llamar: 'Volver a llamar',
+          seguimiento: 'Seguimiento',
+          interesado: 'Interesado',
+          rechazo: 'Rechazo',
+          venta: 'Venta',
+          alta: 'Alta',
+          recuperado: 'Recuperado'
+        };
+        if (labelMap[key]) return labelMap[key];
+        const clean = raw.replace(/_/g, ' ').trim();
+        if (!clean) return '—';
+        return clean.charAt(0).toUpperCase() + clean.slice(1);
+      }, []);
+
+      const resultadoVariant = React.useCallback((value) => {
+        const key = String(value || '').toLowerCase();
+        if (['venta', 'alta', 'recuperado'].includes(key)) return 'success';
+        if (['rechazo'].includes(key)) return 'danger';
+        if (['no_contesta', 'no_contesto', 'volver_a_llamar'].includes(key)) return 'warning';
+        return 'info';
+      }, []);
 
       const statusMeta = (row) => {
         const estado = (row?.estado_auditoria || '').toLowerCase();
@@ -4547,8 +4578,48 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               title="Codificaciones"
               subtitle="Auditoría de resultados de gestión"
             >
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
-                <div className="searchbox" style={{ minWidth: 260 }}>
+              <div style={{ display: 'grid', gap: 10, marginBottom: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button
+                    variant="ghost"
+                    icon={<Filter size={16} />}
+                    onClick={() => setShowFilters((prev) => !prev)}
+                  >
+                    {showFilters ? 'Ocultar filtros' : '+Filtros'}
+                  </Button>
+                </div>
+                {showFilters ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                    <select className="input" style={{ minWidth: 200 }} value={sellerId} onChange={(event) => setSellerId(event.target.value)}>
+                      <option value="">Vendedor</option>
+                      {sellers.map((seller) => (
+                        <option key={seller.id} value={seller.id}>{seller.label}</option>
+                      ))}
+                    </select>
+                    <select className="input" style={{ minWidth: 180 }} value={resultadoOriginal} onChange={(event) => setResultadoOriginal(event.target.value)}>
+                      <option value="">Codificación original</option>
+                      {catalogo.map((item) => (
+                        <option key={item.id || item.value || item} value={item.value || item.id || item}>{item.label || item.nombre || item.value || item}</option>
+                      ))}
+                    </select>
+                    <select className="input" style={{ minWidth: 180 }} value={resultadoCorregido} onChange={(event) => setResultadoCorregido(event.target.value)}>
+                      <option value="">Codificación corregida</option>
+                      {catalogo.map((item) => (
+                        <option key={item.id || item.value || item} value={item.value || item.id || item}>{item.label || item.nombre || item.value || item}</option>
+                      ))}
+                    </select>
+                    <select className="input" style={{ minWidth: 160 }} value={estadoAuditoria} onChange={(event) => setEstadoAuditoria(event.target.value)}>
+                      <option value="">Estado</option>
+                      <option value="pendiente">Pendiente</option>
+                      <option value="corregida">Corregida</option>
+                    </select>
+                    <input className="input" type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
+                    <input className="input" type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
+                    <Button icon={<Filter size={16} />} onClick={handleBuscar}>Buscar</Button>
+                    <Button variant="ghost" onClick={handleLimpiar}>Limpiar</Button>
+                  </div>
+                ) : null}
+                <div className="searchbox" style={{ width: '100%' }}>
                   <Search size={16} color="#69788d" />
                   <input
                     placeholder="Buscar por teléfono"
@@ -4556,33 +4627,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     onChange={(event) => setSearchPhone(event.target.value)}
                   />
                 </div>
-                <select className="input" style={{ minWidth: 200 }} value={sellerId} onChange={(event) => setSellerId(event.target.value)}>
-                  <option value="">Vendedor</option>
-                  {sellers.map((seller) => (
-                    <option key={seller.id} value={seller.id}>{seller.label}</option>
-                  ))}
-                </select>
-                <select className="input" style={{ minWidth: 180 }} value={resultadoOriginal} onChange={(event) => setResultadoOriginal(event.target.value)}>
-                  <option value="">Codificación original</option>
-                  {catalogo.map((item) => (
-                    <option key={item.id || item.value || item} value={item.value || item.id || item}>{item.label || item.nombre || item.value || item}</option>
-                  ))}
-                </select>
-                <select className="input" style={{ minWidth: 180 }} value={resultadoCorregido} onChange={(event) => setResultadoCorregido(event.target.value)}>
-                  <option value="">Codificación corregida</option>
-                  {catalogo.map((item) => (
-                    <option key={item.id || item.value || item} value={item.value || item.id || item}>{item.label || item.nombre || item.value || item}</option>
-                  ))}
-                </select>
-                <select className="input" style={{ minWidth: 160 }} value={estadoAuditoria} onChange={(event) => setEstadoAuditoria(event.target.value)}>
-                  <option value="">Estado</option>
-                  <option value="pendiente">Pendiente</option>
-                  <option value="corregida">Corregida</option>
-                </select>
-                <input className="input" type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
-                <input className="input" type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
-                <Button icon={<Filter size={16} />} onClick={handleBuscar}>Buscar</Button>
-                <Button variant="ghost" onClick={handleLimpiar}>Limpiar</Button>
               </div>
 
               {error ? <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 600 }}>{error}</div> : null}
@@ -4607,8 +4651,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       const badge = statusMeta(row);
                       const phoneValue = formatPhone(row);
                       const sellerValue = formatSeller(row);
-                      const originalValue = row.resultado_original || '—';
-                      const correctedValue = row.resultado_corregido || '—';
+                      const originalValueRaw = row.resultado_original || '';
+                      const correctedValueRaw = row.resultado_corregido || '';
+                      const originalValue = normalizeResultadoLabel(originalValueRaw);
+                      const correctedValue = normalizeResultadoLabel(correctedValueRaw);
                       const supervisorValue = formatSupervisor(row);
                       return (
                         <tr key={row.id}>
@@ -4620,13 +4666,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             <div style={{ ...cellEllipsisStyle, maxWidth: 180 }}>{sellerValue}</div>
                           </td>
                           <td title={originalValue}>
-                            <div style={cellEllipsisStyle}>{originalValue}</div>
+                            <Tag variant={resultadoVariant(originalValueRaw)}>{originalValue}</Tag>
                           </td>
                           <td>
                             <Tag variant={badge.variant}>{badge.label}</Tag>
                           </td>
                           <td title={correctedValue}>
-                            <div style={cellEllipsisStyle}>{correctedValue}</div>
+                            {correctedValue === '—' ? '—' : <Tag variant={resultadoVariant(correctedValueRaw)}>{correctedValue}</Tag>}
                           </td>
                           <td title={supervisorValue}>
                             <div style={cellEllipsisStyle}>{supervisorValue}</div>
@@ -4681,7 +4727,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Vendedor</span><strong>{formatSeller(auditItem)}</strong></div>
                         <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Cliente</span><strong>{auditItem?.cliente || '—'}</strong></div>
                         <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Lote/Campaña</span><strong>{auditItem?.batch_nombre || auditItem?.batch_id || '—'}</strong></div>
-                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Codificación original</span><strong>{auditItem?.resultado_original || '—'}</strong></div>
+                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Codificación original</span><strong>{normalizeResultadoLabel(auditItem?.resultado_original)}</strong></div>
                       </div>
 
                       <label style={{ display: 'grid', gap: 6, marginTop: 12 }}>
@@ -4737,7 +4783,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         <div style={{ fontWeight: 700, marginBottom: 6 }}>Original</div>
                         <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Fecha/Hora</span><strong>{formatDateTime(historyData?.management?.fecha_gestion)}</strong></div>
                         <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Vendedor</span><strong>{historyData?.management?.vendedor_nombre_completo || '—'}</strong></div>
-                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Codificación</span><strong>{historyData?.management?.resultado_original || '—'}</strong></div>
+                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Codificación</span><strong>{normalizeResultadoLabel(historyData?.management?.resultado_original)}</strong></div>
                       </div>
                       <div style={{ fontWeight: 700, marginBottom: 6 }}>Correcciones</div>
                       {(historyData?.audits || []).length ? (
@@ -4750,7 +4796,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             <div key={audit.id} className="alert">
                               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                                 <div>
-                                  <div style={{ fontWeight: 700 }}>{audit.resultado_corregido || '—'}</div>
+                                  <div style={{ fontWeight: 700 }}>{normalizeResultadoLabel(audit.resultado_corregido)}</div>
                                   <div style={{ color: 'var(--muted)', fontSize: 12 }}>{audit.supervisor_nombre_completo || audit.corrected_by || '—'}</div>
                                   {audit.motivo ? <div style={{ fontSize: 12, marginTop: 4 }}>{audit.motivo}</div> : null}
                                 </div>
