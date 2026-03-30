@@ -8,6 +8,13 @@ const normalizePath = (path) => {
 
 const ME_ENDPOINT = normalizePath(import.meta.env.VITE_AUTH_ME_ENDPOINT || '/me');
 
+const ensureApiPrefix = (endpoint, baseUrl) => {
+  const base = String(baseUrl || '').trim().replace(/\/+$/, '');
+  if (endpoint.startsWith('/api/')) return endpoint;
+  if (base.endsWith('/api')) return endpoint;
+  return `/api${endpoint}`;
+};
+
 function normalizeSessionPayload(payload) {
   if (!payload) return null;
 
@@ -33,7 +40,8 @@ export async function getBusinessSession() {
     throw new Error('VITE_API_URL is required to resolve business session endpoint.');
   }
 
-  const meUrl = buildApiUrl(ME_ENDPOINT, apiBaseUrl);
+  const meEndpoint = ensureApiPrefix(ME_ENDPOINT, apiBaseUrl);
+  const meUrl = buildApiUrl(meEndpoint, apiBaseUrl);
   // Debug temporal: confirmar URL final de sesion de negocio.
   console.info('[sessionService] GET', meUrl);
 
