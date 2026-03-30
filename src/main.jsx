@@ -4241,6 +4241,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [queryFilters, setQueryFilters] = React.useState({});
       const [sellers, setSellers] = React.useState([]);
       const [catalogo, setCatalogo] = React.useState([]);
+      const [catalogoLoading, setCatalogoLoading] = React.useState(false);
+      const [catalogoError, setCatalogoError] = React.useState('');
       const [showFilters, setShowFilters] = React.useState(false);
       const [auditOpen, setAuditOpen] = React.useState(false);
       const [auditItem, setAuditItem] = React.useState(null);
@@ -4358,12 +4360,17 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, [api]);
 
       const loadCatalogo = React.useCallback(async () => {
+        setCatalogoLoading(true);
+        setCatalogoError('');
         try {
           const response = await api.get('/api/codificaciones/catalogo');
           const itemsList = response?.items || response?.data?.items || response?.data || [];
           setCatalogo(Array.isArray(itemsList) ? itemsList : []);
         } catch {
           setCatalogo([]);
+          setCatalogoError('No se pudo cargar el catálogo.');
+        } finally {
+          setCatalogoLoading(false);
         }
       }, [api]);
 
@@ -4599,13 +4606,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <select className="input" style={{ minWidth: 180 }} value={resultadoOriginal} onChange={(event) => setResultadoOriginal(event.target.value)}>
                       <option value="">Codificación original</option>
                       {catalogo.map((item) => (
-                        <option key={item.id || item.value || item} value={item.value || item.id || item}>{item.label || item.nombre || item.value || item}</option>
+                        <option key={item.id || item.nombre || item} value={item.nombre || item}>{item.nombre || item}</option>
                       ))}
                     </select>
                     <select className="input" style={{ minWidth: 180 }} value={resultadoCorregido} onChange={(event) => setResultadoCorregido(event.target.value)}>
                       <option value="">Codificación corregida</option>
                       {catalogo.map((item) => (
-                        <option key={item.id || item.value || item} value={item.value || item.id || item}>{item.label || item.nombre || item.value || item}</option>
+                        <option key={item.id || item.nombre || item} value={item.nombre || item}>{item.nombre || item}</option>
                       ))}
                     </select>
                     <select className="input" style={{ minWidth: 160 }} value={estadoAuditoria} onChange={(event) => setEstadoAuditoria(event.target.value)}>
@@ -4737,12 +4744,21 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           value={auditResultado}
                           onChange={(event) => setAuditResultado(event.target.value)}
                           ref={auditSelectRef}
+                          disabled={catalogoLoading || !catalogo.length}
                         >
                           <option value="">Seleccionar</option>
-                          {catalogo.map((item) => (
-                            <option key={item.id || item.value || item} value={item.value || item.id || item}>{item.label || item.nombre || item.value || item}</option>
-                          ))}
+                          {catalogo
+                            .filter((item) => {
+                              const nombre = item?.nombre || item;
+                              return nombre && nombre !== auditItem?.resultado_original;
+                            })
+                            .map((item) => (
+                              <option key={item.id || item.nombre || item} value={item.nombre || item}>{item.nombre || item}</option>
+                            ))}
                         </select>
+                        {catalogoError ? (
+                          <div style={{ fontSize: 12, color: '#b91c1c' }}>{catalogoError}</div>
+                        ) : null}
                       </label>
                       <label style={{ display: 'grid', gap: 6, marginTop: 12 }}>
                         <span style={{ fontSize: 12, color: '#64748b' }}>Comentario (opcional)</span>
