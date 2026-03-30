@@ -38,12 +38,17 @@ const ACTIVE_OPERATIVE_SET = new Set([
 
 const RESULT_TO_STATUS = {
   no_contesta: 'no_contesta',
+  no_contacto: 'no_contesta',
   rechazo: 'rechazo',
   dato_erroneo: 'dato_erroneo',
   venta_previa: 'venta',
   venta: 'venta',
+  alta: 'venta',
+  recuperado: 'venta',
+  interesado: 'seguimiento',
   seguimiento: 'seguimiento',
-  rellamar: 'rellamar'
+  rellamar: 'rellamar',
+  volver_a_llamar: 'rellamar'
 };
 
 const toUiLotId = (lotId) => lotId.replace('lot-', 'LT-').toUpperCase();
@@ -79,14 +84,18 @@ const resolveUserId = (sellerName, fallback = 'usr-004') => userIdByName[sellerN
 export const mapResultadoToOperativeStatus = (resultadoGestion, attempts = 0) => {
   switch (resultadoGestion) {
     case 'venta':
+    case 'alta':
+    case 'recuperado':
       return OPERATIVE_STATUS.FINALIZADO_VENTA;
     case 'rechazo':
       return OPERATIVE_STATUS.FINALIZADO_RECHAZO;
     case 'dato_erroneo':
       return OPERATIVE_STATUS.FINALIZADO_DATO_ERRONEO;
     case 'seguimiento':
+    case 'interesado':
       return OPERATIVE_STATUS.PENDIENTE_SEGUIMIENTO;
     case 'rellamar':
+    case 'volver_a_llamar':
       return OPERATIVE_STATUS.PENDIENTE_RELLAMADA;
     case 'no_contesta':
       return attempts >= MAX_NO_CONTESTA_ATTEMPTS
@@ -122,7 +131,9 @@ export const applySalesManagementToContact = (contact, payload) => {
   const resultadoGestion = payload.status;
   const attempts = resultadoGestion === 'no_contesta' ? contact.attempts + 1 : contact.attempts;
   const estadoOperativo = mapResultadoToOperativeStatus(resultadoGestion, attempts);
-  const nextAction = ['seguimiento', 'rellamar'].includes(resultadoGestion) ? (payload.nextAction || '') : '';
+  const nextAction = ['seguimiento', 'rellamar', 'interesado', 'volver_a_llamar'].includes(resultadoGestion)
+    ? (payload.nextAction || '')
+    : '';
 
   return {
     ...contact,
@@ -295,7 +306,9 @@ export const registerCommercialManagement = async (contactId, payload, { sellerN
   const current = leadsStore[idx];
   const resultadoGestion = payload.status;
   const nextAttempts = resultadoGestion === 'no_contesta' ? (current.intentos || 0) + 1 : (current.intentos || 0);
-  const nextAction = ['seguimiento', 'rellamar'].includes(resultadoGestion) ? (payload.nextAction || null) : null;
+  const nextAction = ['seguimiento', 'rellamar', 'interesado', 'volver_a_llamar'].includes(resultadoGestion)
+    ? (payload.nextAction || null)
+    : null;
   leadsStore[idx] = {
     ...current,
     estadoVenta: resultadoGestion,
@@ -570,7 +583,9 @@ export const importPhoneResultsEntries = async (entries, { source = 'CSV', userI
       const current = leadsStore[leadIndex];
       matchedLeadId = current.id;
       const nextAttempts = status === 'no_contesta' ? (current.intentos || 0) + 1 : (current.intentos || 0);
-      const nextAction = ['seguimiento', 'rellamar'].includes(status) ? (entry.seguimiento || current.proximaAccion || null) : null;
+      const nextAction = ['seguimiento', 'rellamar', 'interesado', 'volver_a_llamar'].includes(status)
+        ? (entry.seguimiento || current.proximaAccion || null)
+        : null;
 
       leadsStore[leadIndex] = {
         ...current,

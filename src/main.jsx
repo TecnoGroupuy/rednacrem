@@ -34,8 +34,7 @@ import {
   assignSellerByLot,
   reactivateErrorContact,
   listDatosParaTrabajar,
-  listAssignedLeadsAsync,
-  fetchNextLeadAsync
+  listAssignedLeadsAsync
 } from './services/leadsService.js';
 import {
   seedSalesFromContacts,
@@ -167,6 +166,7 @@ const ROLE_NAV = [
       { path: 'sa_configuracion', label: 'Configuración', caption: 'Identidad y parámetros', roles: ['superadministrador'], icon: Settings },
       { path: 'dashboard', label: 'Dashboard', caption: 'Resumen principal', roles: ['director', 'supervisor', 'vendedor', 'operaciones'], icon: Activity },
       { path: 'contactos', label: 'Contactos', caption: 'Base comercial', roles: ['director', 'vendedor'], icon: Users },
+      { path: 'recupero', label: 'Recupero', caption: 'Cartera en baja', roles: ['vendedor'], icon: FileText },
       { path: 'clientes', label: 'Clientes', caption: 'Cartera activa', roles: ['superadministrador', 'director', 'operaciones'], icon: UserCheck },
       { path: 'clientes', label: 'Mis ventas', caption: 'Clientes que cerré', roles: ['vendedor'], icon: UserCheck },
       { path: 'base_general', label: 'Base general', caption: 'Carga y preparacion', roles: ['supervisor'], icon: Users },
@@ -2640,11 +2640,16 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const map = {
         nuevo:        { label: 'Nuevo',        bg: 'rgba(158,158,158,0.12)', color: '#9E9E9E', border: 'rgba(158,158,158,0.3)' },
         no_contesta:  { label: 'No contesta',  bg: 'rgba(245,166,35,0.12)',  color: '#F5A623', border: 'rgba(245,166,35,0.3)'  },
+        no_contacto:  { label: 'No contacto',  bg: 'rgba(245,166,35,0.12)',  color: '#F5A623', border: 'rgba(245,166,35,0.3)'  },
         rellamar:     { label: 'Rellamar',     bg: 'rgba(74,144,217,0.12)',  color: '#4A90D9', border: 'rgba(74,144,217,0.3)'  },
+        volver_a_llamar: { label: 'Volver a llamar', bg: 'rgba(74,144,217,0.12)', color: '#4A90D9', border: 'rgba(74,144,217,0.3)' },
         seguimiento:  { label: 'Seguimiento',  bg: 'rgba(155,89,182,0.12)', color: '#9B59B6', border: 'rgba(155,89,182,0.3)'  },
+        interesado:   { label: 'Interesado',   bg: 'rgba(155,89,182,0.12)', color: '#9B59B6', border: 'rgba(155,89,182,0.3)'  },
         rechazo:      { label: 'Rechazo',      bg: 'rgba(229,62,62,0.12)',  color: '#E53E3E', border: 'rgba(229,62,62,0.3)'   },
         dato_erroneo: { label: 'Dato erroneo', bg: 'rgba(230,126,34,0.12)', color: '#E67E22', border: 'rgba(230,126,34,0.3)'  },
-        venta:        { label: 'Venta',        bg: 'rgba(39,174,96,0.12)',  color: '#27AE60', border: 'rgba(39,174,96,0.3)'   }
+        venta:        { label: 'Venta',        bg: 'rgba(39,174,96,0.12)',  color: '#27AE60', border: 'rgba(39,174,96,0.3)'   },
+        alta:         { label: 'Alta',         bg: 'rgba(39,174,96,0.12)',  color: '#27AE60', border: 'rgba(39,174,96,0.3)'   },
+        recuperado:   { label: 'Recuperado',   bg: 'rgba(39,174,96,0.12)',  color: '#27AE60', border: 'rgba(39,174,96,0.3)'   }
       };
       return map[status] || map.nuevo;
     };
@@ -2821,19 +2826,50 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       last: formatLastGestion(raw.ultima_gestion_real)
     });
 
-    function SalesContactsView({ contacts, selectedId, onSelect, onRegister, salesRecords, products, onAssignFamilySale, onUpdateContact, onVentaCerrada, onOpenNewClient }) {
+    function SalesContactsView({ contacts, selectedId, onSelect, onRegister, salesRecords, products, onAssignFamilySale, onUpdateContact, onVentaCerrada, onOpenNewClient, mode = 'contactos' }) {
       const api = getApiClient();
+      const isRecupero = mode === 'recupero';
+      const accentColor = isRecupero ? '#f97316' : '#1A5C4A';
+      const accentSoft = isRecupero ? 'rgba(249,115,22,0.12)' : '#F0FAF6';
+      const accentText = isRecupero ? '#9a3412' : '#1A5C4A';
+      const accentMuted = isRecupero ? '#ea580c' : '#1A5C4A';
       const [localContacts, setLocalContacts] = React.useState(() => contacts.filter(isSalesActiveContact));
       const [loadingContacts, setLoadingContacts] = React.useState(true);
       const [stats, setStats] = React.useState(null);
       const [vistaMetricas, setVistaMetricas] = React.useState('hoy');
-      const tabs = [
-        { key: 'nuevo', label: 'Nuevos' },
-        { key: 'no_contesta', label: 'No contesta' },
-        { key: 'rechazo', label: 'Rechazos' },
-        { key: 'todos', label: 'Todos' }
-      ];
-      const [tabActivo, setTabActivo] = React.useState('nuevo');
+      const tabs = isRecupero
+        ? [
+          { key: 'nuevos', label: 'Nuevos' },
+          { key: 'seguimiento', label: 'Seguimiento' },
+          { key: 'no_contacto', label: 'No contacto' },
+          { key: 'rechazo', label: 'Rechazos' },
+          { key: 'recuperado', label: 'Recuperados' }
+        ]
+        : [
+          { key: 'nuevo', label: 'Nuevos' },
+          { key: 'no_contesta', label: 'No contesta' },
+          { key: 'rechazo', label: 'Rechazos' },
+          { key: 'todos', label: 'Todos' }
+        ];
+      const estadosFinalesGestion = isRecupero ? ['alta', 'rechazo'] : ESTADOS_FINALES_GESTION;
+      const estadosConAgenda = isRecupero ? ['interesado', 'volver_a_llamar'] : ['seguimiento', 'rellamar'];
+      const opcionesGestion = isRecupero
+        ? [
+          { value: 'no_contesta', label: 'No contesta' },
+          { value: 'volver_a_llamar', label: 'Volver a llamar' },
+          { value: 'interesado', label: 'Interesado' },
+          { value: 'rechazo', label: 'Rechazo' },
+          { value: 'alta', label: 'Alta' }
+        ]
+        : [
+          { value: 'no_contesta', label: 'No contesta' },
+          { value: 'rellamar', label: 'Rellamar' },
+          { value: 'seguimiento', label: 'Seguimiento' },
+          { value: 'rechazo', label: 'Rechazo' },
+          { value: 'dato_erroneo', label: 'Dato erróneo' },
+          { value: 'venta', label: 'Venta' }
+        ];
+      const [tabActivo, setTabActivo] = React.useState(isRecupero ? 'nuevos' : 'nuevo');
       const [page, setPage] = React.useState(1);
       const [totalPages, setTotalPages] = React.useState(1);
       const [totalContactos, setTotalContactos] = React.useState(0);
@@ -2842,7 +2878,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const loadStats = React.useCallback(async () => {
         try {
           const hoy = getTodayYmdLocal();
-          const d = await api.get(`/leads/daily-stats?fecha=${hoy}`);
+          const statsUrl = `/leads/daily-stats?fecha=${hoy}${isRecupero ? '&tipo=recupero' : ''}`;
+          const d = await api.get(statsUrl);
           console.log('[daily-stats]:', d);
           console.log('[daily-stats] respuesta completa:', JSON.stringify(d.data));
           if (d?.success || d?.ok) setStats(d.data);
@@ -2858,6 +2895,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             limit: String(LIMIT),
             tab: tabActivo
           });
+          if (isRecupero) params.set('tipo', 'recupero');
           const contactosData = await api.get(`/leads/assigned?${params}`);
           if (contactosData?.success || contactosData?.ok) {
             const items = contactosData?.data?.contactos || [];
@@ -2866,7 +2904,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             setTotalContactos(contactosData?.data?.total || 0);
           }
 
-          const statsData = await api.get(`/leads/daily-stats?fecha=${hoy}`);
+          const statsUrl = `/leads/daily-stats?fecha=${hoy}${isRecupero ? '&tipo=recupero' : ''}`;
+          const statsData = await api.get(statsUrl);
           if (statsData?.success || statsData?.ok) setStats(statsData.data);
         } catch (err) {
           console.error('[refresh] error silencioso:', err);
@@ -2881,6 +2920,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             limit: String(LIMIT),
             tab: tabActivo
           });
+          if (isRecupero) params.set('tipo', 'recupero');
           const d = await api.get(`/leads/assigned?${params}`);
           console.log('[assigned] params:', params.toString(), 'resp:', d);
           if (d?.success || d?.ok) {
@@ -2950,8 +2990,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return haystack.includes(searchTerm.toLowerCase());
       }), [localContacts, searchTerm]);
       const visibleContacts = React.useMemo(
-        () => filteredContacts.filter((contact) => contact.estado_venta !== 'dato_erroneo'),
-        [filteredContacts]
+        () => filteredContacts.filter((contact) => (isRecupero ? true : contact.estado_venta !== 'dato_erroneo')),
+        [filteredContacts, isRecupero]
       );
 
       const resetForm = () => {
@@ -3012,7 +3052,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setNextLoading(true);
         setNextMessage('');
         try {
-          const res = await fetchNextLeadAsync();
+          const nextUrl = isRecupero ? '/leads/next?tipo=recupero' : '/leads/next';
+          const res = await api.get(nextUrl);
           if (res?.data) {
             openDrawer(res.data);
           } else {
@@ -3030,7 +3071,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setGuardando(true);
         setGestionError('');
         try {
-          const estadosConAgenda = ['seguimiento', 'rellamar'];
           let fecha_agenda;
           if (estadosConAgenda.includes(estadoGestion)) {
             const fecha = fechaAgenda || fechaAgendaRef.current;
@@ -3055,7 +3095,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           const contactId = dc.id;
           const ahora = new Date().toISOString();
           const applyUpdate = (c) => ({ ...c, status: estadoGestion, ultima_gestion_real: ahora, last: formatLastGestion(ahora) });
-          if (ESTADOS_FINALES_GESTION.includes(estadoGestion)) {
+          if (estadosFinalesGestion.includes(estadoGestion)) {
             setLocalContacts((prev) => {
               const found = prev.find((c) => String(c.id) === String(contactId));
               const resto = prev.filter((c) => String(c.id) !== String(contactId));
@@ -3071,7 +3111,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             try { localStorage.setItem('agenda_needs_refresh', 'true'); } catch {}
           }
           closeDrawer();
-          if (estadoGestion === 'venta') {
+          if ((isRecupero && estadoGestion === 'alta') || (!isRecupero && estadoGestion === 'venta')) {
             try {
               const borrador = {
                 contacto_id: String(dc.id),
@@ -3124,13 +3164,20 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const drawerFuente = dc ? (dc.source || dc.origen_dato || null) : null;
       const drawerLote = dc ? (dc.lotId || dc.batch_id || null) : null;
       const drawerEstado = dc ? (statusOverrides[dc.id] || dc.status || dc.estado_venta || 'nuevo') : 'nuevo';
+      const headerTitle = isRecupero ? 'Recupero' : 'Contactos asignados';
+      const headerSubtitle = isRecupero ? 'Gestiona tu cartera de clientes en baja' : 'Gestiona solo tu lote operativo';
 
       return (
         <div className="view sales-contacts-view">
           <div style={{ marginBottom: 12, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
             <div>
-              <h2 style={{ margin: '0 0 2px', fontWeight: 700, fontSize: 17 }}>Contactos asignados</h2>
-              <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.85rem' }}>Gestiona solo tu lote operativo</p>
+              {isRecupero ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', color: accentText, background: accentSoft, padding: '4px 10px', borderRadius: 999, marginBottom: 6 }}>
+                  RECUPERO
+                </span>
+              ) : null}
+              <h2 style={{ margin: '0 0 2px', fontWeight: 700, fontSize: 17 }}>{headerTitle}</h2>
+              <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.85rem' }}>{headerSubtitle}</p>
             </div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
               <div className="searchbox" style={{ width: 280 }}>
@@ -3141,7 +3188,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 <button
                   onClick={handleNextContact}
                   disabled={nextLoading}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#1A5C4A', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontWeight: 600, fontSize: 13, cursor: nextLoading ? 'wait' : 'pointer', whiteSpace: 'nowrap', opacity: nextLoading ? 0.7 : 1 }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: accentColor, color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontWeight: 600, fontSize: 13, cursor: nextLoading ? 'wait' : 'pointer', whiteSpace: 'nowrap', opacity: nextLoading ? 0.7 : 1 }}
                 >
                   <span>▶</span>
                   {nextLoading ? 'Buscando...' : 'Empezar gestión'}
@@ -3174,25 +3221,48 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           ) : null}
 
           {stats && (() => {
-            const metricas = vistaMetricas === 'hoy' ? [
-              { label: 'Tocados', value: stats?.gestiones_hoy, color: '#1A5C4A' },
-              { label: 'No contesta', value: stats?.no_contesta_hoy, color: '#F5A623' },
-              { label: 'Rellamar', value: stats?.rellamar_hoy, color: '#4A90D9' },
-              { label: 'Seguimiento', value: stats?.tipificados_seguimiento_hoy, color: '#9B59B6' },
-              { label: 'Rechazos', value: stats?.rechazos_hoy, color: '#E53E3E' },
-              { label: 'Ventas', value: stats?.ventas_hoy, color: '#27AE60' },
-              { label: 'Contacto', value: `${stats?.pct_contacto_hoy ?? 0}%`, color: '#4A90D9' },
-              { label: 'Efectividad', value: `${stats?.pct_efectividad_hoy ?? 0}%`, color: '#27AE60' }
-            ] : [
-              { label: 'Asignados', value: stats?.total_asignados, color: '#333' },
-              { label: 'Nuevos', value: stats?.nuevos, color: '#9E9E9E' },
-              { label: 'No contesta', value: stats?.no_contesta, color: '#F5A623' },
-              { label: 'En agenda', value: stats?.seguimiento, color: '#9B59B6' },
-              { label: 'Rechazos', value: stats?.rechazos, color: '#E53E3E' },
-              { label: 'Ventas', value: stats?.ventas, color: '#27AE60' },
-              { label: 'Contacto', value: `${stats?.pct_contacto ?? 0}%`, color: '#4A90D9' },
-              { label: 'Efectividad', value: `${stats?.pct_efectividad ?? 0}%`, color: '#27AE60' }
-            ];
+            const metricas = vistaMetricas === 'hoy'
+              ? (isRecupero
+                ? [
+                  { label: 'Gestionados', value: stats?.gestiones_hoy, color: accentColor },
+                  { label: 'No contacto', value: stats?.no_contesta_hoy, color: '#F5A623' },
+                  { label: 'Volver a llamar', value: stats?.rellamar_hoy, color: '#4A90D9' },
+                  { label: 'Interesados', value: stats?.tipificados_seguimiento_hoy, color: '#9B59B6' },
+                  { label: 'Rechazos', value: stats?.rechazos_hoy, color: '#E53E3E' },
+                  { label: 'Recuperos', value: stats?.ventas_hoy, color: '#27AE60' },
+                  { label: 'Contacto', value: `${stats?.pct_contacto_hoy ?? 0}%`, color: '#4A90D9' },
+                  { label: 'Efectividad', value: `${stats?.pct_efectividad_hoy ?? 0}%`, color: '#27AE60' }
+                ]
+                : [
+                  { label: 'Tocados', value: stats?.gestiones_hoy, color: '#1A5C4A' },
+                  { label: 'No contesta', value: stats?.no_contesta_hoy, color: '#F5A623' },
+                  { label: 'Rellamar', value: stats?.rellamar_hoy, color: '#4A90D9' },
+                  { label: 'Seguimiento', value: stats?.tipificados_seguimiento_hoy, color: '#9B59B6' },
+                  { label: 'Rechazos', value: stats?.rechazos_hoy, color: '#E53E3E' },
+                  { label: 'Ventas', value: stats?.ventas_hoy, color: '#27AE60' },
+                  { label: 'Contacto', value: `${stats?.pct_contacto_hoy ?? 0}%`, color: '#4A90D9' },
+                  { label: 'Efectividad', value: `${stats?.pct_efectividad_hoy ?? 0}%`, color: '#27AE60' }
+                ])
+              : (isRecupero
+                ? [
+                  { label: 'Asignados', value: stats?.total_asignados, color: '#333' },
+                  { label: 'Seguimiento', value: stats?.seguimiento, color: '#9B59B6' },
+                  { label: 'No contacto', value: stats?.no_contesta, color: '#F5A623' },
+                  { label: 'Rechazos', value: stats?.rechazos, color: '#E53E3E' },
+                  { label: 'Recuperos', value: stats?.ventas, color: '#27AE60' },
+                  { label: 'Contacto', value: `${stats?.pct_contacto ?? 0}%`, color: '#4A90D9' },
+                  { label: 'Efectividad', value: `${stats?.pct_efectividad ?? 0}%`, color: '#27AE60' }
+                ]
+                : [
+                  { label: 'Asignados', value: stats?.total_asignados, color: '#333' },
+                  { label: 'Nuevos', value: stats?.nuevos, color: '#9E9E9E' },
+                  { label: 'No contesta', value: stats?.no_contesta, color: '#F5A623' },
+                  { label: 'En agenda', value: stats?.seguimiento, color: '#9B59B6' },
+                  { label: 'Rechazos', value: stats?.rechazos, color: '#E53E3E' },
+                  { label: 'Ventas', value: stats?.ventas, color: '#27AE60' },
+                  { label: 'Contacto', value: `${stats?.pct_contacto ?? 0}%`, color: '#4A90D9' },
+                  { label: 'Efectividad', value: `${stats?.pct_efectividad ?? 0}%`, color: '#27AE60' }
+                ]);
 
             return (
               <div style={{
@@ -3224,7 +3294,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         border: 'none',
                         fontSize: 11,
                         fontWeight: vistaMetricas === v ? 600 : 400,
-                        background: vistaMetricas === v ? '#1A5C4A' : 'transparent',
+                        background: vistaMetricas === v ? accentColor : 'transparent',
                         color: vistaMetricas === v ? '#FFF' : '#888',
                         cursor: 'pointer'
                       }}
@@ -3285,8 +3355,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   background: 'transparent',
                   border: 'none',
                   borderBottom: tabActivo === t.key
-                    ? '2px solid #1A5C4A' : '2px solid transparent',
-                  color: tabActivo === t.key ? '#1A5C4A' : '#888',
+                    ? `2px solid ${accentColor}` : '2px solid transparent',
+                  color: tabActivo === t.key ? accentColor : '#888',
                   fontWeight: tabActivo === t.key ? 600 : 400,
                   fontSize: 13,
                   cursor: 'pointer',
@@ -3330,7 +3400,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             {loadingContacts ? (
               <div style={{ padding: 16, color: 'var(--muted)' }}>Cargando contactos...</div>
             ) : !visibleContacts.length ? (
-              <div style={{ padding: 16, color: 'var(--muted)' }}>No hay contactos activos para la búsqueda aplicada.</div>
+              <div style={{ padding: 16, color: 'var(--muted)' }}>
+                {isRecupero && tabActivo === 'nuevos'
+                  ? 'No hay contactos nuevos de recupero'
+                  : 'No hay contactos activos para la búsqueda aplicada.'}
+              </div>
             ) : null}
           </div>
 
@@ -3402,7 +3476,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       <button
                         key={tab.key}
                         onClick={() => { setActiveTab(tab.key); setGestionError(''); }}
-                        style={{ padding: '8px 18px', border: 'none', background: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', color: activeTab === tab.key ? '#1A5C4A' : '#888', borderBottom: activeTab === tab.key ? '2px solid #1A5C4A' : '2px solid transparent', marginBottom: -2 }}
+                        style={{ padding: '8px 18px', border: 'none', background: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', color: activeTab === tab.key ? accentColor : '#888', borderBottom: activeTab === tab.key ? `2px solid ${accentColor}` : '2px solid transparent', marginBottom: -2 }}
                       >{tab.label}</button>
                     ))}
                   </div>
@@ -3499,22 +3573,15 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       <div>
                         <div style={{ fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 10 }}>Resultado de la gestión</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                          {[
-                            { value: 'no_contesta', label: 'No contesta' },
-                            { value: 'rellamar', label: 'Rellamar' },
-                            { value: 'seguimiento', label: 'Seguimiento' },
-                            { value: 'rechazo', label: 'Rechazo' },
-                            { value: 'dato_erroneo', label: 'Dato erróneo' },
-                            { value: 'venta', label: 'Venta' }
-                          ].map((opt) => (
-                            <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '8px 10px', borderRadius: 6, border: estadoGestion === opt.value ? '1.5px solid #1A5C4A' : '1.5px solid #E8E8E8', background: estadoGestion === opt.value ? '#F0FAF6' : '#fff', fontSize: 13, fontWeight: estadoGestion === opt.value ? 600 : 400 }}>
+                          {opcionesGestion.map((opt) => (
+                            <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '8px 10px', borderRadius: 6, border: estadoGestion === opt.value ? `1.5px solid ${accentColor}` : '1.5px solid #E8E8E8', background: estadoGestion === opt.value ? accentSoft : '#fff', fontSize: 13, fontWeight: estadoGestion === opt.value ? 600 : 400 }}>
                               <input
                                 type="radio"
                                 name="estadoGestion"
                                 value={opt.value}
                                 checked={estadoGestion === opt.value}
                                 onChange={() => setEstadoGestion(opt.value)}
-                                style={{ accentColor: '#1A5C4A' }}
+                                style={{ accentColor }}
                               />
                               {opt.label}
                             </label>
@@ -3522,7 +3589,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         </div>
                       </div>
 
-                      {['seguimiento', 'rellamar'].includes(estadoGestion) && (
+                      {estadosConAgenda.includes(estadoGestion) && (
                         <div style={{ background: '#F8F0FF', border: '1px solid rgba(155,89,182,0.2)', borderRadius: 10, padding: '12px 14px' }}>
                           <p style={{ fontSize: 12, fontWeight: 600, color: '#9B59B6', margin: '0 0 10px 0' }}>Agenda de seguimiento</p>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -3608,7 +3675,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       <button
                         onClick={handleGuardarGestion}
                         disabled={guardando || !estadoGestion}
-                        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: '#1A5C4A', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 18px', fontWeight: 600, fontSize: 13, cursor: (guardando || !estadoGestion) ? 'not-allowed' : 'pointer', opacity: (guardando || !estadoGestion) ? 0.5 : 1 }}
+                        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: accentColor, color: '#fff', border: 'none', borderRadius: 8, padding: '10px 18px', fontWeight: 600, fontSize: 13, cursor: (guardando || !estadoGestion) ? 'not-allowed' : 'pointer', opacity: (guardando || !estadoGestion) ? 0.5 : 1 }}
                       >
                         {guardando ? 'Guardando...' : 'Guardar gestión'}
                       </button>
@@ -3620,6 +3687,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           ) : null}
         </div>
       );
+    }
+
+    function RecuperoContactsView(props) {
+      return <SalesContactsView {...props} mode="recupero" />;
     }
 
     function SalesAgendaView({ onVentaCerrada }) {
@@ -9106,6 +9177,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [salesContacts, setSalesContacts] = React.useState(SALES_CONTACTS_SEED);
       const [supervisorLots, setSupervisorLots] = React.useState(SUPERVISOR_LOTS_SEED);
       const [salesSelectedId, setSalesSelectedId] = React.useState(SALES_CONTACTS_SEED.find(isSalesActiveContact)?.id || null);
+      const [recuperoContacts] = React.useState([]);
+      const [recuperoSelectedId, setRecuperoSelectedId] = React.useState(null);
       const [salesRecords, setSalesRecords] = React.useState(() => seedSalesFromContacts(SALES_CONTACTS_SEED));
       const [moduleStates, setModuleStates] = React.useState(() =>
         createInitialModuleStates({ roleNav: ROLE_NAV, roles: Object.keys(ROLE_META) })
@@ -9616,6 +9689,25 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               <SupervisorRegistrationRequestsModule Panel={Panel} Button={Button} Tag={Tag} />
             </RequireRole>
           );
+        }
+        if (route === 'recupero') {
+          if (role === 'vendedor') {
+            return (
+              <RecuperoContactsView
+                contacts={recuperoContacts}
+                selectedId={recuperoSelectedId}
+                onSelect={setRecuperoSelectedId}
+                onRegister={registerSalesManagement}
+                salesRecords={salesRecords}
+                products={productsCatalog}
+                onAssignFamilySale={assignFamilySale}
+                onUpdateContact={updateSalesContactProfile}
+                onVentaCerrada={(contactData) => handleOpenVendedorNewClient(contactData)}
+                onOpenNewClient={handleOpenVendedorNewClient}
+              />
+            );
+          }
+          return <PlaceholderView title="Recupero" subtitle="Sin visibilidad para este rol en la vista actual." cta="Volver al foco" />;
         }
         if (route === 'contactos') {
           if (role === 'vendedor') {
