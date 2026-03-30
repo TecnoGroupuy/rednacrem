@@ -2908,6 +2908,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             tab: tabActivo
           });
           if (isRecupero) params.set('tipo', 'recupero');
+          if (searchDebounced) params.set('search', searchDebounced);
           const contactosData = await api.get(`/leads/assigned?${params}`);
           if (contactosData?.success || contactosData?.ok) {
             const items = contactosData?.data?.contactos || [];
@@ -2922,7 +2923,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         } catch (err) {
           console.error('[refresh] error silencioso:', err);
         }
-      }, [page, tabActivo]); // eslint-disable-line react-hooks/exhaustive-deps
+      }, [page, tabActivo, searchDebounced]); // eslint-disable-line react-hooks/exhaustive-deps
 
       const cargarContactos = React.useCallback(async () => {
         setLoadingContacts(true);
@@ -2933,6 +2934,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             tab: tabActivo
           });
           if (isRecupero) params.set('tipo', 'recupero');
+          if (searchDebounced) params.set('search', searchDebounced);
           const d = await api.get(`/leads/assigned?${params}`);
           console.log('[assigned] params:', params.toString(), 'resp:', d);
           if (d?.success || d?.ok) {
@@ -2949,16 +2951,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         } finally {
           setLoadingContacts(false);
         }
-      }, [contacts, page, tabActivo]); // eslint-disable-line react-hooks/exhaustive-deps
+      }, [contacts, page, tabActivo, searchDebounced]); // eslint-disable-line react-hooks/exhaustive-deps
 
       React.useEffect(() => {
         loadStats();
       }, [loadStats]);
 
-      React.useEffect(() => {
-        cargarContactos();
-      }, [page, tabActivo]); // eslint-disable-line react-hooks/exhaustive-deps
       const [searchTerm, setSearchTerm] = React.useState('');
+      const [searchDebounced, setSearchDebounced] = React.useState('');
       const [drawerContact, setDrawerContact] = React.useState(null);
       const [nextLoading, setNextLoading] = React.useState(false);
       const [nextMessage, setNextMessage] = React.useState('');
@@ -2980,6 +2980,18 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [draftDireccion, setDraftDireccion] = React.useState('');
 
       React.useEffect(() => {
+        const handler = setTimeout(() => {
+          setSearchDebounced(searchTerm.trim());
+          setPage(1);
+        }, 350);
+        return () => clearTimeout(handler);
+      }, [searchTerm]);
+
+      React.useEffect(() => {
+        cargarContactos();
+      }, [page, tabActivo, searchDebounced]); // eslint-disable-line react-hooks/exhaustive-deps
+
+      React.useEffect(() => {
         try {
           const stored = localStorage.getItem('cliente_pendiente_alta');
           if (stored) {
@@ -2992,17 +3004,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         }
       }, []);
 
-      const filteredContacts = React.useMemo(() => localContacts.filter((contact) => {
-        const haystack = [
-          contact.name,
-          contact.phone,
-          pickCellular(contact),
-          contact.city,
-          contact.documento || '',
-          contact.email || ''
-        ].join(' ').toLowerCase();
-        return haystack.includes(searchTerm.toLowerCase());
-      }), [localContacts, searchTerm]);
+      const filteredContacts = React.useMemo(() => localContacts, [localContacts]);
       const visibleContacts = React.useMemo(
         () => filteredContacts.filter((contact) => (isRecupero ? true : contact.estado_venta !== 'dato_erroneo')),
         [filteredContacts, isRecupero]
