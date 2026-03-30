@@ -58,10 +58,13 @@ export function createApiClient({ baseUrl, getAccessToken }) {
     const finalUrl = buildApiUrl(path, baseUrl);
     const token = await getAccessToken();
     const hasBody = body !== undefined && body !== null;
+    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+    const isBlob = typeof Blob !== 'undefined' && body instanceof Blob;
+    const shouldSerializeJson = hasBody && !isFormData && !isBlob;
     const isDevToken = import.meta?.env?.DEV && token === 'dev-token';
 
     const finalHeaders = {
-      ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
+      ...(shouldSerializeJson ? { 'Content-Type': 'application/json' } : {}),
       ...headers
     };
 
@@ -83,7 +86,7 @@ export function createApiClient({ baseUrl, getAccessToken }) {
     const response = await fetch(finalUrl, {
       method,
       headers: finalHeaders,
-      body: hasBody ? JSON.stringify(body) : undefined
+      body: shouldSerializeJson ? JSON.stringify(body) : (hasBody ? body : undefined)
     });
 
     const contentType = response.headers.get('content-type') || '';

@@ -292,9 +292,10 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     try {
       const formData = new FormData();
       formData.append('file', importFile);
-      const response = await api.post('/api/recupero/importaciones', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      for (const [k, v] of formData.entries()) {
+        console.log(k, v);
+      }
+      const response = await api.post('/api/recupero/importaciones', formData);
       setImportResult(response);
       loadRecupero();
     } catch (err) {
