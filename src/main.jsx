@@ -2886,6 +2886,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [totalPages, setTotalPages] = React.useState(1);
       const [totalContactos, setTotalContactos] = React.useState(0);
       const LIMIT = 50;
+      const [searchTerm, setSearchTerm] = React.useState('');
+      const [searchDebounced, setSearchDebounced] = React.useState('');
 
       const loadStats = React.useCallback(async () => {
         try {
@@ -2957,8 +2959,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         loadStats();
       }, [loadStats]);
 
-      const [searchTerm, setSearchTerm] = React.useState('');
-      const [searchDebounced, setSearchDebounced] = React.useState('');
       const [drawerContact, setDrawerContact] = React.useState(null);
       const [nextLoading, setNextLoading] = React.useState(false);
       const [nextMessage, setNextMessage] = React.useState('');
