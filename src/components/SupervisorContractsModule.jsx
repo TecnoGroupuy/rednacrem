@@ -234,25 +234,25 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       };
     });
     const errors = [];
-    const duplicates = new Set();
     const seen = new Set();
     rows.forEach((row, index) => {
       if (!row.documento) errors.push(`Fila ${index + 2}: Documento vacío`);
       const key = row.documento.trim();
-      if (key) {
-        if (seen.has(key)) duplicates.add(key);
-        seen.add(key);
-      }
+      if (key) seen.add(key);
     });
-    if (duplicates.size) {
-      errors.push(`Documentos duplicados: ${Array.from(duplicates).slice(0, 5).join(', ')}${duplicates.size > 5 ? '…' : ''}`);
-    }
+    const map = new Map();
+    rows.forEach((row) => {
+      if (!row.documento) return;
+      map.set(row.documento, row);
+    });
+    const rowsPreview = Array.from(map.values());
+    const duplicados = rows.length - rowsPreview.length;
     return {
-      rows,
+      rows: rowsPreview,
       errors,
       summary: {
         total: rows.length,
-        duplicates: duplicates.size
+        duplicates: duplicados
       }
     };
   };
@@ -626,6 +626,11 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                   {importErrors.map((err) => <div key={err}>{err}</div>)}
                 </div>
               ) : null}
+              {importSummary?.duplicates ? (
+                <div style={{ marginTop: 8, color: '#b45309', fontSize: 12 }}>
+                  Duplicados: se usa la última fila del CSV (last_wins).
+                </div>
+              ) : null}
               {importSummary ? (
                 <div style={{ marginTop: 12, fontSize: 12, color: '#555' }}>
                   Total filas: {importSummary.total} · Duplicados: {importSummary.duplicates}
@@ -660,7 +665,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
               )}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
                 <Button variant="ghost" onClick={() => setShowImportModal(false)}>Cancelar</Button>
-                <Button disabled={!importFile || importErrors.length || importLoading} onClick={handleImportCsv}>
+                <Button disabled={!importFile || importLoading} onClick={handleImportCsv}>
                   {importLoading ? 'Procesando…' : 'Importar'}
                 </Button>
               </div>
