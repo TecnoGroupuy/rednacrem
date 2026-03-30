@@ -172,7 +172,7 @@ const ROLE_NAV = [
       { path: 'base_general', label: 'Base general', caption: 'Carga y preparacion', roles: ['supervisor'], icon: Users },
       { path: 'lotes', label: 'Lotes', caption: 'Asignacion comercial', roles: ['supervisor'], icon: Layers },
       { path: 'numeros_error', label: 'Numeros con errores', caption: 'Fuera de flujo comercial', roles: ['supervisor'], icon: AlertTriangle },
-      { path: 'seguimiento_vendedores', label: 'Seguimiento vendedores', caption: 'Resumen operativo', roles: ['supervisor'], icon: BarChart3 },
+      { path: 'seguimiento_vendedores', label: 'Codificaciones', caption: 'Codificaciones', roles: ['supervisor'], icon: BarChart3 },
       { path: 'solicitudes_registro', label: 'Solicitudes registro', caption: 'Aprobación vendedores', roles: ['supervisor'], icon: Bell },
       { path: 'agenda', label: 'Agenda', caption: 'Compromisos del día', roles: ['vendedor'], icon: Calendar },
       { path: 'soporte', label: 'Atención al cliente', caption: 'Tickets y llamadas', roles: ['atencion_cliente'], icon: Headphones, badge: 12 },
@@ -4223,6 +4223,555 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       );
     }
 
+    function CodificacionesView() {
+      const api = React.useMemo(() => getApiClient(), []);
+      const PAGE_SIZE = 10;
+      const [rows, setRows] = React.useState([]);
+      const [total, setTotal] = React.useState(0);
+      const [page, setPage] = React.useState(1);
+      const [loading, setLoading] = React.useState(false);
+      const [error, setError] = React.useState('');
+      const [searchPhone, setSearchPhone] = React.useState('');
+      const [sellerId, setSellerId] = React.useState('');
+      const [resultadoOriginal, setResultadoOriginal] = React.useState('');
+      const [resultadoCorregido, setResultadoCorregido] = React.useState('');
+      const [estadoAuditoria, setEstadoAuditoria] = React.useState('');
+      const [fromDate, setFromDate] = React.useState('');
+      const [toDate, setToDate] = React.useState('');
+      const [queryFilters, setQueryFilters] = React.useState({});
+      const [sellers, setSellers] = React.useState([]);
+      const [catalogo, setCatalogo] = React.useState([]);
+      const [auditOpen, setAuditOpen] = React.useState(false);
+      const [auditItem, setAuditItem] = React.useState(null);
+      const [auditLoading, setAuditLoading] = React.useState(false);
+      const [auditSaving, setAuditSaving] = React.useState(false);
+      const [auditError, setAuditError] = React.useState('');
+      const [auditResultado, setAuditResultado] = React.useState('');
+      const [auditComentario, setAuditComentario] = React.useState('');
+      const auditSelectRef = React.useRef(null);
+      const [historyOpen, setHistoryOpen] = React.useState(false);
+      const [historyLoading, setHistoryLoading] = React.useState(false);
+      const [historyError, setHistoryError] = React.useState('');
+      const [historyData, setHistoryData] = React.useState(null);
+      const requestIdRef = React.useRef(0);
+
+      const totalPages = Math.max(1, Math.ceil((total || 0) / PAGE_SIZE));
+      const cellEllipsisStyle = React.useMemo(() => ({
+        maxWidth: 160,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+      }), []);
+
+      const hasFilters = React.useMemo(() => (
+        Boolean(queryFilters?.search_phone)
+        || Boolean(queryFilters?.seller_id)
+        || Boolean(queryFilters?.resultado)
+        || Boolean(queryFilters?.resultado_corregido)
+        || Boolean(queryFilters?.estado)
+        || Boolean(queryFilters?.from)
+        || Boolean(queryFilters?.to)
+      ), [queryFilters]);
+
+      const normalizePhone = React.useCallback((value) => {
+        if (!value) return '';
+        return String(value).trim().replace(/[^\d+]/g, '');
+      }, []);
+
+      const formatDateTime = (value) => {
+        if (!value) return '—';
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) return '—';
+        return parsed.toLocaleString('es-UY', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      };
+
+      const formatPhone = (row) => {
+        const raw = row?.telefono_display || row?.telefono || row?.celular || '';
+        if (!raw) return '—';
+        return String(raw).replace(/[\s-]/g, '');
+      };
+      const formatSeller = (row) => row?.vendedor_nombre_completo
+        || [row?.vendedor_nombre, row?.vendedor_apellido].filter(Boolean).join(' ').trim()
+        || '—';
+      const formatSupervisor = (row) => row?.supervisor_nombre_completo || '—';
+
+      const statusMeta = (row) => {
+        const estado = (row?.estado_auditoria || '').toLowerCase();
+        const hasCorrection = Boolean(row?.resultado_corregido || row?.corrected_at);
+        if (estado === 'corregida' || hasCorrection) {
+          return { label: 'Corregida', variant: 'success' };
+        }
+        return { label: 'Pendiente', variant: 'warning' };
+      };
+
+      const loadSellers = React.useCallback(async () => {
+        try {
+          const response = await api.get('/api/supervisor/agents');
+          const itemsList = response?.agents
+            || response?.items
+            || response?.data?.agents
+            || response?.data?.items
+            || response?.data
+            || [];
+          const normalized = (Array.isArray(itemsList) ? itemsList : []).map((seller) => ({
+            id: String(seller?.id || seller?.agent_id || seller?.agente_id || seller?.user_id || ''),
+            label: `${seller?.nombre || seller?.name || ''} ${seller?.apellido || seller?.last_name || ''}`.trim()
+              || seller?.email
+              || seller?.username
+              || 'Vendedor'
+          }));
+          setSellers(normalized);
+        } catch {
+          setSellers([]);
+        }
+      }, [api]);
+
+      const loadCatalogo = React.useCallback(async () => {
+        try {
+          const response = await api.get('/api/codificaciones/catalogo');
+          const itemsList = response?.items || response?.data?.items || response?.data || [];
+          setCatalogo(Array.isArray(itemsList) ? itemsList : []);
+        } catch {
+          setCatalogo([]);
+        }
+      }, [api]);
+
+      const buildQuery = React.useCallback((filters) => {
+        const params = new URLSearchParams();
+        if (filters.search_phone) params.set('search_phone', filters.search_phone);
+        if (filters.seller_id) params.set('seller_id', filters.seller_id);
+        if (filters.from) params.set('from', filters.from);
+        if (filters.to) params.set('to', filters.to);
+        if (filters.resultado) params.set('resultado', filters.resultado);
+        if (filters.resultado_corregido) params.set('resultado_corregido', filters.resultado_corregido);
+        if (filters.estado) params.set('estado', filters.estado);
+        return params;
+      }, []);
+
+      const loadCodificaciones = React.useCallback(async () => {
+        const requestId = requestIdRef.current + 1;
+        requestIdRef.current = requestId;
+        setLoading(true);
+        setError('');
+        try {
+          const params = buildQuery(queryFilters);
+          if (hasFilters) {
+            params.set('page', String(page));
+            params.set('limit', String(PAGE_SIZE));
+            const response = await api.get(`/api/codificaciones?${params.toString()}`);
+            const items = response?.items || response?.data?.items || [];
+            const totalCount = Number(response?.total ?? response?.data?.total ?? items.length);
+            if (requestIdRef.current === requestId) {
+              setRows(Array.isArray(items) ? items : []);
+              setTotal(Number.isFinite(totalCount) ? totalCount : 0);
+            }
+          } else {
+            params.set('limit', String(PAGE_SIZE));
+            const response = await api.get(`/api/codificaciones/ultimos?${params.toString()}`);
+            const items = response?.items || response?.data?.items || [];
+            if (requestIdRef.current === requestId) {
+              setRows(Array.isArray(items) ? items : []);
+              setTotal(Array.isArray(items) ? items.length : 0);
+            }
+          }
+        } catch (err) {
+          if (requestIdRef.current === requestId) {
+            setError(err?.message || 'No pudimos cargar las codificaciones.');
+            setRows([]);
+            setTotal(0);
+          }
+        } finally {
+          if (requestIdRef.current === requestId) {
+            setLoading(false);
+          }
+        }
+      }, [api, buildQuery, hasFilters, page, queryFilters]);
+
+      React.useEffect(() => {
+        loadSellers();
+        loadCatalogo();
+      }, [loadCatalogo, loadSellers]);
+
+      React.useEffect(() => {
+        loadCodificaciones();
+      }, [loadCodificaciones]);
+
+      React.useEffect(() => {
+        if (auditOpen) {
+          const handler = (event) => {
+            if (event.key === 'Escape') closeAudit();
+          };
+          window.addEventListener('keydown', handler);
+          return () => window.removeEventListener('keydown', handler);
+        }
+        return undefined;
+      }, [auditOpen]);
+
+      React.useEffect(() => {
+        if (historyOpen) {
+          const handler = (event) => {
+            if (event.key === 'Escape') closeHistory();
+          };
+          window.addEventListener('keydown', handler);
+          return () => window.removeEventListener('keydown', handler);
+        }
+        return undefined;
+      }, [historyOpen]);
+
+      React.useEffect(() => {
+        if (!auditOpen) return;
+        if (!auditSelectRef.current) return;
+        auditSelectRef.current.focus();
+      }, [auditOpen, auditLoading]);
+
+      React.useEffect(() => {
+        const normalized = normalizePhone(searchPhone);
+        const handler = setTimeout(() => {
+          setPage(1);
+          setQueryFilters((prev) => {
+            const next = { ...prev };
+            if (normalized) {
+              next.search_phone = normalized;
+            } else {
+              delete next.search_phone;
+            }
+            return next;
+          });
+        }, 400);
+        return () => clearTimeout(handler);
+      }, [normalizePhone, searchPhone]);
+
+      const handleBuscar = () => {
+        setPage(1);
+        setQueryFilters({
+          search_phone: normalizePhone(searchPhone),
+          seller_id: sellerId,
+          resultado: resultadoOriginal,
+          resultado_corregido: resultadoCorregido,
+          estado: estadoAuditoria,
+          from: fromDate,
+          to: toDate
+        });
+      };
+
+      const handleLimpiar = () => {
+        setSearchPhone('');
+        setSellerId('');
+        setResultadoOriginal('');
+        setResultadoCorregido('');
+        setEstadoAuditoria('');
+        setFromDate('');
+        setToDate('');
+        setPage(1);
+        setQueryFilters({});
+      };
+
+      const openAudit = async (row) => {
+        setAuditOpen(true);
+        setAuditItem(row);
+        setAuditResultado('');
+        setAuditComentario('');
+        setAuditError('');
+        setAuditLoading(true);
+        try {
+          const response = await api.get(`/api/codificaciones/${row.id}`);
+          const detail = response?.item || response?.data || response;
+          if (detail) setAuditItem((prev) => ({ ...prev, ...detail }));
+        } catch {
+          // fallback: keep row data
+        } finally {
+          setAuditLoading(false);
+        }
+      };
+
+      const closeAudit = () => {
+        setAuditOpen(false);
+        setAuditItem(null);
+        setAuditResultado('');
+        setAuditComentario('');
+        setAuditError('');
+      };
+
+      const saveAudit = async () => {
+        if (!auditItem) return;
+        if (!auditResultado) {
+          setAuditError('Seleccioná una codificación corregida.');
+          return;
+        }
+        if (auditResultado && auditItem?.resultado_corregido && auditResultado === auditItem.resultado_corregido) {
+          setAuditError('La codificación seleccionada ya está aplicada.');
+          return;
+        }
+        setAuditSaving(true);
+        setAuditError('');
+        try {
+          await api.post(`/api/codificaciones/${auditItem.id}/correccion`, {
+            resultado_corregido: auditResultado,
+            comentario: auditComentario || ''
+          });
+          closeAudit();
+          loadCodificaciones();
+        } catch (err) {
+          setAuditError(err?.message || 'No se pudo guardar la corrección.');
+        } finally {
+          setAuditSaving(false);
+        }
+      };
+
+      const openHistory = async (row) => {
+        setHistoryOpen(true);
+        setHistoryLoading(true);
+        setHistoryError('');
+        setHistoryData(null);
+        try {
+          const response = await api.get(`/api/codificaciones/${row.id}/historial`);
+          setHistoryData(response?.data || response || null);
+        } catch (err) {
+          setHistoryError(err?.message || 'No se pudo cargar el historial.');
+        } finally {
+          setHistoryLoading(false);
+        }
+      };
+
+      const closeHistory = () => {
+        setHistoryOpen(false);
+        setHistoryError('');
+        setHistoryData(null);
+      };
+
+      return (
+        <div className="view">
+          <section className="content-grid">
+            <Panel
+              className="span-12"
+              title="Codificaciones"
+              subtitle="Auditoría de resultados de gestión"
+            >
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
+                <div className="searchbox" style={{ minWidth: 260 }}>
+                  <Search size={16} color="#69788d" />
+                  <input
+                    placeholder="Buscar por teléfono"
+                    value={searchPhone}
+                    onChange={(event) => setSearchPhone(event.target.value)}
+                  />
+                </div>
+                <select className="input" style={{ minWidth: 200 }} value={sellerId} onChange={(event) => setSellerId(event.target.value)}>
+                  <option value="">Vendedor</option>
+                  {sellers.map((seller) => (
+                    <option key={seller.id} value={seller.id}>{seller.label}</option>
+                  ))}
+                </select>
+                <select className="input" style={{ minWidth: 180 }} value={resultadoOriginal} onChange={(event) => setResultadoOriginal(event.target.value)}>
+                  <option value="">Codificación original</option>
+                  {catalogo.map((item) => (
+                    <option key={item.id || item.value || item} value={item.value || item.id || item}>{item.label || item.nombre || item.value || item}</option>
+                  ))}
+                </select>
+                <select className="input" style={{ minWidth: 180 }} value={resultadoCorregido} onChange={(event) => setResultadoCorregido(event.target.value)}>
+                  <option value="">Codificación corregida</option>
+                  {catalogo.map((item) => (
+                    <option key={item.id || item.value || item} value={item.value || item.id || item}>{item.label || item.nombre || item.value || item}</option>
+                  ))}
+                </select>
+                <select className="input" style={{ minWidth: 160 }} value={estadoAuditoria} onChange={(event) => setEstadoAuditoria(event.target.value)}>
+                  <option value="">Estado</option>
+                  <option value="pendiente">Pendiente</option>
+                  <option value="corregida">Corregida</option>
+                </select>
+                <input className="input" type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
+                <input className="input" type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
+                <Button icon={<Filter size={16} />} onClick={handleBuscar}>Buscar</Button>
+                <Button variant="ghost" onClick={handleLimpiar}>Limpiar</Button>
+              </div>
+
+              {error ? <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 600 }}>{error}</div> : null}
+              {loading ? <div style={{ marginBottom: 12, color: 'var(--muted)' }}>Cargando codificaciones...</div> : null}
+
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Fecha/Hora</th>
+                      <th>Teléfono</th>
+                      <th>Vendedor</th>
+                      <th>Codificación original</th>
+                      <th>Estado auditoría</th>
+                      <th>Codificación corregida</th>
+                      <th>Supervisor</th>
+                      <th>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row) => {
+                      const badge = statusMeta(row);
+                      const phoneValue = formatPhone(row);
+                      const sellerValue = formatSeller(row);
+                      const originalValue = row.resultado_original || '—';
+                      const correctedValue = row.resultado_corregido || '—';
+                      const supervisorValue = formatSupervisor(row);
+                      return (
+                        <tr key={row.id}>
+                          <td>{formatDateTime(row.fecha_gestion)}</td>
+                          <td title={phoneValue}>
+                            <div style={{ ...cellEllipsisStyle, maxWidth: 140 }}>{phoneValue}</div>
+                          </td>
+                          <td title={sellerValue}>
+                            <div style={{ ...cellEllipsisStyle, maxWidth: 180 }}>{sellerValue}</div>
+                          </td>
+                          <td title={originalValue}>
+                            <div style={cellEllipsisStyle}>{originalValue}</div>
+                          </td>
+                          <td>
+                            <Tag variant={badge.variant}>{badge.label}</Tag>
+                          </td>
+                          <td title={correctedValue}>
+                            <div style={cellEllipsisStyle}>{correctedValue}</div>
+                          </td>
+                          <td title={supervisorValue}>
+                            <div style={cellEllipsisStyle}>{supervisorValue}</div>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <Button variant="secondary" onClick={() => openAudit(row)}>{row.resultado_corregido ? 'Reauditar' : 'Auditar'}</Button>
+                              <Button variant="ghost" onClick={() => openHistory(row)}>Historial</Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {!loading && !rows.length ? (
+                  <div style={{ padding: 16, color: 'var(--muted)' }}>
+                    {searchPhone ? 'No se encontraron resultados para ese teléfono.' : 'No hay codificaciones para mostrar.'}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="toolbar" style={{ justifyContent: 'space-between', marginTop: 12 }}>
+                <div style={{ color: 'var(--muted)' }}>
+                  Mostrando {rows.length} de {total}
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <Button variant="ghost" disabled={page <= 1 || !hasFilters} onClick={() => setPage((prev) => Math.max(1, prev - 1))}>Anterior</Button>
+                  <div style={{ fontWeight: 600 }}>Página {page} de {totalPages}</div>
+                  <Button variant="ghost" disabled={page >= totalPages || !hasFilters} onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}>Siguiente</Button>
+                </div>
+              </div>
+            </Panel>
+          </section>
+
+          {auditOpen && (
+            <div className="lot-wizard-overlay" onClick={closeAudit}>
+              <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 520 }}>
+                <div className="lot-wizard-header">
+                  <div style={{ fontWeight: 700 }}>Auditar codificación</div>
+                  <button className="close-btn" onClick={closeAudit}><X size={16} /></button>
+                </div>
+                <div className="lot-wizard-content">
+                  {auditLoading ? (
+                    <div style={{ color: 'var(--muted)' }}>Cargando detalle...</div>
+                  ) : (
+                    <>
+                      <div className="list">
+                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>ID gestión</span><strong>{auditItem?.management_id || auditItem?.id || '—'}</strong></div>
+                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Fecha/Hora</span><strong>{formatDateTime(auditItem?.fecha_gestion)}</strong></div>
+                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Teléfono</span><strong>{formatPhone(auditItem)}</strong></div>
+                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Vendedor</span><strong>{formatSeller(auditItem)}</strong></div>
+                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Cliente</span><strong>{auditItem?.cliente || '—'}</strong></div>
+                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Lote/Campaña</span><strong>{auditItem?.batch_nombre || auditItem?.batch_id || '—'}</strong></div>
+                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Codificación original</span><strong>{auditItem?.resultado_original || '—'}</strong></div>
+                      </div>
+
+                      <label style={{ display: 'grid', gap: 6, marginTop: 12 }}>
+                        <span style={{ fontSize: 12, color: '#64748b' }}>Nueva codificación</span>
+                        <select
+                          className="input"
+                          value={auditResultado}
+                          onChange={(event) => setAuditResultado(event.target.value)}
+                          ref={auditSelectRef}
+                        >
+                          <option value="">Seleccionar</option>
+                          {catalogo.map((item) => (
+                            <option key={item.id || item.value || item} value={item.value || item.id || item}>{item.label || item.nombre || item.value || item}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label style={{ display: 'grid', gap: 6, marginTop: 12 }}>
+                        <span style={{ fontSize: 12, color: '#64748b' }}>Comentario (opcional)</span>
+                        <textarea
+                          className="input"
+                          rows={3}
+                          value={auditComentario}
+                          onChange={(event) => setAuditComentario(event.target.value)}
+                        />
+                      </label>
+                      {auditError ? <div style={{ marginTop: 10, color: '#b91c1c' }}>{auditError}</div> : null}
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
+                        <Button variant="ghost" onClick={closeAudit}>Cancelar</Button>
+                        <Button disabled={auditSaving || !auditResultado} onClick={saveAudit}>{auditSaving ? 'Guardando...' : 'Guardar corrección'}</Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {historyOpen && (
+            <div className="lot-wizard-overlay" onClick={closeHistory}>
+              <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 600 }}>
+                <div className="lot-wizard-header">
+                  <div style={{ fontWeight: 700 }}>Historial de codificación</div>
+                  <button className="close-btn" onClick={closeHistory}><X size={16} /></button>
+                </div>
+                <div className="lot-wizard-content">
+                  {historyLoading ? (
+                    <div style={{ color: 'var(--muted)' }}>Cargando historial...</div>
+                  ) : historyError ? (
+                    <div style={{ color: '#b91c1c' }}>{historyError}</div>
+                  ) : (
+                    <>
+                      <div style={{ marginBottom: 12 }}>
+                        <div style={{ fontWeight: 700, marginBottom: 6 }}>Original</div>
+                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Fecha/Hora</span><strong>{formatDateTime(historyData?.management?.fecha_gestion)}</strong></div>
+                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Vendedor</span><strong>{historyData?.management?.vendedor_nombre_completo || '—'}</strong></div>
+                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Codificación</span><strong>{historyData?.management?.resultado_original || '—'}</strong></div>
+                      </div>
+                      <div style={{ fontWeight: 700, marginBottom: 6 }}>Correcciones</div>
+                      {(historyData?.audits || []).length ? (
+                        <div className="list">
+                          {[...(historyData?.audits || [])].sort((a, b) => {
+                            const aTime = new Date(a?.corrected_at || 0).getTime();
+                            const bTime = new Date(b?.corrected_at || 0).getTime();
+                            return bTime - aTime;
+                          }).map((audit) => (
+                            <div key={audit.id} className="alert">
+                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                                <div>
+                                  <div style={{ fontWeight: 700 }}>{audit.resultado_corregido || '—'}</div>
+                                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>{audit.supervisor_nombre_completo || audit.corrected_by || '—'}</div>
+                                  {audit.motivo ? <div style={{ fontSize: 12, marginTop: 4 }}>{audit.motivo}</div> : null}
+                                </div>
+                                <div style={{ color: 'var(--muted)', fontSize: 12 }}>{formatDateTime(audit.corrected_at)}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ color: 'var(--muted)' }}>Sin correcciones registradas.</div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
     function SalesClientsView({ onOpenNewClient = null }) {
       const [ventas, setVentas] = React.useState([]);
       const [loadingVentas, setLoadingVentas] = React.useState(true);
@@ -4874,32 +5423,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
       React.useEffect(() => {
         if (route !== 'seguimiento_vendedores') return;
-        let active = true;
-        const api = getApiClient();
-        const dateStr = formatDateYmdLocal(sellerSummaryDate);
-        setSellerSummaryLoading(true);
+        setSellerSummaryRows([]);
+        setSellerSummaryLoading(false);
         setSellerSummaryError('');
-        api.get(`/api/supervisor/sellers-summary?fecha=${dateStr}`)
-          .then((response) => {
-            if (!active) return;
-            const items = response?.items || response?.data?.items || [];
-            if (Array.isArray(items)) {
-              setSellerSummaryRows(items);
-            } else {
-              setSellerSummaryRows([]);
-            }
-          })
-          .catch((err) => {
-            if (!active) return;
-            setSellerSummaryError(err?.message || 'No se pudo cargar el resumen de vendedores.');
-            setSellerSummaryRows(null);
-          })
-          .finally(() => {
-            if (!active) return;
-            setSellerSummaryLoading(false);
-          });
-        return () => { active = false; };
-      }, [formatDateYmdLocal, route, sellerSummaryDate]);
+      }, [route]);
 
       const toggleSelection = (id) => {
         setSelectedIds((prev) => prev.includes(id) ? prev.filter((current) => current !== id) : [...prev, id]);
@@ -5080,79 +5607,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }
 
       if (route === 'seguimiento_vendedores') {
-        const dateLabel = sellerSummaryDate.toLocaleDateString('es-UY', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' });
-        const effectiveRows = Array.isArray(sellerSummaryRows) && sellerSummaryRows.length
-          ? sellerSummaryRows.map((item) => {
-            const venta = Number(item.ventas ?? 0);
-            const seguimiento = Number(item.seguimientos ?? 0);
-            const rellamar = Number(item.rellamadas ?? 0);
-            const no_contesta = Number(item.no_contesta ?? 0);
-            const rechazo = Number(item.rechazos ?? 0);
-            const dato_erroneo = Number(item.datos_erroneos ?? 0);
-            const total_gestionado = Number(
-              item.total_gestionado ?? item.gestionados ?? (venta + seguimiento + rellamar + no_contesta + rechazo + dato_erroneo)
-            );
-            return ({
-              seller: `${item.nombre || ''} ${item.apellido || ''}`.trim() || item.name || '—',
-              assigned: Number(item.asignados ?? 0),
-              total_gestionado,
-              venta,
-              seguimiento,
-              rellamar,
-              no_contesta,
-              rechazo,
-              dato_erroneo,
-              contact: Number(item.contacto ?? 0) || 0,
-              efectividad: Number(item.efectividad ?? 0) || 0
-            });
-          })
-          : sellerSummary;
-        return (
-          <div className="view">
-            <section className="content-grid">
-              <Panel
-                className="span-12"
-                title="Seguimiento de vendedores"
-                subtitle="Vista resumida operativa"
-                action={(
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <Button variant="ghost" onClick={() => setSellerSummaryDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - 1))}>‹</Button>
-                    <div style={{ padding: '8px 16px', borderRadius: 12, border: '1px solid rgba(15,23,42,0.12)', background: '#fff', fontWeight: 600 }}>{dateLabel}</div>
-                    <Button variant="ghost" onClick={() => setSellerSummaryDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 1))}>›</Button>
-                  </div>
-                )}
-              >
-                {sellerSummaryLoading ? <div style={{ marginBottom: 12, color: 'var(--muted)' }}>Cargando resumen...</div> : null}
-                {sellerSummaryError ? <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 600 }}>{sellerSummaryError}</div> : null}
-                <div className="table-wrap">
-                  <table>
-                    <thead><tr><th>Vendedor</th><th>Asignados</th><th>Gestiones del día</th><th>Ventas</th><th>Seguimientos</th><th>Rellamadas</th><th>No contesta</th><th>Rechazos</th><th>Datos erroneos</th><th>Contacto</th><th>Efectividad</th></tr></thead>
-                    <tbody>
-                      {effectiveRows.map((row) => (
-                        <tr key={row.seller}>
-                          <td><strong>{row.seller}</strong></td>
-                          <td>{row.assigned}</td>
-                          <td>{row.total_gestionado}</td>
-                          <td>{row.venta}</td>
-                          <td>{row.seguimiento}</td>
-                          <td>{row.rellamar}</td>
-                          <td>{row.no_contesta}</td>
-                          <td>{row.rechazo}</td>
-                          <td>{row.dato_erroneo}</td>
-                          <td>{Number(row.contact || 0) || 0}%</td>
-                          <td>{Number(row.efectividad || 0) || 0}%</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {!sellerSummaryLoading && !effectiveRows.length ? (
-                    <div style={{ padding: 16, color: 'var(--muted)' }}>No hay datos reales para esta fecha.</div>
-                  ) : null}
-                </div>
-              </Panel>
-            </section>
-          </div>
-        );
+        return <CodificacionesView />;
       }
 
       return (
