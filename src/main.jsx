@@ -3470,9 +3470,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <div style={{ fontWeight: 700, fontSize: 18, color: '#1A2235', marginBottom: 8 }}>{drawerNombre}</div>
                     <SalesStatusBadge status={drawerEstado} small />
                   </div>
-                  <button type="button" aria-label="Cerrar" disabled style={{ background: 'none', border: 'none', cursor: 'not-allowed', color: '#bbb', padding: 4, borderRadius: 6, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                    <X size={20} />
-                  </button>
+                  <div style={{ width: 28, height: 28 }} />
                 </div>
 
                 <div style={{ padding: '20px 24px', flex: 1, display: 'flex', flexDirection: 'column', gap: 18 }}>
