@@ -292,7 +292,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     try {
       const formData = new FormData();
       formData.append('file', importFile);
-      const response = await api.post('/api/recupero/importar-bajas', formData, {
+      const response = await api.post('/api/recupero/importaciones', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       setImportResult(response);
