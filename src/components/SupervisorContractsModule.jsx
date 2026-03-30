@@ -1,5 +1,5 @@
 import React from 'react';
-import { Filter, RefreshCw, Plus, X } from 'lucide-react';
+import { Filter, RefreshCw, Plus, X, Upload } from 'lucide-react';
 import { getApiClient } from '../services/apiClient.js';
 
 const PAGE_SIZE = 50;
@@ -42,6 +42,13 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const [selectedSellers, setSelectedSellers] = React.useState([]);
   const [creatingLot, setCreatingLot] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState('disponibles');
+  const [showImportModal, setShowImportModal] = React.useState(false);
+  const [importFile, setImportFile] = React.useState(null);
+  const [importRows, setImportRows] = React.useState([]);
+  const [importErrors, setImportErrors] = React.useState([]);
+  const [importSummary, setImportSummary] = React.useState(null);
+  const [importLoading, setImportLoading] = React.useState(false);
+  const [importResult, setImportResult] = React.useState(null);
 
   const totalPages = Math.max(1, Math.ceil((total || 0) / PAGE_SIZE));
 
@@ -183,6 +190,118 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const resetLotModal = () => {
     setLotName('');
     setSelectedSellers([]);
+  };
+
+  const resetImportState = () => {
+    setImportFile(null);
+    setImportRows([]);
+    setImportErrors([]);
+    setImportSummary(null);
+    setImportLoading(false);
+    setImportResult(null);
+  };
+
+  const detectDelimiter = (line) => {
+    if (line.includes(';') && !line.includes(',')) return ';';
+    if (line.includes(',') && !line.includes(';')) return ',';
+    const commas = (line.match(/,/g) || []).length;
+    const semis = (line.match(/;/g) || []).length;
+    return semis > commas ? ';' : ',';
+  };
+
+  const normalizeHeader = (value) => String(value || '').trim().toLowerCase();
+
+  const parseCsvPreview = (text) => {
+    const lines = text.split(/\r?\n/).filter((l) => l.trim().length);
+    if (!lines.length) return { rows: [], errors: ['El archivo está vacío.'] };
+    const delimiter = detectDelimiter(lines[0]);
+    const headers = lines[0].split(delimiter).map((h) => h.trim());
+    const normalized = headers.map(normalizeHeader);
+    const expected = ['documento', 'motivo de la baja', 'ultimo estado'];
+    const missing = expected.filter((h) => !normalized.includes(h));
+    if (missing.length) {
+      return { rows: [], errors: [`Faltan columnas: ${missing.join(', ')}`] };
+    }
+    const idxDocumento = normalized.indexOf('documento');
+    const idxMotivo = normalized.indexOf('motivo de la baja');
+    const idxEstado = normalized.indexOf('ultimo estado');
+    const rows = lines.slice(1).map((line) => {
+      const cols = line.split(delimiter).map((c) => c.trim());
+      return {
+        documento: cols[idxDocumento] || '',
+        motivo_baja: cols[idxMotivo] || '',
+        ultimo_estado: cols[idxEstado] || ''
+      };
+    });
+    const errors = [];
+    const duplicates = new Set();
+    const seen = new Set();
+    rows.forEach((row, index) => {
+      if (!row.documento) errors.push(`Fila ${index + 2}: Documento vacío`);
+      const key = row.documento.trim();
+      if (key) {
+        if (seen.has(key)) duplicates.add(key);
+        seen.add(key);
+      }
+    });
+    if (duplicates.size) {
+      errors.push(`Documentos duplicados: ${Array.from(duplicates).slice(0, 5).join(', ')}${duplicates.size > 5 ? '…' : ''}`);
+    }
+    return {
+      rows,
+      errors,
+      summary: {
+        total: rows.length,
+        duplicates: duplicates.size
+      }
+    };
+  };
+
+  const handleFileChange = (event) => {
+    const file = event.target.files?.[0];
+    setImportResult(null);
+    if (!file) {
+      resetImportState();
+      return;
+    }
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      setImportErrors(['El archivo debe ser .csv']);
+      setImportFile(null);
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setImportErrors(['El archivo supera el tamaño máximo de 5MB.']);
+      setImportFile(null);
+      return;
+    }
+    setImportFile(file);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = parseCsvPreview(String(reader.result || ''));
+      setImportRows(result.rows || []);
+      setImportErrors(result.errors || []);
+      setImportSummary(result.summary || null);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleImportCsv = async () => {
+    if (!importFile || importErrors.length) return;
+    setImportLoading(true);
+    setImportResult(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', importFile);
+      const response = await api.post('/api/recupero/importar-bajas', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setImportResult(response);
+      loadRecupero();
+    } catch (err) {
+      setImportResult({ ok: false, message: err?.message || 'No se pudo importar el archivo.' });
+    } finally {
+      setImportLoading(false);
+    }
   };
 
   const openCreateLot = () => {
@@ -352,6 +471,9 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
               />
               <Button variant="secondary" icon={<Filter size={16} />}>Filtros</Button>
               <Button variant="ghost" icon={<RefreshCw size={16} />} onClick={loadRecupero}>Actualizar</Button>
+              <Button variant="secondary" icon={<Upload size={16} />} onClick={() => { resetImportState(); setShowImportModal(true); }}>
+                Importar CSV
+              </Button>
             </div>
 
             {activeTab === 'disponibles' && selectedIds.length > 0 && (
@@ -485,6 +607,66 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
             </div>
           </div>
         </>
+      )}
+
+      {showImportModal && (
+        <div className="lot-wizard-overlay" onClick={() => setShowImportModal(false)}>
+          <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 640 }}>
+            <div className="lot-wizard-header">
+              <div style={{ fontWeight: 700 }}>Importar CSV</div>
+              <button className="close-btn" onClick={() => setShowImportModal(false)}><X size={16} /></button>
+            </div>
+            <div className="lot-wizard-content">
+              <p style={{ marginTop: 0, color: 'var(--color-text-secondary)', fontSize: 13 }}>
+                Subí un CSV con las columnas: Documento, Motivo de la baja, Ultimo estado.
+              </p>
+              <input type="file" accept=".csv" onChange={handleFileChange} />
+              {importErrors.length ? (
+                <div style={{ marginTop: 10, color: '#b91c1c', fontSize: 13 }}>
+                  {importErrors.map((err) => <div key={err}>{err}</div>)}
+                </div>
+              ) : null}
+              {importSummary ? (
+                <div style={{ marginTop: 12, fontSize: 12, color: '#555' }}>
+                  Total filas: {importSummary.total} · Duplicados: {importSummary.duplicates}
+                </div>
+              ) : null}
+              {importRows.length ? (
+                <div style={{ marginTop: 12, maxHeight: 180, overflow: 'auto', border: '1px solid #eee', borderRadius: 8 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ textAlign: 'left', padding: '6px 8px', fontSize: 12 }}>Documento</th>
+                        <th style={{ textAlign: 'left', padding: '6px 8px', fontSize: 12 }}>Motivo de baja</th>
+                        <th style={{ textAlign: 'left', padding: '6px 8px', fontSize: 12 }}>Último estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importRows.slice(0, 10).map((row, idx) => (
+                        <tr key={`${row.documento}-${idx}`}>
+                          <td style={{ padding: '6px 8px', fontSize: 12 }}>{row.documento || '—'}</td>
+                          <td style={{ padding: '6px 8px', fontSize: 12 }}>{row.motivo_baja || '—'}</td>
+                          <td style={{ padding: '6px 8px', fontSize: 12 }}>{row.ultimo_estado || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+              {importResult && (
+                <div style={{ marginTop: 12, fontSize: 13, color: importResult?.ok === false ? '#b91c1c' : '#166534' }}>
+                  {importResult?.message || (importResult?.ok ? 'Importación completada.' : 'No se pudo importar.')}
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+                <Button variant="ghost" onClick={() => setShowImportModal(false)}>Cancelar</Button>
+                <Button disabled={!importFile || importErrors.length || importLoading} onClick={handleImportCsv}>
+                  {importLoading ? 'Procesando…' : 'Importar'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
