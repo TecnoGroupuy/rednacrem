@@ -323,6 +323,18 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
     };
     const initials = (name) => name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase();
     const pickCellular = (contact) => (contact?.celular || contact?.cellphone || contact?.telefono_celular || contact?.telefonoCelular || '');
+    const pickDireccion = (contact) => (
+      contact?.direccion
+      || contact?.domicilio
+      || contact?.direccion_completa
+      || contact?.direccionCompleta
+      || contact?.address
+      || contact?.calle
+      || contact?.street
+      || contact?.ubicacion?.direccion
+      || contact?.ubicacion?.direccion_completa
+      || ''
+    );
     const toStatusColor = (hex, alpha = 1) => {
       const clean = String(hex || '').replace('#', '');
       if (clean.length !== 6) return 'rgba(15, 23, 42, 0.4)';
@@ -3043,7 +3055,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setNextMessage('');
         resetForm();
         setDraftCelular(c?.celular || pickCellular(c) || '');
-        setDraftDireccion(c?.direccion || '');
+        setDraftDireccion(pickDireccion(c));
         onSelect(c.id || null);
       };
 
@@ -3133,7 +3145,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 telefono: dc.telefono || dc.phone || '',
                 celular: dc.celular || '',
                 correo_electronico: dc.correo_electronico || dc.email || '',
-                direccion: dc.direccion || '',
+                direccion: pickDireccion(dc) || '',
                 departamento: dc.departamento || dc.city || '',
                 pais: dc.pais || 'Uruguay',
                 batch_id: dc.batch_id || dc.lotId || '',
@@ -3171,6 +3183,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const drawerNombre = dc ? (dc.name || [dc.nombre, dc.apellido].filter(Boolean).join(' ') || '-') : '';
       const drawerTelefono = dc ? (dc.phone || dc.telefono || '-') : '';
       const drawerCelular = dc ? (pickCellular(dc) || dc.celular || '-') : '';
+      const drawerDireccion = dc ? (pickDireccion(dc) || '') : '';
       const drawerUbicacion = dc ? (dc.city || [dc.localidad, dc.departamento].filter(Boolean).join(', ') || '-') : '';
       const drawerFuente = dc ? (dc.source || dc.origen_dato || null) : null;
       const drawerLote = dc ? (dc.lotId || dc.batch_id || null) : null;
@@ -3590,8 +3603,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             )}
                             <div style={{ gridColumn: '1 / -1' }}>
                               <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Dirección</p>
-                              {dc.direccion ? (
-                                <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{dc.direccion}</p>
+                              {drawerDireccion ? (
+                                <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{drawerDireccion}</p>
                               ) : (
                                 <input
                                   className="input"
