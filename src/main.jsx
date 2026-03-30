@@ -4584,6 +4584,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
       const saveAudit = async () => {
         if (!auditItem) return;
+        const isValidUuid = (value) => (
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''))
+        );
+        const managementId = auditItem?.management_id || auditItem?.id || '';
+        if (!managementId || !isValidUuid(managementId)) {
+          setAuditError('Seleccione una gestión válida.');
+          return;
+        }
         if (!auditResultado) {
           setAuditError('Seleccioná una codificación corregida.');
           return;
@@ -4595,7 +4603,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setAuditSaving(true);
         setAuditError('');
         try {
-          await api.post(`/api/codificaciones/${auditItem.id}/correccion`, {
+          await api.post(`/api/codificaciones/${managementId}/correccion`, {
             resultado_corregido: auditResultado,
             comentario: auditComentario || ''
           });
