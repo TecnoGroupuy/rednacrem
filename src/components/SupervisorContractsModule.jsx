@@ -298,6 +298,11 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       const response = await api.post('/api/recupero/importaciones', formData);
       setImportResult(response);
       loadRecupero();
+      if (response?.ok !== false) {
+        setShowImportModal(false);
+        resetImportState();
+        return;
+      }
     } catch (err) {
       setImportResult({ ok: false, message: err?.message || 'No se pudo importar el archivo.' });
     } finally {
@@ -666,7 +671,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
               )}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
                 <Button variant="ghost" onClick={() => setShowImportModal(false)}>Cancelar</Button>
-                <Button disabled={!importFile || importLoading} onClick={handleImportCsv}>
+                <Button disabled={!importFile || importLoading || importResult?.ok} onClick={handleImportCsv}>
                   {importLoading ? 'Procesando…' : 'Importar'}
                 </Button>
               </div>
