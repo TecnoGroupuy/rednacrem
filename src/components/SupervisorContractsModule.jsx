@@ -22,6 +22,17 @@ const EMPTY_RULE = (fieldId = 'contacto') => ({
   value: ''
 });
 
+const EMPTY_ADVANCED_FILTERS = () => ({
+  fecha_baja_desde: '',
+  fecha_baja_hasta: '',
+  edad_min: '',
+  edad_max: '',
+  motivo_baja: [],
+  ultimo_estado: [],
+  producto: [],
+  departamento: []
+});
+
 const OPERATOR_LABELS = {
   contains: 'contiene',
   not_contains: 'no contiene',
@@ -83,10 +94,22 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const [filtroBusqueda, setFiltroBusqueda] = React.useState('');
   const [filtroBusquedaDebounced, setFiltroBusquedaDebounced] = React.useState('');
   const [orden, setOrden] = React.useState({ campo: '', direccion: 'asc' });
-  const [filterOptions, setFilterOptions] = React.useState({ productos: [], departamentos: [], motivos: [] });
+  const [filterOptions, setFilterOptions] = React.useState({ productos: [], departamentos: [], motivos: [], estados: [] });
+  const [filtersLoading, setFiltersLoading] = React.useState(false);
+  const [filtersError, setFiltersError] = React.useState('');
+  const defaultUltimoEstadoOptions = React.useMemo(() => ([
+    'Nuevo',
+    'Seguimiento',
+    'Rellamar',
+    'Rechazo',
+    'Recuperado'
+  ]), []);
+  const ultimoEstadoOptions = React.useMemo(() => (
+    filterOptions.estados?.length ? filterOptions.estados : defaultUltimoEstadoOptions
+  ), [defaultUltimoEstadoOptions, filterOptions.estados]);
   const [showAdvancedFilters, setShowAdvancedFilters] = React.useState(false);
-  const [advancedFiltersDraft, setAdvancedFiltersDraft] = React.useState(EMPTY_GROUP());
-  const [advancedFiltersApplied, setAdvancedFiltersApplied] = React.useState(EMPTY_GROUP());
+  const [advancedFiltersDraft, setAdvancedFiltersDraft] = React.useState(EMPTY_ADVANCED_FILTERS());
+  const [advancedFiltersApplied, setAdvancedFiltersApplied] = React.useState(EMPTY_ADVANCED_FILTERS());
   const [filterErrors, setFilterErrors] = React.useState({});
   const [columnsPanelOpen, setColumnsPanelOpen] = React.useState(false);
   const [visibleColumns, setVisibleColumns] = React.useState([]);
@@ -172,18 +195,25 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   }, [allColumns, visibleColumns.length]);
 
   const loadFilters = React.useCallback(async () => {
+    setFiltersLoading(true);
+    setFiltersError('');
     try {
       const response = await api.get('/api/recupero/filtros');
       const productos = response?.productos || response?.data?.productos || [];
       const departamentos = response?.departamentos || response?.data?.departamentos || [];
       const motivos = response?.motivos || response?.data?.motivos || [];
+      const estados = response?.estados || response?.data?.estados || response?.ultimo_estado || response?.data?.ultimo_estado || [];
       setFilterOptions({
         productos: Array.isArray(productos) ? productos : [],
         departamentos: Array.isArray(departamentos) ? departamentos : [],
-        motivos: Array.isArray(motivos) ? motivos : []
+        motivos: Array.isArray(motivos) ? motivos : [],
+        estados: Array.isArray(estados) ? estados : []
       });
     } catch {
-      setFilterOptions({ productos: [], departamentos: [], motivos: [] });
+      setFilterOptions({ productos: [], departamentos: [], motivos: [], estados: [] });
+      setFiltersError('No se pudieron cargar los catÃ¡logos.');
+    } finally {
+      setFiltersLoading(false);
     }
   }, [api]);
 
@@ -455,26 +485,62 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     return merged;
   };
 
-  const buildSearchPayload = React.useCallback(() => {
-    const quickRules = buildQuickFilterRules();
-    const advancedRules = flattenRules(advancedFiltersApplied);
-    const mergedRules = mergeRules(advancedRules, quickRules);
-    const filtersPayload = mergedRules.length
-      ? {
-        ...advancedFiltersApplied,
-        rules: mergedRules
-      }
-      : null;
-    return {
-      tab: activeTab,
-      search: filtroBusquedaDebounced || '',
-      filters: filtersPayload,
-      sort: orden.campo ? { field: orden.campo, dir: orden.direccion } : null,
-      columns: visibleColumns.length ? visibleColumns : allColumns.map((col) => col.id),
-      page,
-      limit: PAGE_SIZE
+  const toNumberOrNull = (value) => {
+    if (value === '' || value === null || value === undefined) return null;
+    const num = Number(value);
+    return Number.isNaN(num) ? null : num;
+  };
+
+  const validateAdvancedFilters = (filters) => {
+    const errors = {};
+    const edadMin = toNumberOrNull(filters.edad_min);
+    const edadMax = toNumberOrNull(filters.edad_max);
+    if (edadMin !== null && edadMax !== null && edadMin > edadMax) {
+      errors.edad = 'Rango de edad inválido.';
+    }
+    if (filters.fecha_baja_desde && filters.fecha_baja_hasta && filters.fecha_baja_desde > filters.fecha_baja_hasta) {
+      errors.fecha_baja = 'Fecha desde mayor que fecha hasta.';
+    }
+    return errors;
+  };
+
+  const buildFiltersPayload = React.useCallback(() => {
+    const payload = {
+      contacto: advancedFiltersApplied.contacto?.trim() || '',
+      documento: advancedFiltersApplied.documento?.trim() || '',
+      telefono: advancedFiltersApplied.telefono?.trim() || '',
+      edad_min: toNumberOrNull(advancedFiltersApplied.edad_min),
+      edad_max: toNumberOrNull(advancedFiltersApplied.edad_max),
+      fecha_baja_desde: advancedFiltersApplied.fecha_baja_desde || '',
+      fecha_baja_hasta: advancedFiltersApplied.fecha_baja_hasta || '',
+      ultimo_estado: Array.isArray(advancedFiltersApplied.ultimo_estado) ? advancedFiltersApplied.ultimo_estado : [],
+      ultima_gestion_desde: advancedFiltersApplied.ultima_gestion_desde || '',
+      ultima_gestion_hasta: advancedFiltersApplied.ultima_gestion_hasta || '',
+      precio_min: toNumberOrNull(advancedFiltersApplied.precio_min),
+      precio_max: toNumberOrNull(advancedFiltersApplied.precio_max),
+      vendedor_asignado: Array.isArray(advancedFiltersApplied.vendedor_asignado) ? advancedFiltersApplied.vendedor_asignado : [],
+      lote: Array.isArray(advancedFiltersApplied.lote) ? advancedFiltersApplied.lote : []
     };
-  }, [activeTab, advancedFiltersApplied, allColumns, buildQuickFilterRules, filtroBusquedaDebounced, mergeRules, orden, page, visibleColumns]);
+    if (filtroProducto) payload.producto = [filtroProducto];
+    if (filtroMotivo) payload.motivo_baja = [filtroMotivo];
+    if (filtroDepartamento) payload.departamento = [filtroDepartamento];
+    Object.keys(payload).forEach((key) => {
+      const value = payload[key];
+      if (value === '' || value === null || value === undefined) delete payload[key];
+      if (Array.isArray(value) && !value.length) delete payload[key];
+    });
+    return payload;
+  }, [advancedFiltersApplied, filtroDepartamento, filtroMotivo, filtroProducto]);
+
+  const buildSearchPayload = React.useCallback(() => ({
+    tab: activeTab,
+    search: filtroBusquedaDebounced || '',
+    filters: buildFiltersPayload(),
+    sort: orden.campo ? { field: orden.campo, dir: orden.direccion } : null,
+    columns: visibleColumns.length ? visibleColumns : allColumns.map((col) => col.id),
+    page,
+    limit: PAGE_SIZE
+  }), [activeTab, allColumns, buildFiltersPayload, filtroBusquedaDebounced, orden, page, visibleColumns]);
 
   const loadRecupero = React.useCallback(async (options = {}) => {
     const { force = false } = options;
@@ -652,7 +718,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   };
 
   const applyAdvancedFilters = () => {
-    const errors = collectRuleErrors(advancedFiltersDraft);
+    const errors = validateAdvancedFilters(advancedFiltersDraft);
     setFilterErrors(errors);
     if (Object.keys(errors).length) return;
     setAdvancedFiltersApplied(advancedFiltersDraft);
@@ -660,11 +726,20 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   };
 
   const clearAdvancedFilters = () => {
-    const empty = EMPTY_GROUP();
+    const empty = EMPTY_ADVANCED_FILTERS();
     setAdvancedFiltersDraft(empty);
     setAdvancedFiltersApplied(empty);
     setFilterErrors({});
     setPage(1);
+  };
+
+  const updateAdvancedField = (field, value) => {
+    setAdvancedFiltersDraft((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleMultiSelect = (event, field) => {
+    const values = Array.from(event.target.selectedOptions).map((option) => option.value);
+    updateAdvancedField(field, values);
   };
 
   const clearAllFilters = () => {
@@ -676,11 +751,25 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     clearAdvancedFilters();
   };
 
-  const removeAdvancedRule = (ruleId) => {
-    const nextApplied = removeRuleOrGroup(advancedFiltersApplied, ruleId);
-    const nextDraft = removeRuleOrGroup(advancedFiltersDraft, ruleId);
-    setAdvancedFiltersApplied(nextApplied);
-    setAdvancedFiltersDraft(nextDraft);
+  const clearAdvancedField = (fieldId) => {
+    const resetField = (prev) => {
+      const next = { ...prev };
+      if (fieldId === 'fecha_baja') {
+        next.fecha_baja_desde = '';
+        next.fecha_baja_hasta = '';
+      }
+      if (fieldId === 'edad') {
+        next.edad_min = '';
+        next.edad_max = '';
+      }
+      if (fieldId === 'motivo_baja') next.motivo_baja = [];
+      if (fieldId === 'ultimo_estado') next.ultimo_estado = [];
+      if (fieldId === 'producto_avanzado') next.producto = [];
+      if (fieldId === 'departamento_avanzado') next.departamento = [];
+      return next;
+    };
+    setAdvancedFiltersApplied((prev) => resetField(prev));
+    setAdvancedFiltersDraft((prev) => resetField(prev));
     setPage(1);
   };
 
@@ -765,19 +854,8 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       }
     };
     window.addEventListener('keydown', handler);
-    if (!hasRules(advancedFiltersDraft)) {
-      const operator = getOperatorsForField('contacto')[0] || '';
-      setAdvancedFiltersDraft((prev) => ({
-        ...prev,
-        rules: [...prev.rules, {
-          ...EMPTY_RULE('contacto'),
-          operator,
-          value: normalizeRuleValue(null, operator)
-        }]
-      }));
-    }
     return () => window.removeEventListener('keydown', handler);
-  }, [advancedFiltersDraft, getOperatorsForField, hasRules, showAdvancedFilters]);
+  }, [showAdvancedFilters]);
 
   const activeQuickFilters = React.useMemo(() => ({
     producto: filtroProducto,
@@ -786,43 +864,79 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     search: filtroBusquedaDebounced
   }), [filtroBusquedaDebounced, filtroDepartamento, filtroMotivo, filtroProducto]);
 
-  const activeAdvancedRules = React.useMemo(() => flattenRules(advancedFiltersApplied), [advancedFiltersApplied]);
+  const getOptionLabel = (options, value) => {
+    if (!options || value === undefined || value === null || value === '') return '';
+    if (Array.isArray(options)) {
+      const found = options.find((opt) => {
+        if (opt && typeof opt === 'object') {
+          return opt.value === value || opt.id === value || opt.label === value;
+        }
+        return opt === value;
+      });
+      if (found && typeof found === 'object') return found.label || found.name || found.value || String(value);
+      if (found) return String(found);
+    }
+    return String(value);
+  };
+
+  const activeAdvancedFilters = React.useMemo(() => {
+    const filters = [];
+    if (advancedFiltersApplied.fecha_baja_desde || advancedFiltersApplied.fecha_baja_hasta) {
+      filters.push({
+        id: 'fecha_baja',
+        label: `Fecha de baja: ${advancedFiltersApplied.fecha_baja_desde || '—'} - ${advancedFiltersApplied.fecha_baja_hasta || '—'}`
+      });
+    }
+    if (advancedFiltersApplied.edad_min || advancedFiltersApplied.edad_max) {
+      filters.push({
+        id: 'edad',
+        label: `Edad: ${advancedFiltersApplied.edad_min || '—'} - ${advancedFiltersApplied.edad_max || '—'}`
+      });
+    }
+    if (Array.isArray(advancedFiltersApplied.motivo_baja) && advancedFiltersApplied.motivo_baja.length) {
+      filters.push({
+        id: 'motivo_baja',
+        label: `Motivo: ${advancedFiltersApplied.motivo_baja.map((val) => getOptionLabel(filterOptions.motivos, val)).join(', ')}`
+      });
+    }
+    if (Array.isArray(advancedFiltersApplied.ultimo_estado) && advancedFiltersApplied.ultimo_estado.length) {
+      filters.push({
+        id: 'ultimo_estado',
+        label: `Último estado: ${advancedFiltersApplied.ultimo_estado.join(', ')}`
+      });
+    }
+    if (Array.isArray(advancedFiltersApplied.producto) && advancedFiltersApplied.producto.length) {
+      filters.push({
+        id: 'producto_avanzado',
+        label: `Producto: ${advancedFiltersApplied.producto.map((val) => getOptionLabel(filterOptions.productos, val)).join(', ')}`
+      });
+    }
+    if (Array.isArray(advancedFiltersApplied.departamento) && advancedFiltersApplied.departamento.length) {
+      filters.push({
+        id: 'departamento_avanzado',
+        label: `Departamento: ${advancedFiltersApplied.departamento.map((val) => getOptionLabel(filterOptions.departamentos, val)).join(', ')}`
+      });
+    }
+    return filters;
+  }, [advancedFiltersApplied, filterOptions.departamentos, filterOptions.motivos, filterOptions.productos]);
 
   const activeFilterCount = React.useMemo(() => {
     const quickCount = Object.values(activeQuickFilters).filter(Boolean).length;
-    return quickCount + activeAdvancedRules.length;
-  }, [activeAdvancedRules.length, activeQuickFilters]);
+    return quickCount + activeAdvancedFilters.length;
+  }, [activeAdvancedFilters.length, activeQuickFilters]);
 
   const activeChips = React.useMemo(() => {
     const chips = [];
     if (activeQuickFilters.search) chips.push({ id: 'search', label: `Búsqueda: ${activeQuickFilters.search}`, type: 'quick' });
     if (activeQuickFilters.producto) chips.push({ id: 'producto', label: `Producto: ${activeQuickFilters.producto}`, type: 'quick' });
-    if (activeQuickFilters.motivo_baja) chips.push({ id: 'motivo_baja', label: `Motivo: ${activeQuickFilters.motivo_baja}`, type: 'quick' });
-    if (activeQuickFilters.departamento) chips.push({ id: 'departamento', label: `Departamento: ${activeQuickFilters.departamento}`, type: 'quick' });
+    if (activeQuickFilters.motivo_baja) chips.push({ id: 'motivo_baja_quick', label: `Motivo: ${activeQuickFilters.motivo_baja}`, type: 'quick' });
+    if (activeQuickFilters.departamento) chips.push({ id: 'departamento_quick', label: `Departamento: ${activeQuickFilters.departamento}`, type: 'quick' });
 
-    activeAdvancedRules.forEach((rule) => {
-      const field = getFieldById(rule.field);
-      const operatorLabel = OPERATOR_LABELS[rule.operator] || rule.operator;
-      let valueLabel = '';
-      if (rule.operator === 'between' && rule.value) {
-        valueLabel = `${rule.value.from || '—'} a ${rule.value.to || '—'}`;
-      } else if (rule.operator === 'last_days') {
-        valueLabel = `${rule.value} días`;
-      } else if (rule.operator === 'empty' || rule.operator === 'not_empty' || rule.operator === 'today' || rule.operator === 'this_month') {
-        valueLabel = '';
-      } else if (Array.isArray(rule.value)) {
-        valueLabel = rule.value.join(', ');
-      } else {
-        valueLabel = rule.value;
-      }
-      chips.push({
-        id: rule.id,
-        label: `${field?.label || rule.field} ${operatorLabel}${valueLabel ? ` ${valueLabel}` : ''}`,
-        type: 'advanced'
-      });
+    activeAdvancedFilters.forEach((item) => {
+      chips.push({ id: item.id, label: item.label, type: 'advanced' });
     });
     return chips;
-  }, [activeAdvancedRules, activeQuickFilters, getFieldById]);
+  }, [activeAdvancedFilters, activeQuickFilters]);
 
   const renderValueInput = (rule) => {
     const field = getFieldById(rule.field);
@@ -1340,10 +1454,10 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                       if (chip.type === 'quick') {
                         if (chip.id === 'search') setFiltroBusqueda('');
                         if (chip.id === 'producto') setFiltroProducto('');
-                        if (chip.id === 'motivo_baja') setFiltroMotivo('');
+                        if (chip.id === 'motivo_baja_quick') setFiltroMotivo('');
                         if (chip.id === 'departamento') setFiltroDepartamento('');
                       } else {
-                        removeAdvancedRule(chip.id);
+                        clearAdvancedField(chip.id);
                       }
                     }}
                     style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#0f766e', fontWeight: 700 }}
@@ -1516,13 +1630,164 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
             <div>
               <div style={{ fontWeight: 700 }}>Filtros avanzados</div>
               <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                Constructor de segmentos
+                Filtros por columnas
               </div>
             </div>
             <button className="close-btn" onClick={() => setShowAdvancedFilters(false)}><X size={16} /></button>
           </div>
           <div style={{ padding: 16, overflowY: 'auto', flex: 1 }}>
-            {renderGroup(advancedFiltersDraft)}
+            {filtersLoading ? (
+              <div style={{ marginBottom: 12, fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                Cargando catÃ¡logos...
+              </div>
+            ) : null}
+            {filtersError ? (
+              <div style={{ marginBottom: 12, fontSize: 12, color: '#b91c1c' }}>
+                {filtersError}
+              </div>
+            ) : null}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontWeight: 700, marginBottom: 8 }}>GestiÃ³n</div>
+              <label style={{ display: 'grid', gap: 6, marginBottom: 12 }}>
+                <span style={{ fontSize: 12, color: '#64748b' }}>Fecha de baja</span>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    className="input"
+                    type="date"
+                    value={advancedFiltersDraft.fecha_baja_desde}
+                    onChange={(event) => updateAdvancedField('fecha_baja_desde', event.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  <input
+                    className="input"
+                    type="date"
+                    value={advancedFiltersDraft.fecha_baja_hasta}
+                    onChange={(event) => updateAdvancedField('fecha_baja_hasta', event.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                </div>
+                {filterErrors.fecha_baja ? (
+                  <span style={{ fontSize: 12, color: '#b91c1c' }}>{filterErrors.fecha_baja}</span>
+                ) : null}
+              </label>
+              <label style={{ display: 'grid', gap: 6, marginBottom: 12 }}>
+                <span style={{ fontSize: 12, color: '#64748b' }}>Motivo de baja</span>
+                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Todos los motivos</span>
+                <select
+                  className="input"
+                  multiple
+                  value={advancedFiltersDraft.motivo_baja}
+                  onChange={(event) => handleMultiSelect(event, 'motivo_baja')}
+                  style={{ minHeight: 86 }}
+                  disabled={filtersLoading || !filterOptions.motivos.length}
+                >
+                  {!filtersLoading && !filterOptions.motivos.length ? (
+                    <option value="" disabled>Sin opciones disponibles</option>
+                  ) : null}
+                  {filterOptions.motivos.map((motivo) => {
+                    const value = motivo?.value || motivo?.label || motivo;
+                    const label = motivo?.label || motivo?.value || motivo;
+                    return <option key={value} value={value}>{label}</option>;
+                  })}
+                </select>
+              </label>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span style={{ fontSize: 12, color: '#64748b' }}>Ãšltimo estado</span>
+                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Todos los estados</span>
+                <select
+                  className="input"
+                  multiple
+                  value={advancedFiltersDraft.ultimo_estado}
+                  onChange={(event) => handleMultiSelect(event, 'ultimo_estado')}
+                  style={{ minHeight: 86 }}
+                  disabled={filtersLoading || !ultimoEstadoOptions.length}
+                >
+                  {!filtersLoading && !ultimoEstadoOptions.length ? (
+                    <option value="" disabled>Sin opciones disponibles</option>
+                  ) : null}
+                  {ultimoEstadoOptions.map((estado) => {
+                    const value = estado?.value || estado?.label || estado;
+                    const label = estado?.label || estado?.value || estado;
+                    return <option key={value} value={value}>{label}</option>;
+                  })}
+                </select>
+              </label>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontWeight: 700, marginBottom: 8 }}>Datos</div>
+              <label style={{ display: 'grid', gap: 6, marginBottom: 12 }}>
+                <span style={{ fontSize: 12, color: '#64748b' }}>Edad</span>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    className="input"
+                    type="number"
+                    placeholder="Desde"
+                    value={advancedFiltersDraft.edad_min}
+                    onChange={(event) => updateAdvancedField('edad_min', event.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  <input
+                    className="input"
+                    type="number"
+                    placeholder="Hasta"
+                    value={advancedFiltersDraft.edad_max}
+                    onChange={(event) => updateAdvancedField('edad_max', event.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                </div>
+                {filterErrors.edad ? (
+                  <span style={{ fontSize: 12, color: '#b91c1c' }}>{filterErrors.edad}</span>
+                ) : null}
+              </label>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span style={{ fontSize: 12, color: '#64748b' }}>Departamento</span>
+                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Todos los departamentos</span>
+                <select
+                  className="input"
+                  multiple
+                  value={advancedFiltersDraft.departamento}
+                  onChange={(event) => handleMultiSelect(event, 'departamento')}
+                  style={{ minHeight: 86 }}
+                  disabled={filtersLoading || !filterOptions.departamentos.length}
+                >
+                  {!filtersLoading && !filterOptions.departamentos.length ? (
+                    <option value="" disabled>Sin opciones disponibles</option>
+                  ) : null}
+                  {filterOptions.departamentos.map((depto) => {
+                    const value = depto?.value || depto?.label || depto;
+                    const label = depto?.label || depto?.value || depto;
+                    return <option key={value} value={value}>{label}</option>;
+                  })}
+                </select>
+              </label>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontWeight: 700, marginBottom: 8 }}>Producto</div>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span style={{ fontSize: 12, color: '#64748b' }}>Producto</span>
+                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Todos los productos</span>
+                <select
+                  className="input"
+                  multiple
+                  value={advancedFiltersDraft.producto}
+                  onChange={(event) => handleMultiSelect(event, 'producto')}
+                  style={{ minHeight: 86 }}
+                  disabled={filtersLoading || !filterOptions.productos.length}
+                >
+                  {!filtersLoading && !filterOptions.productos.length ? (
+                    <option value="" disabled>Sin opciones disponibles</option>
+                  ) : null}
+                  {filterOptions.productos.map((producto) => {
+                    const value = producto?.value || producto?.label || producto;
+                    const label = producto?.label || producto?.value || producto;
+                    return <option key={value} value={value}>{label}</option>;
+                  })}
+                </select>
+              </label>
+            </div>
+
             <div style={{ borderTop: '1px solid rgba(148,163,184,0.3)', paddingTop: 12, marginTop: 12 }}>
               <div style={{ fontWeight: 700, marginBottom: 8 }}>Guardar vista</div>
               <input
@@ -1715,3 +1980,10 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     </div>
   );
 }
+
+
+
+
+
+
+
