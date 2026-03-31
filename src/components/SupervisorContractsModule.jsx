@@ -517,6 +517,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                 <tr>
                   <th></th>
                   <th>Contacto</th>
+                  <ColHeader campo="documento" label="Documento" ordenActual={orden} onOrden={setOrden} />
                   <ColHeader campo="edad" label="Edad" ordenActual={orden} onOrden={setOrden} />
                   <ColHeader campo="telefono" label="Teléfono" ordenActual={orden} onOrden={setOrden} />
                   <ColHeader campo="departamento" label="Departamento" ordenActual={orden} onOrden={setOrden} />
@@ -551,6 +552,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                         />
                       </td>
                       <td><strong>{nombre}</strong></td>
+                      <td>{row.documento || row.cedula || row.ci || row.documento_identidad || '—'}</td>
                       <td>{row.edad ? `${row.edad} años` : '—'}</td>
                       <td>{row.telefono || row.phone || '—'}</td>
                       <td>{row.departamento || row.depto || '—'}</td>
