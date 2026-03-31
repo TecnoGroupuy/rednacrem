@@ -1,100 +1,52 @@
-import React from 'react';
+﻿import React from 'react';
 import { Filter, RefreshCw, Plus, X, Upload, Columns } from 'lucide-react';
 import { getApiClient } from '../services/apiClient.js';
 
 const PAGE_SIZE = 50;
 
-const normalizeOption = (value) => String(value || '').trim();
-const makeId = () => `id_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-
-const EMPTY_GROUP = () => ({
-  id: makeId(),
-  type: 'group',
-  combinator: 'AND',
-  rules: []
-});
-
-const EMPTY_RULE = (fieldId = 'contacto') => ({
-  id: makeId(),
-  type: 'rule',
-  field: fieldId,
-  operator: '',
-  value: ''
-});
-
-const EMPTY_ADVANCED_FILTERS = () => ({
-  fecha_baja_desde: '',
-  fecha_baja_hasta: '',
+const COLUMN_FILTERS_INITIAL = {
+  contacto: '',
+  documento: '',
+  telefono: '',
   edad_min: '',
   edad_max: '',
+  precio_min: '',
+  precio_max: '',
+  fecha_baja_desde: '',
+  fecha_baja_hasta: '',
+  departamento: [],
+  producto: [],
   motivo_baja: [],
   ultimo_estado: [],
-  producto: [],
-  departamento: []
-});
-
-const OPERATOR_LABELS = {
-  contains: 'contiene',
-  not_contains: 'no contiene',
-  eq: 'igual',
-  ne: 'distinto',
-  starts: 'empieza con',
-  ends: 'termina con',
-  empty: 'vacío',
-  not_empty: 'no vacío',
-  gt: 'mayor',
-  gte: 'mayor o igual',
-  lt: 'menor',
-  lte: 'menor o igual',
-  between: 'entre',
-  before: 'antes',
-  after: 'después',
-  today: 'hoy',
-  last_days: 'últimos X días',
-  this_month: 'este mes',
-  in: 'es alguno de',
-  not_in: 'no es alguno de',
-  is_true: 'verdadero',
-  is_false: 'falso'
+  lote: [],
+  vendedor_asignado: []
 };
 
-const TYPE_OPERATORS = {
-  text: ['contains', 'not_contains', 'eq', 'ne', 'starts', 'ends', 'empty', 'not_empty'],
-  number: ['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'between', 'empty', 'not_empty'],
-  date: ['before', 'after', 'between', 'today', 'last_days', 'this_month', 'empty', 'not_empty'],
-  enum: ['in', 'not_in', 'empty', 'not_empty'],
-  boolean: ['is_true', 'is_false']
+const FILTER_COLUMN_CONFIG = {
+  contacto: { type: 'text' },
+  documento: { type: 'text' },
+  telefono: { type: 'text' },
+  edad: { type: 'rangeNumber' },
+  precio: { type: 'rangeNumber' },
+  fecha_baja: { type: 'dateRange' },
+  departamento: { type: 'select', key: 'departamento' },
+  producto: { type: 'select', key: 'producto' },
+  motivo_baja: { type: 'select', key: 'motivo_baja' },
+  ultimo_estado: { type: 'select', key: 'ultimo_estado' },
+  lote: { type: 'select', key: 'lote' },
+  vendedor_asignado: { type: 'select', key: 'vendedor_asignado' }
 };
-
-const isGroup = (node) => node?.type === 'group';
-const isRule = (node) => node?.type === 'rule';
-function ColHeader({ campo, label, ordenActual, onOrden }) {
-  const activo = ordenActual.campo === campo;
-  const icono = !activo ? '↕' : ordenActual.direccion === 'asc' ? '↑' : '↓';
-  return (
-    <th
-      onClick={() => onOrden({
-        campo,
-        direccion: activo && ordenActual.direccion === 'asc' ? 'desc' : 'asc'
-      })}
-      style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-    >
-      {label} <span style={{ opacity: activo ? 1 : 0.3, fontSize: '11px' }}>{icono}</span>
-    </th>
-  );
-}
 
 export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const api = React.useMemo(() => getApiClient(), []);
   const [metrics, setMetrics] = React.useState({ total: 0, disponibles: 0, enLote: 0, recuperados: 0, rechazados: 0 });
   const [items, setItems] = React.useState([]);
-  const [filtroProducto, setFiltroProducto] = React.useState('');
-  const [filtroDepartamento, setFiltroDepartamento] = React.useState('');
-  const [filtroMotivo, setFiltroMotivo] = React.useState('');
-  const [filtroBusqueda, setFiltroBusqueda] = React.useState('');
-  const [filtroBusquedaDebounced, setFiltroBusquedaDebounced] = React.useState('');
+  const [columnFiltersDraft, setColumnFiltersDraft] = React.useState({ ...COLUMN_FILTERS_INITIAL });
+  const [columnFiltersApplied, setColumnFiltersApplied] = React.useState({ ...COLUMN_FILTERS_INITIAL });
+  const [filterErrors, setFilterErrors] = React.useState({});
+  const [openFilterColumn, setOpenFilterColumn] = React.useState('');
   const [orden, setOrden] = React.useState({ campo: '', direccion: 'asc' });
-  const [filterOptions, setFilterOptions] = React.useState({ productos: [], departamentos: [], motivos: [], estados: [] });
+  const [filterOptions, setFilterOptions] = React.useState({ productos: [], departamentos: [], motivos: [], estados: [], vendedores: [], lotes: [] });
   const [filtersLoading, setFiltersLoading] = React.useState(false);
   const [filtersError, setFiltersError] = React.useState('');
   const defaultUltimoEstadoOptions = React.useMemo(() => ([
@@ -107,17 +59,8 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const ultimoEstadoOptions = React.useMemo(() => (
     filterOptions.estados?.length ? filterOptions.estados : defaultUltimoEstadoOptions
   ), [defaultUltimoEstadoOptions, filterOptions.estados]);
-  const [showAdvancedFilters, setShowAdvancedFilters] = React.useState(false);
-  const [advancedFiltersDraft, setAdvancedFiltersDraft] = React.useState(EMPTY_ADVANCED_FILTERS());
-  const [advancedFiltersApplied, setAdvancedFiltersApplied] = React.useState(EMPTY_ADVANCED_FILTERS());
-  const [filterErrors, setFilterErrors] = React.useState({});
   const [columnsPanelOpen, setColumnsPanelOpen] = React.useState(false);
   const [visibleColumns, setVisibleColumns] = React.useState([]);
-  const [savedViews, setSavedViews] = React.useState([]);
-  const [selectedViewId, setSelectedViewId] = React.useState('');
-  const [saveViewName, setSaveViewName] = React.useState('');
-  const [saveViewDefault, setSaveViewDefault] = React.useState(false);
-  const [saveViewFavorite, setSaveViewFavorite] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
   const [page, setPage] = React.useState(1);
@@ -199,18 +142,46 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     setFiltersError('');
     try {
       const response = await api.get('/api/recupero/filtros');
-      const productos = response?.productos || response?.data?.productos || [];
-      const departamentos = response?.departamentos || response?.data?.departamentos || [];
-      const motivos = response?.motivos || response?.data?.motivos || [];
-      const estados = response?.estados || response?.data?.estados || response?.ultimo_estado || response?.data?.ultimo_estado || [];
+      const productos = response?.productos
+        || response?.data?.productos
+        || response?.producto
+        || response?.data?.producto
+        || [];
+      const departamentos = response?.departamentos
+        || response?.data?.departamentos
+        || response?.departamento
+        || response?.data?.departamento
+        || [];
+      const motivos = response?.motivos
+        || response?.data?.motivos
+        || response?.motivo_baja
+        || response?.data?.motivo_baja
+        || [];
+      const estados = response?.estados
+        || response?.data?.estados
+        || response?.ultimo_estado
+        || response?.data?.ultimo_estado
+        || [];
+      const vendedores = response?.vendedores
+        || response?.data?.vendedores
+        || response?.vendedor_asignado
+        || response?.data?.vendedor_asignado
+        || [];
+      const lotes = response?.lotes
+        || response?.data?.lotes
+        || response?.lote
+        || response?.data?.lote
+        || [];
       setFilterOptions({
         productos: Array.isArray(productos) ? productos : [],
         departamentos: Array.isArray(departamentos) ? departamentos : [],
         motivos: Array.isArray(motivos) ? motivos : [],
-        estados: Array.isArray(estados) ? estados : []
+        estados: Array.isArray(estados) ? estados : [],
+        vendedores: Array.isArray(vendedores) ? vendedores : [],
+        lotes: Array.isArray(lotes) ? lotes : []
       });
     } catch {
-      setFilterOptions({ productos: [], departamentos: [], motivos: [], estados: [] });
+      setFilterOptions({ productos: [], departamentos: [], motivos: [], estados: [], vendedores: [], lotes: [] });
       setFiltersError('No se pudieron cargar los catálogos.');
     } finally {
       setFiltersLoading(false);
@@ -293,49 +264,15 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     || 0
   );
 
-  const filterFields = React.useMemo(() => ([
-    { id: 'contacto', label: 'Contacto', type: 'text' },
-    { id: 'documento', label: 'Documento', type: 'number' },
-    { id: 'edad', label: 'Edad', type: 'number' },
-    { id: 'telefono', label: 'Teléfono', type: 'number' },
-    { id: 'departamento', label: 'Departamento', type: 'enum', options: filterOptions.departamentos },
-    { id: 'producto', label: 'Producto', type: 'enum', options: filterOptions.productos },
-    { id: 'precio', label: 'Precio', type: 'number' },
-    { id: 'fecha_baja', label: 'Fecha de baja', type: 'date' },
-    { id: 'motivo_baja', label: 'Motivo de baja', type: 'enum', options: filterOptions.motivos },
-    { id: 'lote', label: 'Lote', type: 'text' },
-    { id: 'vendedor_asignado', label: 'Vendedor asignado', type: 'enum', options: sellers.map((seller) => ({ value: seller.id, label: seller.label })) },
-    { id: 'ultimo_estado', label: 'Último estado', type: 'enum', options: [
-      { value: 'Nuevo', label: 'Nuevo' },
-      { value: 'Seguimiento', label: 'Seguimiento' },
-      { value: 'Rellamar', label: 'Rellamar' },
-      { value: 'Rechazo', label: 'Rechazo' },
-      { value: 'Recuperado', label: 'Recuperado' }
-    ] },
-    { id: 'ultima_gestion', label: 'Última gestión', type: 'date' }
-  ]), [filterOptions.departamentos, filterOptions.motivos, filterOptions.productos, sellers]);
-
-  const getFieldById = React.useCallback((fieldId) => (
-    filterFields.find((field) => field.id === fieldId) || filterFields[0]
-  ), [filterFields]);
-
-  const getOperatorsForField = React.useCallback((fieldId) => {
-    const field = getFieldById(fieldId);
-    return TYPE_OPERATORS[field?.type] || TYPE_OPERATORS.text;
-  }, [getFieldById]);
-
-  const normalizeRuleValue = (rule, operator) => {
-    if (operator === 'between') {
-      return { from: '', to: '' };
-    }
-    if (operator === 'last_days') {
-      return 7;
-    }
-    if (operator === 'today' || operator === 'this_month' || operator === 'empty' || operator === 'not_empty' || operator === 'is_true' || operator === 'is_false') {
-      return '';
-    }
-    return '';
-  };
+  const getFilterOptionsForKey = React.useCallback((key) => {
+    if (key === 'departamento') return filterOptions.departamentos;
+    if (key === 'producto') return filterOptions.productos;
+    if (key === 'motivo_baja') return filterOptions.motivos;
+    if (key === 'ultimo_estado') return ultimoEstadoOptions;
+    if (key === 'lote') return filterOptions.lotes;
+    if (key === 'vendedor_asignado') return filterOptions.vendedores.length ? filterOptions.vendedores : sellers;
+    return [];
+  }, [filterOptions, sellers, ultimoEstadoOptions]);
 
   const getMotivoBaja = (row) => row?.motivo_baja || null;
   const getNombreLote = (row) => row?.nombre_lote || null;
@@ -343,160 +280,23 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const getUltimoEstado = (row) => row?.ultimo_estado_gestion || null;
   const getFechaUltimaGestion = (row) => row?.fecha_ultima_gestion || null;
 
-  const updateGroupById = (group, groupId, updater) => {
-    if (group.id === groupId) return updater(group);
-    return {
-      ...group,
-      rules: group.rules.map((rule) => {
-        if (isGroup(rule)) return updateGroupById(rule, groupId, updater);
-        return rule;
-      })
-    };
-  };
-
-  const updateRuleById = (group, ruleId, updater) => ({
-    ...group,
-    rules: group.rules.map((rule) => {
-      if (isGroup(rule)) return updateRuleById(rule, ruleId, updater);
-      if (rule.id !== ruleId) return rule;
-      return updater(rule);
-    })
-  });
-
-  const removeRuleOrGroup = (group, targetId) => ({
-    ...group,
-    rules: group.rules.filter((rule) => rule.id !== targetId).map((rule) => (
-      isGroup(rule) ? removeRuleOrGroup(rule, targetId) : rule
-    ))
-  });
-
-  const addRuleToGroup = (groupId) => {
-    const fieldId = advancedFiltersDraft.rules[0]?.field || 'contacto';
-    const operator = getOperatorsForField(fieldId)[0] || '';
-    const nextRule = {
-      ...EMPTY_RULE(fieldId),
-      operator,
-      value: normalizeRuleValue(null, operator)
-    };
-    const next = updateGroupById(advancedFiltersDraft, groupId, (group) => ({
-      ...group,
-      rules: [...group.rules, nextRule]
-    }));
-    setAdvancedFiltersDraft(next);
-  };
-
-  const addGroupToGroup = (groupId) => {
-    const nextGroup = EMPTY_GROUP();
-    const next = updateGroupById(advancedFiltersDraft, groupId, (group) => ({
-      ...group,
-      rules: [...group.rules, nextGroup]
-    }));
-    setAdvancedFiltersDraft(next);
-  };
-
-  const updateRuleField = (ruleId, fieldId) => {
-    const operators = getOperatorsForField(fieldId);
-    const operator = operators[0] || '';
-    const nextValue = normalizeRuleValue(null, operator);
-    setAdvancedFiltersDraft((prev) => updateRuleById(prev, ruleId, (rule) => ({
-      ...rule,
-      field: fieldId,
-      operator,
-      value: nextValue
-    })));
-  };
-
-  const updateRuleOperator = (ruleId, operator) => {
-    setAdvancedFiltersDraft((prev) => updateRuleById(prev, ruleId, (rule) => ({
-      ...rule,
-      operator,
-      value: normalizeRuleValue(rule, operator)
-    })));
-  };
-
-  const updateRuleValue = (ruleId, value) => {
-    setAdvancedFiltersDraft((prev) => updateRuleById(prev, ruleId, (rule) => ({
-      ...rule,
-      value
-    })));
-  };
-
-  const updateGroupCombinator = (groupId, combinator) => {
-    setAdvancedFiltersDraft((prev) => updateGroupById(prev, groupId, (group) => ({
-      ...group,
-      combinator
-    })));
-  };
-
-  const validateRule = (rule) => {
-    if (!rule.field || !rule.operator) return 'Seleccioná un campo y operador.';
-    if (['empty', 'not_empty', 'today', 'this_month', 'is_true', 'is_false'].includes(rule.operator)) return '';
-    if (rule.operator === 'between') {
-      if (!rule.value?.from || !rule.value?.to) return 'Completá el rango.';
-      return '';
-    }
-    if (rule.operator === 'last_days') {
-      if (!rule.value || Number(rule.value) <= 0) return 'Ingresá cantidad de días.';
-      return '';
-    }
-    if (rule.value === '' || rule.value === null || rule.value === undefined) return 'Seleccioná un valor.';
-    return '';
-  };
-
-  const collectRuleErrors = (group, errors = {}) => {
-    group.rules.forEach((rule) => {
-      if (isGroup(rule)) {
-        collectRuleErrors(rule, errors);
-      } else {
-        const error = validateRule(rule);
-        if (error) errors[rule.id] = error;
-      }
-    });
-    return errors;
-  };
-
-  const flattenRules = (group, acc = []) => {
-    group.rules.forEach((rule) => {
-      if (isGroup(rule)) flattenRules(rule, acc);
-      else acc.push(rule);
-    });
-    return acc;
-  };
-
-  const hasRules = React.useCallback((group) => flattenRules(group).length > 0, []);
-
-  const buildQuickFilterRules = React.useCallback(() => {
-    const rules = [];
-    if (filtroProducto) rules.push({ id: makeId(), type: 'rule', field: 'producto', operator: 'eq', value: filtroProducto });
-    if (filtroMotivo) rules.push({ id: makeId(), type: 'rule', field: 'motivo_baja', operator: 'eq', value: filtroMotivo });
-    if (filtroDepartamento) rules.push({ id: makeId(), type: 'rule', field: 'departamento', operator: 'eq', value: filtroDepartamento });
-    return rules;
-  }, [filtroDepartamento, filtroMotivo, filtroProducto]);
-
-  const mergeRules = (baseRules, extraRules) => {
-    const seen = new Set();
-    const merged = [];
-    [...baseRules, ...extraRules].forEach((rule) => {
-      const key = `${rule.field}:${rule.operator}:${JSON.stringify(rule.value)}`;
-      if (seen.has(key)) return;
-      seen.add(key);
-      merged.push(rule);
-    });
-    return merged;
-  };
-
   const toNumberOrNull = (value) => {
     if (value === '' || value === null || value === undefined) return null;
     const num = Number(value);
     return Number.isNaN(num) ? null : num;
   };
 
-  const validateAdvancedFilters = (filters) => {
+  const validateColumnFilters = (filters) => {
     const errors = {};
     const edadMin = toNumberOrNull(filters.edad_min);
     const edadMax = toNumberOrNull(filters.edad_max);
     if (edadMin !== null && edadMax !== null && edadMin > edadMax) {
       errors.edad = 'Rango de edad inválido.';
+    }
+    const precioMin = toNumberOrNull(filters.precio_min);
+    const precioMax = toNumberOrNull(filters.precio_max);
+    if (precioMin !== null && precioMax !== null && precioMin > precioMax) {
+      errors.precio = 'Rango de precio inválido.';
     }
     if (filters.fecha_baja_desde && filters.fecha_baja_hasta && filters.fecha_baja_desde > filters.fecha_baja_hasta) {
       errors.fecha_baja = 'Fecha desde mayor que fecha hasta.';
@@ -506,41 +306,38 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
 
   const buildFiltersPayload = React.useCallback(() => {
     const payload = {
-      contacto: advancedFiltersApplied.contacto?.trim() || '',
-      documento: advancedFiltersApplied.documento?.trim() || '',
-      telefono: advancedFiltersApplied.telefono?.trim() || '',
-      edad_min: toNumberOrNull(advancedFiltersApplied.edad_min),
-      edad_max: toNumberOrNull(advancedFiltersApplied.edad_max),
-      fecha_baja_desde: advancedFiltersApplied.fecha_baja_desde || '',
-      fecha_baja_hasta: advancedFiltersApplied.fecha_baja_hasta || '',
-      ultimo_estado: Array.isArray(advancedFiltersApplied.ultimo_estado) ? advancedFiltersApplied.ultimo_estado : [],
-      ultima_gestion_desde: advancedFiltersApplied.ultima_gestion_desde || '',
-      ultima_gestion_hasta: advancedFiltersApplied.ultima_gestion_hasta || '',
-      precio_min: toNumberOrNull(advancedFiltersApplied.precio_min),
-      precio_max: toNumberOrNull(advancedFiltersApplied.precio_max),
-      vendedor_asignado: Array.isArray(advancedFiltersApplied.vendedor_asignado) ? advancedFiltersApplied.vendedor_asignado : [],
-      lote: Array.isArray(advancedFiltersApplied.lote) ? advancedFiltersApplied.lote : []
+      contacto: columnFiltersApplied.contacto?.trim() || '',
+      documento: columnFiltersApplied.documento?.trim() || '',
+      telefono: columnFiltersApplied.telefono?.trim() || '',
+      edad_min: toNumberOrNull(columnFiltersApplied.edad_min),
+      edad_max: toNumberOrNull(columnFiltersApplied.edad_max),
+      precio_min: toNumberOrNull(columnFiltersApplied.precio_min),
+      precio_max: toNumberOrNull(columnFiltersApplied.precio_max),
+      fecha_baja_desde: columnFiltersApplied.fecha_baja_desde || '',
+      fecha_baja_hasta: columnFiltersApplied.fecha_baja_hasta || '',
+      motivo_baja: Array.isArray(columnFiltersApplied.motivo_baja) ? columnFiltersApplied.motivo_baja : [],
+      ultimo_estado: Array.isArray(columnFiltersApplied.ultimo_estado) ? columnFiltersApplied.ultimo_estado : [],
+      producto: Array.isArray(columnFiltersApplied.producto) ? columnFiltersApplied.producto : [],
+      departamento: Array.isArray(columnFiltersApplied.departamento) ? columnFiltersApplied.departamento : [],
+      lote: Array.isArray(columnFiltersApplied.lote) ? columnFiltersApplied.lote : [],
+      vendedor_asignado: Array.isArray(columnFiltersApplied.vendedor_asignado) ? columnFiltersApplied.vendedor_asignado : []
     };
-    if (filtroProducto) payload.producto = [filtroProducto];
-    if (filtroMotivo) payload.motivo_baja = [filtroMotivo];
-    if (filtroDepartamento) payload.departamento = [filtroDepartamento];
     Object.keys(payload).forEach((key) => {
       const value = payload[key];
       if (value === '' || value === null || value === undefined) delete payload[key];
       if (Array.isArray(value) && !value.length) delete payload[key];
     });
     return payload;
-  }, [advancedFiltersApplied, filtroDepartamento, filtroMotivo, filtroProducto]);
+  }, [columnFiltersApplied]);
 
   const buildSearchPayload = React.useCallback(() => ({
     tab: activeTab,
-    search: filtroBusquedaDebounced || '',
     filters: buildFiltersPayload(),
     sort: orden.campo ? { field: orden.campo, dir: orden.direccion } : null,
     columns: visibleColumns.length ? visibleColumns : allColumns.map((col) => col.id),
     page,
     limit: PAGE_SIZE
-  }), [activeTab, allColumns, buildFiltersPayload, filtroBusquedaDebounced, orden, page, visibleColumns]);
+  }), [activeTab, allColumns, buildFiltersPayload, orden, page, visibleColumns]);
 
   const loadRecupero = React.useCallback(async (options = {}) => {
     const { force = false } = options;
@@ -564,11 +361,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
         const status = err?.status || err?.response?.status;
         if (status === 404 || status === 405 || status === 503) {
           const fallbackUrl = `/api/recupero/contactos?page=${payload.page}&limit=${payload.limit}`
-            + (payload.search ? `&search=${encodeURIComponent(payload.search)}` : '')
             + (payload.tab ? `&tab=${encodeURIComponent(payload.tab)}` : '')
-            + (filtroProducto ? `&producto=${encodeURIComponent(filtroProducto)}` : '')
-            + (filtroDepartamento ? `&departamento=${encodeURIComponent(filtroDepartamento)}` : '')
-            + (filtroMotivo ? `&motivo_baja=${encodeURIComponent(filtroMotivo)}` : '')
             + (payload.sort?.field ? `&sort=${payload.sort.field}&dir=${payload.sort.dir}` : '');
           response = await api.get(fallbackUrl);
         } else {
@@ -604,7 +397,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       if (requestIdRef.current !== requestId) return;
       setLoading(false);
     }
-  }, [api, buildSearchPayload, metrics.total]);
+  }, [api, buildSearchPayload]);
 
   React.useEffect(() => {
     loadFilters();
@@ -625,47 +418,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
 
   React.useEffect(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem('recupero_saved_views') || '[]');
-      if (Array.isArray(saved)) {
-        setSavedViews(saved);
-        const defaultView = saved.find((view) => view.isDefault);
-        if (defaultView) {
-          setSelectedViewId(defaultView.id);
-          if (defaultView.filters) {
-            setAdvancedFiltersDraft(defaultView.filters);
-            setAdvancedFiltersApplied(defaultView.filters);
-          }
-          if (defaultView.quickFilters) {
-            setFiltroProducto(defaultView.quickFilters.producto || '');
-            setFiltroDepartamento(defaultView.quickFilters.departamento || '');
-            setFiltroMotivo(defaultView.quickFilters.motivo_baja || '');
-            setFiltroBusqueda(defaultView.quickFilters.search || '');
-            setFiltroBusquedaDebounced(defaultView.quickFilters.search || '');
-          }
-          if (defaultView.columns?.length) {
-            setVisibleColumns(defaultView.columns);
-          }
-          if (defaultView.sort) {
-            setOrden(defaultView.sort);
-          }
-          if (defaultView.tab) {
-            setActiveTab(defaultView.tab);
-          }
-        }
-      }
-    } catch {
-      setSavedViews([]);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    try {
-      localStorage.setItem('recupero_saved_views', JSON.stringify(savedViews));
-    } catch {}
-  }, [savedViews]);
-
-  React.useEffect(() => {
-    try {
       localStorage.setItem('recupero_columns', JSON.stringify(visibleColumns));
     } catch {}
   }, [visibleColumns]);
@@ -677,16 +429,8 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   }, [payloadKey, loadRecupero]);
 
   React.useEffect(() => {
-    const handler = setTimeout(() => {
-      setFiltroBusquedaDebounced(filtroBusqueda.trim());
-      setPage(1);
-    }, 350);
-    return () => clearTimeout(handler);
-  }, [filtroBusqueda]);
-
-  React.useEffect(() => {
     setPage(1);
-  }, [filtroProducto, filtroDepartamento, filtroMotivo, filtroBusquedaDebounced, orden, activeTab, visibleColumns]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [orden, activeTab, visibleColumns]); // eslint-disable-line react-hooks/exhaustive-deps
 
   React.useEffect(() => {
     if (activeTab !== 'disponibles' && selectedIds.length) {
@@ -717,41 +461,46 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     setImportResult(null);
   };
 
-  const applyAdvancedFilters = () => {
-    const errors = validateAdvancedFilters(advancedFiltersDraft);
+  const applyColumnFilters = () => {
+    const errors = validateColumnFilters(columnFiltersDraft);
     setFilterErrors(errors);
     if (Object.keys(errors).length) return;
-    setAdvancedFiltersApplied(advancedFiltersDraft);
+    setColumnFiltersApplied(columnFiltersDraft);
+    setOpenFilterColumn('');
     setPage(1);
   };
 
-  const clearAdvancedFilters = () => {
-    const empty = EMPTY_ADVANCED_FILTERS();
-    setAdvancedFiltersDraft(empty);
-    setAdvancedFiltersApplied(empty);
+  const clearColumnFilters = () => {
+    setColumnFiltersDraft({ ...COLUMN_FILTERS_INITIAL });
+    setColumnFiltersApplied({ ...COLUMN_FILTERS_INITIAL });
     setFilterErrors({});
+    setOpenFilterColumn('');
     setPage(1);
   };
 
-  const updateAdvancedField = (field, value) => {
-    setAdvancedFiltersDraft((prev) => ({ ...prev, [field]: value }));
+  const updateColumnField = (field, value) => {
+    setColumnFiltersDraft((prev) => ({ ...prev, [field]: value }));
+    if (field === 'edad_min' || field === 'edad_max') {
+      setFilterErrors((prev) => ({ ...prev, edad: '' }));
+    }
+    if (field === 'precio_min' || field === 'precio_max') {
+      setFilterErrors((prev) => ({ ...prev, precio: '' }));
+    }
+    if (field === 'fecha_baja_desde' || field === 'fecha_baja_hasta') {
+      setFilterErrors((prev) => ({ ...prev, fecha_baja: '' }));
+    }
   };
 
   const handleMultiSelect = (event, field) => {
     const values = Array.from(event.target.selectedOptions).map((option) => option.value);
-    updateAdvancedField(field, values);
+    updateColumnField(field, values);
   };
 
   const clearAllFilters = () => {
-    setFiltroProducto('');
-    setFiltroDepartamento('');
-    setFiltroMotivo('');
-    setFiltroBusqueda('');
-    setFiltroBusquedaDebounced('');
-    clearAdvancedFilters();
+    clearColumnFilters();
   };
 
-  const clearAdvancedField = (fieldId) => {
+  const clearColumnField = (fieldId) => {
     const resetField = (prev) => {
       const next = { ...prev };
       if (fieldId === 'fecha_baja') {
@@ -762,75 +511,39 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
         next.edad_min = '';
         next.edad_max = '';
       }
+      if (fieldId === 'precio') {
+        next.precio_min = '';
+        next.precio_max = '';
+      }
       if (fieldId === 'motivo_baja') next.motivo_baja = [];
       if (fieldId === 'ultimo_estado') next.ultimo_estado = [];
-      if (fieldId === 'producto_avanzado') next.producto = [];
-      if (fieldId === 'departamento_avanzado') next.departamento = [];
+      if (fieldId === 'producto') next.producto = [];
+      if (fieldId === 'departamento') next.departamento = [];
+      if (fieldId === 'contacto') next.contacto = '';
+      if (fieldId === 'documento') next.documento = '';
+      if (fieldId === 'telefono') next.telefono = '';
+      if (fieldId === 'lote') next.lote = [];
+      if (fieldId === 'vendedor_asignado') next.vendedor_asignado = [];
       return next;
     };
-    setAdvancedFiltersApplied((prev) => resetField(prev));
-    setAdvancedFiltersDraft((prev) => resetField(prev));
-    setPage(1);
-  };
-
-  const handleSaveView = () => {
-    if (!saveViewName.trim()) return;
-    const nextView = {
-      id: makeId(),
-      name: saveViewName.trim(),
-      isDefault: saveViewDefault,
-      isFavorite: saveViewFavorite,
-      tab: activeTab,
-      filters: advancedFiltersApplied,
-      quickFilters: {
-        producto: filtroProducto,
-        departamento: filtroDepartamento,
-        motivo_baja: filtroMotivo,
-        search: filtroBusqueda
-      },
-      columns: visibleColumns,
-      sort: orden
-    };
-    setSavedViews((prev) => {
-      const withoutDefault = saveViewDefault ? prev.map((view) => ({ ...view, isDefault: false })) : prev;
-      return [...withoutDefault, nextView];
-    });
-    setSaveViewName('');
-    setSaveViewDefault(false);
-    setSaveViewFavorite(false);
-    setSelectedViewId(nextView.id);
-  };
-
-  const applySavedView = (viewId) => {
-    if (!viewId) {
-      setSelectedViewId('');
-      return;
+    setColumnFiltersApplied((prev) => resetField(prev));
+    setColumnFiltersDraft((prev) => resetField(prev));
+    if (openFilterColumn === fieldId) {
+      setOpenFilterColumn('');
     }
-    const view = savedViews.find((item) => item.id === viewId);
-    if (!view) return;
-    setSelectedViewId(viewId);
-    if (view.filters) {
-      setAdvancedFiltersDraft(view.filters);
-      setAdvancedFiltersApplied(view.filters);
+    if (fieldId === 'edad') {
+      setFilterErrors((prev) => ({ ...prev, edad: '' }));
     }
-    if (view.quickFilters) {
-      setFiltroProducto(view.quickFilters.producto || '');
-      setFiltroDepartamento(view.quickFilters.departamento || '');
-      setFiltroMotivo(view.quickFilters.motivo_baja || '');
-      setFiltroBusqueda(view.quickFilters.search || '');
-      setFiltroBusquedaDebounced(view.quickFilters.search || '');
+    if (fieldId === 'precio') {
+      setFilterErrors((prev) => ({ ...prev, precio: '' }));
     }
-    if (view.columns?.length) {
-      setVisibleColumns(view.columns);
-    }
-    if (view.sort) {
-      setOrden(view.sort);
-    }
-    if (view.tab) {
-      setActiveTab(view.tab);
+    if (fieldId === 'fecha_baja') {
+      setFilterErrors((prev) => ({ ...prev, fecha_baja: '' }));
     }
     setPage(1);
   };
+
+  // Saved views removed for simplified filtering UX
 
   React.useEffect(() => {
     if (!showImportModal) return;
@@ -839,30 +552,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     resetImportState();
   }, [importResult, showImportModal]);
 
-  React.useEffect(() => {
-    if (!showAdvancedFilters) return;
-    const handler = (event) => {
-      if (event.key === 'Escape') {
-        setShowAdvancedFilters(false);
-        return;
-      }
-      if (event.key === 'Enter') {
-        const tag = event.target?.tagName || '';
-        if (!['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) {
-          applyAdvancedFilters();
-        }
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [showAdvancedFilters]);
-
-  const activeQuickFilters = React.useMemo(() => ({
-    producto: filtroProducto,
-    motivo_baja: filtroMotivo,
-    departamento: filtroDepartamento,
-    search: filtroBusquedaDebounced
-  }), [filtroBusquedaDebounced, filtroDepartamento, filtroMotivo, filtroProducto]);
+  
 
   const getOptionLabel = (options, value) => {
     if (!options || value === undefined || value === null || value === '') return '';
@@ -879,244 +569,334 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     return String(value);
   };
 
-  const activeAdvancedFilters = React.useMemo(() => {
-    const filters = [];
-    if (advancedFiltersApplied.fecha_baja_desde || advancedFiltersApplied.fecha_baja_hasta) {
-      filters.push({
-        id: 'fecha_baja',
-        label: `Fecha de baja: ${advancedFiltersApplied.fecha_baja_desde || '—'} - ${advancedFiltersApplied.fecha_baja_hasta || '—'}`
-      });
-    }
-    if (advancedFiltersApplied.edad_min || advancedFiltersApplied.edad_max) {
-      filters.push({
-        id: 'edad',
-        label: `Edad: ${advancedFiltersApplied.edad_min || '—'} - ${advancedFiltersApplied.edad_max || '—'}`
-      });
-    }
-    if (Array.isArray(advancedFiltersApplied.motivo_baja) && advancedFiltersApplied.motivo_baja.length) {
-      filters.push({
-        id: 'motivo_baja',
-        label: `Motivo: ${advancedFiltersApplied.motivo_baja.map((val) => getOptionLabel(filterOptions.motivos, val)).join(', ')}`
-      });
-    }
-    if (Array.isArray(advancedFiltersApplied.ultimo_estado) && advancedFiltersApplied.ultimo_estado.length) {
-      filters.push({
-        id: 'ultimo_estado',
-        label: `Último estado: ${advancedFiltersApplied.ultimo_estado.join(', ')}`
-      });
-    }
-    if (Array.isArray(advancedFiltersApplied.producto) && advancedFiltersApplied.producto.length) {
-      filters.push({
-        id: 'producto_avanzado',
-        label: `Producto: ${advancedFiltersApplied.producto.map((val) => getOptionLabel(filterOptions.productos, val)).join(', ')}`
-      });
-    }
-    if (Array.isArray(advancedFiltersApplied.departamento) && advancedFiltersApplied.departamento.length) {
-      filters.push({
-        id: 'departamento_avanzado',
-        label: `Departamento: ${advancedFiltersApplied.departamento.map((val) => getOptionLabel(filterOptions.departamentos, val)).join(', ')}`
-      });
-    }
-    return filters;
-  }, [advancedFiltersApplied, filterOptions.departamentos, filterOptions.motivos, filterOptions.productos]);
+  const sortFieldByColumn = React.useMemo(() => ({
+    contacto: 'contacto',
+    documento: 'documento',
+    edad: 'edad',
+    telefono: 'telefono',
+    departamento: 'departamento',
+    producto: 'nombre_producto',
+    precio: 'precio',
+    fecha_baja: 'fecha_baja',
+    motivo_baja: 'motivo_baja',
+    lote: 'lote',
+    vendedor_asignado: 'vendedor',
+    ultimo_estado: 'ultimo_estado',
+    ultima_gestion: 'ultima_gestion_fecha'
+  }), []);
 
-  const activeFilterCount = React.useMemo(() => {
-    const quickCount = Object.values(activeQuickFilters).filter(Boolean).length;
-    return quickCount + activeAdvancedFilters.length;
-  }, [activeAdvancedFilters.length, activeQuickFilters]);
+  const toggleSort = React.useCallback((columnId) => {
+    const campo = sortFieldByColumn[columnId] || columnId;
+    setOrden((prev) => ({
+      campo,
+      direccion: prev.campo === campo && prev.direccion === 'asc' ? 'desc' : 'asc'
+    }));
+  }, [sortFieldByColumn]);
 
-  const activeChips = React.useMemo(() => {
-    const chips = [];
-    if (activeQuickFilters.search) chips.push({ id: 'search', label: `Búsqueda: ${activeQuickFilters.search}`, type: 'quick' });
-    if (activeQuickFilters.producto) chips.push({ id: 'producto', label: `Producto: ${activeQuickFilters.producto}`, type: 'quick' });
-    if (activeQuickFilters.motivo_baja) chips.push({ id: 'motivo_baja_quick', label: `Motivo: ${activeQuickFilters.motivo_baja}`, type: 'quick' });
-    if (activeQuickFilters.departamento) chips.push({ id: 'departamento_quick', label: `Departamento: ${activeQuickFilters.departamento}`, type: 'quick' });
+  const sortIconFor = React.useCallback((columnId) => {
+    const campo = sortFieldByColumn[columnId] || columnId;
+    if (orden.campo !== campo) return '↕';
+    return orden.direccion === 'asc' ? '↑' : '↓';
+  }, [orden, sortFieldByColumn]);
 
-    activeAdvancedFilters.forEach((item) => {
-      chips.push({ id: item.id, label: item.label, type: 'advanced' });
+  const isColumnFilterActive = React.useCallback((columnId) => {
+    if (columnId === 'edad') return !!(columnFiltersApplied.edad_min || columnFiltersApplied.edad_max);
+    if (columnId === 'precio') return !!(columnFiltersApplied.precio_min || columnFiltersApplied.precio_max);
+    if (columnId === 'fecha_baja') return !!(columnFiltersApplied.fecha_baja_desde || columnFiltersApplied.fecha_baja_hasta);
+    if (columnId === 'contacto') return !!columnFiltersApplied.contacto;
+    if (columnId === 'documento') return !!columnFiltersApplied.documento;
+    if (columnId === 'telefono') return !!columnFiltersApplied.telefono;
+    if (columnId === 'departamento') return Array.isArray(columnFiltersApplied.departamento) && columnFiltersApplied.departamento.length > 0;
+    if (columnId === 'producto') return Array.isArray(columnFiltersApplied.producto) && columnFiltersApplied.producto.length > 0;
+    if (columnId === 'motivo_baja') return Array.isArray(columnFiltersApplied.motivo_baja) && columnFiltersApplied.motivo_baja.length > 0;
+    if (columnId === 'ultimo_estado') return Array.isArray(columnFiltersApplied.ultimo_estado) && columnFiltersApplied.ultimo_estado.length > 0;
+    if (columnId === 'lote') return Array.isArray(columnFiltersApplied.lote) && columnFiltersApplied.lote.length > 0;
+    if (columnId === 'vendedor_asignado') return Array.isArray(columnFiltersApplied.vendedor_asignado) && columnFiltersApplied.vendedor_asignado.length > 0;
+    return false;
+  }, [columnFiltersApplied]);
+
+  const openFilterPopover = React.useCallback((columnId) => {
+    setColumnFiltersDraft((prev) => ({ ...prev, ...columnFiltersApplied }));
+    setFilterErrors({});
+    setOpenFilterColumn((prev) => (prev === columnId ? '' : columnId));
+  }, [columnFiltersApplied]);
+
+  React.useEffect(() => {
+    if (!openFilterColumn) return;
+    const handleClick = (event) => {
+      if (event.target.closest('[data-filter-popover]')) return;
+      setOpenFilterColumn('');
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [openFilterColumn]);
+
+  const renderColumnFilterPopover = React.useCallback((columnId) => {
+    if (openFilterColumn !== columnId) return null;
+    const config = FILTER_COLUMN_CONFIG[columnId];
+    if (!config) return null;
+    const errorKey = columnId === 'edad'
+      ? 'edad'
+      : columnId === 'precio'
+        ? 'precio'
+        : columnId === 'fecha_baja'
+          ? 'fecha_baja'
+          : '';
+    const options = config.type === 'select' ? getFilterOptionsForKey(config.key || columnId) : [];
+    const normalizedOptions = (Array.isArray(options) ? options : []).map((option) => {
+      if (option && typeof option === 'object') {
+        const value = option.value ?? option.id ?? option.label ?? option.nombre ?? option.name ?? '';
+        const label = option.label ?? option.nombre ?? option.name ?? option.value ?? option.id ?? '';
+        return { value: String(value), label: String(label) };
+      }
+      return { value: String(option), label: String(option) };
     });
-    return chips;
-  }, [activeAdvancedFilters, activeQuickFilters]);
 
-  const renderValueInput = (rule) => {
-    const field = getFieldById(rule.field);
-    const type = field?.type || 'text';
-    const operator = rule.operator;
+    const popoverStyle = {
+      position: 'absolute',
+      top: '100%',
+      right: 0,
+      marginTop: 6,
+      padding: 12,
+      minWidth: 220,
+      background: '#fff',
+      border: '1px solid rgba(148,163,184,0.35)',
+      borderRadius: 10,
+      boxShadow: '0 12px 24px rgba(15,23,42,0.15)',
+      zIndex: 40
+    };
 
-    if (operator === 'between') {
+    const renderActions = () => (
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
+        <Button variant="ghost" onClick={() => { clearColumnField(columnId); setOpenFilterColumn(''); }}>
+          Limpiar
+        </Button>
+        <Button onClick={applyColumnFilters}>Aplicar</Button>
+      </div>
+    );
+
+    if (config.type === 'text') {
+      const fieldKey = columnId;
       return (
-        <div style={{ display: 'flex', gap: 6 }}>
-          <input
-            className="input"
-            type={type === 'date' ? 'date' : 'number'}
-            placeholder="Desde"
-            value={rule.value?.from || ''}
-            onChange={(event) => updateRuleValue(rule.id, { ...rule.value, from: event.target.value })}
-            style={{ width: '50%' }}
-          />
-          <input
-            className="input"
-            type={type === 'date' ? 'date' : 'number'}
-            placeholder="Hasta"
-            value={rule.value?.to || ''}
-            onChange={(event) => updateRuleValue(rule.id, { ...rule.value, to: event.target.value })}
-            style={{ width: '50%' }}
-          />
+        <div data-filter-popover style={popoverStyle}>
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span style={{ fontSize: 12, color: '#64748b' }}>Buscar</span>
+            <input
+              className="input"
+              value={columnFiltersDraft[fieldKey]}
+              onChange={(event) => updateColumnField(fieldKey, event.target.value)}
+              placeholder="Escribí un valor"
+            />
+          </label>
+          {renderActions()}
         </div>
       );
     }
 
-    if (operator === 'last_days') {
+    if (config.type === 'rangeNumber') {
+      const minKey = columnId === 'edad' ? 'edad_min' : 'precio_min';
+      const maxKey = columnId === 'edad' ? 'edad_max' : 'precio_max';
       return (
-        <input
-          className="input"
-          type="number"
-          min="1"
-          placeholder="Días"
-          value={rule.value || ''}
-          onChange={(event) => updateRuleValue(rule.id, event.target.value)}
-        />
+        <div data-filter-popover style={popoverStyle}>
+          <div style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Rango</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              className="input"
+              type="number"
+              placeholder="Desde"
+              value={columnFiltersDraft[minKey]}
+              onChange={(event) => updateColumnField(minKey, event.target.value)}
+              style={{ flex: 1 }}
+            />
+            <input
+              className="input"
+              type="number"
+              placeholder="Hasta"
+              value={columnFiltersDraft[maxKey]}
+              onChange={(event) => updateColumnField(maxKey, event.target.value)}
+              style={{ flex: 1 }}
+            />
+          </div>
+          {errorKey && filterErrors[errorKey] ? (
+            <div style={{ marginTop: 6, fontSize: 12, color: '#b91c1c' }}>{filterErrors[errorKey]}</div>
+          ) : null}
+          {renderActions()}
+        </div>
       );
     }
 
-    if (['empty', 'not_empty', 'today', 'this_month', 'is_true', 'is_false'].includes(operator)) {
-      return <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>No requiere valor</div>;
+    if (config.type === 'dateRange') {
+      return (
+        <div data-filter-popover style={popoverStyle}>
+          <div style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Rango de fechas</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              className="input"
+              type="date"
+              value={columnFiltersDraft.fecha_baja_desde}
+              onChange={(event) => updateColumnField('fecha_baja_desde', event.target.value)}
+              style={{ flex: 1 }}
+            />
+            <input
+              className="input"
+              type="date"
+              value={columnFiltersDraft.fecha_baja_hasta}
+              onChange={(event) => updateColumnField('fecha_baja_hasta', event.target.value)}
+              style={{ flex: 1 }}
+            />
+          </div>
+          {errorKey && filterErrors[errorKey] ? (
+            <div style={{ marginTop: 6, fontSize: 12, color: '#b91c1c' }}>{filterErrors[errorKey]}</div>
+          ) : null}
+          {renderActions()}
+        </div>
+      );
     }
 
-    if (type === 'enum') {
-      const options = (field?.options || []).map((opt) => (
-        typeof opt === 'string' ? { value: opt, label: opt } : opt
-      ));
-      if (operator === 'in' || operator === 'not_in') {
-        return (
+    if (config.type === 'select') {
+      const fieldKey = config.key || columnId;
+      const isDisabled = filtersLoading || !normalizedOptions.length;
+      return (
+        <div data-filter-popover style={popoverStyle}>
+          <div style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Seleccionar valores</div>
+          {filtersError ? (
+            <div style={{ marginBottom: 6, fontSize: 12, color: '#b91c1c' }}>{filtersError}</div>
+          ) : null}
           <select
             className="input"
             multiple
-            value={Array.isArray(rule.value) ? rule.value : []}
-            onChange={(event) => updateRuleValue(rule.id, Array.from(event.target.selectedOptions).map((opt) => opt.value))}
-            style={{ minHeight: 38 }}
+            value={columnFiltersDraft[fieldKey]}
+            onChange={(event) => handleMultiSelect(event, fieldKey)}
+            style={{ minHeight: 110 }}
+            disabled={isDisabled}
           >
-            {options.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            {!filtersLoading && !normalizedOptions.length ? (
+              <option value="" disabled>Sin opciones disponibles</option>
+            ) : null}
+            {normalizedOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </select>
-        );
-      }
-      return (
-        <select
-          className="input"
-          value={rule.value || ''}
-          onChange={(event) => updateRuleValue(rule.id, event.target.value)}
-        >
-          <option value="">Seleccionar</option>
-          {options.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
+          {filtersLoading ? (
+            <div style={{ marginTop: 6, fontSize: 12, color: '#64748b' }}>Cargando...</div>
+          ) : null}
+          {renderActions()}
+        </div>
       );
     }
 
-    return (
-      <input
-        className="input"
-        type={type === 'number' ? 'number' : type === 'date' ? 'date' : 'text'}
-        placeholder="Valor"
-        value={rule.value || ''}
-        onChange={(event) => updateRuleValue(rule.id, event.target.value)}
-      />
-    );
-  };
+    return null;
+  }, [
+    applyColumnFilters,
+    clearColumnField,
+    columnFiltersDraft,
+    filterErrors,
+    filtersError,
+    filtersLoading,
+    getFilterOptionsForKey,
+    handleMultiSelect,
+    openFilterColumn,
+    updateColumnField
+  ]);
 
-  const renderRuleRow = (rule) => {
-    const operators = getOperatorsForField(rule.field);
+  const renderHeaderCell = React.useCallback((columnId, label, sortable = true) => {
+    const isFilterable = Boolean(FILTER_COLUMN_CONFIG[columnId]);
+    const isActive = isFilterable ? isColumnFilterActive(columnId) : false;
     return (
-      <div key={rule.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr auto', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-        <select
-          className="input"
-          value={rule.field}
-          onChange={(event) => updateRuleField(rule.id, event.target.value)}
-        >
-          {filterFields.map((field) => (
-            <option key={field.id} value={field.id}>{field.label}</option>
-          ))}
-        </select>
-        <select
-          className="input"
-          value={rule.operator}
-          onChange={(event) => updateRuleOperator(rule.id, event.target.value)}
-        >
-          <option value="">Operador</option>
-          {operators.map((op) => (
-            <option key={op} value={op}>{OPERATOR_LABELS[op] || op}</option>
-          ))}
-        </select>
-        {renderValueInput(rule)}
-        <button
-          type="button"
-          onClick={() => setAdvancedFiltersDraft((prev) => removeRuleOrGroup(prev, rule.id))}
-          style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#9f1239' }}
-          aria-label="Eliminar regla"
-        >
-          ✕
-        </button>
-        {filterErrors[rule.id] ? (
-          <div style={{ gridColumn: '1 / span 3', color: '#b91c1c', fontSize: 12 }}>
-            {filterErrors[rule.id]}
-          </div>
-        ) : null}
-      </div>
-    );
-  };
-
-  const renderGroup = (group, depth = 0) => (
-    <div key={group.id} style={{
-      border: '1px solid rgba(148,163,184,0.35)',
-      borderRadius: 12,
-      padding: 12,
-      marginBottom: 12,
-      background: depth === 0 ? 'rgba(15, 118, 110, 0.04)' : 'rgba(148,163,184,0.08)'
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <span style={{ fontSize: 12, fontWeight: 700, color: '#0f766e' }}>
-          Grupo {depth + 1}
-        </span>
-        <select
-          className="input"
-          value={group.combinator}
-          onChange={(event) => updateGroupCombinator(group.id, event.target.value)}
-          style={{ width: 120 }}
-        >
-          <option value="AND">AND</option>
-          <option value="OR">OR</option>
-        </select>
-        {depth > 0 && (
+      <th style={{ position: 'relative', whiteSpace: 'nowrap', verticalAlign: 'top' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <button
             type="button"
-            onClick={() => setAdvancedFiltersDraft((prev) => removeRuleOrGroup(prev, group.id))}
-            style={{ marginLeft: 'auto', border: 'none', background: 'transparent', color: '#9f1239', cursor: 'pointer' }}
+            onClick={() => sortable && toggleSort(columnId)}
+            style={{
+              border: 'none',
+              background: 'transparent',
+              cursor: sortable ? 'pointer' : 'default',
+              fontWeight: 600,
+              color: 'inherit',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4
+            }}
           >
-            Eliminar grupo
+            <span>{label}</span>
+            {sortable ? (
+              <span style={{ fontSize: 11, opacity: 0.5 }}>{sortIconFor(columnId)}</span>
+            ) : null}
           </button>
-        )}
-      </div>
-      {group.rules.length === 0 ? (
-        <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 8 }}>
-          No hay reglas en este grupo.
+          {isFilterable ? (
+            <button
+              type="button"
+              data-filter-popover
+              onClick={() => openFilterPopover(columnId)}
+              style={{
+                border: 'none',
+                background: isActive ? 'rgba(15,118,110,0.12)' : 'transparent',
+                color: isActive ? '#0f766e' : 'rgba(100,116,139,0.9)',
+                borderRadius: 6,
+                padding: 4,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              aria-label={`Filtrar ${label}`}
+            >
+              <Filter size={14} />
+            </button>
+          ) : null}
         </div>
-      ) : null}
-      {group.rules.map((rule) => (
-        isGroup(rule) ? renderGroup(rule, depth + 1) : renderRuleRow(rule)
-      ))}
-      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-        <Button variant="secondary" onClick={() => addRuleToGroup(group.id)}>
-          + Agregar regla
-        </Button>
-        <Button variant="ghost" onClick={() => addGroupToGroup(group.id)}>
-          + Agregar grupo
-        </Button>
-      </div>
-    </div>
-  );
+        {isFilterable ? renderColumnFilterPopover(columnId) : null}
+      </th>
+    );
+  }, [isColumnFilterActive, openFilterPopover, renderColumnFilterPopover, sortIconFor, toggleSort]);
+
+  const activeFilters = React.useMemo(() => {
+    const filters = [];
+    if (columnFiltersApplied.contacto) {
+      filters.push({ id: 'contacto', label: `Contacto: ${columnFiltersApplied.contacto}` });
+    }
+    if (columnFiltersApplied.documento) {
+      filters.push({ id: 'documento', label: `Documento: ${columnFiltersApplied.documento}` });
+    }
+    if (columnFiltersApplied.telefono) {
+      filters.push({ id: 'telefono', label: `Teléfono: ${columnFiltersApplied.telefono}` });
+    }
+    if (columnFiltersApplied.edad_min || columnFiltersApplied.edad_max) {
+      filters.push({ id: 'edad', label: `Edad: ${columnFiltersApplied.edad_min || '—'} - ${columnFiltersApplied.edad_max || '—'}` });
+    }
+    if (columnFiltersApplied.precio_min || columnFiltersApplied.precio_max) {
+      filters.push({ id: 'precio', label: `Precio: ${columnFiltersApplied.precio_min || '—'} - ${columnFiltersApplied.precio_max || '—'}` });
+    }
+    if (columnFiltersApplied.fecha_baja_desde || columnFiltersApplied.fecha_baja_hasta) {
+      filters.push({ id: 'fecha_baja', label: `Fecha de baja: ${columnFiltersApplied.fecha_baja_desde || '—'} - ${columnFiltersApplied.fecha_baja_hasta || '—'}` });
+    }
+    if (Array.isArray(columnFiltersApplied.motivo_baja) && columnFiltersApplied.motivo_baja.length) {
+      filters.push({ id: 'motivo_baja', label: `Motivo: ${columnFiltersApplied.motivo_baja.map((val) => getOptionLabel(filterOptions.motivos, val)).join(', ')}` });
+    }
+    if (Array.isArray(columnFiltersApplied.ultimo_estado) && columnFiltersApplied.ultimo_estado.length) {
+      filters.push({ id: 'ultimo_estado', label: `Último estado: ${columnFiltersApplied.ultimo_estado.map((val) => getOptionLabel(ultimoEstadoOptions, val)).join(', ')}` });
+    }
+    if (Array.isArray(columnFiltersApplied.producto) && columnFiltersApplied.producto.length) {
+      filters.push({ id: 'producto', label: `Producto: ${columnFiltersApplied.producto.map((val) => getOptionLabel(filterOptions.productos, val)).join(', ')}` });
+    }
+    if (Array.isArray(columnFiltersApplied.departamento) && columnFiltersApplied.departamento.length) {
+      filters.push({ id: 'departamento', label: `Departamento: ${columnFiltersApplied.departamento.map((val) => getOptionLabel(filterOptions.departamentos, val)).join(', ')}` });
+    }
+    if (Array.isArray(columnFiltersApplied.lote) && columnFiltersApplied.lote.length) {
+      filters.push({ id: 'lote', label: `Lote: ${columnFiltersApplied.lote.map((val) => getOptionLabel(getFilterOptionsForKey('lote'), val)).join(', ')}` });
+    }
+    if (Array.isArray(columnFiltersApplied.vendedor_asignado) && columnFiltersApplied.vendedor_asignado.length) {
+      filters.push({ id: 'vendedor_asignado', label: `Vendedor: ${columnFiltersApplied.vendedor_asignado.map((val) => getOptionLabel(getFilterOptionsForKey('vendedor_asignado'), val)).join(', ')}` });
+    }
+    return filters;
+  }, [columnFiltersApplied, filterOptions.departamentos, filterOptions.motivos, filterOptions.productos, getFilterOptionsForKey, getOptionLabel, ultimoEstadoOptions]);
+
+  const activeFilterCount = React.useMemo(() => activeFilters.length, [activeFilters.length]);
+
+  const activeChips = React.useMemo(() => (
+    activeFilters.map((item) => ({ id: item.id, label: item.label }))
+  ), [activeFilters]);
 
   const detectDelimiter = (line) => {
     if (line.includes(';') && !line.includes(',')) return ';';
@@ -1353,65 +1133,11 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: 12, flexWrap: 'wrap' }}>
             <div className="toolbar" style={{ gap: 10, marginBottom: 0, alignItems: 'center', flexWrap: 'wrap' }}>
-              <select
-                className="input"
-                style={{ width: 200 }}
-                value={selectedViewId}
-                onChange={(event) => applySavedView(event.target.value)}
-              >
-                <option value="">Mis vistas</option>
-                {savedViews.map((view) => (
-                  <option key={view.id} value={view.id}>
-                    {view.isFavorite ? '★ ' : ''}{view.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="input"
-                style={{ width: 220 }}
-                value={filtroProducto}
-                onChange={(event) => setFiltroProducto(event.target.value)}
-              >
-                <option value="">Producto</option>
-                {filterOptions.productos.map((item) => {
-                  const value = normalizeOption(item);
-                  return <option key={value} value={value}>{value}</option>;
-                })}
-              </select>
-              <select
-                className="input"
-                style={{ width: 200 }}
-                value={filtroMotivo}
-                onChange={(event) => setFiltroMotivo(event.target.value)}
-              >
-                <option value="">Motivo de baja</option>
-                {['Sin motivo', ...filterOptions.motivos].map((item) => {
-                  const value = normalizeOption(item);
-                  return <option key={value} value={value}>{value}</option>;
-                })}
-              </select>
-              <select
-                className="input"
-                style={{ width: 220 }}
-                value={filtroDepartamento}
-                onChange={(event) => setFiltroDepartamento(event.target.value)}
-              >
-                <option value="">Departamento</option>
-                {filterOptions.departamentos.map((item) => {
-                  const value = normalizeOption(item);
-                  return <option key={value} value={value}>{value}</option>;
-                })}
-              </select>
-              <input
-                className="input"
-                style={{ minWidth: 240 }}
-                placeholder="Buscar por nombre o teléfono"
-                value={filtroBusqueda}
-                onChange={(event) => setFiltroBusqueda(event.target.value)}
-              />
-              <Button variant="secondary" icon={<Filter size={16} />} onClick={() => setShowAdvancedFilters(true)}>
-                Filtros avanzados
-              </Button>
+              {activeFilterCount > 0 && (
+                <Button variant="ghost" icon={<Filter size={16} />} onClick={clearAllFilters}>
+                  Limpiar filtros
+                </Button>
+              )}
               <Button variant="secondary" icon={<Columns size={16} />} onClick={() => setColumnsPanelOpen((prev) => !prev)}>
                 Columnas
               </Button>
@@ -1450,16 +1176,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                   {chip.label}
                   <button
                     type="button"
-                    onClick={() => {
-                      if (chip.type === 'quick') {
-                        if (chip.id === 'search') setFiltroBusqueda('');
-                        if (chip.id === 'producto') setFiltroProducto('');
-                        if (chip.id === 'motivo_baja_quick') setFiltroMotivo('');
-                        if (chip.id === 'departamento') setFiltroDepartamento('');
-                      } else {
-                        clearAdvancedField(chip.id);
-                      }
-                    }}
+                    onClick={() => clearColumnField(chip.id)}
                     style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#0f766e', fontWeight: 700 }}
                     aria-label="Eliminar filtro"
                   >
@@ -1532,24 +1249,24 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
           ) : null}
           {loading ? <div style={{ marginBottom: 12, color: 'var(--muted)' }}>Cargando recupero...</div> : null}
 
-          <div className="table-wrap">
+          <div className="table-wrap" style={{ overflowX: 'auto', overflowY: 'visible' }}>
             <table>
               <thead>
                 <tr>
                   <th></th>
-                  <th>Contacto</th>
-                  {isColumnVisible('documento') && <ColHeader campo="documento" label="Documento" ordenActual={orden} onOrden={setOrden} />}
-                  {isColumnVisible('edad') && <ColHeader campo="edad" label="Edad" ordenActual={orden} onOrden={setOrden} />}
-                  {isColumnVisible('telefono') && <ColHeader campo="telefono" label="Teléfono" ordenActual={orden} onOrden={setOrden} />}
-                  {isColumnVisible('departamento') && <ColHeader campo="departamento" label="Departamento" ordenActual={orden} onOrden={setOrden} />}
-                  {isColumnVisible('producto') && <ColHeader campo="nombre_producto" label="Producto" ordenActual={orden} onOrden={setOrden} />}
-                  {isColumnVisible('precio') && <ColHeader campo="precio" label="Precio" ordenActual={orden} onOrden={setOrden} />}
-                  {isColumnVisible('fecha_baja') && <ColHeader campo="fecha_baja" label="Fecha de baja" ordenActual={orden} onOrden={setOrden} />}
-                  {isColumnVisible('motivo_baja') && <ColHeader campo="motivo_baja" label="Motivo de baja" ordenActual={orden} onOrden={setOrden} />}
-                  {isColumnVisible('lote') && <ColHeader campo="lote" label="Lote" ordenActual={orden} onOrden={setOrden} />}
-                  {isColumnVisible('vendedor_asignado') && <ColHeader campo="vendedor" label="Vendedor asignado" ordenActual={orden} onOrden={setOrden} />}
-                  {isColumnVisible('ultimo_estado') && <ColHeader campo="ultimo_estado" label="Último estado" ordenActual={orden} onOrden={setOrden} />}
-                  {isColumnVisible('ultima_gestion') && <ColHeader campo="ultima_gestion_fecha" label="Última gestión" ordenActual={orden} onOrden={setOrden} />}
+                  {renderHeaderCell('contacto', 'Contacto')}
+                  {isColumnVisible('documento') && renderHeaderCell('documento', 'Documento')}
+                  {isColumnVisible('edad') && renderHeaderCell('edad', 'Edad')}
+                  {isColumnVisible('telefono') && renderHeaderCell('telefono', 'Teléfono')}
+                  {isColumnVisible('departamento') && renderHeaderCell('departamento', 'Departamento')}
+                  {isColumnVisible('producto') && renderHeaderCell('producto', 'Producto')}
+                  {isColumnVisible('precio') && renderHeaderCell('precio', 'Precio')}
+                  {isColumnVisible('fecha_baja') && renderHeaderCell('fecha_baja', 'Fecha de baja')}
+                  {isColumnVisible('motivo_baja') && renderHeaderCell('motivo_baja', 'Motivo de baja')}
+                  {isColumnVisible('lote') && renderHeaderCell('lote', 'Lote')}
+                  {isColumnVisible('vendedor_asignado') && renderHeaderCell('vendedor_asignado', 'Vendedor asignado')}
+                  {isColumnVisible('ultimo_estado') && renderHeaderCell('ultimo_estado', 'Último estado')}
+                  {isColumnVisible('ultima_gestion') && renderHeaderCell('ultima_gestion', 'Última gestión', false)}
                 </tr>
               </thead>
               <tbody>
@@ -1607,220 +1324,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
           </div>
 
         </Panel>
-      </section>
-
-      {showAdvancedFilters && (
-        <div
-          role="dialog"
-          aria-label="Filtros avanzados"
-          style={{
-            position: 'fixed',
-            top: 0,
-            right: 0,
-            height: '100vh',
-            width: '420px',
-            background: '#fff',
-            boxShadow: '-8px 0 24px rgba(15, 23, 42, 0.12)',
-            zIndex: 80,
-            display: 'flex',
-            flexDirection: 'column'
-          }}
-        >
-          <div style={{ padding: '16px 18px', borderBottom: '1px solid rgba(148,163,184,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <div style={{ fontWeight: 700 }}>Filtros avanzados</div>
-              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                Filtros por columnas
-              </div>
-            </div>
-            <button className="close-btn" onClick={() => setShowAdvancedFilters(false)}><X size={16} /></button>
-          </div>
-          <div style={{ padding: 16, overflowY: 'auto', flex: 1 }}>
-            {filtersLoading ? (
-              <div style={{ marginBottom: 12, fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                Cargando catálogos...
-              </div>
-            ) : null}
-            {filtersError ? (
-              <div style={{ marginBottom: 12, fontSize: 12, color: '#b91c1c' }}>
-                {filtersError}
-              </div>
-            ) : null}
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontWeight: 700, marginBottom: 8 }}>Gestión</div>
-              <label style={{ display: 'grid', gap: 6, marginBottom: 12 }}>
-                <span style={{ fontSize: 12, color: '#64748b' }}>Fecha de baja</span>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <input
-                    className="input"
-                    type="date"
-                    value={advancedFiltersDraft.fecha_baja_desde}
-                    onChange={(event) => updateAdvancedField('fecha_baja_desde', event.target.value)}
-                    style={{ flex: 1 }}
-                  />
-                  <input
-                    className="input"
-                    type="date"
-                    value={advancedFiltersDraft.fecha_baja_hasta}
-                    onChange={(event) => updateAdvancedField('fecha_baja_hasta', event.target.value)}
-                    style={{ flex: 1 }}
-                  />
-                </div>
-                {filterErrors.fecha_baja ? (
-                  <span style={{ fontSize: 12, color: '#b91c1c' }}>{filterErrors.fecha_baja}</span>
-                ) : null}
-              </label>
-              <label style={{ display: 'grid', gap: 6, marginBottom: 12 }}>
-                <span style={{ fontSize: 12, color: '#64748b' }}>Motivo de baja</span>
-                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Todos los motivos</span>
-                <select
-                  className="input"
-                  multiple
-                  value={advancedFiltersDraft.motivo_baja}
-                  onChange={(event) => handleMultiSelect(event, 'motivo_baja')}
-                  style={{ minHeight: 86 }}
-                  disabled={filtersLoading || !filterOptions.motivos.length}
-                >
-                  {!filtersLoading && !filterOptions.motivos.length ? (
-                    <option value="" disabled>Sin opciones disponibles</option>
-                  ) : null}
-                  {filterOptions.motivos.map((motivo) => {
-                    const value = motivo?.value || motivo?.label || motivo;
-                    const label = motivo?.label || motivo?.value || motivo;
-                    return <option key={value} value={value}>{label}</option>;
-                  })}
-                </select>
-              </label>
-              <label style={{ display: 'grid', gap: 6 }}>
-                <span style={{ fontSize: 12, color: '#64748b' }}>Último estado</span>
-                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Todos los estados</span>
-                <select
-                  className="input"
-                  multiple
-                  value={advancedFiltersDraft.ultimo_estado}
-                  onChange={(event) => handleMultiSelect(event, 'ultimo_estado')}
-                  style={{ minHeight: 86 }}
-                  disabled={filtersLoading || !ultimoEstadoOptions.length}
-                >
-                  {!filtersLoading && !ultimoEstadoOptions.length ? (
-                    <option value="" disabled>Sin opciones disponibles</option>
-                  ) : null}
-                  {ultimoEstadoOptions.map((estado) => {
-                    const value = estado?.value || estado?.label || estado;
-                    const label = estado?.label || estado?.value || estado;
-                    return <option key={value} value={value}>{label}</option>;
-                  })}
-                </select>
-              </label>
-            </div>
-
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontWeight: 700, marginBottom: 8 }}>Datos</div>
-              <label style={{ display: 'grid', gap: 6, marginBottom: 12 }}>
-                <span style={{ fontSize: 12, color: '#64748b' }}>Edad</span>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <input
-                    className="input"
-                    type="number"
-                    placeholder="Desde"
-                    value={advancedFiltersDraft.edad_min}
-                    onChange={(event) => updateAdvancedField('edad_min', event.target.value)}
-                    style={{ flex: 1 }}
-                  />
-                  <input
-                    className="input"
-                    type="number"
-                    placeholder="Hasta"
-                    value={advancedFiltersDraft.edad_max}
-                    onChange={(event) => updateAdvancedField('edad_max', event.target.value)}
-                    style={{ flex: 1 }}
-                  />
-                </div>
-                {filterErrors.edad ? (
-                  <span style={{ fontSize: 12, color: '#b91c1c' }}>{filterErrors.edad}</span>
-                ) : null}
-              </label>
-              <label style={{ display: 'grid', gap: 6 }}>
-                <span style={{ fontSize: 12, color: '#64748b' }}>Departamento</span>
-                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Todos los departamentos</span>
-                <select
-                  className="input"
-                  multiple
-                  value={advancedFiltersDraft.departamento}
-                  onChange={(event) => handleMultiSelect(event, 'departamento')}
-                  style={{ minHeight: 86 }}
-                  disabled={filtersLoading || !filterOptions.departamentos.length}
-                >
-                  {!filtersLoading && !filterOptions.departamentos.length ? (
-                    <option value="" disabled>Sin opciones disponibles</option>
-                  ) : null}
-                  {filterOptions.departamentos.map((depto) => {
-                    const value = depto?.value || depto?.label || depto;
-                    const label = depto?.label || depto?.value || depto;
-                    return <option key={value} value={value}>{label}</option>;
-                  })}
-                </select>
-              </label>
-            </div>
-
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontWeight: 700, marginBottom: 8 }}>Producto</div>
-              <label style={{ display: 'grid', gap: 6 }}>
-                <span style={{ fontSize: 12, color: '#64748b' }}>Producto</span>
-                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Todos los productos</span>
-                <select
-                  className="input"
-                  multiple
-                  value={advancedFiltersDraft.producto}
-                  onChange={(event) => handleMultiSelect(event, 'producto')}
-                  style={{ minHeight: 86 }}
-                  disabled={filtersLoading || !filterOptions.productos.length}
-                >
-                  {!filtersLoading && !filterOptions.productos.length ? (
-                    <option value="" disabled>Sin opciones disponibles</option>
-                  ) : null}
-                  {filterOptions.productos.map((producto) => {
-                    const value = producto?.value || producto?.label || producto;
-                    const label = producto?.label || producto?.value || producto;
-                    return <option key={value} value={value}>{label}</option>;
-                  })}
-                </select>
-              </label>
-            </div>
-
-            <div style={{ borderTop: '1px solid rgba(148,163,184,0.3)', paddingTop: 12, marginTop: 12 }}>
-              <div style={{ fontWeight: 700, marginBottom: 8 }}>Guardar vista</div>
-              <input
-                className="input"
-                placeholder="Nombre de la vista"
-                value={saveViewName}
-                onChange={(event) => setSaveViewName(event.target.value)}
-                style={{ marginBottom: 8 }}
-              />
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginBottom: 6 }}>
-                <input type="checkbox" checked={saveViewFavorite} onChange={(event) => setSaveViewFavorite(event.target.checked)} />
-                Favorita
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-                <input type="checkbox" checked={saveViewDefault} onChange={(event) => setSaveViewDefault(event.target.checked)} />
-                Definir como vista por defecto
-              </label>
-              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                <Button variant="secondary" onClick={handleSaveView}>Guardar vista actual</Button>
-              </div>
-            </div>
-          </div>
-          <div style={{ padding: 16, borderTop: '1px solid rgba(148,163,184,0.3)', display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-            <Button variant="ghost" onClick={() => { setAdvancedFiltersDraft(advancedFiltersApplied); setFilterErrors({}); }}>
-              Cancelar
-            </Button>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <Button variant="ghost" onClick={clearAdvancedFilters}>Limpiar</Button>
-              <Button onClick={applyAdvancedFilters}>Aplicar filtros</Button>
-            </div>
-          </div>
-        </div>
-      )}
+      </section>`r`n`r`n
 
       {showLotesModal && (
         <div className="lot-wizard-overlay" onClick={() => setShowLotesModal(false)}>
@@ -1922,7 +1426,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
             </div>
             <div className="lot-wizard-content">
               <p style={{ marginTop: 0, color: 'var(--color-text-secondary)', fontSize: 13 }}>
-                Subí un CSV con las columnas: Documento, Motivo de la baja, Ultimo estado.
+                Subí un CSV con las columnas: Documento, Motivo de la baja, Último estado.
               </p>
               <input type="file" accept=".csv" onChange={handleFileChange} />
               {importErrors.length ? (
@@ -1980,6 +1484,20 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
