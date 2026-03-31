@@ -104,6 +104,10 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const [sellers, setSellers] = React.useState([]);
   const [selectedSellers, setSelectedSellers] = React.useState([]);
   const [creatingLot, setCreatingLot] = React.useState(false);
+  const [showLotesModal, setShowLotesModal] = React.useState(false);
+  const [lotesCreados, setLotesCreados] = React.useState([]);
+  const [lotesLoading, setLotesLoading] = React.useState(false);
+  const [lotesError, setLotesError] = React.useState('');
   const [activeTab, setActiveTab] = React.useState('disponibles');
   const [showImportModal, setShowImportModal] = React.useState(false);
   const [importFile, setImportFile] = React.useState(null);
@@ -202,6 +206,21 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     }
   }, [api]);
 
+  const loadLotesCreados = React.useCallback(async () => {
+    setLotesLoading(true);
+    setLotesError('');
+    try {
+      const response = await api.get('/api/recupero/lotes');
+      const itemsList = response?.items || response?.data?.items || response?.lotes || response?.data?.lotes || [];
+      setLotesCreados(Array.isArray(itemsList) ? itemsList : []);
+    } catch (err) {
+      setLotesError(err?.message || 'No se pudieron cargar los lotes.');
+      setLotesCreados([]);
+    } finally {
+      setLotesLoading(false);
+    }
+  }, [api]);
+
   const formatDate = (value) => {
     if (!value) return '—';
     const parsed = new Date(value);
@@ -215,6 +234,31 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     if (Number.isNaN(parsed.getTime())) return '—';
     return parsed.toLocaleString('es-UY', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   };
+
+  const formatLoteConfig = (lote) => {
+    const raw = lote?.configuracion || lote?.filtros || lote?.filters || lote?.criteria || lote?.segmento || lote?.segment || null;
+    if (!raw) return '—';
+    const text = typeof raw === 'string' ? raw : JSON.stringify(raw);
+    return text.length > 160 ? `${text.slice(0, 160)}…` : text;
+  };
+
+  const formatLoteSeller = (lote) => (
+    lote?.vendedor_asignado
+    || lote?.seller
+    || lote?.seller_name
+    || lote?.vendedor_nombre
+    || (Array.isArray(lote?.vendedores) ? lote.vendedores.map((v) => `${v.nombre || ''} ${v.apellido || ''}`.trim()).join(', ') : '')
+    || 'Sin asignar'
+  );
+
+  const formatLoteCount = (lote) => (
+    lote?.cantidad_datos
+    || lote?.cantidad
+    || lote?.count
+    || lote?.total
+    || lote?.contactos
+    || 0
+  );
 
   const filterFields = React.useMemo(() => ([
     { id: 'contacto', label: 'Contacto', type: 'text' },
@@ -439,7 +483,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
         response = await api.post('/api/recupero/contactos/search', payload);
       } catch (err) {
         const status = err?.status || err?.response?.status;
-        if (status === 404 || status === 405) {
+        if (status === 404 || status === 405 || status === 503) {
           const fallbackUrl = `/api/recupero/contactos?page=${payload.page}&limit=${payload.limit}`
             + (payload.search ? `&search=${encodeURIComponent(payload.search)}` : '')
             + (payload.tab ? `&tab=${encodeURIComponent(payload.tab)}` : '')
@@ -1060,7 +1104,16 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   return (
     <div className="view">
       <section className="content-grid">
-        <Panel className="span-12" title="Recupero de clientes" subtitle="Cartera de clientes para reconversión">
+        <Panel
+          className="span-12"
+          title="Recupero de clientes"
+          subtitle="Cartera de clientes para reconversión"
+          action={(
+            <Button variant="secondary" onClick={() => { setShowLotesModal(true); loadLotesCreados(); }}>
+              Lotes creados
+            </Button>
+          )}
+        >
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
@@ -1461,6 +1514,54 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
             <div style={{ display: 'flex', gap: 8 }}>
               <Button variant="ghost" onClick={clearAdvancedFilters}>Limpiar</Button>
               <Button onClick={applyAdvancedFilters}>Aplicar filtros</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLotesModal && (
+        <div className="lot-wizard-overlay" onClick={() => setShowLotesModal(false)}>
+          <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 900 }}>
+            <div className="lot-wizard-header">
+              <div style={{ fontWeight: 700 }}>Lotes creados</div>
+              <button className="close-btn" onClick={() => setShowLotesModal(false)}><X size={16} /></button>
+            </div>
+            <div className="lot-wizard-content">
+              {lotesLoading ? <div style={{ marginBottom: 12, color: 'var(--muted)' }}>Cargando lotes...</div> : null}
+              {lotesError ? <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 600 }}>{lotesError}</div> : null}
+              <div className="table-wrap" style={{ maxHeight: 360, overflow: 'auto' }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Fecha y hora</th>
+                      <th>Nombre</th>
+                      <th>Cantidad</th>
+                      <th>Configuración</th>
+                      <th>Vendedor asignado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lotesCreados.map((lote, idx) => {
+                      const configText = formatLoteConfig(lote);
+                      return (
+                        <tr key={lote.id || lote.lote_id || idx}>
+                          <td>{formatDateTime(lote.created_at || lote.fecha_creacion || lote.createdAt)}</td>
+                          <td>{lote.nombre || lote.name || '—'}</td>
+                          <td>{formatLoteCount(lote)}</td>
+                          <td title={configText}>{configText}</td>
+                          <td>{formatLoteSeller(lote)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {!lotesLoading && !lotesCreados.length ? (
+                  <div style={{ padding: 16, color: 'var(--muted)' }}>No hay lotes creados.</div>
+                ) : null}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+                <Button variant="ghost" onClick={() => setShowLotesModal(false)}>Cerrar</Button>
+              </div>
             </div>
           </div>
         </div>
