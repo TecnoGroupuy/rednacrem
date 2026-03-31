@@ -434,7 +434,24 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     setError('');
     try {
       const payload = buildSearchPayload();
-      const response = await api.post('/api/recupero/contactos/search', payload);
+      let response = null;
+      try {
+        response = await api.post('/api/recupero/contactos/search', payload);
+      } catch (err) {
+        const status = err?.status || err?.response?.status;
+        if (status === 404 || status === 405) {
+          const fallbackUrl = `/api/recupero/contactos?page=${payload.page}&limit=${payload.limit}`
+            + (payload.search ? `&search=${encodeURIComponent(payload.search)}` : '')
+            + (payload.tab ? `&tab=${encodeURIComponent(payload.tab)}` : '')
+            + (filtroProducto ? `&producto=${encodeURIComponent(filtroProducto)}` : '')
+            + (filtroDepartamento ? `&departamento=${encodeURIComponent(filtroDepartamento)}` : '')
+            + (filtroMotivo ? `&motivo_baja=${encodeURIComponent(filtroMotivo)}` : '')
+            + (payload.sort?.field ? `&sort=${payload.sort.field}&dir=${payload.sort.dir}` : '');
+          response = await api.get(fallbackUrl);
+        } else {
+          throw err;
+        }
+      }
       const rows = response?.items || response?.data?.items || [];
       const totalCount = Number(response?.total ?? response?.data?.total ?? rows.length);
       setItems(Array.isArray(rows) ? rows : []);
