@@ -7991,7 +7991,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 <strong>{row.name || 'Sin dato'}</strong>
               </div>
             </td>
-            <td>{formatDateShort(row.fechaVenta || row.createdAt) || 'Sin dato'}</td>
+            <td>{formatDateShort(row.fechaAlta || row.fechaVenta || row.createdAt) || 'Sin dato'}</td>
             <td>{row.product || 'Sin dato'}</td>
             <td>{row.fee || 'Sin dato'}</td>
             <td><Tag variant={statusVariant(row.status)}>{row.status || 'Sin dato'}</Tag></td>

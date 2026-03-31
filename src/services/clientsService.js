@@ -91,6 +91,11 @@ const mapBackendPortfolioRow = (item = {}) => {
   const productName = productObj?.nombre || productObj?.name || item.product || item.producto || item.productoNombre || item.producto_nombre || item.servicio || '';
   const planName = productObj?.plan || productObj?.planNombre || productObj?.plan_nombre || item.plan || item.planNombre || item.plan_nombre || '';
   const statusLabel = productObj?.estadoLabel || productObj?.estado || item.status || item.estado || item.contactoEstado || '';
+  const fechaAltaRaw = productObj?.fechaAlta
+    || productObj?.fecha_alta
+    || item.fechaAlta
+    || item.fecha_alta
+    || null;
   return {
     id: item.id || '',
     name: item.name || buildBackendClientName(item),
@@ -101,7 +106,8 @@ const mapBackendPortfolioRow = (item = {}) => {
     email: item.email || item.mail || '',
     phone: item.phone || item.telefono || item.telefono_principal || '',
     celular: item.celular || item.cellphone || item.telefono_celular || item.telefonoCelular || '',
-    fechaVenta: productObj?.fechaAlta || item.fechaVenta || item.fecha_venta || item.ventaFecha || item.createdAt || null,
+    fechaAlta: fechaAltaRaw,
+    fechaVenta: fechaAltaRaw || item.fechaVenta || item.fecha_venta || item.ventaFecha || item.createdAt || null,
     vendedor: productObj?.sellerName || productObj?.seller_name || item.vendedor || item.vendedorNombre || item.vendedor_nombre || '',
     medioPago: productObj?.medioPago || productObj?.medio_pago || item.medioPago || item.medio_pago || '',
     documento: item.documento || item.documento_numero || '',
@@ -420,6 +426,7 @@ export const fetchClientsDirectory = async ({ page = 1, limit = null, search = '
     email: item.email,
     phone: item.phone,
     celular: item.celular,
+    fechaAlta: item.fechaAlta,
     fechaVenta: item.fechaVenta,
     vendedor: item.vendedor,
     medioPago: item.medioPago,
