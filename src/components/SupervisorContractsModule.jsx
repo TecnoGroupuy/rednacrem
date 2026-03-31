@@ -117,6 +117,8 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const [importSummary, setImportSummary] = React.useState(null);
   const [importLoading, setImportLoading] = React.useState(false);
   const [importResult, setImportResult] = React.useState(null);
+  const lastPayloadRef = React.useRef('');
+  const requestIdRef = React.useRef('');
 
   const isImportSuccess = (result) => {
     if (!result) return false;
@@ -474,11 +476,21 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     };
   }, [activeTab, advancedFiltersApplied, allColumns, buildQuickFilterRules, filtroBusquedaDebounced, mergeRules, orden, page, visibleColumns]);
 
-  const loadRecupero = React.useCallback(async () => {
+  const loadRecupero = React.useCallback(async (options = {}) => {
+    const { force = false } = options;
+    const payload = buildSearchPayload();
+    const payloadKey = JSON.stringify(payload);
+    if (!force && payloadKey === lastPayloadRef.current) {
+      return;
+    }
     setLoading(true);
     setError('');
+    lastPayloadRef.current = payloadKey;
+    const requestId = `recupero_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    requestIdRef.current = requestId;
+    const startedAt = Date.now();
+    console.debug('[recupero][request]', { requestId, payload });
     try {
-      const payload = buildSearchPayload();
       let response = null;
       try {
         response = await api.post('/api/recupero/contactos/search', payload);
@@ -497,6 +509,8 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
           throw err;
         }
       }
+      if (requestIdRef.current !== requestId) return;
+      console.debug('[recupero][response]', { requestId, ms: Date.now() - startedAt });
       const rows = response?.items || response?.data?.items || [];
       const totalCount = Number(response?.total ?? response?.data?.total ?? rows.length);
       setItems(Array.isArray(rows) ? rows : []);
@@ -515,10 +529,13 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
         }));
       }
     } catch (err) {
+      if (requestIdRef.current !== requestId) return;
+      console.debug('[recupero][error]', { requestId, ms: Date.now() - startedAt, message: err?.message || err });
       setError(err?.message || 'No se pudo cargar Recupero de clientes.');
       setItems([]);
       setTotal(0);
     } finally {
+      if (requestIdRef.current !== requestId) return;
       setLoading(false);
     }
   }, [api, buildSearchPayload, metrics.total]);
@@ -587,13 +604,11 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     } catch {}
   }, [visibleColumns]);
 
-  React.useEffect(() => {
-    loadRecupero();
-  }, [loadRecupero]);
+  const payloadKey = React.useMemo(() => JSON.stringify(buildSearchPayload()), [buildSearchPayload]);
 
   React.useEffect(() => {
     loadRecupero();
-  }, [advancedFiltersApplied, loadRecupero]);
+  }, [payloadKey, loadRecupero]);
 
   React.useEffect(() => {
     const handler = setTimeout(() => {
@@ -605,7 +620,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
 
   React.useEffect(() => {
     setPage(1);
-    loadRecupero();
   }, [filtroProducto, filtroDepartamento, filtroMotivo, filtroBusquedaDebounced, orden, activeTab, visibleColumns]); // eslint-disable-line react-hooks/exhaustive-deps
 
   React.useEffect(() => {
@@ -1086,7 +1100,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       }
       const response = await api.post('/api/recupero/importaciones', formData);
       setImportResult(response);
-      loadRecupero();
+      loadRecupero({ force: true });
     } catch (err) {
       setImportResult({ ok: false, message: err?.message || 'No se pudo importar el archivo.' });
     } finally {
@@ -1112,7 +1126,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       setShowCreateLot(false);
       resetLotModal();
       setSelectedIds([]);
-      loadRecupero();
+      loadRecupero({ force: true });
     } catch (err) {
       setError(err?.message || 'No se pudo crear el lote de recupero.');
     } finally {
@@ -1287,7 +1301,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
               <Button variant="secondary" icon={<Columns size={16} />} onClick={() => setColumnsPanelOpen((prev) => !prev)}>
                 Columnas
               </Button>
-              <Button variant="ghost" icon={<RefreshCw size={16} />} onClick={loadRecupero}>Actualizar</Button>
+              <Button variant="ghost" icon={<RefreshCw size={16} />} onClick={() => loadRecupero({ force: true })}>Actualizar</Button>
               <Button variant="secondary" icon={<Upload size={16} />} onClick={() => { resetImportState(); setShowImportModal(true); }}>
                 Importar CSV
               </Button>
@@ -1396,7 +1410,12 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
             </div>
           )}
 
-          {error ? <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 600 }}>{error}</div> : null}
+          {error ? (
+            <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <span>{error}</span>
+              <Button variant="ghost" onClick={() => loadRecupero({ force: true })}>Reintentar</Button>
+            </div>
+          ) : null}
           {loading ? <div style={{ marginBottom: 12, color: 'var(--muted)' }}>Cargando recupero...</div> : null}
 
           <div className="table-wrap">
