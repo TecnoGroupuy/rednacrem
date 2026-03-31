@@ -1517,9 +1517,20 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         if (!sellerSummary.length) return 0;
         return Math.max(...sellerSummary.map((row) => Number(row.gestiones || 0)));
       }, [sellerSummary]);
+      const sellerRecuperoSummary = React.useMemo(
+        () => sellerSummary.filter((row) => Number(row.asignados || 0) > 0),
+        [sellerSummary]
+      );
+      const sellerRecuperoMaxGestiones = React.useMemo(() => {
+        if (!sellerRecuperoSummary.length) return 0;
+        return Math.max(...sellerRecuperoSummary.map((row) => Number(row.gestiones || 0)));
+      }, [sellerRecuperoSummary]);
       const sellerTotalGestiones = React.useMemo(() => (
         sellerSummary.reduce((acc, row) => acc + Number(row.gestiones || 0), 0)
       ), [sellerSummary]);
+      const sellerRecuperoTotalGestiones = React.useMemo(() => (
+        sellerRecuperoSummary.reduce((acc, row) => acc + Number(row.gestiones || 0), 0)
+      ), [sellerRecuperoSummary]);
       const SellerBadge = ({ value, styleFn, suffix = '' }) => {
         const c = styleFn(value);
         return (
@@ -2071,7 +2082,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           <section className="content-grid">
             <Panel
               className="span-12"
-              title="Seguimiento de vendedores"
+              title="Mercado abierto"
               subtitle="Medición diaria por vendedor"
               action={(
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -2149,6 +2160,76 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               <div style={{ marginTop: 10, fontSize: 12, color: '#94a3b8', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                 <span>{sellerSummary.length} vendedores</span>
                 <span>Total gestiones: {sellerTotalGestiones}</span>
+              </div>
+            </Panel>
+          </section>
+          <section className="content-grid">
+            <Panel
+              className="span-12"
+              title="Recupero"
+              subtitle="Gestión de recupero"
+            >
+              {sellerSummaryLoading ? <div style={{ marginBottom: 12, color: 'var(--muted)' }}>Cargando resumen de vendedores...</div> : null}
+              {sellerSummaryError ? <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 600 }}>{sellerSummaryError}</div> : null}
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Vendedor</th>
+                      <th>Asignados</th>
+                      <th>Gestiones del día</th>
+                      <th>Ventas</th>
+                      <th>Seguimientos</th>
+                      <th>Rellamadas</th>
+                      <th>No contesta</th>
+                      <th>Rechazos</th>
+                      <th>Datos err.</th>
+                      <th>Contacto</th>
+                      <th>Efectividad</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sellerRecuperoSummary.map((row, idx) => (
+                      <tr key={`recupero-${row.id || `${row.nombre}-${row.apellido}-${idx}`}`}>
+                        <td>
+                          <div className="person">
+                            <SellerAvatar nombre={row.nombre} apellido={row.apellido} />
+                            <div>
+                              <strong>{`${row.nombre || ''} ${row.apellido || ''}`.trim() || '—'}</strong>
+                            </div>
+                          </div>
+                        </td>
+                        <td>{row.asignados}</td>
+                        <td style={{ minWidth: 130 }}>
+                          <SellerMiniBar value={row.gestiones} max={sellerRecuperoMaxGestiones} />
+                        </td>
+                        <td>
+                          <SellerBadge value={row.ventas} styleFn={sellerVentasStyle} />
+                        </td>
+                        <td>{row.seguimientos}</td>
+                        <td>{row.rellamadas}</td>
+                        <td>{row.no_contesta}</td>
+                        <td>
+                          <SellerBadge value={row.rechazos} styleFn={sellerRechazosStyle} />
+                        </td>
+                        <td>{row.datos_erroneos}</td>
+                        <td>
+                          <SellerBadge value={row.contacto} styleFn={sellerPercentStyle} suffix="%" />
+                        </td>
+                        <td>
+                          <SellerBadge value={row.efectividad} styleFn={sellerPercentStyle} suffix="%" />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {!sellerSummaryLoading && !sellerRecuperoSummary.length ? (
+                  <div style={{ padding: 16, color: 'var(--muted)' }}>No hay vendedores con lote asignado.</div>
+                ) : null}
+              </div>
+              <div style={{ marginTop: 10, fontSize: 12, color: '#94a3b8', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                <span>{sellerRecuperoSummary.length} vendedores</span>
+                <span>Total gestiones: {sellerRecuperoTotalGestiones}</span>
               </div>
             </Panel>
           </section>
