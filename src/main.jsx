@@ -10072,7 +10072,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           setMostrarPausa(false);
         }
         const tipoMap = {
-          bano: 'BAÑO',
+          bano: 'BANO',
           descanso: 'DESCANSO',
           supervisor: 'SUPERVISOR'
         };
