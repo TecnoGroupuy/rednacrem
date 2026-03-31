@@ -275,6 +275,8 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
     client.fechaVenta,
     client.fecha_venta,
     client.ventaFecha,
+    client.products?.[0]?.fechaAlta,
+    client.products?.[0]?.fecha_alta,
     client.product?.fechaAlta,
     client.product?.fecha_alta,
     client.producto?.fechaAlta,
