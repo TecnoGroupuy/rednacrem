@@ -1689,6 +1689,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [jornadaAgents, setJornadaAgents] = React.useState([]);
       const [jornadaLoading, setJornadaLoading] = React.useState(false);
       const [jornadaError, setJornadaError] = React.useState('');
+      const [jornadaMenuOpen, setJornadaMenuOpen] = React.useState(null);
       const jornadaTimezone = 'America/Montevideo';
       const jornadaColors = React.useMemo(() => ([
         '#6366f1', '#f59e0b', '#10b981', '#3b82f6', '#ec4899'
@@ -1761,6 +1762,21 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           schedule: []
         };
       }, [getJornadaColor]);
+
+      const handleAgentLogout = React.useCallback(async (agent) => {
+        if (!agent?.id) return;
+        const api = getApiClient();
+        try {
+          await api.post('/api/agent/event', { agente_id: agent.id, tipo: 'LOGOUT' });
+          setJornadaMenuOpen(null);
+          const dateStr = formatDateYmd(selectedDate);
+          const response = await api.get(`/api/reportes/jornada-diaria?fecha=${dateStr}&timezone=${encodeURIComponent(jornadaTimezone)}`);
+          const items = response?.items || response?.data?.items || [];
+          setJornadaAgents(Array.isArray(items) ? items.map(mapJornadaItem) : []);
+        } catch (err) {
+          setJornadaError(err?.message || 'No se pudo cerrar la sesión.');
+        }
+      }, [formatDateYmd, jornadaTimezone, mapJornadaItem, selectedDate]);
       const formatTimeSince = (date) => {
         if (!date) return '--';
         const diff = Math.max(0, Math.floor((Date.now() - new Date(date).getTime()) / 60000));
@@ -2525,11 +2541,67 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                               </div>
                             </div>
                           </div>
-                          {agent.logoutTime === 'En curso' ? (
-                            <span style={{ fontSize: 11, fontWeight: 700, color: '#2563eb', background: 'rgba(59,130,246,0.12)', padding: '4px 10px', borderRadius: 999 }}>
-                              En curso
-                            </span>
-                          ) : null}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            {agent.logoutTime === 'En curso' ? (
+                              <span style={{ fontSize: 11, fontWeight: 700, color: '#2563eb', background: 'rgba(59,130,246,0.12)', padding: '4px 10px', borderRadius: 999 }}>
+                                En curso
+                              </span>
+                            ) : null}
+                            <div style={{ position: 'relative' }}>
+                              <button
+                                type="button"
+                                onClick={() => setJornadaMenuOpen((prev) => (prev === agent.id ? null : agent.id))}
+                                style={{
+                                  width: 28,
+                                  height: 28,
+                                  borderRadius: 8,
+                                  border: '1px solid #e2e8f0',
+                                  background: '#fff',
+                                  color: '#0f172a',
+                                  fontSize: 18,
+                                  lineHeight: '18px',
+                                  cursor: 'pointer'
+                                }}
+                                aria-label="Opciones"
+                              >
+                                ⋮
+                              </button>
+                              {jornadaMenuOpen === agent.id ? (
+                                <div
+                                  style={{
+                                    position: 'absolute',
+                                    top: 34,
+                                    right: 0,
+                                    background: '#fff',
+                                    border: '1px solid #e2e8f0',
+                                    borderRadius: 10,
+                                    boxShadow: '0 10px 20px rgba(15,23,42,0.12)',
+                                    padding: 6,
+                                    minWidth: 140,
+                                    zIndex: 10
+                                  }}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAgentLogout(agent)}
+                                    style={{
+                                      width: '100%',
+                                      border: 'none',
+                                      background: 'transparent',
+                                      textAlign: 'left',
+                                      padding: '8px 10px',
+                                      fontSize: 13,
+                                      fontWeight: 600,
+                                      color: '#dc2626',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    Cerrar sesión
+                                  </button>
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
                         </div>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 999, marginBottom: 14, width: '100%', justifyContent: 'center', ...stateBadgeStyle(agent.currentState) }}>
                           {agent.currentStateLabel || stateLabel(agent.currentState)}
