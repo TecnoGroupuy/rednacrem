@@ -1,10 +1,62 @@
 import React from 'react';
-import { Filter, RefreshCw, Plus, X, Upload } from 'lucide-react';
+import { Filter, RefreshCw, Plus, X, Upload, Columns } from 'lucide-react';
 import { getApiClient } from '../services/apiClient.js';
 
 const PAGE_SIZE = 50;
 
 const normalizeOption = (value) => String(value || '').trim();
+const makeId = () => `id_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+
+const EMPTY_GROUP = () => ({
+  id: makeId(),
+  type: 'group',
+  combinator: 'AND',
+  rules: []
+});
+
+const EMPTY_RULE = (fieldId = 'contacto') => ({
+  id: makeId(),
+  type: 'rule',
+  field: fieldId,
+  operator: '',
+  value: ''
+});
+
+const OPERATOR_LABELS = {
+  contains: 'contiene',
+  not_contains: 'no contiene',
+  eq: 'igual',
+  ne: 'distinto',
+  starts: 'empieza con',
+  ends: 'termina con',
+  empty: 'vacío',
+  not_empty: 'no vacío',
+  gt: 'mayor',
+  gte: 'mayor o igual',
+  lt: 'menor',
+  lte: 'menor o igual',
+  between: 'entre',
+  before: 'antes',
+  after: 'después',
+  today: 'hoy',
+  last_days: 'últimos X días',
+  this_month: 'este mes',
+  in: 'es alguno de',
+  not_in: 'no es alguno de',
+  is_true: 'verdadero',
+  is_false: 'falso'
+};
+
+const TYPE_OPERATORS = {
+  text: ['contains', 'not_contains', 'eq', 'ne', 'starts', 'ends', 'empty', 'not_empty'],
+  number: ['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'between', 'empty', 'not_empty'],
+  date: ['before', 'after', 'between', 'today', 'last_days', 'this_month', 'empty', 'not_empty'],
+  enum: ['in', 'not_in', 'empty', 'not_empty'],
+  boolean: ['is_true', 'is_false']
+};
+
+const isGroup = (node) => node?.type === 'group';
+const isRule = (node) => node?.type === 'rule';
 function ColHeader({ campo, label, ordenActual, onOrden }) {
   const activo = ordenActual.campo === campo;
   const icono = !activo ? '↕' : ordenActual.direccion === 'asc' ? '↑' : '↓';
@@ -31,6 +83,17 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const [filtroBusqueda, setFiltroBusqueda] = React.useState('');
   const [orden, setOrden] = React.useState({ campo: '', direccion: 'asc' });
   const [filterOptions, setFilterOptions] = React.useState({ productos: [], departamentos: [], motivos: [] });
+  const [showAdvancedFilters, setShowAdvancedFilters] = React.useState(false);
+  const [advancedFiltersDraft, setAdvancedFiltersDraft] = React.useState(EMPTY_GROUP());
+  const [advancedFiltersApplied, setAdvancedFiltersApplied] = React.useState(EMPTY_GROUP());
+  const [filterErrors, setFilterErrors] = React.useState({});
+  const [columnsPanelOpen, setColumnsPanelOpen] = React.useState(false);
+  const [visibleColumns, setVisibleColumns] = React.useState([]);
+  const [savedViews, setSavedViews] = React.useState([]);
+  const [selectedViewId, setSelectedViewId] = React.useState('');
+  const [saveViewName, setSaveViewName] = React.useState('');
+  const [saveViewDefault, setSaveViewDefault] = React.useState(false);
+  const [saveViewFavorite, setSaveViewFavorite] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
   const [page, setPage] = React.useState(1);
@@ -74,6 +137,32 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     { key: 'recuperados', label: 'Recuperados' },
     { key: 'rechazados', label: 'Rechazados' }
   ];
+
+  const allColumns = React.useMemo(() => ([
+    { id: 'contacto', label: 'Contacto', required: true },
+    { id: 'documento', label: 'Documento' },
+    { id: 'edad', label: 'Edad' },
+    { id: 'telefono', label: 'Teléfono' },
+    { id: 'departamento', label: 'Departamento' },
+    { id: 'producto', label: 'Producto' },
+    { id: 'precio', label: 'Precio' },
+    { id: 'fecha_baja', label: 'Fecha de baja' },
+    { id: 'motivo_baja', label: 'Motivo de baja' },
+    { id: 'lote', label: 'Lote' },
+    { id: 'vendedor_asignado', label: 'Vendedor asignado' },
+    { id: 'ultimo_estado', label: 'Último estado' },
+    { id: 'ultima_gestion', label: 'Última gestión' }
+  ]), []);
+
+  const isColumnVisible = React.useCallback((id) => {
+    if (!visibleColumns.length) return true;
+    return visibleColumns.includes(id);
+  }, [visibleColumns]);
+
+  const ensureDefaultColumns = React.useCallback(() => {
+    if (visibleColumns.length) return;
+    setVisibleColumns(allColumns.map((col) => col.id));
+  }, [allColumns, visibleColumns.length]);
 
   const loadFilters = React.useCallback(async () => {
     try {
@@ -127,24 +216,225 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     return parsed.toLocaleString('es-UY', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   };
 
+  const filterFields = React.useMemo(() => ([
+    { id: 'contacto', label: 'Contacto', type: 'text' },
+    { id: 'documento', label: 'Documento', type: 'number' },
+    { id: 'edad', label: 'Edad', type: 'number' },
+    { id: 'telefono', label: 'Teléfono', type: 'number' },
+    { id: 'departamento', label: 'Departamento', type: 'enum', options: filterOptions.departamentos },
+    { id: 'producto', label: 'Producto', type: 'enum', options: filterOptions.productos },
+    { id: 'precio', label: 'Precio', type: 'number' },
+    { id: 'fecha_baja', label: 'Fecha de baja', type: 'date' },
+    { id: 'motivo_baja', label: 'Motivo de baja', type: 'enum', options: filterOptions.motivos },
+    { id: 'lote', label: 'Lote', type: 'text' },
+    { id: 'vendedor_asignado', label: 'Vendedor asignado', type: 'enum', options: sellers.map((seller) => ({ value: seller.id, label: seller.label })) },
+    { id: 'ultimo_estado', label: 'Último estado', type: 'enum', options: [
+      { value: 'Nuevo', label: 'Nuevo' },
+      { value: 'Seguimiento', label: 'Seguimiento' },
+      { value: 'Rellamar', label: 'Rellamar' },
+      { value: 'Rechazo', label: 'Rechazo' },
+      { value: 'Recuperado', label: 'Recuperado' }
+    ] },
+    { id: 'ultima_gestion', label: 'Última gestión', type: 'date' }
+  ]), [filterOptions.departamentos, filterOptions.motivos, filterOptions.productos, sellers]);
+
+  const getFieldById = React.useCallback((fieldId) => (
+    filterFields.find((field) => field.id === fieldId) || filterFields[0]
+  ), [filterFields]);
+
+  const getOperatorsForField = React.useCallback((fieldId) => {
+    const field = getFieldById(fieldId);
+    return TYPE_OPERATORS[field?.type] || TYPE_OPERATORS.text;
+  }, [getFieldById]);
+
+  const normalizeRuleValue = (rule, operator) => {
+    if (operator === 'between') {
+      return { from: '', to: '' };
+    }
+    if (operator === 'last_days') {
+      return 7;
+    }
+    if (operator === 'today' || operator === 'this_month' || operator === 'empty' || operator === 'not_empty' || operator === 'is_true' || operator === 'is_false') {
+      return '';
+    }
+    return '';
+  };
+
   const getMotivoBaja = (row) => row?.motivo_baja || null;
   const getNombreLote = (row) => row?.nombre_lote || null;
   const getVendedorAsignado = (row) => row?.vendedor_asignado_nombre || null;
   const getUltimoEstado = (row) => row?.ultimo_estado_gestion || null;
   const getFechaUltimaGestion = (row) => row?.fecha_ultima_gestion || null;
 
+  const updateGroupById = (group, groupId, updater) => {
+    if (group.id === groupId) return updater(group);
+    return {
+      ...group,
+      rules: group.rules.map((rule) => {
+        if (isGroup(rule)) return updateGroupById(rule, groupId, updater);
+        return rule;
+      })
+    };
+  };
+
+  const updateRuleById = (group, ruleId, updater) => ({
+    ...group,
+    rules: group.rules.map((rule) => {
+      if (isGroup(rule)) return updateRuleById(rule, ruleId, updater);
+      if (rule.id !== ruleId) return rule;
+      return updater(rule);
+    })
+  });
+
+  const removeRuleOrGroup = (group, targetId) => ({
+    ...group,
+    rules: group.rules.filter((rule) => rule.id !== targetId).map((rule) => (
+      isGroup(rule) ? removeRuleOrGroup(rule, targetId) : rule
+    ))
+  });
+
+  const addRuleToGroup = (groupId) => {
+    const fieldId = advancedFiltersDraft.rules[0]?.field || 'contacto';
+    const operator = getOperatorsForField(fieldId)[0] || '';
+    const nextRule = {
+      ...EMPTY_RULE(fieldId),
+      operator,
+      value: normalizeRuleValue(null, operator)
+    };
+    const next = updateGroupById(advancedFiltersDraft, groupId, (group) => ({
+      ...group,
+      rules: [...group.rules, nextRule]
+    }));
+    setAdvancedFiltersDraft(next);
+  };
+
+  const addGroupToGroup = (groupId) => {
+    const nextGroup = EMPTY_GROUP();
+    const next = updateGroupById(advancedFiltersDraft, groupId, (group) => ({
+      ...group,
+      rules: [...group.rules, nextGroup]
+    }));
+    setAdvancedFiltersDraft(next);
+  };
+
+  const updateRuleField = (ruleId, fieldId) => {
+    const operators = getOperatorsForField(fieldId);
+    const operator = operators[0] || '';
+    const nextValue = normalizeRuleValue(null, operator);
+    setAdvancedFiltersDraft((prev) => updateRuleById(prev, ruleId, (rule) => ({
+      ...rule,
+      field: fieldId,
+      operator,
+      value: nextValue
+    })));
+  };
+
+  const updateRuleOperator = (ruleId, operator) => {
+    setAdvancedFiltersDraft((prev) => updateRuleById(prev, ruleId, (rule) => ({
+      ...rule,
+      operator,
+      value: normalizeRuleValue(rule, operator)
+    })));
+  };
+
+  const updateRuleValue = (ruleId, value) => {
+    setAdvancedFiltersDraft((prev) => updateRuleById(prev, ruleId, (rule) => ({
+      ...rule,
+      value
+    })));
+  };
+
+  const updateGroupCombinator = (groupId, combinator) => {
+    setAdvancedFiltersDraft((prev) => updateGroupById(prev, groupId, (group) => ({
+      ...group,
+      combinator
+    })));
+  };
+
+  const validateRule = (rule) => {
+    if (!rule.field || !rule.operator) return 'Seleccioná un campo y operador.';
+    if (['empty', 'not_empty', 'today', 'this_month', 'is_true', 'is_false'].includes(rule.operator)) return '';
+    if (rule.operator === 'between') {
+      if (!rule.value?.from || !rule.value?.to) return 'Completá el rango.';
+      return '';
+    }
+    if (rule.operator === 'last_days') {
+      if (!rule.value || Number(rule.value) <= 0) return 'Ingresá cantidad de días.';
+      return '';
+    }
+    if (rule.value === '' || rule.value === null || rule.value === undefined) return 'Seleccioná un valor.';
+    return '';
+  };
+
+  const collectRuleErrors = (group, errors = {}) => {
+    group.rules.forEach((rule) => {
+      if (isGroup(rule)) {
+        collectRuleErrors(rule, errors);
+      } else {
+        const error = validateRule(rule);
+        if (error) errors[rule.id] = error;
+      }
+    });
+    return errors;
+  };
+
+  const flattenRules = (group, acc = []) => {
+    group.rules.forEach((rule) => {
+      if (isGroup(rule)) flattenRules(rule, acc);
+      else acc.push(rule);
+    });
+    return acc;
+  };
+
+  const hasRules = React.useCallback((group) => flattenRules(group).length > 0, []);
+
+  const buildQuickFilterRules = React.useCallback(() => {
+    const rules = [];
+    if (filtroProducto) rules.push({ id: makeId(), type: 'rule', field: 'producto', operator: 'eq', value: filtroProducto });
+    if (filtroMotivo) rules.push({ id: makeId(), type: 'rule', field: 'motivo_baja', operator: 'eq', value: filtroMotivo });
+    if (filtroDepartamento) rules.push({ id: makeId(), type: 'rule', field: 'departamento', operator: 'eq', value: filtroDepartamento });
+    return rules;
+  }, [filtroDepartamento, filtroMotivo, filtroProducto]);
+
+  const mergeRules = (baseRules, extraRules) => {
+    const seen = new Set();
+    const merged = [];
+    [...baseRules, ...extraRules].forEach((rule) => {
+      const key = `${rule.field}:${rule.operator}:${JSON.stringify(rule.value)}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      merged.push(rule);
+    });
+    return merged;
+  };
+
+  const buildSearchPayload = React.useCallback(() => {
+    const quickRules = buildQuickFilterRules();
+    const advancedRules = flattenRules(advancedFiltersApplied);
+    const mergedRules = mergeRules(advancedRules, quickRules);
+    const filtersPayload = mergedRules.length
+      ? {
+        ...advancedFiltersApplied,
+        rules: mergedRules
+      }
+      : null;
+    return {
+      tab: activeTab,
+      search: filtroBusqueda || '',
+      filters: filtersPayload,
+      sort: orden.campo ? { field: orden.campo, dir: orden.direccion } : null,
+      columns: visibleColumns.length ? visibleColumns : allColumns.map((col) => col.id),
+      page,
+      limit: PAGE_SIZE
+    };
+  }, [activeTab, advancedFiltersApplied, allColumns, buildQuickFilterRules, filtroBusqueda, mergeRules, orden, page, visibleColumns]);
+
   const loadRecupero = React.useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const url = `/api/recupero/contactos?page=${page}&limit=${PAGE_SIZE}`
-        + (filtroProducto ? `&producto=${encodeURIComponent(filtroProducto)}` : '')
-        + (filtroDepartamento ? `&departamento=${encodeURIComponent(filtroDepartamento)}` : '')
-        + (filtroMotivo ? `&motivo_baja=${encodeURIComponent(filtroMotivo)}` : '')
-        + (filtroBusqueda ? `&search=${encodeURIComponent(filtroBusqueda)}` : '')
-        + (activeTab ? `&tab=${encodeURIComponent(activeTab)}` : '')
-        + (orden.campo ? `&sort=${orden.campo}&dir=${orden.direccion}` : '');
-      const response = await api.get(url);
+      const payload = buildSearchPayload();
+      const response = await api.post('/api/recupero/contactos/search', payload);
       const rows = response?.items || response?.data?.items || [];
       const totalCount = Number(response?.total ?? response?.data?.total ?? rows.length);
       setItems(Array.isArray(rows) ? rows : []);
@@ -169,20 +459,83 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     } finally {
       setLoading(false);
     }
-  }, [api, filtroDepartamento, filtroMotivo, filtroProducto, filtroBusqueda, orden, page, activeTab, metrics.total]);
+  }, [api, buildSearchPayload, metrics.total]);
 
   React.useEffect(() => {
     loadFilters();
   }, [loadFilters]);
 
   React.useEffect(() => {
+    try {
+      const storedColumns = JSON.parse(localStorage.getItem('recupero_columns') || '[]');
+      if (Array.isArray(storedColumns) && storedColumns.length) {
+        setVisibleColumns(storedColumns);
+      }
+    } catch {}
+  }, []);
+
+  React.useEffect(() => {
+    ensureDefaultColumns();
+  }, [ensureDefaultColumns]);
+
+  React.useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('recupero_saved_views') || '[]');
+      if (Array.isArray(saved)) {
+        setSavedViews(saved);
+        const defaultView = saved.find((view) => view.isDefault);
+        if (defaultView) {
+          setSelectedViewId(defaultView.id);
+          if (defaultView.filters) {
+            setAdvancedFiltersDraft(defaultView.filters);
+            setAdvancedFiltersApplied(defaultView.filters);
+          }
+          if (defaultView.quickFilters) {
+            setFiltroProducto(defaultView.quickFilters.producto || '');
+            setFiltroDepartamento(defaultView.quickFilters.departamento || '');
+            setFiltroMotivo(defaultView.quickFilters.motivo_baja || '');
+            setFiltroBusqueda(defaultView.quickFilters.search || '');
+          }
+          if (defaultView.columns?.length) {
+            setVisibleColumns(defaultView.columns);
+          }
+          if (defaultView.sort) {
+            setOrden(defaultView.sort);
+          }
+          if (defaultView.tab) {
+            setActiveTab(defaultView.tab);
+          }
+        }
+      }
+    } catch {
+      setSavedViews([]);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('recupero_saved_views', JSON.stringify(savedViews));
+    } catch {}
+  }, [savedViews]);
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('recupero_columns', JSON.stringify(visibleColumns));
+    } catch {}
+  }, [visibleColumns]);
+
+  React.useEffect(() => {
     loadRecupero();
   }, [loadRecupero]);
 
   React.useEffect(() => {
+    loadRecupero();
+  }, [advancedFiltersApplied, loadRecupero]);
+
+  React.useEffect(() => {
     setPage(1);
     loadRecupero();
-  }, [filtroProducto, filtroDepartamento, filtroMotivo, filtroBusqueda, orden, activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filtroProducto, filtroDepartamento, filtroMotivo, filtroBusqueda, orden, activeTab, visibleColumns]); // eslint-disable-line react-hooks/exhaustive-deps
 
   React.useEffect(() => {
     if (activeTab !== 'disponibles' && selectedIds.length) {
@@ -213,12 +566,349 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     setImportResult(null);
   };
 
+  const applyAdvancedFilters = () => {
+    const errors = collectRuleErrors(advancedFiltersDraft);
+    setFilterErrors(errors);
+    if (Object.keys(errors).length) return;
+    setAdvancedFiltersApplied(advancedFiltersDraft);
+    setPage(1);
+  };
+
+  const clearAdvancedFilters = () => {
+    const empty = EMPTY_GROUP();
+    setAdvancedFiltersDraft(empty);
+    setAdvancedFiltersApplied(empty);
+    setFilterErrors({});
+    setPage(1);
+  };
+
+  const clearAllFilters = () => {
+    setFiltroProducto('');
+    setFiltroDepartamento('');
+    setFiltroMotivo('');
+    setFiltroBusqueda('');
+    clearAdvancedFilters();
+  };
+
+  const removeAdvancedRule = (ruleId) => {
+    const nextApplied = removeRuleOrGroup(advancedFiltersApplied, ruleId);
+    const nextDraft = removeRuleOrGroup(advancedFiltersDraft, ruleId);
+    setAdvancedFiltersApplied(nextApplied);
+    setAdvancedFiltersDraft(nextDraft);
+    setPage(1);
+  };
+
+  const handleSaveView = () => {
+    if (!saveViewName.trim()) return;
+    const nextView = {
+      id: makeId(),
+      name: saveViewName.trim(),
+      isDefault: saveViewDefault,
+      isFavorite: saveViewFavorite,
+      tab: activeTab,
+      filters: advancedFiltersApplied,
+      quickFilters: {
+        producto: filtroProducto,
+        departamento: filtroDepartamento,
+        motivo_baja: filtroMotivo,
+        search: filtroBusqueda
+      },
+      columns: visibleColumns,
+      sort: orden
+    };
+    setSavedViews((prev) => {
+      const withoutDefault = saveViewDefault ? prev.map((view) => ({ ...view, isDefault: false })) : prev;
+      return [...withoutDefault, nextView];
+    });
+    setSaveViewName('');
+    setSaveViewDefault(false);
+    setSaveViewFavorite(false);
+    setSelectedViewId(nextView.id);
+  };
+
+  const applySavedView = (viewId) => {
+    if (!viewId) {
+      setSelectedViewId('');
+      return;
+    }
+    const view = savedViews.find((item) => item.id === viewId);
+    if (!view) return;
+    setSelectedViewId(viewId);
+    if (view.filters) {
+      setAdvancedFiltersDraft(view.filters);
+      setAdvancedFiltersApplied(view.filters);
+    }
+    if (view.quickFilters) {
+      setFiltroProducto(view.quickFilters.producto || '');
+      setFiltroDepartamento(view.quickFilters.departamento || '');
+      setFiltroMotivo(view.quickFilters.motivo_baja || '');
+      setFiltroBusqueda(view.quickFilters.search || '');
+    }
+    if (view.columns?.length) {
+      setVisibleColumns(view.columns);
+    }
+    if (view.sort) {
+      setOrden(view.sort);
+    }
+    if (view.tab) {
+      setActiveTab(view.tab);
+    }
+    setPage(1);
+  };
+
   React.useEffect(() => {
     if (!showImportModal) return;
     if (!isImportSuccess(importResult)) return;
     setShowImportModal(false);
     resetImportState();
   }, [importResult, showImportModal]);
+
+  React.useEffect(() => {
+    if (!showAdvancedFilters) return;
+    const handler = (event) => {
+      if (event.key === 'Escape') {
+        setShowAdvancedFilters(false);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    if (!hasRules(advancedFiltersDraft)) {
+      const operator = getOperatorsForField('contacto')[0] || '';
+      setAdvancedFiltersDraft((prev) => ({
+        ...prev,
+        rules: [...prev.rules, {
+          ...EMPTY_RULE('contacto'),
+          operator,
+          value: normalizeRuleValue(null, operator)
+        }]
+      }));
+    }
+    return () => window.removeEventListener('keydown', handler);
+  }, [advancedFiltersDraft, getOperatorsForField, hasRules, showAdvancedFilters]);
+
+  const activeQuickFilters = React.useMemo(() => ({
+    producto: filtroProducto,
+    motivo_baja: filtroMotivo,
+    departamento: filtroDepartamento,
+    search: filtroBusqueda
+  }), [filtroBusqueda, filtroDepartamento, filtroMotivo, filtroProducto]);
+
+  const activeAdvancedRules = React.useMemo(() => flattenRules(advancedFiltersApplied), [advancedFiltersApplied]);
+
+  const activeFilterCount = React.useMemo(() => {
+    const quickCount = Object.values(activeQuickFilters).filter(Boolean).length;
+    return quickCount + activeAdvancedRules.length;
+  }, [activeAdvancedRules.length, activeQuickFilters]);
+
+  const activeChips = React.useMemo(() => {
+    const chips = [];
+    if (activeQuickFilters.search) chips.push({ id: 'search', label: `Búsqueda: ${activeQuickFilters.search}`, type: 'quick' });
+    if (activeQuickFilters.producto) chips.push({ id: 'producto', label: `Producto: ${activeQuickFilters.producto}`, type: 'quick' });
+    if (activeQuickFilters.motivo_baja) chips.push({ id: 'motivo_baja', label: `Motivo: ${activeQuickFilters.motivo_baja}`, type: 'quick' });
+    if (activeQuickFilters.departamento) chips.push({ id: 'departamento', label: `Departamento: ${activeQuickFilters.departamento}`, type: 'quick' });
+
+    activeAdvancedRules.forEach((rule) => {
+      const field = getFieldById(rule.field);
+      const operatorLabel = OPERATOR_LABELS[rule.operator] || rule.operator;
+      let valueLabel = '';
+      if (rule.operator === 'between' && rule.value) {
+        valueLabel = `${rule.value.from || '—'} a ${rule.value.to || '—'}`;
+      } else if (rule.operator === 'last_days') {
+        valueLabel = `${rule.value} días`;
+      } else if (rule.operator === 'empty' || rule.operator === 'not_empty' || rule.operator === 'today' || rule.operator === 'this_month') {
+        valueLabel = '';
+      } else if (Array.isArray(rule.value)) {
+        valueLabel = rule.value.join(', ');
+      } else {
+        valueLabel = rule.value;
+      }
+      chips.push({
+        id: rule.id,
+        label: `${field?.label || rule.field} ${operatorLabel}${valueLabel ? ` ${valueLabel}` : ''}`,
+        type: 'advanced'
+      });
+    });
+    return chips;
+  }, [activeAdvancedRules, activeQuickFilters, getFieldById]);
+
+  const renderValueInput = (rule) => {
+    const field = getFieldById(rule.field);
+    const type = field?.type || 'text';
+    const operator = rule.operator;
+
+    if (operator === 'between') {
+      return (
+        <div style={{ display: 'flex', gap: 6 }}>
+          <input
+            className="input"
+            type={type === 'date' ? 'date' : 'number'}
+            placeholder="Desde"
+            value={rule.value?.from || ''}
+            onChange={(event) => updateRuleValue(rule.id, { ...rule.value, from: event.target.value })}
+            style={{ width: '50%' }}
+          />
+          <input
+            className="input"
+            type={type === 'date' ? 'date' : 'number'}
+            placeholder="Hasta"
+            value={rule.value?.to || ''}
+            onChange={(event) => updateRuleValue(rule.id, { ...rule.value, to: event.target.value })}
+            style={{ width: '50%' }}
+          />
+        </div>
+      );
+    }
+
+    if (operator === 'last_days') {
+      return (
+        <input
+          className="input"
+          type="number"
+          min="1"
+          placeholder="Días"
+          value={rule.value || ''}
+          onChange={(event) => updateRuleValue(rule.id, event.target.value)}
+        />
+      );
+    }
+
+    if (['empty', 'not_empty', 'today', 'this_month', 'is_true', 'is_false'].includes(operator)) {
+      return <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>No requiere valor</div>;
+    }
+
+    if (type === 'enum') {
+      const options = (field?.options || []).map((opt) => (
+        typeof opt === 'string' ? { value: opt, label: opt } : opt
+      ));
+      if (operator === 'in' || operator === 'not_in') {
+        return (
+          <select
+            className="input"
+            multiple
+            value={Array.isArray(rule.value) ? rule.value : []}
+            onChange={(event) => updateRuleValue(rule.id, Array.from(event.target.selectedOptions).map((opt) => opt.value))}
+            style={{ minHeight: 38 }}
+          >
+            {options.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        );
+      }
+      return (
+        <select
+          className="input"
+          value={rule.value || ''}
+          onChange={(event) => updateRuleValue(rule.id, event.target.value)}
+        >
+          <option value="">Seleccionar</option>
+          {options.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      );
+    }
+
+    return (
+      <input
+        className="input"
+        type={type === 'number' ? 'number' : type === 'date' ? 'date' : 'text'}
+        placeholder="Valor"
+        value={rule.value || ''}
+        onChange={(event) => updateRuleValue(rule.id, event.target.value)}
+      />
+    );
+  };
+
+  const renderRuleRow = (rule) => {
+    const operators = getOperatorsForField(rule.field);
+    return (
+      <div key={rule.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr auto', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+        <select
+          className="input"
+          value={rule.field}
+          onChange={(event) => updateRuleField(rule.id, event.target.value)}
+        >
+          {filterFields.map((field) => (
+            <option key={field.id} value={field.id}>{field.label}</option>
+          ))}
+        </select>
+        <select
+          className="input"
+          value={rule.operator}
+          onChange={(event) => updateRuleOperator(rule.id, event.target.value)}
+        >
+          <option value="">Operador</option>
+          {operators.map((op) => (
+            <option key={op} value={op}>{OPERATOR_LABELS[op] || op}</option>
+          ))}
+        </select>
+        {renderValueInput(rule)}
+        <button
+          type="button"
+          onClick={() => setAdvancedFiltersDraft((prev) => removeRuleOrGroup(prev, rule.id))}
+          style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#9f1239' }}
+          aria-label="Eliminar regla"
+        >
+          ✕
+        </button>
+        {filterErrors[rule.id] ? (
+          <div style={{ gridColumn: '1 / span 3', color: '#b91c1c', fontSize: 12 }}>
+            {filterErrors[rule.id]}
+          </div>
+        ) : null}
+      </div>
+    );
+  };
+
+  const renderGroup = (group, depth = 0) => (
+    <div key={group.id} style={{
+      border: '1px solid rgba(148,163,184,0.35)',
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 12,
+      background: depth === 0 ? 'rgba(15, 118, 110, 0.04)' : 'rgba(148,163,184,0.08)'
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: '#0f766e' }}>
+          Grupo {depth + 1}
+        </span>
+        <select
+          className="input"
+          value={group.combinator}
+          onChange={(event) => updateGroupCombinator(group.id, event.target.value)}
+          style={{ width: 120 }}
+        >
+          <option value="AND">AND</option>
+          <option value="OR">OR</option>
+        </select>
+        {depth > 0 && (
+          <button
+            type="button"
+            onClick={() => setAdvancedFiltersDraft((prev) => removeRuleOrGroup(prev, group.id))}
+            style={{ marginLeft: 'auto', border: 'none', background: 'transparent', color: '#9f1239', cursor: 'pointer' }}
+          >
+            Eliminar grupo
+          </button>
+        )}
+      </div>
+      {group.rules.length === 0 ? (
+        <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 8 }}>
+          No hay reglas en este grupo.
+        </div>
+      ) : null}
+      {group.rules.map((rule) => (
+        isGroup(rule) ? renderGroup(rule, depth + 1) : renderRuleRow(rule)
+      ))}
+      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+        <Button variant="secondary" onClick={() => addRuleToGroup(group.id)}>
+          + Agregar regla
+        </Button>
+        <Button variant="ghost" onClick={() => addGroupToGroup(group.id)}>
+          + Agregar grupo
+        </Button>
+      </div>
+    </div>
+  );
 
   const detectDelimiter = (line) => {
     if (line.includes(';') && !line.includes(',')) return ';';
@@ -445,7 +1135,20 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: 12, flexWrap: 'wrap' }}>
-            <div className="toolbar" style={{ gap: 10, marginBottom: 0 }}>
+            <div className="toolbar" style={{ gap: 10, marginBottom: 0, alignItems: 'center', flexWrap: 'wrap' }}>
+              <select
+                className="input"
+                style={{ width: 200 }}
+                value={selectedViewId}
+                onChange={(event) => applySavedView(event.target.value)}
+              >
+                <option value="">Mis vistas</option>
+                {savedViews.map((view) => (
+                  <option key={view.id} value={view.id}>
+                    {view.isFavorite ? '★ ' : ''}{view.name}
+                  </option>
+                ))}
+              </select>
               <select
                 className="input"
                 style={{ width: 220 }}
@@ -489,7 +1192,12 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                 value={filtroBusqueda}
                 onChange={(event) => setFiltroBusqueda(event.target.value)}
               />
-              <Button variant="secondary" icon={<Filter size={16} />}>Filtros</Button>
+              <Button variant="secondary" icon={<Filter size={16} />} onClick={() => setShowAdvancedFilters(true)}>
+                Filtros avanzados
+              </Button>
+              <Button variant="secondary" icon={<Columns size={16} />} onClick={() => setColumnsPanelOpen((prev) => !prev)}>
+                Columnas
+              </Button>
               <Button variant="ghost" icon={<RefreshCw size={16} />} onClick={loadRecupero}>Actualizar</Button>
               <Button variant="secondary" icon={<Upload size={16} />} onClick={() => { resetImportState(); setShowImportModal(true); }}>
                 Importar CSV
@@ -508,6 +1216,97 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
             )}
           </div>
 
+          {activeChips.length ? (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+              {activeChips.map((chip) => (
+                <span key={chip.id} style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '4px 10px',
+                  borderRadius: 999,
+                  background: 'rgba(15, 118, 110, 0.08)',
+                  color: '#0f766e',
+                  fontSize: 12,
+                  fontWeight: 600
+                }}>
+                  {chip.label}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (chip.type === 'quick') {
+                        if (chip.id === 'search') setFiltroBusqueda('');
+                        if (chip.id === 'producto') setFiltroProducto('');
+                        if (chip.id === 'motivo_baja') setFiltroMotivo('');
+                        if (chip.id === 'departamento') setFiltroDepartamento('');
+                      } else {
+                        removeAdvancedRule(chip.id);
+                      }
+                    }}
+                    style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#0f766e', fontWeight: 700 }}
+                    aria-label="Eliminar filtro"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#9f1239',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                Limpiar todo
+              </button>
+              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                {activeFilterCount} filtros · {total.toLocaleString('es-UY')} resultados
+              </div>
+            </div>
+          ) : (
+            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 12 }}>
+              {total.toLocaleString('es-UY')} resultados
+            </div>
+          )}
+
+          {columnsPanelOpen && (
+            <div style={{
+              border: '1px solid rgba(148,163,184,0.3)',
+              borderRadius: 12,
+              padding: 12,
+              marginBottom: 12,
+              background: '#fff'
+            }}>
+              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Columnas visibles</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 6 }}>
+                {allColumns.map((col) => (
+                  <label key={col.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                    <input
+                      type="checkbox"
+                      checked={isColumnVisible(col.id)}
+                      disabled={col.required}
+                      onChange={() => {
+                        if (col.required) return;
+                        setVisibleColumns((prev) => {
+                          const current = prev.length ? prev : allColumns.map((c) => c.id);
+                          return current.includes(col.id)
+                            ? current.filter((id) => id !== col.id)
+                            : [...current, col.id];
+                        });
+                      }}
+                    />
+                    <span>{col.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
           {error ? <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 600 }}>{error}</div> : null}
           {loading ? <div style={{ marginBottom: 12, color: 'var(--muted)' }}>Cargando recupero...</div> : null}
 
@@ -517,18 +1316,18 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                 <tr>
                   <th></th>
                   <th>Contacto</th>
-                  <ColHeader campo="documento" label="Documento" ordenActual={orden} onOrden={setOrden} />
-                  <ColHeader campo="edad" label="Edad" ordenActual={orden} onOrden={setOrden} />
-                  <ColHeader campo="telefono" label="Teléfono" ordenActual={orden} onOrden={setOrden} />
-                  <ColHeader campo="departamento" label="Departamento" ordenActual={orden} onOrden={setOrden} />
-                  <ColHeader campo="nombre_producto" label="Producto" ordenActual={orden} onOrden={setOrden} />
-                  <ColHeader campo="precio" label="Precio" ordenActual={orden} onOrden={setOrden} />
-                  <ColHeader campo="fecha_baja" label="Fecha de baja" ordenActual={orden} onOrden={setOrden} />
-                  <ColHeader campo="motivo_baja" label="Motivo de baja" ordenActual={orden} onOrden={setOrden} />
-                  <ColHeader campo="lote" label="Lote" ordenActual={orden} onOrden={setOrden} />
-                  <ColHeader campo="vendedor" label="Vendedor asignado" ordenActual={orden} onOrden={setOrden} />
-                  <ColHeader campo="ultimo_estado" label="Último estado" ordenActual={orden} onOrden={setOrden} />
-                  <ColHeader campo="ultima_gestion_fecha" label="Última gestión" ordenActual={orden} onOrden={setOrden} />
+                  {isColumnVisible('documento') && <ColHeader campo="documento" label="Documento" ordenActual={orden} onOrden={setOrden} />}
+                  {isColumnVisible('edad') && <ColHeader campo="edad" label="Edad" ordenActual={orden} onOrden={setOrden} />}
+                  {isColumnVisible('telefono') && <ColHeader campo="telefono" label="Teléfono" ordenActual={orden} onOrden={setOrden} />}
+                  {isColumnVisible('departamento') && <ColHeader campo="departamento" label="Departamento" ordenActual={orden} onOrden={setOrden} />}
+                  {isColumnVisible('producto') && <ColHeader campo="nombre_producto" label="Producto" ordenActual={orden} onOrden={setOrden} />}
+                  {isColumnVisible('precio') && <ColHeader campo="precio" label="Precio" ordenActual={orden} onOrden={setOrden} />}
+                  {isColumnVisible('fecha_baja') && <ColHeader campo="fecha_baja" label="Fecha de baja" ordenActual={orden} onOrden={setOrden} />}
+                  {isColumnVisible('motivo_baja') && <ColHeader campo="motivo_baja" label="Motivo de baja" ordenActual={orden} onOrden={setOrden} />}
+                  {isColumnVisible('lote') && <ColHeader campo="lote" label="Lote" ordenActual={orden} onOrden={setOrden} />}
+                  {isColumnVisible('vendedor_asignado') && <ColHeader campo="vendedor" label="Vendedor asignado" ordenActual={orden} onOrden={setOrden} />}
+                  {isColumnVisible('ultimo_estado') && <ColHeader campo="ultimo_estado" label="Último estado" ordenActual={orden} onOrden={setOrden} />}
+                  {isColumnVisible('ultima_gestion') && <ColHeader campo="ultima_gestion_fecha" label="Última gestión" ordenActual={orden} onOrden={setOrden} />}
                 </tr>
               </thead>
               <tbody>
@@ -552,18 +1351,18 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                         />
                       </td>
                       <td><strong>{nombre}</strong></td>
-                      <td>{row.documento || row.cedula || row.ci || row.documento_identidad || '—'}</td>
-                      <td>{row.edad ? `${row.edad} años` : '—'}</td>
-                      <td>{row.telefono || row.phone || '—'}</td>
-                      <td>{row.departamento || row.depto || '—'}</td>
-                      <td>{row.producto || row.producto_anterior || row.nombre_producto || '—'}</td>
-                      <td>{row.precio || row.monto || '—'}</td>
-                      <td>{formatDate(row.fecha_baja || row.fechaBaja)}</td>
-                      <td>{motivoBaja || 'Sin motivo'}</td>
-                      <td>{nombreLote || '—'}</td>
-                      <td>{vendedorAsignado || 'Sin asignar'}</td>
-                      <td>{ultimoEstadoGestion || 'Nuevo'}</td>
-                      <td>{fechaUltimaGestion ? formatDateTime(fechaUltimaGestion) : '—'}</td>
+                      {isColumnVisible('documento') && <td>{row.documento || row.cedula || row.ci || row.documento_identidad || '—'}</td>}
+                      {isColumnVisible('edad') && <td>{row.edad ? `${row.edad} años` : '—'}</td>}
+                      {isColumnVisible('telefono') && <td>{row.telefono || row.phone || '—'}</td>}
+                      {isColumnVisible('departamento') && <td>{row.departamento || row.depto || '—'}</td>}
+                      {isColumnVisible('producto') && <td>{row.producto || row.producto_anterior || row.nombre_producto || '—'}</td>}
+                      {isColumnVisible('precio') && <td>{row.precio || row.monto || '—'}</td>}
+                      {isColumnVisible('fecha_baja') && <td>{formatDate(row.fecha_baja || row.fechaBaja)}</td>}
+                      {isColumnVisible('motivo_baja') && <td>{motivoBaja || 'Sin motivo'}</td>}
+                      {isColumnVisible('lote') && <td>{nombreLote || '—'}</td>}
+                      {isColumnVisible('vendedor_asignado') && <td>{vendedorAsignado || 'Sin asignar'}</td>}
+                      {isColumnVisible('ultimo_estado') && <td>{ultimoEstadoGestion || 'Nuevo'}</td>}
+                      {isColumnVisible('ultima_gestion') && <td>{fechaUltimaGestion ? formatDateTime(fechaUltimaGestion) : '—'}</td>}
                     </tr>
                   );
                 })}
@@ -587,6 +1386,68 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
 
         </Panel>
       </section>
+
+      {showAdvancedFilters && (
+        <div
+          role="dialog"
+          aria-label="Filtros avanzados"
+          style={{
+            position: 'fixed',
+            top: 0,
+            right: 0,
+            height: '100vh',
+            width: '420px',
+            background: '#fff',
+            boxShadow: '-8px 0 24px rgba(15, 23, 42, 0.12)',
+            zIndex: 80,
+            display: 'flex',
+            flexDirection: 'column'
+          }}
+        >
+          <div style={{ padding: '16px 18px', borderBottom: '1px solid rgba(148,163,184,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontWeight: 700 }}>Filtros avanzados</div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                Constructor de segmentos
+              </div>
+            </div>
+            <button className="close-btn" onClick={() => setShowAdvancedFilters(false)}><X size={16} /></button>
+          </div>
+          <div style={{ padding: 16, overflowY: 'auto', flex: 1 }}>
+            {renderGroup(advancedFiltersDraft)}
+            <div style={{ borderTop: '1px solid rgba(148,163,184,0.3)', paddingTop: 12, marginTop: 12 }}>
+              <div style={{ fontWeight: 700, marginBottom: 8 }}>Guardar vista</div>
+              <input
+                className="input"
+                placeholder="Nombre de la vista"
+                value={saveViewName}
+                onChange={(event) => setSaveViewName(event.target.value)}
+                style={{ marginBottom: 8 }}
+              />
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginBottom: 6 }}>
+                <input type="checkbox" checked={saveViewFavorite} onChange={(event) => setSaveViewFavorite(event.target.checked)} />
+                Favorita
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                <input type="checkbox" checked={saveViewDefault} onChange={(event) => setSaveViewDefault(event.target.checked)} />
+                Definir como vista por defecto
+              </label>
+              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                <Button variant="secondary" onClick={handleSaveView}>Guardar vista actual</Button>
+              </div>
+            </div>
+          </div>
+          <div style={{ padding: 16, borderTop: '1px solid rgba(148,163,184,0.3)', display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+            <Button variant="ghost" onClick={() => { setAdvancedFiltersDraft(advancedFiltersApplied); setFilterErrors({}); }}>
+              Cancelar
+            </Button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button variant="ghost" onClick={clearAdvancedFilters}>Limpiar</Button>
+              <Button onClick={applyAdvancedFilters}>Aplicar filtros</Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showCreateLot && (
         <>
