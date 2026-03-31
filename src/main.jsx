@@ -1061,10 +1061,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
       ), []);
       const normalizeWidgetResponse = React.useCallback((response) => {
-        const payload = response?.data || response || {};
-        const status = payload?.status || payload?.data?.status || '';
-        const items = payload?.items || payload?.data?.items || [];
-        const message = payload?.message || payload?.error || payload?.data?.message || '';
+        const payload = response || {};
+        const status = response?.status || response?.data?.status || '';
+        const items = response?.data?.items || response?.items || [];
+        const message = response?.message || response?.error || response?.data?.message || '';
         return { status, items, message, payload };
       }, []);
       const buildAgentRow = React.useCallback((item) => {

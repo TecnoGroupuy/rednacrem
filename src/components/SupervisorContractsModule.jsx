@@ -211,7 +211,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       });
     } catch {
       setFilterOptions({ productos: [], departamentos: [], motivos: [], estados: [] });
-      setFiltersError('No se pudieron cargar los catÃ¡logos.');
+      setFiltersError('No se pudieron cargar los catálogos.');
     } finally {
       setFiltersLoading(false);
     }
@@ -1638,7 +1638,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
           <div style={{ padding: 16, overflowY: 'auto', flex: 1 }}>
             {filtersLoading ? (
               <div style={{ marginBottom: 12, fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                Cargando catÃ¡logos...
+                Cargando catálogos...
               </div>
             ) : null}
             {filtersError ? (
@@ -1647,7 +1647,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
               </div>
             ) : null}
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontWeight: 700, marginBottom: 8 }}>GestiÃ³n</div>
+              <div style={{ fontWeight: 700, marginBottom: 8 }}>Gestión</div>
               <label style={{ display: 'grid', gap: 6, marginBottom: 12 }}>
                 <span style={{ fontSize: 12, color: '#64748b' }}>Fecha de baja</span>
                 <div style={{ display: 'flex', gap: 8 }}>
@@ -1692,7 +1692,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                 </select>
               </label>
               <label style={{ display: 'grid', gap: 6 }}>
-                <span style={{ fontSize: 12, color: '#64748b' }}>Ãšltimo estado</span>
+                <span style={{ fontSize: 12, color: '#64748b' }}>Último estado</span>
                 <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Todos los estados</span>
                 <select
                   className="input"
