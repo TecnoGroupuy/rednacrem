@@ -1016,6 +1016,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [sellerSummaryRows, setSellerSummaryRows] = React.useState([]);
       const [sellerSummaryLoading, setSellerSummaryLoading] = React.useState(false);
       const [sellerSummaryError, setSellerSummaryError] = React.useState('');
+      const [sellerRecuperoRows, setSellerRecuperoRows] = React.useState([]);
+      const [sellerRecuperoLoading, setSellerRecuperoLoading] = React.useState(false);
+      const [sellerRecuperoError, setSellerRecuperoError] = React.useState('');
       const [detailLoading, setDetailLoading] = React.useState(false);
       const [detailError, setDetailError] = React.useState('');
       const [teamConfig, setTeamConfig] = React.useState(null);
@@ -1359,7 +1362,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const dateStr = formatDateYmd(selectedDate);
         setSellerSummaryLoading(true);
         setSellerSummaryError('');
-        api.get(`/api/supervisor/sellers-summary?fecha=${dateStr}`)
+        api.get(`/api/supervisor/sellers-summary?fecha=${dateStr}&tipo=captacion`)
           .then((response) => {
             if (!active) return;
             if (response?.fecha && response.fecha !== dateStr) return;
@@ -1374,6 +1377,31 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           .finally(() => {
             if (!active) return;
             setSellerSummaryLoading(false);
+          });
+        return () => { active = false; };
+      }, [formatDateYmd, selectedDate]);
+
+      React.useEffect(() => {
+        let active = true;
+        const api = getApiClient();
+        const dateStr = formatDateYmd(selectedDate);
+        setSellerRecuperoLoading(true);
+        setSellerRecuperoError('');
+        api.get(`/api/supervisor/sellers-summary?fecha=${dateStr}&tipo=recupero`)
+          .then((response) => {
+            if (!active) return;
+            if (response?.fecha && response.fecha !== dateStr) return;
+            if (response?.data?.fecha && response.data.fecha !== dateStr) return;
+            const items = response?.items || response?.data?.items || [];
+            setSellerRecuperoRows(Array.isArray(items) ? items : []);
+          })
+          .catch((err) => {
+            if (!active) return;
+            setSellerRecuperoError(err?.message || 'No se pudo cargar el resumen de recupero.');
+          })
+          .finally(() => {
+            if (!active) return;
+            setSellerRecuperoLoading(false);
           });
         return () => { active = false; };
       }, [formatDateYmd, selectedDate]);
@@ -1517,10 +1545,39 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         if (!sellerSummary.length) return 0;
         return Math.max(...sellerSummary.map((row) => Number(row.gestiones || 0)));
       }, [sellerSummary]);
-      const sellerRecuperoSummary = React.useMemo(
-        () => sellerSummary.filter((row) => Number(row.asignados || 0) > 0),
-        [sellerSummary]
-      );
+      const sellerRecuperoSummary = React.useMemo(() => {
+        if (!Array.isArray(sellerRecuperoRows) || !sellerRecuperoRows.length) return [];
+        return sellerRecuperoRows
+          .map((item) => {
+            const ventas = Number(item.ventas ?? 0);
+            const seguimientos = Number(item.seguimientos ?? 0);
+            const rellamadas = Number(item.rellamadas ?? 0);
+            const no_contesta = Number(item.no_contesta ?? 0);
+            const rechazos = Number(item.rechazos ?? 0);
+            const datos_erroneos = Number(item.datos_erroneos ?? 0);
+            const total_gestionado = Number(
+              item.total_gestionado ?? item.gestionados ?? item.gestiones ?? (ventas + seguimientos + rellamadas + no_contesta + rechazos + datos_erroneos)
+            );
+            const nombre = item.nombre || item.name || '';
+            const apellido = item.apellido || '';
+            return {
+              id: item.id || item.seller_id || item.user_id || `${nombre}-${apellido}` || item.email || item.name || item.nombre,
+              nombre,
+              apellido,
+              asignados: Number(item.asignados ?? 0),
+              gestiones: total_gestionado,
+              ventas,
+              seguimientos,
+              rellamadas,
+              no_contesta,
+              rechazos,
+              datos_erroneos,
+              contacto: Number(item.contacto ?? 0) || 0,
+              efectividad: Number(item.efectividad ?? 0) || 0
+            };
+          })
+          .filter((row) => Number(row.asignados || 0) > 0);
+      }, [sellerRecuperoRows]);
       const sellerRecuperoMaxGestiones = React.useMemo(() => {
         if (!sellerRecuperoSummary.length) return 0;
         return Math.max(...sellerRecuperoSummary.map((row) => Number(row.gestiones || 0)));
@@ -2099,8 +2156,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <Panel
               className="span-12"
             >
-              {sellerSummaryLoading ? <div style={{ marginBottom: 12, color: 'var(--muted)' }}>Cargando resumen de vendedores...</div> : null}
-              {sellerSummaryError ? <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 600 }}>{sellerSummaryError}</div> : null}
+              {sellerRecuperoLoading ? <div style={{ marginBottom: 12, color: 'var(--muted)' }}>Cargando resumen de recupero...</div> : null}
+              {sellerRecuperoError ? <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 600 }}>{sellerRecuperoError}</div> : null}
               <div className="table-wrap">
                 <table>
                   <thead>
@@ -2223,7 +2280,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     ))}
                   </tbody>
                 </table>
-                {!sellerSummaryLoading && !sellerRecuperoSummary.length ? (
+                {!sellerRecuperoLoading && !sellerRecuperoSummary.length ? (
                   <div style={{ padding: 16, color: 'var(--muted)' }}>No hay vendedores con lote asignado.</div>
                 ) : null}
               </div>
