@@ -50,6 +50,18 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const [importLoading, setImportLoading] = React.useState(false);
   const [importResult, setImportResult] = React.useState(null);
 
+  const isImportSuccess = (result) => {
+    if (!result) return false;
+    if (result.ok === true || result.success === true) return true;
+    return result.data?.ok === true || result.data?.success === true;
+  };
+
+  const getImportMessage = (result) => (
+    result?.message
+    || result?.data?.message
+    || (isImportSuccess(result) ? 'Importación completada.' : 'No se pudo importar.')
+  );
+
   const totalPages = Math.max(1, Math.ceil((total || 0) / PAGE_SIZE));
 
   const visibleItems = React.useMemo(() => (Array.isArray(items) ? items : []), [items]);
@@ -201,6 +213,13 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     setImportResult(null);
   };
 
+  React.useEffect(() => {
+    if (!showImportModal) return;
+    if (!isImportSuccess(importResult)) return;
+    setShowImportModal(false);
+    resetImportState();
+  }, [importResult, showImportModal]);
+
   const detectDelimiter = (line) => {
     if (line.includes(';') && !line.includes(',')) return ';';
     if (line.includes(',') && !line.includes(';')) return ',';
@@ -298,11 +317,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       const response = await api.post('/api/recupero/importaciones', formData);
       setImportResult(response);
       loadRecupero();
-      if (response?.ok !== false) {
-        setShowImportModal(false);
-        resetImportState();
-        return;
-      }
     } catch (err) {
       setImportResult({ ok: false, message: err?.message || 'No se pudo importar el archivo.' });
     } finally {
@@ -665,13 +679,13 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                 </div>
               ) : null}
               {importResult && (
-                <div style={{ marginTop: 12, fontSize: 13, color: importResult?.ok === false ? '#b91c1c' : '#166534' }}>
-                  {importResult?.message || (importResult?.ok ? 'Importación completada.' : 'No se pudo importar.')}
+                <div style={{ marginTop: 12, fontSize: 13, color: isImportSuccess(importResult) ? '#166534' : '#b91c1c' }}>
+                  {getImportMessage(importResult)}
                 </div>
               )}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
                 <Button variant="ghost" onClick={() => setShowImportModal(false)}>Cancelar</Button>
-                <Button disabled={!importFile || importLoading || importResult?.ok} onClick={handleImportCsv}>
+                <Button disabled={!importFile || importLoading || isImportSuccess(importResult)} onClick={handleImportCsv}>
                   {importLoading ? 'Procesando…' : 'Importar'}
                 </Button>
               </div>
