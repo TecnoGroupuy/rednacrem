@@ -81,6 +81,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const [filtroDepartamento, setFiltroDepartamento] = React.useState('');
   const [filtroMotivo, setFiltroMotivo] = React.useState('');
   const [filtroBusqueda, setFiltroBusqueda] = React.useState('');
+  const [filtroBusquedaDebounced, setFiltroBusquedaDebounced] = React.useState('');
   const [orden, setOrden] = React.useState({ campo: '', direccion: 'asc' });
   const [filterOptions, setFilterOptions] = React.useState({ productos: [], departamentos: [], motivos: [] });
   const [showAdvancedFilters, setShowAdvancedFilters] = React.useState(false);
@@ -464,14 +465,14 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       : null;
     return {
       tab: activeTab,
-      search: filtroBusqueda || '',
+      search: filtroBusquedaDebounced || '',
       filters: filtersPayload,
       sort: orden.campo ? { field: orden.campo, dir: orden.direccion } : null,
       columns: visibleColumns.length ? visibleColumns : allColumns.map((col) => col.id),
       page,
       limit: PAGE_SIZE
     };
-  }, [activeTab, advancedFiltersApplied, allColumns, buildQuickFilterRules, filtroBusqueda, mergeRules, orden, page, visibleColumns]);
+  }, [activeTab, advancedFiltersApplied, allColumns, buildQuickFilterRules, filtroBusquedaDebounced, mergeRules, orden, page, visibleColumns]);
 
   const loadRecupero = React.useCallback(async () => {
     setLoading(true);
@@ -556,6 +557,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
             setFiltroDepartamento(defaultView.quickFilters.departamento || '');
             setFiltroMotivo(defaultView.quickFilters.motivo_baja || '');
             setFiltroBusqueda(defaultView.quickFilters.search || '');
+            setFiltroBusquedaDebounced(defaultView.quickFilters.search || '');
           }
           if (defaultView.columns?.length) {
             setVisibleColumns(defaultView.columns);
@@ -594,9 +596,17 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   }, [advancedFiltersApplied, loadRecupero]);
 
   React.useEffect(() => {
+    const handler = setTimeout(() => {
+      setFiltroBusquedaDebounced(filtroBusqueda.trim());
+      setPage(1);
+    }, 350);
+    return () => clearTimeout(handler);
+  }, [filtroBusqueda]);
+
+  React.useEffect(() => {
     setPage(1);
     loadRecupero();
-  }, [filtroProducto, filtroDepartamento, filtroMotivo, filtroBusqueda, orden, activeTab, visibleColumns]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filtroProducto, filtroDepartamento, filtroMotivo, filtroBusquedaDebounced, orden, activeTab, visibleColumns]); // eslint-disable-line react-hooks/exhaustive-deps
 
   React.useEffect(() => {
     if (activeTab !== 'disponibles' && selectedIds.length) {
@@ -648,6 +658,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     setFiltroDepartamento('');
     setFiltroMotivo('');
     setFiltroBusqueda('');
+    setFiltroBusquedaDebounced('');
     clearAdvancedFilters();
   };
 
@@ -704,6 +715,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       setFiltroDepartamento(view.quickFilters.departamento || '');
       setFiltroMotivo(view.quickFilters.motivo_baja || '');
       setFiltroBusqueda(view.quickFilters.search || '');
+      setFiltroBusquedaDebounced(view.quickFilters.search || '');
     }
     if (view.columns?.length) {
       setVisibleColumns(view.columns);
@@ -729,6 +741,13 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     const handler = (event) => {
       if (event.key === 'Escape') {
         setShowAdvancedFilters(false);
+        return;
+      }
+      if (event.key === 'Enter') {
+        const tag = event.target?.tagName || '';
+        if (!['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) {
+          applyAdvancedFilters();
+        }
       }
     };
     window.addEventListener('keydown', handler);
@@ -750,8 +769,8 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     producto: filtroProducto,
     motivo_baja: filtroMotivo,
     departamento: filtroDepartamento,
-    search: filtroBusqueda
-  }), [filtroBusqueda, filtroDepartamento, filtroMotivo, filtroProducto]);
+    search: filtroBusquedaDebounced
+  }), [filtroBusquedaDebounced, filtroDepartamento, filtroMotivo, filtroProducto]);
 
   const activeAdvancedRules = React.useMemo(() => flattenRules(advancedFiltersApplied), [advancedFiltersApplied]);
 
