@@ -3681,7 +3681,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <table className="sales-contacts-table">
               <thead>
                 <tr>
-                  <th>Contacto</th><th>Teléfono</th><th>Ubicación</th>
+                  <th>Contacto</th><th>Teléfonos</th><th>Ubicación</th>
                   <th>Estado</th><th>Última gestión</th>
                 </tr>
               </thead>
@@ -3695,9 +3695,36 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       </div>
                     </td>
                     <td>
-                      <a href={'tel:' + contact.phone.replace(/\s/g, '')} onClick={(e) => e.stopPropagation()} style={{ color: '#0f766e', fontWeight: 700, textDecoration: 'none' }}>
-                        {contact.phone}
-                      </a>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <div style={{ fontSize: 12, color: '#64748b' }}>
+                          Fijo:{' '}
+                          {contact.telefono ? (
+                            <a
+                              href={'tel:' + String(contact.telefono).replace(/\s/g, '')}
+                              onClick={(e) => e.stopPropagation()}
+                              style={{ color: '#0f766e', fontWeight: 700, textDecoration: 'none' }}
+                            >
+                              {contact.telefono}
+                            </a>
+                          ) : (
+                            <span style={{ color: '#cbd5e1' }}>—</span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 12, color: '#64748b' }}>
+                          Celular:{' '}
+                          {contact.celular ? (
+                            <a
+                              href={'tel:' + String(contact.celular).replace(/\s/g, '')}
+                              onClick={(e) => e.stopPropagation()}
+                              style={{ color: '#0f766e', fontWeight: 700, textDecoration: 'none' }}
+                            >
+                              {contact.celular}
+                            </a>
+                          ) : (
+                            <span style={{ color: '#cbd5e1' }}>—</span>
+                          )}
+                        </div>
+                      </div>
                     </td>
                     <td>{contact.city}</td>
                     <td><SalesStatusBadge status={statusOverrides[contact.id] || contact.status} small /></td>
