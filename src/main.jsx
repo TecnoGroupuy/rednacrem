@@ -2937,9 +2937,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         no_contesta:  { label: 'No contesta',  bg: 'rgba(245,166,35,0.12)',  color: '#F5A623', border: 'rgba(245,166,35,0.3)'  },
         no_contacto:  { label: 'No contacto',  bg: 'rgba(245,166,35,0.12)',  color: '#F5A623', border: 'rgba(245,166,35,0.3)'  },
         rellamar:     { label: 'Rellamar',     bg: 'rgba(74,144,217,0.12)',  color: '#4A90D9', border: 'rgba(74,144,217,0.3)'  },
-        volver_a_llamar: { label: 'Volver a llamar', bg: 'rgba(74,144,217,0.12)', color: '#4A90D9', border: 'rgba(74,144,217,0.3)' },
+        volver_a_llamar: { label: 'Rellamar', bg: 'rgba(74,144,217,0.12)', color: '#4A90D9', border: 'rgba(74,144,217,0.3)' },
         seguimiento:  { label: 'Seguimiento',  bg: 'rgba(155,89,182,0.12)', color: '#9B59B6', border: 'rgba(155,89,182,0.3)'  },
-        interesado:   { label: 'Interesado',   bg: 'rgba(155,89,182,0.12)', color: '#9B59B6', border: 'rgba(155,89,182,0.3)'  },
+        interesado:   { label: 'Seguimiento',   bg: 'rgba(155,89,182,0.12)', color: '#9B59B6', border: 'rgba(155,89,182,0.3)'  },
         rechazo:      { label: 'Rechazo',      bg: 'rgba(229,62,62,0.12)',  color: '#E53E3E', border: 'rgba(229,62,62,0.3)'   },
         dato_erroneo: { label: 'Dato erroneo', bg: 'rgba(230,126,34,0.12)', color: '#E67E22', border: 'rgba(230,126,34,0.3)'  },
         venta:        { label: 'Venta',        bg: 'rgba(39,174,96,0.12)',  color: '#27AE60', border: 'rgba(39,174,96,0.3)'   },
@@ -3151,8 +3151,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const opcionesGestion = isRecupero
         ? [
           { value: 'no_contesta', label: 'No contesta' },
-          { value: 'volver_a_llamar', label: 'Volver a llamar' },
-          { value: 'interesado', label: 'Interesado' },
+          { value: 'volver_a_llamar', label: 'Rellamar' },
+          { value: 'interesado', label: 'Seguimiento' },
           { value: 'rechazo', label: 'Rechazo' },
           { value: 'alta', label: 'Alta' }
         ]
@@ -3535,8 +3535,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 ? [
                   { label: 'Gestionados', value: stats?.gestiones_hoy, color: accentColor },
                   { label: 'No contacto', value: stats?.no_contesta_hoy, color: '#F5A623' },
-                  { label: 'Volver a llamar', value: stats?.rellamar_hoy, color: '#4A90D9' },
-                  { label: 'Interesados', value: stats?.tipificados_seguimiento_hoy, color: '#9B59B6' },
+                  { label: 'Rellamar', value: stats?.rellamar_hoy, color: '#4A90D9' },
+                  { label: 'Seguimiento', value: stats?.tipificados_seguimiento_hoy, color: '#9B59B6' },
                   { label: 'Rechazos', value: stats?.rechazos_hoy, color: '#E53E3E' },
                   { label: 'Recuperos', value: stats?.ventas_hoy, color: '#27AE60' },
                   { label: 'Contacto', value: `${stats?.pct_contacto_hoy ?? 0}%`, color: '#4A90D9' },
@@ -4641,9 +4641,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const labelMap = {
           no_contesta: 'No contesta',
           no_contesto: 'No contesta',
-          volver_a_llamar: 'Volver a llamar',
+          volver_a_llamar: 'Rellamar',
           seguimiento: 'Seguimiento',
-          interesado: 'Interesado',
+          interesado: 'Seguimiento',
           rechazo: 'Rechazo',
           venta: 'Venta',
           alta: 'Alta',
