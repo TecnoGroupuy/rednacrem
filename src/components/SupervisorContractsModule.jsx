@@ -85,6 +85,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const [importResult, setImportResult] = React.useState(null);
   const lastPayloadRef = React.useRef('');
   const requestIdRef = React.useRef('');
+  const lastInputAtRef = React.useRef(0);
 
   const isImportSuccess = (result) => {
     if (!result) return false;
@@ -100,7 +101,27 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
 
   const totalPages = Math.max(1, Math.ceil((total || 0) / PAGE_SIZE));
 
-  const visibleItems = React.useMemo(() => (Array.isArray(items) ? items : []), [items]);
+  const normalizeRecuperoRow = React.useCallback((row) => {
+    if (!row || typeof row !== 'object') return row;
+    return {
+      ...row,
+      ultimo_estado_gestion:
+        row.ultimo_estado_gestion
+        || row.ultimo_estado
+        || row.estado_ultima_gestion
+        || row.ultima_gestion_estado
+        || row.estado,
+      fecha_ultima_gestion:
+        row.fecha_ultima_gestion
+        || row.ultima_gestion
+        || row.ultima_gestion_fecha
+        || row.updated_at
+    };
+  }, []);
+
+  const visibleItems = React.useMemo(() => (
+    Array.isArray(items) ? items.map(normalizeRecuperoRow) : []
+  ), [items, normalizeRecuperoRow]);
 
   const tabsOperativos = [
     { key: 'disponibles', label: 'Disponibles' },
@@ -429,6 +450,16 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   }, [payloadKey, loadRecupero]);
 
   React.useEffect(() => {
+    // Periodic refetch to keep Recupero in sync (skip while user is typing).
+    const intervalMs = 45000;
+    const timer = setInterval(() => {
+      if (Date.now() - lastInputAtRef.current < 900) return;
+      loadRecupero({ force: true });
+    }, intervalMs);
+    return () => clearInterval(timer);
+  }, [loadRecupero, payloadKey]);
+
+  React.useEffect(() => {
     setPage(1);
   }, [orden, activeTab, visibleColumns]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -479,6 +510,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   };
 
   const updateColumnField = (field, value) => {
+    lastInputAtRef.current = Date.now();
     setColumnFiltersDraft((prev) => ({ ...prev, [field]: value }));
     if (field === 'edad_min' || field === 'edad_max') {
       setFilterErrors((prev) => ({ ...prev, edad: '' }));
