@@ -105,17 +105,23 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     if (!row || typeof row !== 'object') return row;
     return {
       ...row,
+      vendedor_asignado:
+        row.vendedor_asignado
+        || row.vendedor_asignado_nombre
+        || row.seller_name
+        || null,
+      ultima_gestion:
+        row.ultima_gestion
+        || row.fecha_ultima_gestion
+        || row.ultima_gestion_real
+        || null,
       ultimo_estado_gestion:
         row.ultimo_estado_gestion
         || row.ultimo_estado
         || row.estado_ultima_gestion
         || row.ultima_gestion_estado
-        || row.estado,
-      fecha_ultima_gestion:
-        row.fecha_ultima_gestion
-        || row.ultima_gestion
-        || row.ultima_gestion_fecha
-        || row.updated_at
+        || row.estado
+        || null
     };
   }, []);
 
@@ -295,11 +301,27 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     return [];
   }, [filterOptions, sellers, ultimoEstadoOptions]);
 
-  const getMotivoBaja = (row) => row?.motivo_baja || null;
+  const getMotivoBaja = (row) => {
+    const raw = (row?.motivo_baja ?? '').toString().trim();
+    if (!raw) return null;
+    const normalized = raw.toLowerCase();
+    if (normalized === 'otro' || normalized === 'otros') return null;
+    return raw;
+  };
   const getNombreLote = (row) => row?.nombre_lote || null;
-  const getVendedorAsignado = (row) => row?.vendedor_asignado_nombre || null;
+  const getVendedorAsignado = (row) => (
+    row?.vendedor_asignado
+    || row?.vendedor_asignado_nombre
+    || row?.seller_name
+    || null
+  );
   const getUltimoEstado = (row) => row?.ultimo_estado_gestion || null;
-  const getFechaUltimaGestion = (row) => row?.fecha_ultima_gestion || null;
+  const getFechaUltimaGestion = (row) => (
+    row?.ultima_gestion
+    || row?.fecha_ultima_gestion
+    || row?.ultima_gestion_real
+    || null
+  );
 
   const toNumberOrNull = (value) => {
     if (value === '' || value === null || value === undefined) return null;
@@ -1303,6 +1325,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
               </thead>
               <tbody>
                 {visibleItems.map((row) => {
+                  console.log('ROW DATA', row);
                   const nombre = [row.nombre, row.apellido].filter(Boolean).join(' ')
                     || [row.contacto_nombre, row.contacto_apellido].filter(Boolean).join(' ')
                     || row.contacto || '—';
