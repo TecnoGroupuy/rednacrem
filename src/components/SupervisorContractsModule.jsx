@@ -86,6 +86,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const lastPayloadRef = React.useRef('');
   const requestIdRef = React.useRef('');
   const lastInputAtRef = React.useRef(0);
+  const selectAllRef = React.useRef(null);
 
   const isImportSuccess = (result) => {
     if (!result) return false;
@@ -494,6 +495,32 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const toggleSelection = (id) => {
     if (activeTab !== 'disponibles') return;
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
+  };
+
+  const visibleSelectableIds = React.useMemo(
+    () => (Array.isArray(visibleItems) ? visibleItems.map((row) => row.id).filter(Boolean) : []),
+    [visibleItems]
+  );
+  const allVisibleSelected = visibleSelectableIds.length > 0
+    && visibleSelectableIds.every((id) => selectedIds.includes(id));
+  const someVisibleSelected = visibleSelectableIds.some((id) => selectedIds.includes(id));
+
+  React.useEffect(() => {
+    if (!selectAllRef.current) return;
+    selectAllRef.current.indeterminate = !allVisibleSelected && someVisibleSelected;
+  }, [allVisibleSelected, someVisibleSelected]);
+
+  const toggleSelectAllVisible = () => {
+    if (activeTab !== 'disponibles') return;
+    setSelectedIds((prev) => {
+      if (!visibleSelectableIds.length) return prev;
+      if (allVisibleSelected) {
+        return prev.filter((id) => !visibleSelectableIds.includes(id));
+      }
+      const next = new Set(prev);
+      visibleSelectableIds.forEach((id) => next.add(id));
+      return Array.from(next);
+    });
   };
 
   const toggleSeller = (id) => {
@@ -1204,7 +1231,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
             {activeTab === 'disponibles' && selectedIds.length > 0 && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <span style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
-                  {selectedIds.length} contactos seleccionados
+                  Seleccionados: {selectedIds.length}
                 </span>
                 <Button icon={<Plus size={16} />} onClick={openCreateLot}>
                   Crear lote de recupero
@@ -1307,7 +1334,16 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
             <table>
               <thead>
                 <tr>
-                  <th></th>
+                  <th>
+                    <input
+                      ref={selectAllRef}
+                      type="checkbox"
+                      checked={allVisibleSelected && visibleSelectableIds.length > 0}
+                      onChange={toggleSelectAllVisible}
+                      disabled={activeTab !== 'disponibles' || !visibleSelectableIds.length}
+                      aria-label="Seleccionar todos los contactos visibles"
+                    />
+                  </th>
                   {renderHeaderCell('contacto', 'Contacto')}
                   {isColumnVisible('documento') && renderHeaderCell('documento', 'Documento')}
                   {isColumnVisible('edad') && renderHeaderCell('edad', 'Edad')}
