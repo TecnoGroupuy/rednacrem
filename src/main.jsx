@@ -165,7 +165,7 @@ const ROLE_NAV = [
       { path: 'sa_estado_modulos', label: 'Estado de módulos', caption: 'Visibilidad por rol', roles: ['superadministrador'], icon: Layers },
       { path: 'sa_configuracion', label: 'Configuración', caption: 'Identidad y parámetros', roles: ['superadministrador'], icon: Settings },
       { path: 'dashboard', label: 'Dashboard', caption: 'Resumen principal', roles: ['director', 'supervisor', 'vendedor', 'operaciones'], icon: Activity },
-      { path: 'contactos', label: 'Contactos', caption: 'Base comercial', roles: ['director', 'vendedor'], icon: Users },
+      { path: 'contactos', label: 'Mercado Abierto', caption: 'Base comercial', roles: ['director', 'vendedor'], icon: Users },
       { path: 'recupero', label: 'Recupero', caption: 'Cartera en baja', roles: ['vendedor'], icon: FileText },
       { path: 'clientes', label: 'Clientes', caption: 'Cartera activa', roles: ['superadministrador', 'director', 'operaciones'], icon: UserCheck },
       { path: 'clientes', label: 'Mis ventas', caption: 'Clientes que cerré', roles: ['vendedor'], icon: UserCheck },
@@ -3681,7 +3681,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <table className="sales-contacts-table">
               <thead>
                 <tr>
-                  <th>Contacto</th><th>Teléfonos</th><th>Ubicación</th>
+                  <th>Contacto</th><th>Origen del dato</th><th>Ubicación</th>
                   <th>Estado</th><th>Última gestión</th>
                 </tr>
               </thead>
@@ -3695,36 +3695,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       </div>
                     </td>
                     <td>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        <div style={{ fontSize: 12, color: '#64748b' }}>
-                          Fijo:{' '}
-                          {contact.telefono ? (
-                            <a
-                              href={'tel:' + String(contact.telefono).replace(/\s/g, '')}
-                              onClick={(e) => e.stopPropagation()}
-                              style={{ color: '#0f766e', fontWeight: 700, textDecoration: 'none' }}
-                            >
-                              {contact.telefono}
-                            </a>
-                          ) : (
-                            <span style={{ color: '#cbd5e1' }}>—</span>
-                          )}
-                        </div>
-                        <div style={{ fontSize: 12, color: '#64748b' }}>
-                          Celular:{' '}
-                          {contact.celular ? (
-                            <a
-                              href={'tel:' + String(contact.celular).replace(/\s/g, '')}
-                              onClick={(e) => e.stopPropagation()}
-                              style={{ color: '#0f766e', fontWeight: 700, textDecoration: 'none' }}
-                            >
-                              {contact.celular}
-                            </a>
-                          ) : (
-                            <span style={{ color: '#cbd5e1' }}>—</span>
-                          )}
-                        </div>
-                      </div>
+                      {contact.origen_dato || contact.origen || contact.source || contact.origenDato || contact.origin || '—'}
                     </td>
                     <td>{contact.city}</td>
                     <td><SalesStatusBadge status={statusOverrides[contact.id] || contact.status} small /></td>
