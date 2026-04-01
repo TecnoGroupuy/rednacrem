@@ -1068,7 +1068,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return { status, items, message, payload };
       }, []);
       const buildAgentRow = React.useCallback((item) => {
-        console.log('[DEBUG ROW INPUT]', item?.login, item?.workTime, item?.name);
         const pausesMinutes = toMinutes(
           item?.pausesMinutes ??
           item?.pausasMinutos ??
@@ -1851,20 +1850,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         });
         const api = getApiClient();
         const refreshSellerSummary = () => {
-          const dateStr = formatDateYmd(selectedDate);
-          setSellerSummaryLoading(true);
-          setSellerSummaryError('');
-          api.get(`/api/supervisor/sellers-summary?fecha=${dateStr}`)
-            .then((response) => {
-              const items = response?.items || response?.data?.items || [];
-              setSellerSummaryRows(Array.isArray(items) ? items : []);
-            })
-            .catch((err) => {
-              setSellerSummaryError(err?.message || 'No se pudo cargar el resumen de vendedores.');
-            })
-            .finally(() => {
-              setSellerSummaryLoading(false);
-            });
+          fetchMarketSummary();
+          fetchRecuperoSummary();
         };
         const refreshJornadaReport = () => {
           const dateStr = formatDateYmd(selectedDate);
@@ -1891,7 +1878,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           if (payloadDate && payloadDate !== formatDateYmd(selectedDate)) return;
           if (!shouldApplyTeamUpdate(payload)) return;
           const normalized = normalizeTeamPayload(payload);
-          console.log('[DEBUG TEAM_UPDATE]', JSON.stringify(normalized?.agents?.slice(0, 1)));
           if (normalized) {
             setTeamSummary((prev) => {
               const prevNorm = normalizeTeamPayload(prev) || prev;
@@ -1927,7 +1913,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return () => {
           socket.disconnect();
         };
-      }, [authUser?.accessToken, detailAgent?.id, formatDateYmd, jornadaTimezone, mapJornadaItem, selectedDate, socketBase, shouldApplyTeamUpdate, normalizeTeamPayload, mergeTeamAgents]);
+      }, [authUser?.accessToken, detailAgent?.id, fetchMarketSummary, fetchRecuperoSummary, formatDateYmd, jornadaTimezone, mapJornadaItem, selectedDate, socketBase, shouldApplyTeamUpdate, normalizeTeamPayload, mergeTeamAgents]);
       const activeDetail = normalizeDetail(detailData, detailWeek, null);
       const renderTimeline = (detail) => {
         const rawEvents = Array.isArray(detail?.activityRaw) ? detail.activityRaw : [];
@@ -5683,10 +5669,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [wizardAssignMode, setWizardAssignMode] = React.useState('individual');
       const [wizardSeller, setWizardSeller] = React.useState('');
       const [wizardGroupSellers, setWizardGroupSellers] = React.useState([]);
-      const [sellerSummaryRows, setSellerSummaryRows] = React.useState(null);
-      const [sellerSummaryLoading, setSellerSummaryLoading] = React.useState(false);
-      const [sellerSummaryError, setSellerSummaryError] = React.useState('');
-      const [sellerSummaryDate, setSellerSummaryDate] = React.useState(() => new Date());
 
       const formatDateYmdLocal = React.useCallback((value) => {
         if (!value) return '';
@@ -5848,12 +5830,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         };
       }), [contacts, sellers]);
 
-      React.useEffect(() => {
-        if (route !== 'seguimiento_vendedores') return;
-        setSellerSummaryRows([]);
-        setSellerSummaryLoading(false);
-        setSellerSummaryError('');
-      }, [route]);
 
       const toggleSelection = (id) => {
         setSelectedIds((prev) => prev.includes(id) ? prev.filter((current) => current !== id) : [...prev, id]);
