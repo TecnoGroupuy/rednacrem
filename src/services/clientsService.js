@@ -83,6 +83,7 @@ const buildBackendClientName = (item = {}) => {
 };
 
 const mapBackendPortfolioRow = (item = {}) => {
+  const contact = item.contact || item.contacto || item.client || item.cliente || null;
   const productObj = item.product && typeof item.product === 'object' ? item.product : null;
   const cuotaRaw = productObj?.fee ?? productObj?.precio ?? productObj?.price
     ?? item.fee ?? item.cuota ?? item.cuota_mensual ?? item.precio ?? item.price;
@@ -103,9 +104,17 @@ const mapBackendPortfolioRow = (item = {}) => {
     plan: planName,
     fee: item.fee || feeValue,
     status: statusLabel,
-    email: item.email || item.mail || '',
-    phone: item.phone || item.telefono || item.telefono_principal || '',
-    celular: item.celular || item.cellphone || item.telefono_celular || item.telefonoCelular || '',
+    email: item.email || item.mail || contact?.email || contact?.mail || '',
+    phone: item.phone || item.telefono || item.telefono_principal || contact?.phone || contact?.telefono || contact?.telefono_principal || '',
+    celular: item.celular
+      || item.cellphone
+      || item.telefono_celular
+      || item.telefonoCelular
+      || contact?.celular
+      || contact?.cellphone
+      || contact?.telefono_celular
+      || contact?.telefonoCelular
+      || '',
     fechaAlta: fechaAltaRaw,
     fechaVenta: fechaAltaRaw || item.fechaVenta || item.fecha_venta || item.ventaFecha || item.createdAt || null,
     vendedor: productObj?.sellerName || productObj?.seller_name || item.vendedor || item.vendedorNombre || item.vendedor_nombre || '',

@@ -7659,19 +7659,32 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const filteredClients = React.useMemo(() => {
         const term = String(clientSearch || '').trim().toLowerCase();
         if (!term) return clientRows;
+        const termDigits = term.replace(/\D/g, '');
         return clientRows.filter((row) => {
           const values = [
             row.name,
             row.documento,
             row.email,
-            row.phone,
-            row.celular,
             row.product,
             row.plan
           ]
             .filter(Boolean)
             .map((value) => String(value).toLowerCase());
-          return values.some((value) => value.includes(term));
+          const phoneValues = [
+            row.phone,
+            row.telefono,
+            row.celular,
+            row.cellphone,
+            row.mobile,
+            row.telefono_celular,
+            row.telefonoCelular
+          ]
+            .filter(Boolean)
+            .map((value) => String(value));
+          const matchesText = values.some((value) => value.includes(term));
+          if (!termDigits) return matchesText;
+          const matchesPhone = phoneValues.some((value) => String(value).replace(/\D/g, '').includes(termDigits));
+          return matchesText || matchesPhone;
         });
       }, [clientRows, clientSearch]);
 
