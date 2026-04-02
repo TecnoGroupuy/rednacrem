@@ -3483,6 +3483,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           const isVentaFlow = (isRecupero && estadoGestion === 'alta') || (!isRecupero && estadoGestion === 'venta');
           if (isVentaFlow && onOpenNewClient) {
             const draft = buildVentaDraft(dc);
+            closeDrawer();
             onOpenNewClient(draft, async () => {
               await finalizeGestion({ openNewClient: false });
             });
