@@ -8541,17 +8541,26 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [newClientError, setNewClientError] = React.useState('');
       const [newClientSaving, setNewClientSaving] = React.useState(false);
       const [newClientStep, setNewClientStep] = React.useState(0);
+      const toDateInput = React.useCallback((value) => {
+        if (!value) return '';
+        const raw = String(value);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+        const asDate = new Date(raw);
+        if (Number.isNaN(asDate.getTime())) return '';
+        return asDate.toISOString().slice(0, 10);
+      }, []);
       const [newClientDraft, setNewClientDraft] = React.useState({
         contact: {
           nombre: draft?.nombre || '',
           apellido: draft?.apellido || '',
           documento: draft?.documento || '',
-          fecha_nacimiento: draft?.fecha_nacimiento || '',
+          fecha_nacimiento: toDateInput(draft?.fecha_nacimiento || draft?.fechaNacimiento),
           telefono: draft?.telefono || '',
           celular: draft?.celular || '',
           email: draft?.correo_electronico || draft?.email || '',
           direccion: draft?.direccion || '',
-          departamento: draft?.departamento || '',
+          departamento: draft?.departamento || draft?.departamento_residencia || draft?.city || '',
+          localidad: draft?.localidad || draft?.ciudad || draft?.localidad_residencia || '',
           pais: draft?.pais || 'Uruguay',
           status: 'activo'
         },
@@ -8572,14 +8581,16 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             nombre: draft?.nombre || '',
             apellido: draft?.apellido || '',
             documento: draft?.documento || '',
+            fecha_nacimiento: toDateInput(draft?.fecha_nacimiento || draft?.fechaNacimiento),
             telefono: draft?.telefono || '',
             celular: draft?.celular || '',
             email: draft?.correo_electronico || draft?.email || '',
             direccion: draft?.direccion || '',
-            departamento: draft?.departamento || ''
+            departamento: draft?.departamento || draft?.departamento_residencia || draft?.city || '',
+            localidad: draft?.localidad || draft?.ciudad || draft?.localidad_residencia || ''
           }
         }));
-      }, [draft]);
+      }, [draft, toDateInput]);
 
       const handleNewClientContactChange = (field, value) => {
         setNewClientDraft((prev) => ({
