@@ -3351,7 +3351,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
       React.useEffect(() => {
         let active = true;
-        const contactId = dc?.id;
+        const contactId = drawerContact?.id;
         if (!contactId) {
           setFamiliares([]);
           return () => {};
@@ -3373,7 +3373,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             setFamiliaresLoading(false);
           });
         return () => { active = false; };
-      }, [dc?.id]);
+      }, [drawerContact?.id]);
 
       const closeDrawer = () => {
         if (!estadoGestion) {
