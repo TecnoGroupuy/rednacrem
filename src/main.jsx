@@ -3260,6 +3260,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [clientePendiente, setClientePendiente] = React.useState(null);
       const [showBannerPendiente, setShowBannerPendiente] = React.useState(false);
       const [draftCelular, setDraftCelular] = React.useState('');
+      const [savingCelular, setSavingCelular] = React.useState(false);
       const [draftDireccion, setDraftDireccion] = React.useState('');
 
       React.useEffect(() => {
@@ -3824,12 +3825,44 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           ) : (
                             <div>
                               <p style={{ fontSize: 11, color: '#888', margin: '0 0 6px 0' }}>Celular</p>
-                              <input
-                                className="input"
-                                placeholder="Ingresar celular"
-                                value={draftCelular}
-                                onChange={(e) => setDraftCelular(e.target.value)}
-                              />
+                              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                <input
+                                  className="input"
+                                  placeholder="Ingresar celular"
+                                  value={draftCelular}
+                                  onChange={(e) => setDraftCelular(e.target.value)}
+                                  style={{ flex: 1 }}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (!onUpdateContact || !dc?.id) return;
+                                    if (!draftCelular.trim()) return;
+                                    try {
+                                      setSavingCelular(true);
+                                      await onUpdateContact(dc.id, { celular: draftCelular.trim() });
+                                      setDraftCelular('');
+                                    } finally {
+                                      setSavingCelular(false);
+                                    }
+                                  }}
+                                  disabled={savingCelular || !draftCelular.trim()}
+                                  style={{
+                                    border: 'none',
+                                    background: '#1A5C4A',
+                                    color: '#FFF',
+                                    borderRadius: 8,
+                                    padding: '8px 12px',
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    cursor: savingCelular || !draftCelular.trim() ? 'not-allowed' : 'pointer',
+                                    opacity: savingCelular || !draftCelular.trim() ? 0.6 : 1,
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                >
+                                  Guardar
+                                </button>
+                              </div>
                             </div>
                           )}
                           {(dc.correo_electronico || dc.email) && (
