@@ -336,6 +336,7 @@ export const updateCommercialContactProfile = async (contactId, patch) => {
     await api.put(`/leads/${contactId}`, {
       nombre: patch.name,
       telefono: patch.phone,
+      celular: patch.celular,
       departamento: patch.city,
       documento: patch.documento,
       email: patch.email,
@@ -351,6 +352,7 @@ export const updateCommercialContactProfile = async (contactId, patch) => {
     ...current,
     nombre: patch.name ?? current.nombre,
     telefono: patch.phone ?? current.telefono,
+    celular: patch.celular ?? current.celular,
     ubicacion: patch.city ?? current.ubicacion,
     documento: patch.documento ?? current.documento,
     email: patch.email ?? current.email,
