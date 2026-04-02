@@ -8007,21 +8007,27 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             setNewClientStep(2);
             return;
           }
-          const contactPayload = {
-            ...newClientDraft.contact,
-            fechaNacimiento: newClientDraft.contact.fechaNacimiento || newClientDraft.contact.fecha_nacimiento || '',
-            fecha_nacimiento: newClientDraft.contact.fecha_nacimiento || newClientDraft.contact.fechaNacimiento || '',
-            direccion: newClientDraft.contact.direccion || '',
-            departamento: newClientDraft.contact.departamento || '',
-            pais: newClientDraft.contact.pais || '',
-            telefono: newClientDraft.contact.telefono || '',
-            celular: newClientDraft.contact.celular || ''
-          };
-          const payload = {
-            contact: contactPayload,
-            products: selectedProducts.map((product) => ({
-              nombreProducto: product.nombre || product.nombreProducto || product.nombre_producto,
-              nombre_producto: product.nombre || product.nombreProducto || product.nombre_producto,
+        const contactPayload = {
+          ...newClientDraft.contact,
+          fechaNacimiento: newClientDraft.contact.fechaNacimiento || newClientDraft.contact.fecha_nacimiento || '',
+          fecha_nacimiento: newClientDraft.contact.fecha_nacimiento || newClientDraft.contact.fechaNacimiento || '',
+          direccion: newClientDraft.contact.direccion || '',
+          departamento: newClientDraft.contact.departamento || '',
+          pais: newClientDraft.contact.pais || '',
+          telefono: newClientDraft.contact.telefono || '',
+          celular: newClientDraft.contact.celular || ''
+        };
+        const principalContactId = newClientDraft.contact.contacto_id
+          || newClientDraft.contact.contacto_principal_id
+          || newClientDraft.contact.parent_contact_id
+          || newClientDraft.contact.id
+          || '';
+        const payload = {
+          ...(principalContactId ? { principal_contact_id: principalContactId } : {}),
+          contact: contactPayload,
+          products: selectedProducts.map((product) => ({
+            nombreProducto: product.nombre || product.nombreProducto || product.nombre_producto,
+            nombre_producto: product.nombre || product.nombreProducto || product.nombre_producto,
               plan: product.plan || product.categoria || 'Plan estándar',
               precio: product.precio,
               medioPago: normalizePaymentMethod(newClientDraft.sale?.medioPago || product.medioPago || product.medio_pago || 'debito'),
@@ -8784,7 +8790,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           products: [buildProductPayload(newClientDraft.productsByContact[fam.id])].filter(Boolean),
           medioPago: normalizePaymentMethod(newClientDraft.sale?.medioPago || 'debito')
         }));
+        const principalContactId = newClientDraft.contact.contacto_id
+          || newClientDraft.contact.contacto_principal_id
+          || newClientDraft.contact.parent_contact_id
+          || newClientDraft.contact.id
+          || '';
         const payload = {
+          ...(principalContactId ? { principal_contact_id: principalContactId } : {}),
           contact: contactPayload,
           products: principalProduct ? [principalProduct] : [],
           medioPago: normalizePaymentMethod(newClientDraft.sale?.medioPago || 'debito'),
