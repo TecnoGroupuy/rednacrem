@@ -3494,8 +3494,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           const isVentaFlow = (isRecupero && estadoGestion === 'alta') || (!isRecupero && estadoGestion === 'venta');
           if (isVentaFlow && onOpenNewClient) {
             const draft = buildVentaDraft(dc);
-            await finalizeGestion({ openNewClient: false, ignoreFinal409: false });
-            onOpenNewClient(draft);
+            onOpenNewClient(draft, async () => {
+              await finalizeGestion({ openNewClient: false, ignoreFinal409: false });
+            });
+            closeDrawer();
             setGuardando(false);
             return;
           }
@@ -8823,6 +8825,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setNewClientError('');
         try {
           console.log('[contacts payload]', payload);
+          console.log('[contacts payload] principal_contact_id:', payload.principal_contact_id);
           console.log('[contacts payload] familySales length', payload.familySales?.length);
           await createContactWithProducts(payload);
           if (onSuccess) onSuccess();
