@@ -3503,7 +3503,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           if (isVentaFlow && onOpenNewClient) {
             const draft = buildVentaDraft(dc);
             onOpenNewClient(draft, async () => {
-              await finalizeGestion({ openNewClient: false, ignoreFinal409: false });
+              await finalizeGestion({ openNewClient: false, ignoreFinal409: true });
             });
             closeDrawer();
             setGuardando(false);
