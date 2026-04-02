@@ -3175,7 +3175,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const loadStats = React.useCallback(async () => {
         try {
           const hoy = getTodayYmdLocal();
-          const statsUrl = `/leads/daily-stats?fecha=${hoy}${isRecupero ? '&tipo=recupero' : ''}`;
+          const statsUrl = `/leads/daily-stats?fecha=${hoy}&tipo=${isRecupero ? 'recupero' : 'captacion'}`;
           const d = await api.get(statsUrl);
           console.log('[daily-stats]:', d);
           console.log('[daily-stats] respuesta completa:', JSON.stringify(d.data));
@@ -3192,7 +3192,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             limit: String(LIMIT),
             tab: tabActivo
           });
-          if (isRecupero) params.set('tipo', 'recupero');
+          params.set('tipo', isRecupero ? 'recupero' : 'captacion');
           if (searchDebounced) params.set('search', searchDebounced);
           const contactosData = await api.get(`/leads/assigned?${params}`);
           if (contactosData?.success || contactosData?.ok) {
@@ -3202,7 +3202,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             setTotalContactos(contactosData?.data?.total || 0);
           }
 
-          const statsUrl = `/leads/daily-stats?fecha=${hoy}${isRecupero ? '&tipo=recupero' : ''}`;
+          const statsUrl = `/leads/daily-stats?fecha=${hoy}&tipo=${isRecupero ? 'recupero' : 'captacion'}`;
           const statsData = await api.get(statsUrl);
           if (statsData?.success || statsData?.ok) setStats(statsData.data);
         } catch (err) {
@@ -3218,7 +3218,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             limit: String(LIMIT),
             tab: tabActivo
           });
-          if (isRecupero) params.set('tipo', 'recupero');
+          params.set('tipo', isRecupero ? 'recupero' : 'captacion');
           if (searchDebounced) params.set('search', searchDebounced);
           const d = await api.get(`/leads/assigned?${params}`);
           console.log('[assigned] params:', params.toString(), 'resp:', d);
@@ -3360,7 +3360,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setNextLoading(true);
         setNextMessage('');
         try {
-          const nextUrl = isRecupero ? '/leads/next?tipo=recupero' : '/leads/next';
+          const nextUrl = `/leads/next?tipo=${isRecupero ? 'recupero' : 'captacion'}`;
           const res = await api.get(nextUrl);
           if (res?.data) {
             openDrawer(res.data);
