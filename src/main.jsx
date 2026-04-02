@@ -5341,15 +5341,31 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         cargar();
       }, []);
 
-      const formatFechaVenta = (iso) => {
-        if (!iso) return '—';
+      const formatFechaVenta = (raw) => {
+        if (!raw) return '—';
+        const value = String(raw).trim();
+        if (!value) return '—';
+        let date;
+        const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        const hasTimezone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(value);
+        const localDateTimeMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?$/);
+        if (dateOnlyMatch) {
+          const [, y, m, d] = dateOnlyMatch;
+          date = new Date(Number(y), Number(m) - 1, Number(d), 0, 0, 0);
+        } else if (localDateTimeMatch && !hasTimezone) {
+          const [, y, m, d, hh, mm, ss] = localDateTimeMatch;
+          date = new Date(Number(y), Number(m) - 1, Number(d), Number(hh), Number(mm), Number(ss || 0));
+        } else {
+          date = new Date(value);
+        }
+        if (!date || Number.isNaN(date.getTime())) return value;
         try {
-          return new Date(iso).toLocaleString('es-UY', {
+          return date.toLocaleString('es-UY', {
             day: 'numeric', month: 'numeric',
             hour: '2-digit', minute: '2-digit'
           });
         } catch {
-          return iso;
+          return value;
         }
       };
       const pickValue = (row, keys, fallback = '—') => {
@@ -5365,6 +5381,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           <div style={{ fontWeight: 600 }}>{value || '—'}</div>
         </div>
       );
+      const getRelatedSales = (row) => {
+        const items = row?.related_sales || row?.relatedSales || [];
+        return Array.isArray(items) ? items : [];
+      };
       const handleOpenSaleDetail = (row) => {
         setSelectedSale(row);
       };
@@ -5381,7 +5401,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             >
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>Contacto</th><th>Teléfono</th><th>Ubicación</th><th>Lote</th><th>Nota</th><th>Fecha</th></tr></thead>
+                  <thead><tr><th>Contacto</th><th>Teléfono</th><th>Ubicación</th><th>Origen del dato</th><th>Relacionadas</th><th>Fecha</th></tr></thead>
                   <tbody>
                     {ventas.map((row) => {
                       const nombre = [row.nombre, row.apellido].filter(Boolean).join(' ')
@@ -5391,9 +5411,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       const ubicacion = row.ubicacion
                         || [row.departamento, row.localidad].filter(Boolean).join(', ')
                         || '—';
-                      const nota = row.nota_venta
-                        ? (row.nota_venta.length > 40 ? row.nota_venta.slice(0, 40) + '…' : row.nota_venta)
-                        : '—';
+                      const origenDato = (row.origen_dato && String(row.origen_dato).trim()) ? row.origen_dato : '—';
+                      const relatedCount = getRelatedSales(row).length;
                       return (
                         <tr
                           key={row.id || row.contacto_id || nombre + telefono}
@@ -5408,8 +5427,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           </td>
                           <td>{telefono}</td>
                           <td>{ubicacion}</td>
-                          <td><span style={{ color: '#999', fontSize: 12 }}>{row.nombre_lote || '—'}</span></td>
-                          <td style={{ color: row.nota_venta ? '#666' : '#aaa', fontSize: 13 }}>{nota}</td>
+                          <td><span style={{ color: '#666', fontSize: 12 }}>{origenDato}</span></td>
+                          <td>
+                            {relatedCount ? (
+                              <span style={{ fontSize: 12, fontWeight: 700, color: '#0f766e' }}>+{relatedCount}</span>
+                            ) : (
+                              <span style={{ color: '#aaa', fontSize: 12 }}>—</span>
+                            )}
+                          </td>
                           <td>{formatFechaVenta(row.fecha_venta)}</td>
                         </tr>
                       );
@@ -5447,6 +5472,36 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   <button className="close-btn" onClick={() => setSelectedSale(null)}>×</button>
                 </div>
                 <div className="lot-wizard-content">
+                  {getRelatedSales(selectedSale).length ? (
+                    <div style={{ marginBottom: 16, padding: 12, borderRadius: 12, border: '1px solid rgba(15,23,42,0.08)', background: 'rgba(15,118,110,0.04)' }}>
+                      <div style={{ fontWeight: 700, marginBottom: 6 }}>Ventas relacionadas</div>
+                      <div style={{ color: 'var(--muted)', fontSize: 12, marginBottom: 10 }}>
+                        Esta venta principal tiene {getRelatedSales(selectedSale).length} ventas asociadas.
+                      </div>
+                      <div style={{ display: 'grid', gap: 10 }}>
+                        {getRelatedSales(selectedSale).map((item, index) => {
+                          const nombre = [item?.nombre, item?.apellido].filter(Boolean).join(' ')
+                            || [item?.contact_nombre, item?.contact_apellido].filter(Boolean).join(' ')
+                            || '—';
+                          return (
+                            <div key={item?.id || item?.sale_id || index} style={{ borderRadius: 10, padding: 10, border: '1px solid rgba(15,23,42,0.08)', background: '#fff' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                                <div style={{ fontWeight: 700 }}>{nombre}</div>
+                                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{formatFechaVenta(item?.fecha_venta)}</div>
+                              </div>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8, marginTop: 8 }}>
+                                {renderDetailField('Producto', pickValue(item, ['nombre_producto', 'producto', 'producto_nombre', 'servicio']))}
+                                {renderDetailField('Cuota', pickValue(item, ['plan', 'cuota']))}
+                                {renderDetailField('Precio', pickValue(item, ['precio', 'monto']))}
+                                {renderDetailField('Medio de pago', pickValue(item, ['medio_pago', 'metodo_pago', 'metodoDePago', 'payment_method', 'forma_pago']))}
+                                {renderDetailField('Documento', pickValue(item, ['documento', 'contact_documento', 'contacto_documento', 'dni', 'cedula']))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 16 }}>
                     <div style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 12, padding: 12 }}>
                       <div style={{ fontWeight: 700, marginBottom: 8 }}>Cliente</div>
@@ -8614,8 +8669,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               nombre: '',
               apellido: '',
               documento: '',
-              telefono: '',
+              telefono: prev.contact?.telefono || '',
               celular: '',
+              fecha_nacimiento: prev.contact?.fecha_nacimiento || '',
+              direccion: prev.contact?.direccion || '',
               relacion: ''
             }
           ]
@@ -8710,7 +8767,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const familySales = newClientDraft.familiares.map((fam) => ({
           relation: fam.relacion || '',
           contact: {
-            ...fam
+            ...fam,
+            telefono: fam.telefono || newClientDraft.contact.telefono || '',
+            direccion: fam.direccion || newClientDraft.contact.direccion || '',
+            fecha_nacimiento: fam.fecha_nacimiento || newClientDraft.contact.fecha_nacimiento || '',
+            fechaNacimiento: fam.fechaNacimiento || fam.fecha_nacimiento || newClientDraft.contact.fecha_nacimiento || ''
           },
           products: [buildProductPayload(newClientDraft.productsByContact[fam.id])].filter(Boolean),
           medioPago: normalizePaymentMethod(newClientDraft.sale?.medioPago || 'debito')
@@ -8909,13 +8970,15 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                               { label: 'Apellido', field: 'apellido' },
                               { label: 'Documento', field: 'documento' },
                               { label: 'Teléfono', field: 'telefono' },
-                              { label: 'Celular', field: 'celular' }
+                              { label: 'Celular', field: 'celular' },
+                              { label: 'Fecha de nacimiento', field: 'fecha_nacimiento', type: 'date' },
+                              { label: 'Dirección', field: 'direccion', full: true }
                             ].map(({ label, field }) => (
-                              <label key={field} style={{ fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1 }}>
+                              <label key={field} style={{ fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, gridColumn: field === 'direccion' ? '1 / -1' : 'auto' }}>
                                 {label}
                                 <input
-                                  type="text"
-                                  value={fam[field] || ''}
+                                  type={field === 'fecha_nacimiento' ? 'date' : 'text'}
+                                  value={field === 'fecha_nacimiento' ? toDateInput(fam[field]) : (fam[field] || '')}
                                   onChange={(event) => handleFamiliarChange(fam.id, field, event.target.value)}
                                   style={{ marginTop: 6, width: '100%', padding: '10px 12px', borderRadius: 12, border: '1px solid #e5e7eb' }}
                                 />
@@ -9109,7 +9172,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   opacity: newClientSaving || (newClientStep === 2 && (!newClientDraft.productsByContact.principal || Object.keys(newClientDraft.productsByContact).length < (1 + newClientDraft.familiares.length))) ? 0.65 : 1
                 }}
                 >
-                  {newClientStep < 3 ? 'Siguiente' : (newClientSaving ? 'Guardando...' : 'Guardar contacto')}
+                  {newClientStep < 3 ? 'Siguiente' : (newClientSaving ? 'Guardando...' : 'Finalizar venta')}
                 </button>
             </div>
           </div>
