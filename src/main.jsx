@@ -8039,12 +8039,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           };
           setNewClientSaving(true);
           setNewClientError('');
-          try {
-            await createContactWithProducts(payload);
-            const [directory, metrics] = await Promise.all([
-              fetchClientsDirectory({ page: clientPage, limit: clientPageSize, search: clientSearchDebounced }),
-              fetchClientsMetrics()
-            ]);
+        try {
+          console.log('[contacts payload]', payload);
+          console.log('[contacts payload] familySales length', payload.familySales?.length);
+          await createContactWithProducts(payload);
+          const [directory, metrics] = await Promise.all([
+            fetchClientsDirectory({ page: clientPage, limit: clientPageSize, search: clientSearchDebounced }),
+            fetchClientsMetrics()
+          ]);
             setClientRows(directory.table);
             setClientTotal(Number(directory.total || 0));
             setClientMetrics(buildClientMetricCards(metrics));
@@ -8806,6 +8808,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setNewClientSaving(true);
         setNewClientError('');
         try {
+          console.log('[contacts payload]', payload);
+          console.log('[contacts payload] familySales length', payload.familySales?.length);
           await createContactWithProducts(payload);
           if (onSuccess) onSuccess();
         } catch (err) {
