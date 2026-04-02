@@ -3407,6 +3407,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
       const buildVentaDraft = (contact) => ({
         contacto_id: String(contact.id),
+        contact_id: contact.contact_id || contact.contactId || contact.contacto_id || contact.id || '',
+        principal_contact_id: contact.contact_id || contact.contactId || contact.contacto_id || contact.id || '',
         nombre: contact.nombre || contact.name?.split(' ')[0] || '',
         apellido: contact.apellido || (contact.name?.split(' ').slice(1).join(' ')) || '',
         documento: contact.documento || '',
@@ -8017,13 +8019,16 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           telefono: newClientDraft.contact.telefono || '',
           celular: newClientDraft.contact.celular || ''
         };
-        const principalContactId = newClientDraft.contact.contacto_id
+        const principalContactId = newClientDraft.contact.principal_contact_id
+          || newClientDraft.contact.contact_id
+          || newClientDraft.contact.contactId
+          || newClientDraft.contact.contacto_id
           || newClientDraft.contact.contacto_principal_id
           || newClientDraft.contact.parent_contact_id
           || newClientDraft.contact.id
           || '';
         const payload = {
-          ...(principalContactId ? { principal_contact_id: principalContactId } : {}),
+          principal_contact_id: principalContactId,
           contact: contactPayload,
           products: selectedProducts.map((product) => ({
             nombreProducto: product.nombre || product.nombreProducto || product.nombre_producto,
@@ -8792,13 +8797,16 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           products: [buildProductPayload(newClientDraft.productsByContact[fam.id])].filter(Boolean),
           medioPago: normalizePaymentMethod(newClientDraft.sale?.medioPago || 'debito')
         }));
-        const principalContactId = newClientDraft.contact.contacto_id
+        const principalContactId = newClientDraft.contact.principal_contact_id
+          || newClientDraft.contact.contact_id
+          || newClientDraft.contact.contactId
+          || newClientDraft.contact.contacto_id
           || newClientDraft.contact.contacto_principal_id
           || newClientDraft.contact.parent_contact_id
           || newClientDraft.contact.id
           || '';
         const payload = {
-          ...(principalContactId ? { principal_contact_id: principalContactId } : {}),
+          principal_contact_id: principalContactId,
           contact: contactPayload,
           products: principalProduct ? [principalProduct] : [],
           medioPago: normalizePaymentMethod(newClientDraft.sale?.medioPago || 'debito'),
