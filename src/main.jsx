@@ -8827,7 +8827,15 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           console.log('[contacts payload]', payload);
           console.log('[contacts payload] principal_contact_id:', payload.principal_contact_id);
           console.log('[contacts payload] familySales length', payload.familySales?.length);
-          await createContactWithProducts(payload);
+          const result = await createContactWithProducts(payload);
+
+          console.log('[contacts response] id:', result?.id);
+          console.log('[contacts response] management:', JSON.stringify(result?.management, null, 2));
+
+          const failed = result?.management?.filter((m) => !m.ok || !m.created) || [];
+          if (failed.length > 0) {
+            console.warn('[contacts response] gestiones NO creadas:', JSON.stringify(failed, null, 2));
+          }
           if (onSuccess) onSuccess();
         } catch (err) {
           const status = err?.status;
