@@ -2933,7 +2933,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
     }
     const salesStatusMeta = (status) => {
       const map = {
-        nuevo:        { label: 'Nuevo',        bg: 'rgba(158,158,158,0.12)', color: '#9E9E9E', border: 'rgba(158,158,158,0.3)' },
+        nuevo:        { label: 'Nuevo',        bg: 'rgba(57,255,20,0.14)',  color: '#1F8F1F', border: 'rgba(57,255,20,0.55)', dot: '#FF1744' },
         no_contesta:  { label: 'No contesta',  bg: 'rgba(245,166,35,0.12)',  color: '#F5A623', border: 'rgba(245,166,35,0.3)'  },
         no_contacto:  { label: 'No contacto',  bg: 'rgba(245,166,35,0.12)',  color: '#F5A623', border: 'rgba(245,166,35,0.3)'  },
         rellamar:     { label: 'Rellamar',     bg: 'rgba(74,144,217,0.12)',  color: '#4A90D9', border: 'rgba(74,144,217,0.3)'  },
@@ -2951,7 +2951,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
     function SalesStatusBadge({ status, small = false }) {
       const meta = salesStatusMeta(status);
-      return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: small ? '4px 8px' : '7px 11px', borderRadius: 999, border: '1px solid ' + meta.border, background: meta.bg, color: meta.color, fontWeight: 700, fontSize: small ? '0.73rem' : '0.8rem' }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: meta.color }}></span>{meta.label}</span>;
+      return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: small ? '4px 8px' : '7px 11px', borderRadius: 999, border: '1px solid ' + meta.border, background: meta.bg, color: meta.color, fontWeight: 700, fontSize: small ? '0.73rem' : '0.8rem' }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: meta.dot || meta.color }}></span>{meta.label}</span>;
     }
 
     const getTodayYmdLocal = () => new Date().toLocaleDateString('en-CA');
@@ -3722,25 +3722,33 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <table className="sales-contacts-table">
               <thead>
                 <tr>
-                  <th>Contacto</th><th>Origen del dato</th><th>Ubicación</th>
-                  <th>Estado</th><th>Última gestión</th>
+                  <th>Estado</th><th>Origen del dato</th><th>Contacto</th>
+                  <th>Ubicación</th><th>Última gestión</th>
                 </tr>
               </thead>
               <tbody>
                 {visibleContacts.map((contact) => (
                   <tr key={contact.id} className="support-row" onClick={() => openDrawer(contact)} style={{ cursor: 'pointer' }}>
-                    <td>
-                      <div className="person">
-                        <div className="person-badge">{initials(contact.name)}</div>
-                        <strong>{contact.name}</strong>
-                      </div>
-                    </td>
-                    <td>
-                      {contact.origen_dato || contact.origen || contact.source || contact.origenDato || contact.origin || '—'}
-                    </td>
-                    <td>{contact.city}</td>
-                    <td><SalesStatusBadge status={statusOverrides[contact.id] || contact.status} small /></td>
-                    <td>{contact.last ? contact.last : <span style={{ color: '#ccc' }}>—</span>}</td>
+                    {(() => {
+                      const statusValue = statusOverrides[contact.id] || contact.status;
+                      const isNuevo = String(statusValue || '').toLowerCase() === 'nuevo';
+                      return (
+                        <>
+                          <td><SalesStatusBadge status={statusValue} small /></td>
+                          <td>
+                            {contact.origen_dato || contact.origen || contact.source || contact.origenDato || contact.origin || '—'}
+                          </td>
+                          <td>
+                            <div className="person">
+                              <div className="person-badge">{initials(contact.name)}</div>
+                              <strong>{contact.name}</strong>
+                            </div>
+                          </td>
+                          <td>{contact.city}</td>
+                          <td>{!isNuevo && contact.last ? contact.last : <span style={{ color: '#ccc' }}>—</span>}</td>
+                        </>
+                      );
+                    })()}
                   </tr>
                 ))}
               </tbody>
