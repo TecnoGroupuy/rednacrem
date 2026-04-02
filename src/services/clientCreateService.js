@@ -8,5 +8,5 @@ export const createContactWithProducts = async (payload) => {
     return { ...(payload || {}), id: `tmp-${Date.now()}` };
   }
   const response = await api.post('/contacts', payload);
-  return response?.item || response;
+  return response?.data || response?.item || response;
 };

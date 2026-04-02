@@ -3453,13 +3453,17 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             try {
               await registerCommercialManagement(dc.id, gestionPayload);
             } catch (err) {
-              console.log('[finalizeGestion] err.status:', err?.status);
-              console.log('[finalizeGestion] err.statusCode:', err?.statusCode);
-              console.log('[finalizeGestion] err.response?.status:', err?.response?.status);
-              console.log('[finalizeGestion] err.message:', err?.message);
-              const message = String(err?.message || err?.details?.message || err?.details?.error || '').toLowerCase();
-              const isFinalStatus = message.includes('estado final') || message.includes('estado_final');
-              if (!(ignoreFinal409 && err?.status === 409 && isFinalStatus)) {
+              const status = err?.status || err?.statusCode || err?.response?.status;
+              const message = String(
+                err?.message || err?.details?.message || err?.details?.error || ''
+              ).toLowerCase();
+              const isFinalStatus =
+                status === 409 ||
+                message.includes('estado final') ||
+                message.includes('estado_final') ||
+                message.includes('409');
+
+              if (!(ignoreFinal409 && isFinalStatus)) {
                 throw err;
               }
             }

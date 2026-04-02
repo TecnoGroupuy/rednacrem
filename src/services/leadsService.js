@@ -291,13 +291,19 @@ export const updateCommercialContact = async (id, patch) => {
 
 export const registerCommercialManagement = async (contactId, payload, { sellerName = 'Laura Techera' } = {}) => {
   if (hasApiConfigured()) {
-    await api.post(`/leads/${contactId}/management`, {
-      status: payload.status,
-      note: payload.note,
-      nextAction: payload.nextAction,
-      fecha_agenda: payload.fecha_agenda
-    });
-    return getCommercialContactById(contactId);
+    try {
+      await api.post(`/leads/${contactId}/management`, {
+        status: payload.status,
+        note: payload.note,
+        nextAction: payload.nextAction,
+        fecha_agenda: payload.fecha_agenda
+      });
+      return getCommercialContactById(contactId);
+    } catch (err) {
+      console.log('[registerCommercialManagement] err:', err);
+      console.log('[registerCommercialManagement] err.status:', err?.status);
+      throw err;
+    }
   }
   await delay(130);
   const idx = getLeadIndexByUiId(contactId);
