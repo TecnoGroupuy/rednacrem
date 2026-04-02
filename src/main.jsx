@@ -3841,6 +3841,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                     try {
                                       setSavingCelular(true);
                                       await onUpdateContact(dc.id, { celular: draftCelular.trim() });
+                                      setDrawerContact((prev) => prev ? { ...prev, celular: draftCelular.trim() } : prev);
                                       setDraftCelular('');
                                     } finally {
                                       setSavingCelular(false);
