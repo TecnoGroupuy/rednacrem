@@ -3453,6 +3453,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             try {
               await registerCommercialManagement(dc.id, gestionPayload);
             } catch (err) {
+              console.log('[finalizeGestion catch] ignoreFinal409:', ignoreFinal409);
+              console.log('[finalizeGestion catch] err.status:', err?.status);
               const status = err?.status || err?.statusCode || err?.response?.status;
               const message = String(
                 err?.message || err?.details?.message || err?.details?.error || ''
