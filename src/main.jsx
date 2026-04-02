@@ -8549,6 +8549,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         if (Number.isNaN(asDate.getTime())) return '';
         return asDate.toISOString().slice(0, 10);
       }, []);
+      const relationOptions = ['Hijo', 'Hija', 'Nieto', 'Nieta', 'Esposo', 'Esposa', 'Amigo', 'Primo', 'Prima', 'Otro'];
       const [newClientDraft, setNewClientDraft] = React.useState({
         contact: {
           nombre: draft?.nombre || '',
@@ -8564,11 +8565,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           pais: draft?.pais || 'Uruguay',
           status: 'activo'
         },
-        products: [],
+        familiares: [],
+        productsByContact: {},
         sale: {
-          mode: 'logged',
-          externalName: '',
-          medioPago: 'debito'
+          medioPago: 'debito',
+          cobranzaDocumento: ''
         }
       });
 
@@ -8603,36 +8604,48 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setNewClientError('');
       };
 
-      const handleToggleProduct = (productId) => {
-        setNewClientDraft((prev) => {
-          const selected = new Set(prev.products);
-          if (selected.has(productId)) {
-            selected.delete(productId);
-          } else {
-            selected.add(productId);
-          }
-          return { ...prev, products: Array.from(selected) };
-        });
-        setNewClientError('');
-      };
-
-      const handleSaleModeChange = (mode) => {
+      const handleAddFamiliar = () => {
         setNewClientDraft((prev) => ({
           ...prev,
-          sale: {
-            ...prev.sale,
-            mode
-          }
+          familiares: [
+            ...prev.familiares,
+            {
+              id: `fam-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              nombre: '',
+              apellido: '',
+              documento: '',
+              telefono: '',
+              celular: '',
+              relacion: ''
+            }
+          ]
+        }));
+      };
+
+      const handleRemoveFamiliar = (id) => {
+        setNewClientDraft((prev) => ({
+          ...prev,
+          familiares: prev.familiares.filter((f) => f.id !== id),
+          productsByContact: Object.fromEntries(
+            Object.entries(prev.productsByContact).filter(([key]) => key !== id)
+          )
+        }));
+      };
+
+      const handleFamiliarChange = (id, field, value) => {
+        setNewClientDraft((prev) => ({
+          ...prev,
+          familiares: prev.familiares.map((f) => (f.id === id ? { ...f, [field]: value } : f))
         }));
         setNewClientError('');
       };
 
-      const handleSaleExternalNameChange = (value) => {
+      const handleProductSelection = (key, productId) => {
         setNewClientDraft((prev) => ({
           ...prev,
-          sale: {
-            ...prev.sale,
-            externalName: value
+          productsByContact: {
+            ...prev.productsByContact,
+            [key]: productId
           }
         }));
         setNewClientError('');
@@ -8649,19 +8662,27 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setNewClientError('');
       };
 
+      const handleCobranzaDocumentoChange = (value) => {
+        setNewClientDraft((prev) => ({
+          ...prev,
+          sale: {
+            ...prev.sale,
+            cobranzaDocumento: value
+          }
+        }));
+        setNewClientError('');
+      };
+
       const handleSaveNewClient = async () => {
-        const selectedProducts = productsCatalog.filter((product) => newClientDraft.products.includes(product.id));
-        if (!selectedProducts.length) {
-          setNewClientError('Selecciona al menos un producto para continuar.');
-          return;
-        }
         const loggedName = [authUser?.nombre, authUser?.apellido].filter(Boolean).join(' ') || authUser?.email || '';
-        const saleMode = newClientDraft.sale?.mode || 'logged';
-        const saleName = saleMode === 'external'
-          ? String(newClientDraft.sale?.externalName || '').trim()
-          : loggedName;
-        if (saleMode === 'external' && !saleName) {
-          setNewClientError('Ingresa el nombre del vendedor externo.');
+        const saleName = loggedName || 'Usuario';
+        const ventaContactos = [
+          { key: 'principal', contact: newClientDraft.contact },
+          ...newClientDraft.familiares.map((f) => ({ key: f.id, contact: f }))
+        ];
+        const missingProduct = ventaContactos.find((item) => !newClientDraft.productsByContact[item.key]);
+        if (missingProduct) {
+          setNewClientError('Selecciona un producto para cada contacto.');
           setNewClientStep(2);
           return;
         }
@@ -8670,9 +8691,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           fechaNacimiento: newClientDraft.contact.fechaNacimiento || newClientDraft.contact.fecha_nacimiento || '',
           fecha_nacimiento: newClientDraft.contact.fecha_nacimiento || newClientDraft.contact.fechaNacimiento || ''
         };
-        const payload = {
-          contact: contactPayload,
-          products: selectedProducts.map((product) => ({
+        const buildProductPayload = (productId) => {
+          const product = productsCatalog.find((p) => p.id === productId);
+          if (!product) return null;
+          return {
             nombreProducto: product.nombre || product.nombreProducto || product.nombre_producto,
             nombre_producto: product.nombre || product.nombreProducto || product.nombre_producto,
             plan: product.plan || product.categoria || 'Plan estándar',
@@ -8681,8 +8703,24 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             medio_pago: normalizePaymentMethod(newClientDraft.sale?.medioPago || product.medioPago || product.medio_pago || 'debito'),
             fechaAlta: new Date().toISOString().slice(0, 10),
             estado: 'alta',
-            sellerName: saleName || loggedName || 'Usuario'
-          }))
+            sellerName: saleName
+          };
+        };
+        const principalProduct = buildProductPayload(newClientDraft.productsByContact.principal);
+        const familySales = newClientDraft.familiares.map((fam) => ({
+          relation: fam.relacion || '',
+          contact: {
+            ...fam
+          },
+          products: [buildProductPayload(newClientDraft.productsByContact[fam.id])].filter(Boolean),
+          medioPago: normalizePaymentMethod(newClientDraft.sale?.medioPago || 'debito')
+        }));
+        const payload = {
+          contact: contactPayload,
+          products: principalProduct ? [principalProduct] : [],
+          medioPago: normalizePaymentMethod(newClientDraft.sale?.medioPago || 'debito'),
+          cobranza_documento: String(newClientDraft.sale?.cobranzaDocumento || '').trim() || undefined,
+          familySales
         };
         setNewClientSaving(true);
         setNewClientError('');
@@ -8767,12 +8805,19 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 className={`new-client-step ${newClientStep === 1 ? 'active' : ''}`}
                 onClick={() => setNewClientStep(1)}
               >
-                Productos
+                Familiar
               </button>
               <button
                 type="button"
                 className={`new-client-step ${newClientStep === 2 ? 'active' : ''}`}
                 onClick={() => setNewClientStep(2)}
+              >
+                Productos
+              </button>
+              <button
+                type="button"
+                className={`new-client-step ${newClientStep === 3 ? 'active' : ''}`}
+                onClick={() => setNewClientStep(3)}
               >
                 Venta
               </button>
@@ -8833,61 +8878,92 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               ) : newClientStep === 1 ? (
                 <div>
                   <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
-                    <h4 style={{ margin: '0 0 12px 0', fontSize: 14, fontWeight: 600 }}>Productos asociados</h4>
-                    <span style={{ fontSize: 12, color: '#64748b' }}>
-                      {newClientDraft.products.length} seleccionados
-                    </span>
+                    <h4 style={{ margin: '0 0 12px 0', fontSize: 14, fontWeight: 600 }}>Familiares</h4>
+                    <button
+                      type="button"
+                      onClick={handleAddFamiliar}
+                      style={{ border: 'none', background: '#1A5C4A', color: '#fff', borderRadius: 8, padding: '6px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      + Agregar familiar
+                    </button>
                   </div>
-                  <div style={{ display: 'grid', gap: 10 }}>
-                    {productsCatalog.map((product) => {
-                      const checked = newClientDraft.products.includes(product.id);
-                      return (
-                        <label
-                          key={product.id}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'flex-start',
-                            gap: 12,
-                            padding: '12px 14px',
-                            borderRadius: 16,
-                            border: checked ? '1px solid rgba(15, 118, 110, 0.65)' : '1px solid #e5e7eb',
-                            background: checked ? 'rgba(15, 118, 110, 0.08)' : '#fff',
-                            cursor: 'pointer',
-                            boxShadow: checked ? '0 10px 24px rgba(15, 118, 110, 0.12)' : 'none'
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => handleToggleProduct(product.id)}
-                            style={{ marginTop: 4 }}
-                          />
-                          <div style={{ flex: 1 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                              <strong style={{ fontSize: 14 }}>{product.nombre}</strong>
-                              <span
-                                style={{
-                                  fontSize: 11,
-                                  fontWeight: 700,
-                                  color: product.activo ? '#047857' : '#b91c1c',
-                                  background: product.activo ? '#ecfdf5' : '#fee2e2',
-                                  borderRadius: 999,
-                                  padding: '3px 8px'
-                                }}
-                              >
-                                {product.activo ? 'Activo' : 'Inactivo'}
-                              </span>
-                            </div>
-                            <div style={{ marginTop: 6, fontSize: 12, color: '#64748b' }}>
-                              {product.categoria || 'General'} · {formatCurrency(product.precio || 0)} {product.moneda || 'UYU'}
-                            </div>
-                            {product.descripcion ? (
-                              <div style={{ marginTop: 6, fontSize: 12, color: '#94a3b8' }}>{product.descripcion}</div>
-                            ) : null}
+                  {!newClientDraft.familiares.length ? (
+                    <div style={{ fontSize: 12, color: '#94a3b8' }}>Sin familiares agregados.</div>
+                  ) : (
+                    <div style={{ display: 'grid', gap: 12 }}>
+                      {newClientDraft.familiares.map((fam, idx) => (
+                        <div key={fam.id} style={{ border: '1px solid #e5e7eb', borderRadius: 14, padding: 12 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>Familiar {idx + 1}</div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveFamiliar(fam.id)}
+                              style={{ border: 'none', background: 'transparent', color: '#b91c1c', fontSize: 12, cursor: 'pointer' }}
+                            >
+                              Quitar
+                            </button>
                           </div>
-                        </label>
-                      );
-                    })}
+                          <div className="new-client-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
+                            {[
+                              { label: 'Nombre', field: 'nombre' },
+                              { label: 'Apellido', field: 'apellido' },
+                              { label: 'Documento', field: 'documento' },
+                              { label: 'Teléfono', field: 'telefono' },
+                              { label: 'Celular', field: 'celular' }
+                            ].map(({ label, field }) => (
+                              <label key={field} style={{ fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1 }}>
+                                {label}
+                                <input
+                                  type="text"
+                                  value={fam[field] || ''}
+                                  onChange={(event) => handleFamiliarChange(fam.id, field, event.target.value)}
+                                  style={{ marginTop: 6, width: '100%', padding: '10px 12px', borderRadius: 12, border: '1px solid #e5e7eb' }}
+                                />
+                              </label>
+                            ))}
+                            <label style={{ fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1 }}>
+                              Relación
+                              <select
+                                value={fam.relacion || ''}
+                                onChange={(event) => handleFamiliarChange(fam.id, 'relacion', event.target.value)}
+                                style={{ marginTop: 6, width: '100%', padding: '10px 12px', borderRadius: 12, border: '1px solid #e5e7eb', background: '#fff' }}
+                              >
+                                <option value="">Seleccionar...</option>
+                                {relationOptions.map((opt) => (
+                                  <option key={opt} value={opt}>{opt}</option>
+                                ))}
+                              </select>
+                            </label>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : newClientStep === 2 ? (
+                <div>
+                  <h4 style={{ margin: '0 0 12px 0', fontSize: 14, fontWeight: 600 }}>Productos por contacto</h4>
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    {[{ key: 'principal', label: [newClientDraft.contact.nombre, newClientDraft.contact.apellido].filter(Boolean).join(' ') || 'Contacto principal' }, ...newClientDraft.familiares.map((fam) => ({
+                      key: fam.id,
+                      label: [fam.nombre, fam.apellido].filter(Boolean).join(' ') || 'Familiar'
+                    }))].map((item) => (
+                      <div key={item.key} style={{ border: '1px solid #e5e7eb', borderRadius: 14, padding: 12 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', marginBottom: 6 }}>{item.label}</div>
+                        <select
+                          value={newClientDraft.productsByContact[item.key] || ''}
+                          onChange={(event) => handleProductSelection(item.key, event.target.value)}
+                          style={{ width: '100%', padding: '10px 12px', borderRadius: 12, border: '1px solid #e5e7eb', background: '#fff' }}
+                        >
+                          <option value="">Seleccionar producto...</option>
+                          {productsCatalog.map((product) => (
+                            <option key={product.id} value={product.id}>
+                              {product.nombre} · {formatCurrency(product.precio || 0)} {product.moneda || 'UYU'}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
                   </div>
                   {newClientError ? (
                     <p style={{ marginTop: 10, color: '#b91c1c', fontSize: 12 }}>{newClientError}</p>
@@ -8896,8 +8972,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               ) : (
                 <div>
                   <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
-                    <h4 style={{ margin: '0 0 12px 0', fontSize: 14, fontWeight: 600 }}>Registro de venta</h4>
-                    <span style={{ fontSize: 12, color: '#64748b' }}>Asignar vendedor</span>
+                    <h4 style={{ margin: '0 0 12px 0', fontSize: 14, fontWeight: 600 }}>Resumen de venta</h4>
+                    <span style={{ fontSize: 12, color: '#64748b' }}>
+                      Se van a gestionar {1 + newClientDraft.familiares.length} ventas
+                    </span>
                   </div>
                   <div style={{ display: 'grid', gap: 12 }}>
                     <label style={{
@@ -8907,54 +8985,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       gap: 12,
                       padding: '12px 14px',
                       borderRadius: 14,
-                      border: newClientDraft.sale.mode === 'logged' ? '1px solid rgba(15, 118, 110, 0.65)' : '1px solid #e5e7eb',
-                      background: newClientDraft.sale.mode === 'logged' ? 'rgba(15, 118, 110, 0.08)' : '#fff',
-                      cursor: 'pointer'
+                      border: '1px solid rgba(15, 118, 110, 0.65)',
+                      background: 'rgba(15, 118, 110, 0.08)'
                     }}>
                       <div>
                         <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#64748b' }}>Usuario logueado</div>
                         <div style={{ fontSize: 14, fontWeight: 600 }}>{[authUser?.nombre, authUser?.apellido].filter(Boolean).join(' ') || authUser?.email || 'Usuario'}</div>
                         {authUser?.email ? <div style={{ fontSize: 12, color: '#94a3b8' }}>{authUser.email}</div> : null}
                       </div>
-                      <input
-                        type="radio"
-                        name="sale-mode-v"
-                        checked={newClientDraft.sale.mode === 'logged'}
-                        onChange={() => handleSaleModeChange('logged')}
-                      />
-                    </label>
-
-                    <label style={{
-                      display: 'grid',
-                      gap: 8,
-                      padding: '12px 14px',
-                      borderRadius: 14,
-                      border: newClientDraft.sale.mode === 'external' ? '1px solid rgba(15, 118, 110, 0.65)' : '1px solid #e5e7eb',
-                      background: newClientDraft.sale.mode === 'external' ? 'rgba(15, 118, 110, 0.08)' : '#fff',
-                      cursor: 'pointer'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                        <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#64748b' }}>Vendedor externo</div>
-                        <input
-                          type="radio"
-                          name="sale-mode-v"
-                          checked={newClientDraft.sale.mode === 'external'}
-                          onChange={() => handleSaleModeChange('external')}
-                        />
-                      </div>
-                      <input
-                        type="text"
-                        placeholder="Escribe el nombre del vendedor"
-                        value={newClientDraft.sale.externalName}
-                        onChange={(event) => handleSaleExternalNameChange(event.target.value)}
-                        disabled={newClientDraft.sale.mode !== 'external'}
-                        style={{
-                          width: '100%',
-                          padding: '10px 12px',
-                          borderRadius: 12,
-                          border: '1px solid #e5e7eb'
-                        }}
-                      />
                     </label>
 
                     <div style={{
@@ -9001,6 +9039,16 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         ))}
                       </select>
                     </div>
+                    <label style={{ fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1 }}>
+                      Cédula de identidad de cobranza
+                      <input
+                        type="text"
+                        placeholder="Ingresar cédula"
+                        value={newClientDraft.sale.cobranzaDocumento}
+                        onChange={(event) => handleCobranzaDocumentoChange(event.target.value)}
+                        style={{ marginTop: 6, width: '100%', padding: '10px 12px', borderRadius: 12, border: '1px solid #e5e7eb' }}
+                      />
+                    </label>
                   </div>
                   {newClientError ? (
                     <p style={{ marginTop: 10, color: '#b91c1c', fontSize: 12 }}>{newClientError}</p>
@@ -9043,13 +9091,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               <button
                 type="button"
                 onClick={() => {
-                  if (newClientStep < 2) {
-                    setNewClientStep((prev) => Math.min(2, prev + 1));
+                  if (newClientStep < 3) {
+                    setNewClientStep((prev) => Math.min(3, prev + 1));
                     return;
                   }
                   handleSaveNewClient();
                 }}
-                disabled={newClientSaving || (newClientStep === 1 && !newClientDraft.products.length)}
+                disabled={newClientSaving || (newClientStep === 2 && (!newClientDraft.productsByContact.principal || Object.keys(newClientDraft.productsByContact).length < (1 + newClientDraft.familiares.length)))}
                 className="new-client-action"
                 style={{
                   border: 'none',
@@ -9057,12 +9105,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   color: '#fff',
                   padding: '10px 22px',
                   borderRadius: 999,
-                  cursor: newClientSaving || (newClientStep === 1 && !newClientDraft.products.length) ? 'not-allowed' : 'pointer',
-                  opacity: newClientSaving || (newClientStep === 1 && !newClientDraft.products.length) ? 0.65 : 1
+                  cursor: newClientSaving || (newClientStep === 2 && (!newClientDraft.productsByContact.principal || Object.keys(newClientDraft.productsByContact).length < (1 + newClientDraft.familiares.length))) ? 'not-allowed' : 'pointer',
+                  opacity: newClientSaving || (newClientStep === 2 && (!newClientDraft.productsByContact.principal || Object.keys(newClientDraft.productsByContact).length < (1 + newClientDraft.familiares.length))) ? 0.65 : 1
                 }}
-              >
-                {newClientStep < 2 ? 'Siguiente' : (newClientSaving ? 'Guardando...' : 'Guardar contacto')}
-              </button>
+                >
+                  {newClientStep < 3 ? 'Siguiente' : (newClientSaving ? 'Guardando...' : 'Guardar contacto')}
+                </button>
             </div>
           </div>
         </>
