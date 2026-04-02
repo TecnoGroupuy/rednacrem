@@ -3146,7 +3146,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           { key: 'rechazo', label: 'Rechazos' },
           { key: 'todos', label: 'Todos' }
         ];
-      const estadosFinalesGestion = isRecupero ? ['alta', 'rechazo'] : ESTADOS_FINALES_GESTION;
+      const estadosFinalesGestion = isRecupero ? ['alta', 'rechazo', 'dato_erroneo'] : ESTADOS_FINALES_GESTION;
       const estadosConAgenda = isRecupero ? ['interesado', 'volver_a_llamar'] : ['seguimiento', 'rellamar'];
       const opcionesGestion = isRecupero
         ? [
@@ -3154,7 +3154,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           { value: 'volver_a_llamar', label: 'Rellamar' },
           { value: 'interesado', label: 'Seguimiento' },
           { value: 'rechazo', label: 'Rechazo' },
-          { value: 'alta', label: 'Alta' }
+          { value: 'dato_erroneo', label: 'Dato erróneo' },
+          { value: 'alta', label: 'Venta' }
         ]
         : [
           { value: 'no_contesta', label: 'No contesta' },
@@ -3261,6 +3262,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [showBannerPendiente, setShowBannerPendiente] = React.useState(false);
       const [draftCelular, setDraftCelular] = React.useState('');
       const [savingCelular, setSavingCelular] = React.useState(false);
+      const [savingDireccion, setSavingDireccion] = React.useState(false);
+      const [familiares, setFamiliares] = React.useState([]);
+      const [familiaresLoading, setFamiliaresLoading] = React.useState(false);
       const [draftDireccion, setDraftDireccion] = React.useState('');
 
       React.useEffect(() => {
@@ -3344,6 +3348,32 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setDraftDireccion(pickDireccion(c));
         onSelect(c.id || null);
       };
+
+      React.useEffect(() => {
+        let active = true;
+        const contactId = dc?.id;
+        if (!contactId) {
+          setFamiliares([]);
+          return () => {};
+        }
+        const api = getApiClient();
+        setFamiliaresLoading(true);
+        api.get(`/leads/${contactId}/familiares`)
+          .then((response) => {
+            if (!active) return;
+            const items = response?.items || response?.data?.items || [];
+            setFamiliares(Array.isArray(items) ? items : []);
+          })
+          .catch(() => {
+            if (!active) return;
+            setFamiliares([]);
+          })
+          .finally(() => {
+            if (!active) return;
+            setFamiliaresLoading(false);
+          });
+        return () => { active = false; };
+      }, [dc?.id]);
 
       const closeDrawer = () => {
         if (!estadoGestion) {
@@ -3930,17 +3960,77 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                               {drawerDireccion ? (
                                 <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{drawerDireccion}</p>
                               ) : (
-                                <input
-                                  className="input"
-                                  placeholder="Ingresar dirección"
-                                  value={draftDireccion}
-                                  onChange={(e) => setDraftDireccion(e.target.value)}
-                                />
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                  <input
+                                    className="input"
+                                    placeholder="Ingresar dirección"
+                                    value={draftDireccion}
+                                    onChange={(e) => setDraftDireccion(e.target.value)}
+                                    style={{ flex: 1 }}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      if (!onUpdateContact || !dc?.id) return;
+                                      if (!draftDireccion.trim()) return;
+                                      try {
+                                        setSavingDireccion(true);
+                                        await onUpdateContact(dc.id, { direccion: draftDireccion.trim() });
+                                        setDrawerContact((prev) => prev ? { ...prev, direccion: draftDireccion.trim() } : prev);
+                                        setDraftDireccion('');
+                                      } finally {
+                                        setSavingDireccion(false);
+                                      }
+                                    }}
+                                    disabled={savingDireccion || !draftDireccion.trim()}
+                                    style={{
+                                      border: 'none',
+                                      background: '#1A5C4A',
+                                      color: '#FFF',
+                                      borderRadius: 8,
+                                      padding: '8px 12px',
+                                      fontSize: 12,
+                                      fontWeight: 600,
+                                      cursor: savingDireccion || !draftDireccion.trim() ? 'not-allowed' : 'pointer',
+                                      opacity: savingDireccion || !draftDireccion.trim() ? 0.6 : 1,
+                                      whiteSpace: 'nowrap'
+                                    }}
+                                  >
+                                    Guardar
+                                  </button>
+                                </div>
                               )}
                             </div>
                           </div>
                         </div>
                       </>
+                      <div>
+                        <hr style={{ border: 'none', borderTop: '1px solid #F0F0F0', margin: 0 }} />
+                        <div style={{ paddingTop: 12 }}>
+                          <p style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px 0' }}>Familiar</p>
+                          {familiaresLoading ? (
+                            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Cargando familiares...</div>
+                          ) : familiares.length ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                              {familiares.map((item) => (
+                                <div key={item.id || `${item.nombre}-${item.apellido}-${item.telefono}-${item.celular}`} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                  <div style={{ fontSize: 13, fontWeight: 600 }}>
+                                    {[item.nombre, item.apellido].filter(Boolean).join(' ') || 'Contacto'}
+                                  </div>
+                                  <div style={{ fontSize: 12, color: '#64748b' }}>
+                                    {item.telefono ? `Fijo: ${item.telefono}` : ''}
+                                    {item.telefono && item.celular ? ' · ' : ''}
+                                    {item.celular ? `Celular: ${item.celular}` : ''}
+                                    {!item.telefono && !item.celular ? 'Sin teléfonos' : ''}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Sin familiares encontrados.</div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
