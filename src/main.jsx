@@ -3513,6 +3513,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const drawerEstado = dc ? (statusOverrides[dc.id] || dc.status || dc.estado_venta || 'nuevo') : 'nuevo';
       const headerTitle = isRecupero ? 'Recupero' : 'Contactos asignados';
       const headerSubtitle = isRecupero ? 'Gestiona tu cartera de clientes en baja' : 'Gestiona solo tu lote operativo';
+      const isVentaFlow = (isRecupero && estadoGestion === 'alta') || (!isRecupero && estadoGestion === 'venta');
 
       return (
         <div className="view sales-contacts-view">
@@ -4141,7 +4142,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         disabled={guardando || !estadoGestion}
                         style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: accentColor, color: '#fff', border: 'none', borderRadius: 8, padding: '10px 18px', fontWeight: 600, fontSize: 13, cursor: (guardando || !estadoGestion) ? 'not-allowed' : 'pointer', opacity: (guardando || !estadoGestion) ? 0.5 : 1 }}
                       >
-                        {guardando ? 'Guardando...' : 'Guardar gestión'}
+                        {guardando ? 'Guardando...' : (isVentaFlow ? 'Iniciar gestión' : 'Guardar gestión')}
                       </button>
                     </div>
                   )}
