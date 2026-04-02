@@ -3375,6 +3375,22 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         }
       };
 
+      const buildVentaDraft = (contact) => ({
+        contacto_id: String(contact.id),
+        nombre: contact.nombre || contact.name?.split(' ')[0] || '',
+        apellido: contact.apellido || (contact.name?.split(' ').slice(1).join(' ')) || '',
+        documento: contact.documento || '',
+        fecha_nacimiento: contact.fecha_nacimiento || '',
+        telefono: contact.telefono || contact.phone || '',
+        celular: contact.celular || '',
+        correo_electronico: contact.correo_electronico || contact.email || '',
+        direccion: pickDireccion(contact) || '',
+        departamento: contact.departamento || contact.city || '',
+        pais: contact.pais || 'Uruguay',
+        batch_id: contact.batch_id || contact.lotId || '',
+        timestamp: new Date().toISOString()
+      });
+
       const handleGuardarGestion = async () => {
         if (guardando || !dc || !estadoGestion) return;
         setGuardando(true);
@@ -3400,59 +3416,50 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             fecha_agenda
           };
           console.log('[gestion] body:', JSON.stringify(gestionPayload));
-          await registerCommercialManagement(dc.id, gestionPayload);
-          const contactId = dc.id;
-          const ahora = new Date().toISOString();
-          const applyUpdate = (c) => ({ ...c, status: estadoGestion, ultima_gestion_real: ahora, last: formatLastGestion(ahora) });
-          if (estadosFinalesGestion.includes(estadoGestion)) {
-            setLocalContacts((prev) => {
-              const found = prev.find((c) => String(c.id) === String(contactId));
-              const resto = prev.filter((c) => String(c.id) !== String(contactId));
-              return found ? [...resto, applyUpdate(found)] : prev;
-            });
-          } else {
-            setLocalContacts((prev) => prev.map((c) =>
-              String(c.id) === String(contactId) ? applyUpdate(c) : c
-            ));
-          }
-          setStatusOverrides((prev) => ({ ...prev, [contactId]: estadoGestion }));
-          if (estadosConAgenda.includes(estadoGestion)) {
-            try { localStorage.setItem('agenda_needs_refresh', 'true'); } catch {}
-          }
-          closeDrawer();
-          if ((isRecupero && estadoGestion === 'alta') || (!isRecupero && estadoGestion === 'venta')) {
-            try {
-              const borrador = {
-                contacto_id: String(dc.id),
-                nombre: dc.nombre || dc.name?.split(' ')[0] || '',
-                apellido: dc.apellido || (dc.name?.split(' ').slice(1).join(' ')) || '',
-                documento: dc.documento || '',
-                fecha_nacimiento: dc.fecha_nacimiento || '',
-                telefono: dc.telefono || dc.phone || '',
-                celular: dc.celular || '',
-                correo_electronico: dc.correo_electronico || dc.email || '',
-                direccion: pickDireccion(dc) || '',
-                departamento: dc.departamento || dc.city || '',
-                pais: dc.pais || 'Uruguay',
-                batch_id: dc.batch_id || dc.lotId || '',
-                timestamp: new Date().toISOString()
-              };
-              localStorage.setItem('cliente_pendiente_alta', JSON.stringify(borrador));
-            } catch {}
-            if (onOpenNewClient) {
-              onOpenNewClient({
-                nombre: dc.nombre || dc.name?.split(' ')[0] || '',
-                apellido: dc.apellido || (dc.name?.split(' ').slice(1).join(' ')) || '',
-                telefono: dc.telefono || dc.phone || '',
-                celular: dc.celular || '',
-                documento: dc.documento || '',
-                correo_electronico: dc.correo_electronico || dc.email || ''
+          const finalizeGestion = async ({ openNewClient = true } = {}) => {
+            await registerCommercialManagement(dc.id, gestionPayload);
+            const contactId = dc.id;
+            const ahora = new Date().toISOString();
+            const applyUpdate = (c) => ({ ...c, status: estadoGestion, ultima_gestion_real: ahora, last: formatLastGestion(ahora) });
+            if (estadosFinalesGestion.includes(estadoGestion)) {
+              setLocalContacts((prev) => {
+                const found = prev.find((c) => String(c.id) === String(contactId));
+                const resto = prev.filter((c) => String(c.id) !== String(contactId));
+                return found ? [...resto, applyUpdate(found)] : prev;
               });
-            } else if (onVentaCerrada) {
-              onVentaCerrada(dc);
+            } else {
+              setLocalContacts((prev) => prev.map((c) =>
+                String(c.id) === String(contactId) ? applyUpdate(c) : c
+              ));
             }
+            setStatusOverrides((prev) => ({ ...prev, [contactId]: estadoGestion }));
+            if (estadosConAgenda.includes(estadoGestion)) {
+              try { localStorage.setItem('agenda_needs_refresh', 'true'); } catch {}
+            }
+            closeDrawer();
+            if ((isRecupero && estadoGestion === 'alta') || (!isRecupero && estadoGestion === 'venta')) {
+              try {
+                const borrador = buildVentaDraft(dc);
+                localStorage.setItem('cliente_pendiente_alta', JSON.stringify(borrador));
+              } catch {}
+              if (openNewClient && onOpenNewClient) {
+                onOpenNewClient(buildVentaDraft(dc));
+              } else if (openNewClient && onVentaCerrada) {
+                onVentaCerrada(dc);
+              }
+            }
+            await refreshSilencioso();
+          };
+          const isVentaFlow = (isRecupero && estadoGestion === 'alta') || (!isRecupero && estadoGestion === 'venta');
+          if (isVentaFlow && onOpenNewClient) {
+            const draft = buildVentaDraft(dc);
+            onOpenNewClient(draft, async () => {
+              await finalizeGestion({ openNewClient: false });
+            });
+            setGuardando(false);
+            return;
           }
-          await refreshSilencioso();
+          await finalizeGestion({ openNewClient: true });
         } catch (err) {
           const msg = String(err?.message || '');
           if (msg.includes('409')) {
@@ -10077,6 +10084,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       });
       const [vendedorNewClientOpen, setVendedorNewClientOpen] = React.useState(false);
       const [vendedorNewClientDraft, setVendedorNewClientDraft] = React.useState(null);
+      const [vendedorNewClientOnSuccess, setVendedorNewClientOnSuccess] = React.useState(null);
       const [salesContacts, setSalesContacts] = React.useState(SALES_CONTACTS_SEED);
       const [supervisorLots, setSupervisorLots] = React.useState(SUPERVISOR_LOTS_SEED);
       const [salesSelectedId, setSalesSelectedId] = React.useState(SALES_CONTACTS_SEED.find(isSalesActiveContact)?.id || null);
@@ -10092,8 +10100,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         () => Object.fromEntries(productsCatalog.map((product) => [product.id, product])),
         [productsCatalog]
       );
-      const handleOpenVendedorNewClient = (prefill = null) => {
+      const handleOpenVendedorNewClient = (prefill = null, onSuccessCb = null) => {
         setVendedorNewClientDraft(prefill);
+        setVendedorNewClientOnSuccess(() => onSuccessCb);
         setVendedorNewClientOpen(true);
       };
       const hasRealSuperadminAccess = hasRealRole({ rolReal, allowedRoles: ['superadministrador'] }) && esSuperadmin;
@@ -10813,11 +10822,16 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               onClose={() => {
                 setVendedorNewClientOpen(false);
                 setVendedorNewClientDraft(null);
+                setVendedorNewClientOnSuccess(null);
                 try { localStorage.removeItem('cliente_pendiente_alta'); } catch {}
               }}
-              onSuccess={() => {
+              onSuccess={async () => {
+                if (vendedorNewClientOnSuccess) {
+                  await vendedorNewClientOnSuccess();
+                }
                 setVendedorNewClientOpen(false);
                 setVendedorNewClientDraft(null);
+                setVendedorNewClientOnSuccess(null);
                 try { localStorage.removeItem('cliente_pendiente_alta'); } catch {}
               }}
             />
