@@ -3449,8 +3449,16 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             fecha_agenda
           };
           console.log('[gestion] body:', JSON.stringify(gestionPayload));
-          const finalizeGestion = async ({ openNewClient = true } = {}) => {
-            await registerCommercialManagement(dc.id, gestionPayload);
+          const finalizeGestion = async ({ openNewClient = true, ignoreFinal409 = false } = {}) => {
+            try {
+              await registerCommercialManagement(dc.id, gestionPayload);
+            } catch (err) {
+              const message = String(err?.message || err?.details?.message || err?.details?.error || '').toLowerCase();
+              const isFinalStatus = message.includes('estado final') || message.includes('estado_final');
+              if (!(ignoreFinal409 && err?.status === 409 && isFinalStatus)) {
+                throw err;
+              }
+            }
             const contactId = dc.id;
             const ahora = new Date().toISOString();
             const applyUpdate = (c) => ({ ...c, status: estadoGestion, ultima_gestion_real: ahora, last: formatLastGestion(ahora) });
@@ -3486,10 +3494,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           const isVentaFlow = (isRecupero && estadoGestion === 'alta') || (!isRecupero && estadoGestion === 'venta');
           if (isVentaFlow && onOpenNewClient) {
             const draft = buildVentaDraft(dc);
-            closeDrawer();
-            onOpenNewClient(draft, async () => {
-              await finalizeGestion({ openNewClient: false });
-            });
+            await finalizeGestion({ openNewClient: false, ignoreFinal409: false });
+            onOpenNewClient(draft);
             setGuardando(false);
             return;
           }
