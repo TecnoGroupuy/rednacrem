@@ -298,12 +298,14 @@ export const registerCommercialManagement = async (contactId, payload, { sellerN
         nextAction: payload.nextAction,
         fecha_agenda: payload.fecha_agenda
       });
-      return getCommercialContactById(contactId);
     } catch (err) {
-      console.log('[registerCommercialManagement] err:', err);
-      console.log('[registerCommercialManagement] err.status:', err?.status);
-      throw err;
+      const status = err?.status || err?.statusCode;
+      const message = String(err?.message || '').toLowerCase();
+      const isFinal = status === 409 || message.includes('409') || message.includes('estado final');
+      if (!isFinal) throw err;
+      console.warn('[registerCommercialManagement] 409 ignorado (estado final):', contactId);
     }
+    return getCommercialContactById(contactId);
   }
   await delay(130);
   const idx = getLeadIndexByUiId(contactId);
