@@ -3266,6 +3266,22 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [familiares, setFamiliares] = React.useState([]);
       const [familiaresLoading, setFamiliaresLoading] = React.useState(false);
       const [draftDireccion, setDraftDireccion] = React.useState('');
+      const [nuevoContactoOpen, setNuevoContactoOpen] = React.useState(false);
+      const [nuevoContactoError, setNuevoContactoError] = React.useState('');
+      const [nuevoContactoSaving, setNuevoContactoSaving] = React.useState(false);
+      const [nuevoContacto, setNuevoContacto] = React.useState({
+        nombre: '',
+        apellido: '',
+        documento: '',
+        fecha_nacimiento: '',
+        telefono: '',
+        celular: '',
+        correo_electronico: '',
+        direccion: '',
+        departamento: '',
+        localidad: '',
+        pais: 'Uruguay'
+      });
 
       React.useEffect(() => {
         const handler = setTimeout(() => {
@@ -3311,6 +3327,72 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setGestionError('');
         setDraftCelular('');
         setDraftDireccion('');
+      };
+
+      const resolvePrincipalContactId = React.useCallback(() => {
+        const selected = localContacts.find((c) => String(c.id) === String(selectedId))
+          || localContacts[0]
+          || null;
+        if (!selected) return '';
+        return selected.contact_id || selected.contactId || selected.contacto_id || selected.id || '';
+      }, [localContacts, selectedId]);
+
+      const openNuevoContacto = () => {
+        setNuevoContactoError('');
+        setNuevoContacto({
+          nombre: '',
+          apellido: '',
+          documento: '',
+          fecha_nacimiento: '',
+          telefono: '',
+          celular: '',
+          correo_electronico: '',
+          direccion: '',
+          departamento: '',
+          localidad: '',
+          pais: 'Uruguay'
+        });
+        setNuevoContactoOpen(true);
+      };
+
+      const handleGuardarNuevoContacto = async () => {
+        const principalContactId = resolvePrincipalContactId();
+        if (!principalContactId) {
+          setNuevoContactoError('No se pudo determinar el contacto principal del lote.');
+          return;
+        }
+        if (!nuevoContacto.nombre.trim() || !nuevoContacto.apellido.trim()) {
+          setNuevoContactoError('Ingresa nombre y apellido.');
+          return;
+        }
+        const payload = {
+          principal_contact_id: principalContactId,
+          contact: {
+            nombre: nuevoContacto.nombre,
+            apellido: nuevoContacto.apellido,
+            documento: nuevoContacto.documento || '',
+            fecha_nacimiento: nuevoContacto.fecha_nacimiento || '',
+            telefono: nuevoContacto.telefono || '',
+            celular: nuevoContacto.celular || '',
+            correo_electronico: nuevoContacto.correo_electronico || '',
+            direccion: nuevoContacto.direccion || '',
+            departamento: nuevoContacto.departamento || '',
+            localidad: nuevoContacto.localidad || '',
+            pais: nuevoContacto.pais || 'Uruguay'
+          },
+          products: []
+        };
+        setNuevoContactoSaving(true);
+        setNuevoContactoError('');
+        try {
+          await createContactWithProducts(payload);
+          setNuevoContactoOpen(false);
+          await refreshSilencioso();
+        } catch (err) {
+          setNuevoContactoError(err?.message || 'No se pudo crear el contacto.');
+        } finally {
+          setNuevoContactoSaving(false);
+        }
       };
 
       const opcionesAgenda = () => {
@@ -3554,6 +3636,15 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 <Search size={16} color="#69788d" />
                 <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar por nombre, teléfono o documento..." />
               </div>
+              {!isRecupero ? (
+                <button
+                  onClick={openNuevoContacto}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff', color: accentColor, border: `1px solid ${accentColor}`, borderRadius: 8, padding: '8px 14px', fontWeight: 600, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                >
+                  <Plus size={16} />
+                  Nuevo contacto
+                </button>
+              ) : null}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
                 <button
                   onClick={handleNextContact}
@@ -3572,6 +3663,83 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <div style={{ background: '#FFF8E1', border: '1px solid #FFD54F', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#795548', marginBottom: 12 }}>
               {nextMessage}
             </div>
+          ) : null}
+
+          {nuevoContactoOpen ? (
+            <>
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.45)', zIndex: 140 }} onClick={() => setNuevoContactoOpen(false)} />
+              <div style={{ position: 'fixed', right: 24, top: 32, bottom: 32, width: 'min(560px, calc(100% - 48px))', background: '#fff', borderRadius: 24, boxShadow: '0 24px 60px rgba(15, 23, 42, 0.25)', padding: 24, zIndex: 141, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <p style={{ fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: '#6b7280' }}>Nuevo contacto</p>
+                    <h3 style={{ margin: '6px 0', fontSize: 20, fontWeight: 700 }}>Agregar al lote</h3>
+                  </div>
+                  <button type="button" onClick={() => setNuevoContactoOpen(false)} style={{ border: 'none', background: '#f3f4f6', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer' }}>
+                    <X size={16} color="#475569" />
+                  </button>
+                </div>
+
+                {nuevoContactoError ? (
+                  <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '10px 12px', fontSize: 13, color: '#B91C1C' }}>
+                    {nuevoContactoError}
+                  </div>
+                ) : null}
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, overflowY: 'auto', paddingRight: 4 }}>
+                  <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
+                    Nombre
+                    <input className="input" value={nuevoContacto.nombre} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, nombre: e.target.value }))} />
+                  </label>
+                  <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
+                    Apellido
+                    <input className="input" value={nuevoContacto.apellido} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, apellido: e.target.value }))} />
+                  </label>
+                  <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
+                    Documento
+                    <input className="input" value={nuevoContacto.documento} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, documento: e.target.value }))} />
+                  </label>
+                  <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
+                    Fecha de nacimiento
+                    <input className="input" type="date" value={nuevoContacto.fecha_nacimiento} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, fecha_nacimiento: e.target.value }))} />
+                  </label>
+                  <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
+                    Teléfono
+                    <input className="input" value={nuevoContacto.telefono} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, telefono: e.target.value }))} />
+                  </label>
+                  <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
+                    Celular
+                    <input className="input" value={nuevoContacto.celular} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, celular: e.target.value }))} />
+                  </label>
+                  <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569', gridColumn: '1 / -1' }}>
+                    Email
+                    <input className="input" value={nuevoContacto.correo_electronico} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, correo_electronico: e.target.value }))} />
+                  </label>
+                  <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569', gridColumn: '1 / -1' }}>
+                    Dirección
+                    <input className="input" value={nuevoContacto.direccion} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, direccion: e.target.value }))} />
+                  </label>
+                  <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
+                    Departamento
+                    <input className="input" value={nuevoContacto.departamento} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, departamento: e.target.value }))} />
+                  </label>
+                  <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
+                    Localidad
+                    <input className="input" value={nuevoContacto.localidad} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, localidad: e.target.value }))} />
+                  </label>
+                  <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
+                    País
+                    <input className="input" value={nuevoContacto.pais} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, pais: e.target.value }))} />
+                  </label>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                  <button className="button secondary" onClick={() => setNuevoContactoOpen(false)} style={{ padding: '8px 16px' }}>Cancelar</button>
+                  <button className="button" onClick={handleGuardarNuevoContacto} disabled={nuevoContactoSaving} style={{ padding: '8px 16px', background: accentColor, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600 }}>
+                    {nuevoContactoSaving ? 'Guardando...' : 'Guardar contacto'}
+                  </button>
+                </div>
+              </div>
+            </>
           ) : null}
 
           {showBannerPendiente && clientePendiente ? (
