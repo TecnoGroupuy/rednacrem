@@ -292,12 +292,15 @@ export const updateCommercialContact = async (id, patch) => {
 export const registerCommercialManagement = async (contactId, payload, { sellerName = 'Laura Techera' } = {}) => {
   if (hasApiConfigured()) {
     try {
-      await api.post(`/leads/${contactId}/management`, {
+      const response = await api.post(`/leads/${contactId}/management`, {
         status: payload.status,
         note: payload.note,
         nextAction: payload.nextAction,
         fecha_agenda: payload.fecha_agenda
       });
+      const gestionId = response?.data?.data?.gestion_id ?? null;
+      const contact = await getCommercialContactById(contactId);
+      return { contact, gestion_id: gestionId };
     } catch (err) {
       const status = err?.status || err?.statusCode;
       const message = String(err?.message || '').toLowerCase();
@@ -305,7 +308,8 @@ export const registerCommercialManagement = async (contactId, payload, { sellerN
       if (!isFinal) throw err;
       console.warn('[registerCommercialManagement] 409 ignorado (estado final):', contactId);
     }
-    return getCommercialContactById(contactId);
+    const contact = await getCommercialContactById(contactId);
+    return { contact, gestion_id: null };
   }
   await delay(130);
   const idx = getLeadIndexByUiId(contactId);

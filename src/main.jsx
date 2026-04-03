@@ -3379,13 +3379,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             departamento: nuevoContacto.departamento || '',
             localidad: nuevoContacto.localidad || '',
             pais: nuevoContacto.pais || 'Uruguay'
-          },
-          products: []
+          }
         };
         setNuevoContactoSaving(true);
         setNuevoContactoError('');
         try {
-          await createContactWithProducts(payload);
+          await api.post('/leads/new', payload);
           setNuevoContactoOpen(false);
           await refreshSilencioso();
         } catch (err) {
@@ -3533,7 +3532,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           console.log('[gestion] body:', JSON.stringify(gestionPayload));
           const finalizeGestion = async ({ openNewClient = true, ignoreFinal409 = false } = {}) => {
             try {
-              await registerCommercialManagement(dc.id, gestionPayload);
+              const { contact } = await registerCommercialManagement(dc.id, gestionPayload);
+              void contact;
             } catch (err) {
               console.log('[finalizeGestion catch] ignoreFinal409:', ignoreFinal409);
               console.log('[finalizeGestion catch] err.status:', err?.status);
@@ -3586,7 +3586,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           const isVentaFlow = (isRecupero && estadoGestion === 'alta') || (!isRecupero && estadoGestion === 'venta');
           if (isVentaFlow && onOpenNewClient) {
             const draft = buildVentaDraft(dc);
-            onOpenNewClient(draft, async () => {
+            const { gestion_id } = await registerCommercialManagement(dc.id, gestionPayload);
+            onOpenNewClient(draft, gestion_id, async () => {
               await finalizeGestion({ openNewClient: false, ignoreFinal409: true });
             });
             closeDrawer();
@@ -8798,7 +8799,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       );
     }
 
-    function NuevoClienteVendedor({ draft = null, onClose, onSuccess, productsCatalog = [] }) {
+    function NuevoClienteVendedor({ draft = null, onClose, onSuccess, productsCatalog = [], gestion_id = null }) {
       const { user: authUser } = useAuth();
       const [newClientError, setNewClientError] = React.useState('');
       const [newClientSaving, setNewClientSaving] = React.useState(false);
@@ -8997,7 +8998,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           products: principalProduct ? [principalProduct] : [],
           medioPago: normalizePaymentMethod(newClientDraft.sale?.medioPago || 'debito'),
           cobranza_documento: String(newClientDraft.sale?.cobranzaDocumento || '').trim() || undefined,
-          familySales
+          familySales,
+          gestion_id: gestion_id ?? null
         };
         setNewClientSaving(true);
         setNewClientError('');
@@ -10527,6 +10529,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [vendedorNewClientOpen, setVendedorNewClientOpen] = React.useState(false);
       const [vendedorNewClientDraft, setVendedorNewClientDraft] = React.useState(null);
       const [vendedorNewClientOnSuccess, setVendedorNewClientOnSuccess] = React.useState(null);
+      const [vendedorNewClientGestionId, setVendedorNewClientGestionId] = React.useState(null);
       const [salesContacts, setSalesContacts] = React.useState(SALES_CONTACTS_SEED);
       const [supervisorLots, setSupervisorLots] = React.useState(SUPERVISOR_LOTS_SEED);
       const [salesSelectedId, setSalesSelectedId] = React.useState(SALES_CONTACTS_SEED.find(isSalesActiveContact)?.id || null);
@@ -10542,8 +10545,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         () => Object.fromEntries(productsCatalog.map((product) => [product.id, product])),
         [productsCatalog]
       );
-      const handleOpenVendedorNewClient = (prefill = null, onSuccessCb = null) => {
+      const handleOpenVendedorNewClient = (prefill = null, gestion_id = null, onSuccessCb = null) => {
         setVendedorNewClientDraft(prefill);
+        setVendedorNewClientGestionId(gestion_id ?? null);
         setVendedorNewClientOnSuccess(() => onSuccessCb);
         setVendedorNewClientOpen(true);
       };
@@ -10758,7 +10762,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, [role, refreshSalesFromService]);
 
       const registerSalesManagement = async (contactId, payload) => {
-        const updated = await registerCommercialManagement(contactId, payload, { sellerName: 'Laura Techera' });
+        const { contact: updated } = await registerCommercialManagement(contactId, payload, { sellerName: 'Laura Techera' });
         const nextContacts = await refreshContactsFromService();
         setSalesRecords((prevSales) => {
           if (updated.estadoOperativo === 'finalizado_venta') {
@@ -11265,6 +11269,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 setVendedorNewClientOpen(false);
                 setVendedorNewClientDraft(null);
                 setVendedorNewClientOnSuccess(null);
+                setVendedorNewClientGestionId(null);
                 try { localStorage.removeItem('cliente_pendiente_alta'); } catch {}
               }}
               onSuccess={async () => {
@@ -11274,8 +11279,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 setVendedorNewClientOpen(false);
                 setVendedorNewClientDraft(null);
                 setVendedorNewClientOnSuccess(null);
+                setVendedorNewClientGestionId(null);
                 try { localStorage.removeItem('cliente_pendiente_alta'); } catch {}
               }}
+              gestion_id={vendedorNewClientGestionId}
             />
           )}
         </>
