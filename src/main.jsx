@@ -3570,6 +3570,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               try { localStorage.setItem('agenda_needs_refresh', 'true'); } catch {}
             }
             closeDrawer();
+            console.log('[finalizeGestion debug] openNewClient:', openNewClient);
+            console.log('[finalizeGestion debug] finalGestionId:', finalGestionId);
+            console.log('[finalizeGestion debug] onOpenNewClient:', typeof onOpenNewClient);
             if ((isRecupero && estadoGestion === 'alta') || (!isRecupero && estadoGestion === 'venta')) {
               try {
                 const borrador = buildVentaDraft(dc);
@@ -3584,6 +3587,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             await refreshSilencioso();
           };
           const isVentaFlow = (isRecupero && estadoGestion === 'alta') || (!isRecupero && estadoGestion === 'venta');
+          console.log('[isVentaFlow debug] isRecupero:', isRecupero);
+          console.log('[isVentaFlow debug] estadoGestion:', estadoGestion);
+          console.log('[isVentaFlow debug] isVentaFlow:', isVentaFlow);
+          console.log('[isVentaFlow debug] onOpenNewClient:', typeof onOpenNewClient);
           if (isVentaFlow && onOpenNewClient) {
             const draft = buildVentaDraft(dc);
             const { gestion_id } = await registerCommercialManagement(dc.id, gestionPayload);
