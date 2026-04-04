@@ -307,9 +307,14 @@ export const registerCommercialManagement = async (contactId, payload, { sellerN
       const isFinal = status === 409 || message.includes('409') || message.includes('estado final');
       if (!isFinal) throw err;
       console.warn('[registerCommercialManagement] 409 ignorado (estado final):', contactId);
-      const existingGestionId = err.response?.data?.data?.gestion_id ?? null;
+      console.log('[409 catch] full err keys:', Object.keys(err));
+      console.log('[409 catch] err.data:', err?.data);
+      console.log('[409 catch] err.response:', err?.response);
+      const existingGestionId = err?.details?.data?.gestion_id
+        ?? err?.details?.data?.data?.gestion_id
+        ?? null;
       console.log('[registerCommercialManagement] 409 gestion_id captured:', existingGestionId);
-      console.log('[registerCommercialManagement] 409 raw error response:', err.response?.data);
+      console.log('[registerCommercialManagement] 409 raw error response:', err?.details);
       const contact = await getCommercialContactById(contactId);
       return { contact, gestion_id: existingGestionId };
     }
