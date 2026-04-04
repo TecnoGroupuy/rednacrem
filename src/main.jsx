@@ -9008,6 +9008,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           console.log('[contacts payload]', payload);
           console.log('[contacts payload] principal_contact_id:', payload.principal_contact_id);
           console.log('[contacts payload] familySales length', payload.familySales?.length);
+          console.log('[contacts payload] gestion_id:', gestion_id);
+          console.log('[contacts payload] full:', JSON.stringify(payload));
           const result = await createContactWithProducts(payload);
 
           console.log('[contacts response] id:', result?.id);
