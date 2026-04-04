@@ -3514,8 +3514,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           if (estadosConAgenda.includes(estadoGestion)) {
             const fecha = fechaAgenda || fechaAgendaRef.current;
             const hora = horaAgenda || horaAgendaRef.current || '10:00';
-            console.log('[gestion] fechaAgenda:', fechaAgenda, 'ref:', fechaAgendaRef.current);
-            console.log('[gestion] horaAgenda:', horaAgenda, 'ref:', horaAgendaRef.current);
             if (!fecha) {
               setGestionError('Seleccioná una opción de agenda antes de guardar.');
               setGuardando(false);
@@ -3523,90 +3521,71 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             }
             fecha_agenda = `${fecha}T${hora}:00`;
           }
+
           const gestionPayload = {
             status: estadoGestion,
             note: notaGestion.trim() || undefined,
             nextAction: fecha_agenda,
             fecha_agenda
           };
-          console.log('[gestion] body:', JSON.stringify(gestionPayload));
-          const finalizeGestion = async ({ openNewClient = true, ignoreFinal409 = false } = {}) => {
-            try {
-              const { contact, gestion_id: finalGestionId } = await registerCommercialManagement(dc.id, gestionPayload);
-              void contact;
-            } catch (err) {
-              console.log('[finalizeGestion catch] ignoreFinal409:', ignoreFinal409);
-              console.log('[finalizeGestion catch] err.status:', err?.status);
-              const status = err?.status || err?.statusCode || err?.response?.status;
-              const message = String(
-                err?.message || err?.details?.message || err?.details?.error || ''
-              ).toLowerCase();
-              const isFinalStatus =
-                status === 409 ||
-                message.includes('estado final') ||
-                message.includes('estado_final') ||
-                message.includes('409');
 
-              if (!(ignoreFinal409 && isFinalStatus)) {
-                throw err;
-              }
-            }
-            const contactId = dc.id;
-            const ahora = new Date().toISOString();
-            const applyUpdate = (c) => ({ ...c, status: estadoGestion, ultima_gestion_real: ahora, last: formatLastGestion(ahora) });
-            if (estadosFinalesGestion.includes(estadoGestion)) {
-              setLocalContacts((prev) => {
-                const found = prev.find((c) => String(c.id) === String(contactId));
-                const resto = prev.filter((c) => String(c.id) !== String(contactId));
-                return found ? [...resto, applyUpdate(found)] : prev;
-              });
-            } else {
-              setLocalContacts((prev) => prev.map((c) =>
-                String(c.id) === String(contactId) ? applyUpdate(c) : c
-              ));
-            }
-            setStatusOverrides((prev) => ({ ...prev, [contactId]: estadoGestion }));
-            if (estadosConAgenda.includes(estadoGestion)) {
-              try { localStorage.setItem('agenda_needs_refresh', 'true'); } catch {}
-            }
-            closeDrawer();
-            console.log('[finalizeGestion debug] openNewClient:', openNewClient);
-            console.log('[finalizeGestion debug] finalGestionId:', finalGestionId);
-            console.log('[finalizeGestion debug] onOpenNewClient:', typeof onOpenNewClient);
-            if ((isRecupero && estadoGestion === 'alta') || (!isRecupero && estadoGestion === 'venta')) {
-              try {
-                const borrador = buildVentaDraft(dc);
-                localStorage.setItem('cliente_pendiente_alta', JSON.stringify(borrador));
-              } catch {}
-              if (openNewClient && onOpenNewClient) {
-                onOpenNewClient(buildVentaDraft(dc), finalGestionId ?? null);
-              } else if (openNewClient && onVentaCerrada) {
-                onVentaCerrada(dc, finalGestionId ?? null);
-              }
-            }
-            await refreshSilencioso();
-          };
-          const isVentaFlow = (isRecupero && estadoGestion === 'alta') || (!isRecupero && estadoGestion === 'venta');
-          console.log('[isVentaFlow debug] isRecupero:', isRecupero);
-          console.log('[isVentaFlow debug] estadoGestion:', estadoGestion);
-          console.log('[isVentaFlow debug] isVentaFlow:', isVentaFlow);
-          console.log('[isVentaFlow debug] onOpenNewClient:', typeof onOpenNewClient);
-          if (isVentaFlow && onOpenNewClient) {
-            const draft = buildVentaDraft(dc);
-            const { gestion_id } = await registerCommercialManagement(dc.id, gestionPayload);
-            console.log('[handleGuardarGestion] gestion_id received:', gestion_id);
-            onOpenNewClient(draft, gestion_id, async () => {
-              await finalizeGestion({ openNewClient: false, ignoreFinal409: true });
+          const { gestion_id } = await registerCommercialManagement(dc.id, gestionPayload);
+
+          const contactId = dc.id;
+          const ahora = new Date().toISOString();
+          const applyUpdate = (c) => ({
+            ...c,
+            status: estadoGestion,
+            ultima_gestion_real: ahora,
+            last: formatLastGestion(ahora)
+          });
+
+          if (estadosFinalesGestion.includes(estadoGestion)) {
+            setLocalContacts((prev) => {
+              const found = prev.find((c) => String(c.id) === String(contactId));
+              const resto = prev.filter((c) => String(c.id) !== String(contactId));
+              return found ? [...resto, applyUpdate(found)] : prev;
             });
+          } else {
+            setLocalContacts((prev) =>
+              prev.map((c) => String(c.id) === String(contactId) ? applyUpdate(c) : c)
+            );
+          }
+
+          setStatusOverrides((prev) => ({ ...prev, [contactId]: estadoGestion }));
+
+          if (estadosConAgenda.includes(estadoGestion)) {
+            try { localStorage.setItem('agenda_needs_refresh', 'true'); } catch {}
+          }
+
+          const isVentaFlow = (isRecupero && estadoGestion === 'alta') ||
+                              (!isRecupero && estadoGestion === 'venta');
+
+          if (isVentaFlow) {
+            try {
+              localStorage.setItem('cliente_pendiente_alta',
+                JSON.stringify(buildVentaDraft(dc)));
+            } catch {}
+
             closeDrawer();
-            setGuardando(false);
+
+            if (onOpenNewClient) {
+              onOpenNewClient(buildVentaDraft(dc), gestion_id ?? null, null);
+            } else if (onVentaCerrada) {
+              onVentaCerrada(dc, gestion_id ?? null);
+            }
+
+            await refreshSilencioso();
             return;
           }
-          await finalizeGestion({ openNewClient: true });
+
+          closeDrawer();
+          await refreshSilencioso();
+
         } catch (err) {
           const msg = String(err?.message || '');
           if (msg.includes('409')) {
-            setGestionError('Este contacto ya fue gestionado recientemente. Intenta más tarde.');
+            setGestionError('Este contacto ya fue gestionado recientemente.');
           } else {
             setGestionError(msg || 'No se pudo guardar la gestión.');
           }
@@ -4474,23 +4453,15 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             }
             fecha_agenda = `${fecha}T${hora}:00`;
           }
-          let gestion_id = null;
-          try {
-            const gestionResponse = await agendaApi.post(`/leads/${drawerItem.contact_id}/management`, {
+          const { gestion_id } = await registerCommercialManagement(
+            drawerItem.contact_id,
+            {
               status: agEstado,
               note: agNota.trim() || undefined,
               nextAction: fecha_agenda,
               fecha_agenda
-            });
-            gestion_id = gestionResponse?.data?.data?.gestion_id ?? null;
-          } catch (err) {
-            const status = err?.status || err?.statusCode;
-            const isFinal = status === 409
-              || String(err?.message || '').toLowerCase().includes('estado final');
-            if (!isFinal) throw err;
-            gestion_id = err?.details?.data?.gestion_id ?? null;
-            console.warn('[handleGuardarAgendaGestion] 409 ignorado, gestion_id:', gestion_id);
-          }
+            }
+          );
           const itemGuardado = drawerItem;
           cerrarDrawer();
           if (ESTADOS_FINALES_GESTION.includes(agEstado)) {
@@ -9020,6 +8991,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           familySales,
           gestion_id: gestion_id ?? null
         };
+        if (!gestion_id) console.warn('[contacts payload] gestion_id is null at submit');
         setNewClientSaving(true);
         setNewClientError('');
         try {
