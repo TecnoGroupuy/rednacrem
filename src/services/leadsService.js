@@ -307,6 +307,9 @@ export const registerCommercialManagement = async (contactId, payload, { sellerN
       const isFinal = status === 409 || message.includes('409') || message.includes('estado final');
       if (!isFinal) throw err;
       console.warn('[registerCommercialManagement] 409 ignorado (estado final):', contactId);
+      const existingGestionId = err.response?.data?.data?.gestion_id ?? null;
+      const contact = await getCommercialContactById(contactId);
+      return { contact, gestion_id: existingGestionId };
     }
     const contact = await getCommercialContactById(contactId);
     return { contact, gestion_id: null };
