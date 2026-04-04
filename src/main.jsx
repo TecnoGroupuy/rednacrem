@@ -3570,7 +3570,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             closeDrawer();
 
             if (onOpenNewClient) {
-              onOpenNewClient(buildVentaDraft(dc), gestion_id ?? null, null);
+              onOpenNewClient(buildVentaDraft(dc), gestion_id ?? null, null, 'registrar_venta');
             } else if (onVentaCerrada) {
               onVentaCerrada(dc, gestion_id ?? null);
             }
@@ -8789,7 +8789,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       );
     }
 
-    function NuevoClienteVendedor({ draft = null, onClose, onSuccess, productsCatalog = [], gestion_id = null }) {
+    function NuevoClienteVendedor({ draft = null, onClose, onSuccess, productsCatalog = [], gestion_id = null, mode = 'nuevo_cliente' }) {
       const { user: authUser } = useAuth();
       const [newClientError, setNewClientError] = React.useState('');
       const [newClientSaving, setNewClientSaving] = React.useState(false);
@@ -9024,6 +9024,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         }
       };
 
+      const modalTitle = mode === 'registrar_venta' ? 'Registrar venta' : 'Nuevo cliente';
       return (
         <>
           <div
@@ -9058,7 +9059,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <p style={{ fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: '#6b7280' }}>Datos del contacto</p>
-                <h3 style={{ margin: '6px 0', fontSize: 20, fontWeight: 600 }}>Nuevo cliente</h3>
+                <h3 style={{ margin: '6px 0', fontSize: 20, fontWeight: 600 }}>{modalTitle}</h3>
               </div>
               <button
                 type="button"
@@ -10523,6 +10524,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [vendedorNewClientDraft, setVendedorNewClientDraft] = React.useState(null);
       const [vendedorNewClientOnSuccess, setVendedorNewClientOnSuccess] = React.useState(null);
       const [vendedorNewClientGestionId, setVendedorNewClientGestionId] = React.useState(null);
+      const [vendedorNewClientMode, setVendedorNewClientMode] = React.useState('nuevo_cliente');
       const [salesContacts, setSalesContacts] = React.useState(SALES_CONTACTS_SEED);
       const [supervisorLots, setSupervisorLots] = React.useState(SUPERVISOR_LOTS_SEED);
       const [salesSelectedId, setSalesSelectedId] = React.useState(SALES_CONTACTS_SEED.find(isSalesActiveContact)?.id || null);
@@ -10538,10 +10540,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         () => Object.fromEntries(productsCatalog.map((product) => [product.id, product])),
         [productsCatalog]
       );
-      const handleOpenVendedorNewClient = (prefill = null, gestion_id = null, onSuccessCb = null) => {
+      const handleOpenVendedorNewClient = (prefill = null, gestion_id = null, onSuccessCb = null, mode = 'nuevo_cliente') => {
         setVendedorNewClientDraft(prefill);
         setVendedorNewClientGestionId(gestion_id ?? null);
         setVendedorNewClientOnSuccess(() => onSuccessCb);
+        setVendedorNewClientMode(mode ?? 'nuevo_cliente');
         setVendedorNewClientOpen(true);
       };
       const hasRealSuperadminAccess = hasRealRole({ rolReal, allowedRoles: ['superadministrador'] }) && esSuperadmin;
@@ -11054,7 +11057,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 onAssignFamilySale={assignFamilySale}
                 onUpdateContact={updateSalesContactProfile}
                 onVentaCerrada={(contactData, gestion_id = null) => handleOpenVendedorNewClient(contactData, gestion_id)}
-                onOpenNewClient={handleOpenVendedorNewClient}
+                onOpenNewClient={(prefill, gestion_id, cb, mode) => handleOpenVendedorNewClient(prefill, gestion_id, cb, mode)}
               />
             );
           }
@@ -11263,6 +11266,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 setVendedorNewClientDraft(null);
                 setVendedorNewClientOnSuccess(null);
                 setVendedorNewClientGestionId(null);
+                setVendedorNewClientMode('nuevo_cliente');
                 try { localStorage.removeItem('cliente_pendiente_alta'); } catch {}
               }}
               onSuccess={async () => {
@@ -11273,9 +11277,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 setVendedorNewClientDraft(null);
                 setVendedorNewClientOnSuccess(null);
                 setVendedorNewClientGestionId(null);
+                setVendedorNewClientMode('nuevo_cliente');
                 try { localStorage.removeItem('cliente_pendiente_alta'); } catch {}
               }}
               gestion_id={vendedorNewClientGestionId}
+              mode={vendedorNewClientMode}
             />
           )}
         </>
