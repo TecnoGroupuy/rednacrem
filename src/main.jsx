@@ -4466,12 +4466,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             }
             fecha_agenda = `${fecha}T${hora}:00`;
           }
-          await agendaApi.post(`/leads/${drawerItem.contact_id}/management`, {
+          const gestionResponse = await agendaApi.post(`/leads/${drawerItem.contact_id}/management`, {
             status: agEstado,
             note: agNota.trim() || undefined,
             nextAction: fecha_agenda,
             fecha_agenda
           });
+          const gestion_id = gestionResponse?.data?.data?.gestion_id ?? null;
           const itemGuardado = drawerItem;
           cerrarDrawer();
           if (ESTADOS_FINALES_GESTION.includes(agEstado)) {
@@ -4493,7 +4494,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 };
                 localStorage.setItem('cliente_pendiente_alta', JSON.stringify(borrador));
               } catch {}
-              onVentaCerrada(itemGuardado);
+              onVentaCerrada(itemGuardado, gestion_id);
             }
           } else {
             cargarAgenda();
@@ -8879,7 +8880,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               documento: '',
               telefono: prev.contact?.telefono || '',
               celular: '',
-              fecha_nacimiento: prev.contact?.fecha_nacimiento || '',
+              fecha_nacimiento: '',
               direccion: prev.contact?.direccion || '',
               relacion: ''
             }
@@ -11005,7 +11006,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               contacts={salesContacts}
               salesRecords={salesRecords}
               onGoRoute={setRoute}
-              onVentaCerrada={(contactData) => handleOpenVendedorNewClient(contactData)}
+              onVentaCerrada={(contactData, gestion_id = null) => handleOpenVendedorNewClient(contactData, gestion_id)}
             />
           );
           return <OperationsDashboard />;
@@ -11060,7 +11061,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 products={productsCatalog}
                 onAssignFamilySale={assignFamilySale}
                 onUpdateContact={updateSalesContactProfile}
-                onVentaCerrada={(contactData) => handleOpenVendedorNewClient(contactData)}
+                onVentaCerrada={(contactData, gestion_id = null) => handleOpenVendedorNewClient(contactData, gestion_id)}
                 onOpenNewClient={handleOpenVendedorNewClient}
               />
             );
@@ -11079,7 +11080,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 products={productsCatalog}
                 onAssignFamilySale={assignFamilySale}
                 onUpdateContact={updateSalesContactProfile}
-                onVentaCerrada={(contactData) => handleOpenVendedorNewClient(contactData)}
+                onVentaCerrada={(contactData, gestion_id = null) => handleOpenVendedorNewClient(contactData, gestion_id)}
                 onOpenNewClient={handleOpenVendedorNewClient}
               />
             );
@@ -11087,7 +11088,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           return <ContactsView />;
         }
         if (route === 'agenda') {
-          if (role === 'vendedor') return <SalesAgendaView onVentaCerrada={(contactData) => handleOpenVendedorNewClient(contactData)} />;
+          if (role === 'vendedor') return <SalesAgendaView onVentaCerrada={(contactData, gestion_id = null) => handleOpenVendedorNewClient(contactData, gestion_id)} />;
         }
         if (route === 'clientes') {
           if (role === 'vendedor') return (
