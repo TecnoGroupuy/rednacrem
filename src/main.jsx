@@ -4467,13 +4467,23 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             }
             fecha_agenda = `${fecha}T${hora}:00`;
           }
-          const gestionResponse = await agendaApi.post(`/leads/${drawerItem.contact_id}/management`, {
-            status: agEstado,
-            note: agNota.trim() || undefined,
-            nextAction: fecha_agenda,
-            fecha_agenda
-          });
-          const gestion_id = gestionResponse?.data?.data?.gestion_id ?? null;
+          let gestion_id = null;
+          try {
+            const gestionResponse = await agendaApi.post(`/leads/${drawerItem.contact_id}/management`, {
+              status: agEstado,
+              note: agNota.trim() || undefined,
+              nextAction: fecha_agenda,
+              fecha_agenda
+            });
+            gestion_id = gestionResponse?.data?.data?.gestion_id ?? null;
+          } catch (err) {
+            const status = err?.status || err?.statusCode;
+            const isFinal = status === 409
+              || String(err?.message || '').toLowerCase().includes('estado final');
+            if (!isFinal) throw err;
+            gestion_id = err?.details?.data?.gestion_id ?? null;
+            console.warn('[handleGuardarAgendaGestion] 409 ignorado, gestion_id:', gestion_id);
+          }
           const itemGuardado = drawerItem;
           cerrarDrawer();
           if (ESTADOS_FINALES_GESTION.includes(agEstado)) {
