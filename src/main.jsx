@@ -3532,7 +3532,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           console.log('[gestion] body:', JSON.stringify(gestionPayload));
           const finalizeGestion = async ({ openNewClient = true, ignoreFinal409 = false } = {}) => {
             try {
-              const { contact } = await registerCommercialManagement(dc.id, gestionPayload);
+              const { contact, gestion_id: finalGestionId } = await registerCommercialManagement(dc.id, gestionPayload);
               void contact;
             } catch (err) {
               console.log('[finalizeGestion catch] ignoreFinal409:', ignoreFinal409);
@@ -3576,9 +3576,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 localStorage.setItem('cliente_pendiente_alta', JSON.stringify(borrador));
               } catch {}
               if (openNewClient && onOpenNewClient) {
-                onOpenNewClient(buildVentaDraft(dc));
+                onOpenNewClient(buildVentaDraft(dc), finalGestionId ?? null);
               } else if (openNewClient && onVentaCerrada) {
-                onVentaCerrada(dc);
+                onVentaCerrada(dc, finalGestionId ?? null);
               }
             }
             await refreshSilencioso();
