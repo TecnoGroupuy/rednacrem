@@ -8798,9 +8798,29 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [newClientError, setNewClientError] = React.useState('');
       const [newClientSaving, setNewClientSaving] = React.useState(false);
       const [newClientStep, setNewClientStep] = React.useState(0);
+      const [familiarSuggestions, setFamiliarSuggestions] = React.useState([]);
+      const [loadingSuggestions, setLoadingSuggestions] = React.useState(false);
       React.useEffect(() => {
         console.log('[MODAL MOUNTED] gestion_id prop:', gestion_id);
       }, [gestion_id]);
+      const fetchFamiliarSuggestions = React.useCallback(async () => {
+        const leadId = draft?.lead_id || draft?.id;
+        if (!leadId) return;
+        setLoadingSuggestions(true);
+        try {
+          const res = await api.get(`/leads/${leadId}/familiares`);
+          setFamiliarSuggestions(res?.data?.data?.items || []);
+        } catch {
+          setFamiliarSuggestions([]);
+        } finally {
+          setLoadingSuggestions(false);
+        }
+      }, [draft]);
+      React.useEffect(() => {
+        if (newClientStep === 1) {
+          fetchFamiliarSuggestions();
+        }
+      }, [newClientStep, fetchFamiliarSuggestions]);
       const toDateInput = React.useCallback((value) => {
         if (!value) return '';
         const raw = String(value);
@@ -8882,6 +8902,29 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             }
           ]
         }));
+      };
+      const handleAddSuggestedFamiliar = (suggestion) => {
+        const relationValue = suggestion?.relation || suggestion?.relacion || 'familiar';
+        const suggestionId = suggestion?.id || `fam-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        setNewClientDraft((prev) => ({
+          ...prev,
+          familiares: [
+            ...prev.familiares,
+            {
+              id: suggestionId,
+              contact_id: suggestion?.id,
+              nombre: suggestion?.nombre || '',
+              apellido: suggestion?.apellido || '',
+              documento: suggestion?.documento || '',
+              telefono: suggestion?.telefono || '',
+              celular: suggestion?.celular || '',
+              fecha_nacimiento: suggestion?.fecha_nacimiento || suggestion?.fechaNacimiento || '',
+              direccion: suggestion?.direccion || '',
+              relacion: relationValue
+            }
+          ]
+        }));
+        setFamiliarSuggestions((prev) => prev.filter((item) => item?.id !== suggestion?.id));
       };
 
       const handleRemoveFamiliar = (id) => {
@@ -9169,16 +9212,42 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 </div>
               ) : newClientStep === 1 ? (
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
-                    <h4 style={{ margin: '0 0 12px 0', fontSize: 14, fontWeight: 600 }}>Familiares</h4>
-                    <button
-                      type="button"
-                      onClick={handleAddFamiliar}
-                      style={{ border: 'none', background: '#1A5C4A', color: '#fff', borderRadius: 8, padding: '6px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                    >
-                      + Agregar familiar
-                    </button>
-                  </div>
+                  <h4 style={{ margin: '0 0 12px 0', fontSize: 14, fontWeight: 600 }}>Familiares</h4>
+                  {loadingSuggestions ? (
+                    <div style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>Buscando familiares...</div>
+                  ) : familiarSuggestions.length > 0 ? (
+                    <div style={{ display: 'grid', gap: 10, marginBottom: 12 }}>
+                      {familiarSuggestions.map((suggestion) => (
+                        <div key={suggestion.id} style={{ border: '1px solid #e5e7eb', borderRadius: 12, padding: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600 }}>
+                              {[suggestion.nombre, suggestion.apellido].filter(Boolean).join(' ') || 'Sin nombre'}
+                            </div>
+                            <div style={{ fontSize: 12, color: '#64748b' }}>
+                              {suggestion.telefono || suggestion.celular || '-'}
+                            </div>
+                            <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'capitalize' }}>
+                              {suggestion.relation || suggestion.relacion || 'familiar'}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleAddSuggestedFamiliar(suggestion)}
+                            style={{ border: 'none', background: '#1A5C4A', color: '#fff', borderRadius: 8, padding: '6px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                          >
+                            + Agregar
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={handleAddFamiliar}
+                    style={{ border: 'none', background: '#1A5C4A', color: '#fff', borderRadius: 8, padding: '6px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer', marginBottom: 12 }}
+                  >
+                    + Agregar familiar
+                  </button>
                   {!newClientDraft.familiares.length ? (
                     <div style={{ fontSize: 12, color: '#94a3b8' }}>Sin familiares agregados.</div>
                   ) : (
