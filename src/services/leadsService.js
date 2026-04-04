@@ -308,6 +308,8 @@ export const registerCommercialManagement = async (contactId, payload, { sellerN
       if (!isFinal) throw err;
       console.warn('[registerCommercialManagement] 409 ignorado (estado final):', contactId);
       const existingGestionId = err.response?.data?.data?.gestion_id ?? null;
+      console.log('[registerCommercialManagement] 409 gestion_id captured:', existingGestionId);
+      console.log('[registerCommercialManagement] 409 raw error response:', err.response?.data);
       const contact = await getCommercialContactById(contactId);
       return { contact, gestion_id: existingGestionId };
     }

@@ -3587,6 +3587,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           if (isVentaFlow && onOpenNewClient) {
             const draft = buildVentaDraft(dc);
             const { gestion_id } = await registerCommercialManagement(dc.id, gestionPayload);
+            console.log('[handleGuardarGestion] gestion_id received:', gestion_id);
             onOpenNewClient(draft, gestion_id, async () => {
               await finalizeGestion({ openNewClient: false, ignoreFinal409: true });
             });
