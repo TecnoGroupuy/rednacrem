@@ -3570,6 +3570,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             closeDrawer();
 
             if (onOpenNewClient) {
+              console.log('[handleGuardarGestion] calling onOpenNewClient with gestion_id:', gestion_id);
+              console.log('[handleGuardarGestion] onOpenNewClient type:', typeof onOpenNewClient);
               onOpenNewClient(buildVentaDraft(dc), gestion_id ?? null, null, 'registrar_venta');
             } else if (onVentaCerrada) {
               onVentaCerrada(dc, gestion_id ?? null);
