@@ -318,8 +318,6 @@ export const registerCommercialManagement = async (contactId, payload, { sellerN
       const contact = await getCommercialContactById(contactId);
       return { contact, gestion_id: existingGestionId };
     }
-    const contact = await getCommercialContactById(contactId);
-    return { contact, gestion_id: null };
   }
   await delay(130);
   const idx = getLeadIndexByUiId(contactId);
