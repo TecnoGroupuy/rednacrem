@@ -3141,7 +3141,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       last: formatLastGestion(raw.ultima_gestion_real)
     });
 
-    function SalesContactsView({ contacts, selectedId, onSelect, onRegister, salesRecords, products, onAssignFamilySale, onUpdateContact, onVentaCerrada, onOpenNewClient, mode = 'contactos' }) {
+    function SalesContactsView({ contacts, selectedId, onSelect, onRegister, salesRecords, products, onAssignFamilySale, onUpdateContact, onVentaCerrada, onOpenNewClient, mode = 'contactos', vendedorNewClientOpen = false }) {
       const api = getApiClient();
       const isRecupero = mode === 'recupero';
       const accentColor = isRecupero ? '#f97316' : '#1A5C4A';
@@ -3258,11 +3258,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         }
       }, [contacts, page, tabActivo, searchDebounced]); // eslint-disable-line react-hooks/exhaustive-deps
 
-      React.useEffect(() => {
-        loadStats();
-      }, [loadStats]);
-
       const [drawerContact, setDrawerContact] = React.useState(null);
+      const drawerOpen = Boolean(drawerContact);
+
+      React.useEffect(() => {
+        if (vendedorNewClientOpen || drawerOpen) return;
+        loadStats();
+      }, [loadStats, vendedorNewClientOpen, drawerOpen]);
       const [nextLoading, setNextLoading] = React.useState(false);
       const [nextMessage, setNextMessage] = React.useState('');
       const [activeTab, setActiveTab] = React.useState('datos');
@@ -3311,8 +3313,22 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, [searchTerm]);
 
       React.useEffect(() => {
+        if (vendedorNewClientOpen || drawerOpen) return;
         cargarContactos();
-      }, [page, tabActivo, searchDebounced]); // eslint-disable-line react-hooks/exhaustive-deps
+      }, [page, tabActivo, searchDebounced, vendedorNewClientOpen, drawerOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+      const prevModalOpen = React.useRef(false);
+      const prevDrawerOpen = React.useRef(false);
+      React.useEffect(() => {
+        const justClosedModal = prevModalOpen.current && !vendedorNewClientOpen;
+        const justClosedDrawer = prevDrawerOpen.current && !drawerOpen;
+        if (justClosedModal || justClosedDrawer) {
+          cargarContactos();
+          loadStats();
+        }
+        prevModalOpen.current = vendedorNewClientOpen;
+        prevDrawerOpen.current = drawerOpen;
+      }, [vendedorNewClientOpen, drawerOpen, cargarContactos, loadStats]);
 
       React.useEffect(() => {
         try {
@@ -11270,6 +11286,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 onUpdateContact={updateSalesContactProfile}
                 onVentaCerrada={(contactData, gestion_id = null) => handleOpenVendedorNewClient(contactData, gestion_id)}
                 onOpenNewClient={(prefill, gestion_id, cb, mode) => handleOpenVendedorNewClient(prefill, gestion_id, cb, mode)}
+                vendedorNewClientOpen={vendedorNewClientOpen}
               />
             );
           }
@@ -11289,6 +11306,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 onUpdateContact={updateSalesContactProfile}
                 onVentaCerrada={(contactData, gestion_id = null) => handleOpenVendedorNewClient(contactData, gestion_id)}
                 onOpenNewClient={handleOpenVendedorNewClient}
+                vendedorNewClientOpen={vendedorNewClientOpen}
               />
             );
           }
