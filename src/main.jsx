@@ -536,12 +536,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               <div style={{ width: 76, height: 76, margin: '0 auto 12px', borderRadius: 20, background: status.color, display: 'grid', placeItems: 'center' }}>
                 <StatusIcon size={34} color="#ffffff" />
               </div>
-              <div style={{ fontFamily: 'Manrope, sans-serif', fontSize: '1.7rem', fontWeight: 800, color: toStatusColor(status.color, 1) }}>{status.label}</div>
+              <div style={{ fontFamily: 'inherit', fontSize: '1.7rem', fontWeight: 800, color: toStatusColor(status.color, 1) }}>{status.label}</div>
               <div style={{ color: 'rgba(226,232,240,0.78)', marginTop: 4 }}>{status.mensaje}</div>
             </div>
             <div style={{ padding: 22, textAlign: 'center' }}>
               <div style={{ color: 'rgba(148,163,184,0.95)', fontSize: '0.76rem', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8 }}>Tiempo transcurrido</div>
-              <div style={{ fontFamily: 'Manrope, sans-serif', fontSize: '3.1rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '0.03em' }}>{minutes}:{secs}</div>
+              <div style={{ fontFamily: 'inherit', fontSize: '3.1rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '0.03em' }}>{minutes}:{secs}</div>
               <div style={{ marginTop: 12, borderRadius: 14, border: '1px solid rgba(148,163,184,0.2)', background: 'rgba(2,6,23,0.5)', padding: '10px 12px', color: 'rgba(203,213,225,0.86)' }}>
                 Iniciado a las {startedLabel}
               </div>
@@ -3088,25 +3088,37 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <div><MetricCard item={metricsRow1[2]} /></div>
           </section>
           <section className="content-grid">
-            <Panel className="span-8" title="Operacion del dia" subtitle="Trabaja solo tus contactos asignados">
+            <Panel className="span-8" title="Operación del día" subtitle="Trabaja solo tus contactos asignados">
               <div className="list">
-                {agendaHoy.slice(0, 4).map((item) => (
-                  <div key={item.id} className="status-item">
+                {agendaHoy.slice(0, 4).map((item) => {
+                  const isVencido = new Date(item.fecha_agenda) < new Date(new Date().toDateString());
+                  return (
+                  <div
+                    key={item.id}
+                    className="status-item"
+                    style={isVencido ? { borderLeft: '4px solid #f59e0b', background: 'rgba(245,158,11,0.08)' } : undefined}
+                  >
                     <div className="status-ring" style={{ background: 'rgba(15,118,110,0.12)', color: '#0f766e' }}><PhoneCall size={16} /></div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 700 }}>
                         {item.nombre} {item.apellido}
                       </div>
-                      <div style={{ color: 'var(--muted)' }}>
+                      <div style={{ color: isVencido ? '#b45309' : 'var(--muted)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         Agendado: {new Date(item.fecha_agenda).toLocaleString('es-UY', {
                           day: 'numeric', month: 'numeric',
                           hour: '2-digit', minute: '2-digit'
                         })}
+                        {isVencido ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '2px 8px', borderRadius: 999, background: 'rgba(245,158,11,0.18)', color: '#b45309', fontSize: 11, fontWeight: 700 }}>
+                            Vencido
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                     <SalesStatusBadge status={item.estado_venta} small />
                   </div>
-                ))}
+                  );
+                })}
                 {agendaHoy.length === 0 && (
                   <p style={{ color: '#aaa', fontSize: 13, padding: '16px 0' }}>
                     Sin seguimientos para hoy
@@ -6035,7 +6047,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Próxima acción</span><strong style={{ color: contact.nextAction ? '#0f766e' : 'var(--muted)' }}>{formatNextAction(contact.nextAction)}</strong></div>
 
               <div style={{ borderTop: '1px solid rgba(20,34,53,0.08)', paddingTop: 12 }}>
-                <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, marginBottom: 10 }}>Registrar gestión</div>
+                <div style={{ fontFamily: 'inherit', fontWeight: 800, marginBottom: 10 }}>Registrar gestión</div>
                 <div className="toolbar" style={{ marginBottom: 8 }}>
                   <select className="input" style={{ width: '100%' }} value={status} onChange={(event) => setStatus(event.target.value)}>
                     <option value="venta">Venta</option>
@@ -6057,7 +6069,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               </div>
 
               <div style={{ borderTop: '1px solid rgba(20,34,53,0.08)', paddingTop: 12 }}>
-                <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, marginBottom: 10 }}>Historial de gestiones</div>
+                <div style={{ fontFamily: 'inherit', fontWeight: 800, marginBottom: 10 }}>Historial de gestiones</div>
                 <div className="list">
                   {(contact.history || []).slice(0, 8).map((item) => (
                     <div key={item.at + item.status + item.note} className="alert">
@@ -6072,7 +6084,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               </div>
 
               <div style={{ borderTop: '1px solid rgba(20,34,53,0.08)', paddingTop: 12 }}>
-                <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, marginBottom: 10 }}>Ventas generadas</div>
+                <div style={{ fontFamily: 'inherit', fontWeight: 800, marginBottom: 10 }}>Ventas generadas</div>
                 <div className="list" style={{ marginBottom: 10 }}>
                   {generatedSales.length ? generatedSales.map((sale) => (
                     <div key={sale.id} className="alert">
@@ -7603,7 +7615,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               </div>
 
               <div style={{ marginTop: 18 }}>
-                <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, marginBottom: 10 }}>Notas internas</div>
+                <div style={{ fontFamily: 'inherit', fontWeight: 800, marginBottom: 10 }}>Notas internas</div>
                 <div className="list" style={{ marginBottom: 12 }}>
                   {(ticket.notas || []).map((item) => (
                     <div key={(item.autor || '') + (item.hora || item.createdAt || '') + item.texto} className="alert">
@@ -7628,7 +7640,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
               {ticket.cierreHistory?.length ? (
                 <div style={{ marginTop: 18 }}>
-                  <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, marginBottom: 10 }}>Historial de cierre</div>
+                  <div style={{ fontFamily: 'inherit', fontWeight: 800, marginBottom: 10 }}>Historial de cierre</div>
                   <div className="list">
                     {ticket.cierreHistory.map((entry, idx) => (
                       <div key={(entry.at || '') + (entry.resultado || '') + idx} className="alert">
