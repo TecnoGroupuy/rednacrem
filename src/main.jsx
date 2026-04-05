@@ -67,7 +67,8 @@ import {
   listNotifications,
   markAsRead,
   markAllAsRead,
-  getUnreadCount
+  getUnreadCount,
+  logActivityEvent
 } from './services/activityService.js';
 import { listPendingRegistrationRequests } from './services/supervisorApprovalsService.js';
 import {
@@ -583,6 +584,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         background: 'rgba(190,18,60,0.14)'
       }
     };
+    const AGENDA_NOTIFICATION_PREFIX = 'AGENDA::';
 
     const formatNotificationTime = (timestamp) => {
       const date = new Date(timestamp);
@@ -606,6 +608,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const refreshNotifications = React.useCallback(() => {
         setItems(listNotifications({ userId, limit: 15 }));
       }, [userId]);
+      const parseAgendaNotification = (notification) => {
+        const rawDescription = String(notification?.description || '');
+        if (!rawDescription.startsWith(AGENDA_NOTIFICATION_PREFIX)) return null;
+        const parts = rawDescription.split('::');
+        const contactId = parts[1] || null;
+        const message = parts.slice(2).join('::') || '';
+        return { contactId, message };
+      };
 
       React.useEffect(() => {
         refreshNotifications();
@@ -673,6 +683,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           markAsRead({ userId, notificationId: notification.id });
         }
         refreshNotifications();
+        const agendaData = parseAgendaNotification(notification);
+        if (agendaData?.contactId) {
+          onNavigate({ route: 'contactos', contactId: agendaData.contactId });
+          setOpen(false);
+          return;
+        }
         if (notification.link) {
           onNavigate(notification.link);
           setOpen(false);
@@ -741,6 +757,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       items.map((notification) => {
                         const typeMeta = notificationTypeMeta[notification.type] || notificationTypeMeta.info;
                         const TypeIcon = typeMeta.icon;
+                        const agendaData = parseAgendaNotification(notification);
+                        const description = agendaData?.message || notification.description;
                         return (
                           <button
                             key={notification.id}
@@ -755,7 +773,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                 <span className="notification-title">{notification.title}</span>
                                 <span className="notification-time">{formatNotificationTime(notification.timestamp)}</span>
                               </div>
-                              <p className="notification-description">{notification.description}</p>
+                              <p className="notification-description">{description}</p>
                             </div>
                           </button>
                         );
@@ -804,6 +822,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     items.map((notification) => {
                       const typeMeta = notificationTypeMeta[notification.type] || notificationTypeMeta.info;
                       const TypeIcon = typeMeta.icon;
+                      const agendaData = parseAgendaNotification(notification);
+                      const description = agendaData?.message || notification.description;
                       return (
                         <button
                           key={notification.id}
@@ -818,7 +838,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                               <span className="notification-title">{notification.title}</span>
                               <span className="notification-time">{formatNotificationTime(notification.timestamp)}</span>
                             </div>
-                            <p className="notification-description">{notification.description}</p>
+                            <p className="notification-description">{description}</p>
                           </div>
                         </button>
                       );
@@ -3143,8 +3163,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         : [
           { key: 'nuevo', label: 'Nuevos' },
           { key: 'no_contesta', label: 'No contesta' },
-          { key: 'rechazo', label: 'Rechazos' },
-          { key: 'todos', label: 'Todos' }
+          { key: 'rechazo', label: 'Rechazos' }
         ];
       const estadosFinalesGestion = isRecupero ? ['alta', 'rechazo', 'dato_erroneo'] : ESTADOS_FINALES_GESTION;
       const estadosConAgenda = isRecupero ? ['interesado', 'volver_a_llamar'] : ['seguimiento', 'rellamar'];
@@ -3337,6 +3356,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return selected.contact_id || selected.contactId || selected.contacto_id || selected.id || '';
       }, [localContacts, selectedId]);
 
+      React.useEffect(() => {
+        if (!selectedId) return;
+        if (drawerContact?.id && String(drawerContact.id) === String(selectedId)) return;
+        const selected = localContacts.find((c) => String(c.id) === String(selectedId));
+        if (selected) openDrawer(selected);
+      }, [drawerContact?.id, localContacts, selectedId]);
+
       const openNuevoContacto = () => {
         setNuevoContactoError('');
         setNuevoContacto({
@@ -3395,20 +3421,24 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       };
 
       const opcionesAgenda = () => {
-        const ahora = new Date();
-        const hoy = ahora.toISOString().split('T')[0];
-        const manana = new Date(ahora);
+        const now = new Date();
+        const pad = (value) => String(value).padStart(2, '0');
+        const formatYmd = (date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+        const formatHm = (date) => `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+        const en1hora = new Date(now.getTime() + 60 * 60 * 1000);
+        const en2horas = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+        const hoy = formatYmd(now);
+        const antes16 = new Date(now);
+        antes16.setHours(15, 45, 0, 0);
+        const manana = new Date(now);
         manana.setDate(manana.getDate() + 1);
-        const mananaStr = manana.toISOString().split('T')[0];
-        const pasado = new Date(ahora);
-        pasado.setDate(pasado.getDate() + 2);
-        const pasadoStr = pasado.toISOString().split('T')[0];
+        const mananaStr = formatYmd(manana);
         return [
-          { label: 'Llamar esta mañana', hora: '10:00', fecha: hoy, visible: ahora.getHours() < 11 },
-          { label: 'Llamar esta tarde', hora: '17:00', fecha: hoy, visible: ahora.getHours() < 16 },
-          { label: 'Mañana a la mañana', hora: '10:00', fecha: mananaStr, visible: true },
-          { label: 'Mañana a la tarde', hora: '17:00', fecha: mananaStr, visible: true },
-          { label: 'En 2 días', hora: '10:00', fecha: pasadoStr, visible: true }
+          { label: 'Llamar en 1 hora', hora: formatHm(en1hora), fecha: formatYmd(en1hora), visible: true },
+          { label: 'Llamar en 2 horas', hora: formatHm(en2horas), fecha: formatYmd(en2horas), visible: true },
+          { label: 'Llamar antes de las 16hs', hora: '15:45', fecha: hoy, visible: true },
+          { label: 'Mañana por la mañana', hora: '10:00', fecha: mananaStr, visible: true },
+          { label: 'Mañana por la tarde', hora: '17:00', fecha: mananaStr, visible: true }
         ].filter((o) => o.visible);
       };
 
@@ -3903,8 +3933,16 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 </tr>
               </thead>
               <tbody>
-                {visibleContacts.map((contact) => (
-                  <tr key={contact.id} className="support-row" onClick={() => openDrawer(contact)} style={{ cursor: 'pointer' }}>
+                {visibleContacts.map((contact) => {
+                  const statusRaw = contact.estado_venta || contact.resultado || contact.status || '';
+                  const isRechazo = String(statusRaw).toLowerCase() === 'rechazo';
+                  return (
+                    <tr
+                      key={contact.id}
+                      className="support-row"
+                      onClick={() => { if (!isRechazo) openDrawer(contact); }}
+                      style={{ cursor: isRechazo ? 'not-allowed' : 'pointer', opacity: isRechazo ? 0.6 : 1 }}
+                    >
                     {(() => {
                       const statusValue = statusOverrides[contact.id] || contact.status;
                       const isNuevo = String(statusValue || '').toLowerCase() === 'nuevo';
@@ -3925,8 +3963,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         </>
                       );
                     })()}
-                  </tr>
-                ))}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
             {loadingContacts ? (
@@ -3949,7 +3988,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           }}>
             <p style={{ fontSize: 12, color: '#888', margin: 0 }}>
               {totalContactos.toLocaleString()} contactos
-              {tabActivo !== 'todos' ? ` en "${tabs.find((t) => t.key === tabActivo)?.label}"` : ''}
+              {` en "${tabs.find((t) => t.key === tabActivo)?.label}"`}
             </p>
 
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -10657,6 +10696,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         createInitialModuleStates({ roleNav: ROLE_NAV, roles: Object.keys(ROLE_META) })
       );
       const topbarRef = React.useRef(null);
+      const agendaNotifiedRef = React.useRef(new Set());
       const [productsCatalog, setProductsCatalog] = React.useState([]);
       const productsById = React.useMemo(
         () => Object.fromEntries(productsCatalog.map((product) => [product.id, product])),
@@ -11085,10 +11125,60 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           : navItems.some((item) => item.path === 'reportes')
             ? 'reportes'
             : 'dashboard';
-        const canOpenRequested = requestedRoute && navItems.some((item) => item.path === requestedRoute);
-        setRoute(canOpenRequested ? requestedRoute : fallbackRoute);
+        const normalized = typeof requestedRoute === 'string'
+          ? { route: requestedRoute }
+          : (requestedRoute || {});
+        const targetRoute = normalized.route;
+        const canOpenRequested = targetRoute && navItems.some((item) => item.path === targetRoute);
+        setRoute(canOpenRequested ? targetRoute : fallbackRoute);
+        if (targetRoute === 'contactos' && normalized.contactId) {
+          setSalesSelectedId(normalized.contactId);
+        }
         if (!isDesktop) setMenuOpen(false);
       }, [navItems, isDesktop]);
+
+      React.useEffect(() => {
+        if (!authUser?.id) return;
+        const api = getApiClient();
+        const agendaCheckInterval = window.setInterval(async () => {
+          try {
+            const res = await api.get('/agenda');
+            const items = res?.data?.items || res?.data?.data?.items || [];
+            const now = new Date();
+            const pending = items.filter((item) => {
+              if (!item.fecha_agenda) return false;
+              const agendaDate = new Date(item.fecha_agenda);
+              return agendaDate <= now && !item.cumplida;
+            });
+            pending.forEach((item) => {
+              const key = item.id
+                || item.agenda_id
+                || item.lead_id
+                || item.contact_id
+                || item.management_id
+                || item.gestion_id
+                || item.fecha_agenda
+                || `${item.nombre || ''}-${item.apellido || ''}-${item.fecha_agenda || ''}`;
+              if (agendaNotifiedRef.current.has(key)) return;
+              agendaNotifiedRef.current.add(key);
+              const tipo = item.tipo_agenda || item.ultimo_resultado || 'seguimiento';
+              const nombre = [item.nombre, item.apellido].filter(Boolean).join(' ') || 'un contacto';
+              const mensaje = String(tipo).toLowerCase() === 'rellamar'
+                ? `Hay un rellamar pendiente con ${nombre}`
+                : `Hay un seguimiento que necesita su atención con ${nombre}`;
+              const contactId = item.contact_id || item.contactId || item.lead_id || item.leadId || item.id || '';
+              logActivityEvent({
+                entidad: 'agenda',
+                entidadId: contactId,
+                tipo,
+                descripcion: `${AGENDA_NOTIFICATION_PREFIX}${contactId}::${mensaje}`,
+                usuarioId: notificationUserId
+              });
+            });
+          } catch {}
+        }, 60000);
+        return () => window.clearInterval(agendaCheckInterval);
+      }, [authUser?.id, notificationUserId]);
 
       const renderRoute = () => {
         if (SUPERADMIN_ROUTES.includes(route)) {
