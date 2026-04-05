@@ -3217,12 +3217,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Inicio</div>
-                    <div style={{ fontWeight: 700 }}>{formatHoraLocal(miJornada?.login_local)}</div>
+                    <div style={{ fontWeight: 700 }}>{miJornada?.login_time || '—'}</div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fin</div>
-                    <div style={{ fontWeight: 700, color: miJornada?.logout_local ? 'inherit' : '#047857' }}>
-                      {miJornada?.logout_local ? formatHoraLocal(miJornada.logout_local) : 'En curso'}
+                    <div style={{ fontWeight: 700 }}>
+                      {miJornada?.logout_time
+                        ? miJornada.logout_time
+                        : <span style={{ color: '#047857' }}>En curso</span>}
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
