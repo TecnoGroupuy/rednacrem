@@ -5582,8 +5582,21 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const value = row?.fecha_venta || row?.created_at || '';
         return String(value).slice(0, 10);
       };
-      const ventasHoy = allSales.filter((item) => pickDateKey(item) === todayKey);
-      const ventasMes = allSales.filter((item) => pickDateKey(item).startsWith(monthKey));
+      const ventasHoy = allSales
+        .filter((item) => {
+          const fecha = item?.fecha_venta || item?.created_at || '';
+          return String(fecha).startsWith(todayKey);
+        })
+        .reduce((total, item) => {
+          const related = item?.related_sales?.length || 0;
+          return total + 1 + related;
+        }, 0);
+      const ventasMes = allSales
+        .filter((item) => pickDateKey(item).startsWith(monthKey))
+        .reduce((total, item) => {
+          const related = item?.related_sales?.length || 0;
+          return total + 1 + related;
+        }, 0);
       const bajasMes = allSales.filter((item) => {
         const status = String(item?.estado || item?.status || '').toLowerCase();
         return pickDateKey(item).startsWith(monthKey) && status === 'baja';
@@ -5606,11 +5619,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, marginBottom: 16 }}>
                 <div style={{ borderRadius: 14, border: '1px solid rgba(16,185,129,0.2)', background: 'rgba(16,185,129,0.08)', padding: 14 }}>
                   <div style={{ fontSize: 12, color: '#047857', textTransform: 'uppercase', letterSpacing: 1 }}>Ventas de hoy</div>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: '#047857' }}>{ventasHoy.length}</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: '#047857' }}>{ventasHoy}</div>
                 </div>
                 <div style={{ borderRadius: 14, border: '1px solid rgba(59,130,246,0.2)', background: 'rgba(59,130,246,0.08)', padding: 14 }}>
                   <div style={{ fontSize: 12, color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: 1 }}>Ventas del mes</div>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: '#1d4ed8' }}>{ventasMes.length}</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: '#1d4ed8' }}>{ventasMes}</div>
                 </div>
                 <div style={{ borderRadius: 14, border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.08)', padding: 14 }}>
                   <div style={{ fontSize: 12, color: '#b91c1c', textTransform: 'uppercase', letterSpacing: 1 }}>Bajas del mes</div>
