@@ -3092,7 +3092,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         if (!value) return '—';
         const parsed = new Date(value);
         if (Number.isNaN(parsed.getTime())) return value;
-        return parsed.toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' });
+        return parsed.toLocaleTimeString('es-UY', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'America/Montevideo'
+        });
       };
       const now = new Date();
       const todayYmd = getTodayYmdLocal();
