@@ -3530,7 +3530,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           };
 
           const { gestion_id } = await registerCommercialManagement(dc.id, gestionPayload);
-          console.log('[GESTION] registerCommercialManagement result:', { gestion_id });
 
           const contactId = dc.id;
           const ahora = new Date().toISOString();
@@ -3571,9 +3570,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             closeDrawer();
 
             if (onOpenNewClient) {
-              console.log('[handleGuardarGestion] calling onOpenNewClient with gestion_id:', gestion_id);
-              console.log('[handleGuardarGestion] onOpenNewClient type:', typeof onOpenNewClient);
-              console.log('[GESTION] opening modal with gestion_id:', gestion_id);
               onOpenNewClient(buildVentaDraft(dc), gestion_id ?? null, null, 'registrar_venta');
             } else if (onVentaCerrada) {
               onVentaCerrada(dc, gestion_id ?? null);
@@ -8227,7 +8223,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           setNewClientError('');
         try {
           console.log('[contacts payload]', payload);
-          console.log('[contacts payload] familySales length', payload.familySales?.length);
           await createContactWithProducts(payload);
           const [directory, metrics] = await Promise.all([
             fetchClientsDirectory({ page: clientPage, limit: clientPageSize, search: clientSearchDebounced }),
@@ -8800,9 +8795,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [newClientStep, setNewClientStep] = React.useState(0);
       const [familiarSuggestions, setFamiliarSuggestions] = React.useState([]);
       const [loadingSuggestions, setLoadingSuggestions] = React.useState(false);
-      React.useEffect(() => {
-        console.log('[MODAL MOUNTED] gestion_id prop:', gestion_id);
-      }, [gestion_id]);
       const fetchFamiliarSuggestions = React.useCallback(async () => {
         const leadId = draft?.lead_id || draft?.id;
         if (!leadId) return;
@@ -9032,7 +9024,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           || newClientDraft.contact.parent_contact_id
           || newClientDraft.contact.id
           || '';
-        console.log('[SUBMIT] gestion_id at submit time:', gestion_id);
         const payload = {
           principal_contact_id: principalContactId,
           contact: contactPayload,
@@ -9042,15 +9033,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           familySales,
           gestion_id: gestion_id ?? null
         };
-        if (!gestion_id) console.warn('[contacts payload] gestion_id is null at submit');
         setNewClientSaving(true);
         setNewClientError('');
         try {
           console.log('[contacts payload]', payload);
-          console.log('[contacts payload] principal_contact_id:', payload.principal_contact_id);
-          console.log('[contacts payload] familySales length', payload.familySales?.length);
-          console.log('[contacts payload] gestion_id:', gestion_id);
-          console.log('[contacts payload] full:', JSON.stringify(payload));
           const result = await createContactWithProducts(payload);
 
           console.log('[contacts response] id:', result?.id);
@@ -10623,7 +10609,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setVendedorNewClientOnSuccess(() => onSuccessCb);
         setVendedorNewClientMode(mode ?? 'nuevo_cliente');
         setVendedorNewClientOpen(true);
-        console.log('[MODAL] vendedorNewClientGestionId set to:', gestion_id);
       };
       const hasRealSuperadminAccess = hasRealRole({ rolReal, allowedRoles: ['superadministrador'] }) && esSuperadmin;
       const roleNavWithBadges = React.useMemo(
