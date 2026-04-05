@@ -298,7 +298,9 @@ export const registerCommercialManagement = async (contactId, payload, { sellerN
         nextAction: payload.nextAction,
         fecha_agenda: payload.fecha_agenda
       });
-      const gestionId = response?.data?.data?.gestion_id ?? null;
+      const gestionId = response?.data?.data?.gestion_id
+        ?? response?.data?.gestion_id
+        ?? null;
       const contact = await getCommercialContactById(contactId);
       return { contact, gestion_id: gestionId };
     } catch (err) {
