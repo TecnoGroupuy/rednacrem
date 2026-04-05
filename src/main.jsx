@@ -3055,14 +3055,22 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           try {
             const api = getApiClient();
             const jornadaRes = await api.get(`/api/reportes/jornada-diaria?fecha=${jornadaFecha}`);
-            const jornadaData = jornadaRes?.data?.data?.[0] || jornadaRes?.data?.[0] || null;
+            const jornadaData = jornadaRes?.data?.items?.[0]
+              || jornadaRes?.items?.[0]
+              || jornadaRes?.data?.data?.[0]
+              || jornadaRes?.data?.[0]
+              || null;
             setMiJornada(jornadaData);
             const baseDate = new Date(`${jornadaFecha}T12:00:00`);
             const ayerDate = new Date(baseDate);
             ayerDate.setDate(ayerDate.getDate() - 1);
             const ayer = ayerDate.toLocaleDateString('en-CA');
             const jornadaAyerRes = await api.get(`/api/reportes/jornada-diaria?fecha=${ayer}`);
-            const jornadaAyerData = jornadaAyerRes?.data?.data?.[0] || jornadaAyerRes?.data?.[0] || null;
+            const jornadaAyerData = jornadaAyerRes?.data?.items?.[0]
+              || jornadaAyerRes?.items?.[0]
+              || jornadaAyerRes?.data?.data?.[0]
+              || jornadaAyerRes?.data?.[0]
+              || null;
             setMiJornadaAyer(jornadaAyerData);
           } catch (err) {
             console.error('[dashboard] jornada error:', err);
@@ -3169,32 +3177,38 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <div><MetricCard item={metricsRow1[2]} /></div>
           </section>
           <section className="content-grid">
-            <Panel className="span-8" title="Mi jornada de hoy" subtitle="Resumen de tu actividad diaria">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginBottom: 12 }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const d = new Date(`${jornadaFecha}T12:00:00`);
-                    d.setDate(d.getDate() - 1);
-                    setJornadaFecha(d.toLocaleDateString('en-CA'));
-                  }}
-                >
-                  ‹
-                </button>
-                <span>{jornadaFechaLabel}</span>
-                <button
-                  type="button"
-                  disabled={isJornadaHoy}
-                  onClick={() => {
-                    const d = new Date(`${jornadaFecha}T12:00:00`);
-                    d.setDate(d.getDate() + 1);
-                    const next = d.toLocaleDateString('en-CA');
-                    if (next <= todayYmd) setJornadaFecha(next);
-                  }}
-                >
-                  ›
-                </button>
-              </div>
+            <Panel
+              className="span-8"
+              title="Mi jornada de hoy"
+              subtitle="Resumen de tu actividad diaria"
+              action={(
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date(`${jornadaFecha}T12:00:00`);
+                      d.setDate(d.getDate() - 1);
+                      setJornadaFecha(d.toLocaleDateString('en-CA'));
+                    }}
+                  >
+                    ‹
+                  </button>
+                  <span>{jornadaFechaLabel}</span>
+                  <button
+                    type="button"
+                    disabled={isJornadaHoy}
+                    onClick={() => {
+                      const d = new Date(`${jornadaFecha}T12:00:00`);
+                      d.setDate(d.getDate() + 1);
+                      const next = d.toLocaleDateString('en-CA');
+                      if (next <= todayYmd) setJornadaFecha(next);
+                    }}
+                  >
+                    ›
+                  </button>
+                </div>
+              )}
+            >
               <div style={{ display: 'grid', gap: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
