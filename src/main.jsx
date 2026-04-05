@@ -5506,6 +5506,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
     function SalesClientsView({ onOpenNewClient = null }) {
       const [ventas, setVentas] = React.useState([]);
+      const [allSales, setAllSales] = React.useState([]);
       const [loadingVentas, setLoadingVentas] = React.useState(true);
       const [selectedSale, setSelectedSale] = React.useState(null);
 
@@ -5517,7 +5518,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             const data = await api.get('/sales/mine');
             if (data?.success || data?.ok) {
               const items = data?.items || data?.data?.items || data?.data || [];
-              setVentas(Array.isArray(items) ? items : []);
+              const allItems = Array.isArray(items) ? items : [];
+              setAllSales(allItems);
+              const today = new Date().toLocaleDateString('en-CA');
+              const ventasHoy = allItems.filter((item) => {
+                const fecha = item?.fecha_venta || item?.created_at || '';
+                return String(fecha).startsWith(today);
+              });
+              setVentas(ventasHoy);
             }
           } catch (err) {
             console.error('[my-sales] error:', err);
@@ -5568,6 +5576,18 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           <div style={{ fontWeight: 600 }}>{value || '—'}</div>
         </div>
       );
+      const todayKey = new Date().toLocaleDateString('en-CA');
+      const monthKey = todayKey.slice(0, 7);
+      const pickDateKey = (row) => {
+        const value = row?.fecha_venta || row?.created_at || '';
+        return String(value).slice(0, 10);
+      };
+      const ventasHoy = allSales.filter((item) => pickDateKey(item) === todayKey);
+      const ventasMes = allSales.filter((item) => pickDateKey(item).startsWith(monthKey));
+      const bajasMes = allSales.filter((item) => {
+        const status = String(item?.estado || item?.status || '').toLowerCase();
+        return pickDateKey(item).startsWith(monthKey) && status === 'baja';
+      });
       const getRelatedSales = (row) => {
         const items = row?.related_sales || row?.relatedSales || [];
         return Array.isArray(items) ? items : [];
@@ -5586,11 +5606,32 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 <Button icon={<Plus size={18} />} onClick={() => onOpenNewClient()}>Nuevo cliente</Button>
               ) : null}
             >
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, marginBottom: 16 }}>
+                <div style={{ borderRadius: 14, border: '1px solid rgba(16,185,129,0.2)', background: 'rgba(16,185,129,0.08)', padding: 14 }}>
+                  <div style={{ fontSize: 12, color: '#047857', textTransform: 'uppercase', letterSpacing: 1 }}>Ventas de hoy</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: '#047857' }}>{ventasHoy.length}</div>
+                </div>
+                <div style={{ borderRadius: 14, border: '1px solid rgba(59,130,246,0.2)', background: 'rgba(59,130,246,0.08)', padding: 14 }}>
+                  <div style={{ fontSize: 12, color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: 1 }}>Ventas del mes</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: '#1d4ed8' }}>{ventasMes.length}</div>
+                </div>
+                <div style={{ borderRadius: 14, border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.08)', padding: 14 }}>
+                  <div style={{ fontSize: 12, color: '#b91c1c', textTransform: 'uppercase', letterSpacing: 1 }}>Bajas del mes</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: '#b91c1c' }}>{bajasMes.length}</div>
+                </div>
+              </div>
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>Contacto</th><th>Teléfono</th><th>Ubicación</th><th>Origen del dato</th><th>Relacionadas</th><th>Fecha</th></tr></thead>
+                  <thead><tr><th>Estado</th><th>Contacto</th><th>Ubicación</th><th>Origen del dato</th><th>Relacionadas</th><th>Fecha</th></tr></thead>
                   <tbody>
                     {ventas.map((row) => {
+                      const statusRaw = row.estado || row.status || 'alta';
+                      const status = String(statusRaw).toLowerCase();
+                      const statusColor = status === 'alta'
+                        ? { bg: 'rgba(16,185,129,0.15)', text: '#047857', border: 'rgba(16,185,129,0.35)' }
+                        : status === 'baja'
+                          ? { bg: 'rgba(239,68,68,0.15)', text: '#b91c1c', border: 'rgba(239,68,68,0.35)' }
+                          : { bg: 'rgba(148,163,184,0.2)', text: '#64748b', border: 'rgba(148,163,184,0.4)' };
                       const nombre = [row.nombre, row.apellido].filter(Boolean).join(' ')
                         || [row.contact_nombre, row.contact_apellido].filter(Boolean).join(' ')
                         || '—';
@@ -5607,12 +5648,16 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           onClick={() => handleOpenSaleDetail(row)}
                         >
                           <td>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: statusColor.bg, color: statusColor.text, border: `1px solid ${statusColor.border}` }}>
+                              {status || 'alta'}
+                            </span>
+                          </td>
+                          <td>
                             <div className="person">
                               <div className="person-badge">{initials(nombre)}</div>
                               <strong>{nombre}</strong>
                             </div>
                           </td>
-                          <td>{telefono}</td>
                           <td>{ubicacion}</td>
                           <td><span style={{ color: '#666', fontSize: 12 }}>{origenDato}</span></td>
                           <td>
@@ -5659,39 +5704,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   <button className="close-btn" onClick={() => setSelectedSale(null)}>×</button>
                 </div>
                 <div className="lot-wizard-content">
-                  {getRelatedSales(selectedSale).length ? (
-                    <div style={{ marginBottom: 16, padding: 12, borderRadius: 12, border: '1px solid rgba(15,23,42,0.08)', background: 'rgba(15,118,110,0.04)' }}>
-                      <div style={{ fontWeight: 700, marginBottom: 6 }}>Ventas relacionadas</div>
-                      <div style={{ color: 'var(--muted)', fontSize: 12, marginBottom: 10 }}>
-                        Esta venta principal tiene {getRelatedSales(selectedSale).length} ventas asociadas.
-                      </div>
-                      <div style={{ display: 'grid', gap: 10 }}>
-                        {getRelatedSales(selectedSale).map((item, index) => {
-                          const nombre = [item?.nombre, item?.apellido].filter(Boolean).join(' ')
-                            || [item?.contact_nombre, item?.contact_apellido].filter(Boolean).join(' ')
-                            || '—';
-                          return (
-                            <div key={item?.id || item?.sale_id || index} style={{ borderRadius: 10, padding: 10, border: '1px solid rgba(15,23,42,0.08)', background: '#fff' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
-                                <div style={{ fontWeight: 700 }}>{nombre}</div>
-                                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{formatFechaVenta(item?.fecha_venta)}</div>
-                              </div>
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8, marginTop: 8 }}>
-                                {renderDetailField('Producto', pickValue(item, ['nombre_producto', 'producto', 'producto_nombre', 'servicio']))}
-                                {renderDetailField('Cuota', pickValue(item, ['plan', 'cuota']))}
-                                {renderDetailField('Precio', pickValue(item, ['precio', 'monto']))}
-                                {renderDetailField('Medio de pago', pickValue(item, ['medio_pago', 'metodo_pago', 'metodoDePago', 'payment_method', 'forma_pago']))}
-                                {renderDetailField('Documento', pickValue(item, ['documento', 'contact_documento', 'contacto_documento', 'dni', 'cedula']))}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ) : null}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 16 }}>
+                  <div style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
                     <div style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 12, padding: 12 }}>
-                      <div style={{ fontWeight: 700, marginBottom: 8 }}>Cliente</div>
+                      <div style={{ fontWeight: 700, marginBottom: 8 }}>Datos del titular</div>
                       <div style={{ display: 'grid', gap: 10 }}>
                         {renderDetailField('Nombre', [
                           selectedSale.nombre,
@@ -5704,25 +5719,59 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         {renderDetailField('Teléfono', pickValue(selectedSale, ['celular', 'telefono', 'phone']))}
                         {renderDetailField('Email', pickValue(selectedSale, ['email', 'correo']))}
                         {renderDetailField('Ubicación', [selectedSale.departamento, selectedSale.localidad].filter(Boolean).join(', ') || '—')}
-                        {renderDetailField('Dirección', pickValue(selectedSale, ['direccion', 'domicilio']))}
                       </div>
                     </div>
                     <div style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 12, padding: 12 }}>
-                      <div style={{ fontWeight: 700, marginBottom: 8 }}>Producto</div>
+                      <div style={{ fontWeight: 700, marginBottom: 8 }}>Producto contratado</div>
                       <div style={{ display: 'grid', gap: 10 }}>
                         {renderDetailField('Producto', pickValue(selectedSale, ['nombre_producto', 'producto', 'producto_nombre', 'servicio']))}
-                        {renderDetailField('Cuota', pickValue(selectedSale, ['plan', 'cuota']))}
+                        {renderDetailField('Plan', pickValue(selectedSale, ['plan', 'cuota']))}
                         {renderDetailField('Precio', pickValue(selectedSale, ['precio', 'monto']))}
-                        {renderDetailField('Estado', pickValue(selectedSale, ['producto_estado']))}
-                        {renderDetailField('Lote', pickValue(selectedSale, ['nombre_lote', 'lote']))}
-                        {renderDetailField('Nota', pickValue(selectedSale, ['nota_venta', 'nota']))}
+                        {renderDetailField('Medio de pago', pickValue(selectedSale, ['medio_pago', 'metodo_pago', 'metodoDePago', 'payment_method', 'forma_pago']))}
+                        {renderDetailField('Fecha alta', pickValue(selectedSale, ['fecha_alta', 'fechaAlta']))}
+                        {renderDetailField('Estado', (
+                          () => {
+                            const prodStatus = String(pickValue(selectedSale, ['producto_estado', 'estado_producto', 'estado']) || '').toLowerCase();
+                            const pill = prodStatus === 'alta'
+                              ? { bg: 'rgba(16,185,129,0.15)', text: '#047857', border: 'rgba(16,185,129,0.35)' }
+                              : prodStatus === 'baja'
+                                ? { bg: 'rgba(239,68,68,0.15)', text: '#b91c1c', border: 'rgba(239,68,68,0.35)' }
+                                : { bg: 'rgba(148,163,184,0.2)', text: '#64748b', border: 'rgba(148,163,184,0.4)' };
+                            return (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: pill.bg, color: pill.text, border: `1px solid ${pill.border}` }}>
+                                {prodStatus || '—'}
+                              </span>
+                            );
+                          }
+                        )())}
                       </div>
                     </div>
                     <div style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 12, padding: 12 }}>
-                      <div style={{ fontWeight: 700, marginBottom: 8 }}>Pago</div>
-                      <div style={{ display: 'grid', gap: 10 }}>
-                        {renderDetailField('Método de pago', pickValue(selectedSale, ['medio_pago', 'metodo_pago', 'metodoDePago', 'payment_method', 'forma_pago']))}
-                      </div>
+                      <div style={{ fontWeight: 700, marginBottom: 8 }}>Ventas relacionadas</div>
+                      {getRelatedSales(selectedSale).length ? (
+                        <div style={{ display: 'grid', gap: 10 }}>
+                          {getRelatedSales(selectedSale).map((item, index) => {
+                            const nombre = [item?.nombre, item?.apellido].filter(Boolean).join(' ')
+                              || [item?.contact_nombre, item?.contact_apellido].filter(Boolean).join(' ')
+                              || '—';
+                            return (
+                              <div key={item?.id || item?.sale_id || index} style={{ borderRadius: 10, padding: 10, border: '1px solid rgba(15,23,42,0.08)', background: '#fff' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                                  <div style={{ fontWeight: 700 }}>{nombre}</div>
+                                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>{formatFechaVenta(item?.fecha_venta)}</div>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8, marginTop: 8 }}>
+                                  {renderDetailField('Producto', pickValue(item, ['nombre_producto', 'producto', 'producto_nombre', 'servicio']))}
+                                  {renderDetailField('Precio', pickValue(item, ['precio', 'monto']))}
+                                  {renderDetailField('Relación', pickValue(item, ['relacion', 'relacionConTitular', 'relacion_con_titular', 'relation']))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 12, color: '#94a3b8' }}>Sin ventas relacionadas</div>
+                      )}
                     </div>
                   </div>
                 </div>
