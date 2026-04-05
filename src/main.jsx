@@ -165,7 +165,7 @@ const ROLE_NAV = [
       { path: 'sa_logs_actividad', label: 'Logs y actividad', caption: 'Monitoreo e inactividad', roles: ['superadministrador'], icon: Zap },
       { path: 'sa_estado_modulos', label: 'Estado de módulos', caption: 'Visibilidad por rol', roles: ['superadministrador'], icon: Layers },
       { path: 'sa_configuracion', label: 'Configuración', caption: 'Identidad y parámetros', roles: ['superadministrador'], icon: Settings },
-      { path: 'dashboard', label: 'Dashboard', caption: 'Resumen principal', roles: ['director', 'supervisor', 'vendedor', 'operaciones'], icon: Activity },
+      { path: 'dashboard', label: 'Monitor', caption: 'Resumen principal', roles: ['director', 'supervisor', 'vendedor', 'operaciones'], icon: Activity },
       { path: 'contactos', label: 'Mercado Abierto', caption: 'Base comercial', roles: ['director', 'vendedor'], icon: Users },
       { path: 'recupero', label: 'Recupero', caption: 'Cartera en baja', roles: ['vendedor'], icon: FileText },
       { path: 'clientes', label: 'Clientes', caption: 'Cartera activa', roles: ['superadministrador', 'director', 'operaciones'], icon: UserCheck },
@@ -2992,6 +2992,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [assignedData, setAssignedData] = React.useState({ contactos: [], total: 0 });
       const [stats, setStats] = React.useState(null);
       const [agendaHoy, setAgendaHoy] = React.useState([]);
+      const [miJornada, setMiJornada] = React.useState(null);
+      const [miJornadaAyer, setMiJornadaAyer] = React.useState(null);
       const [loadingDash, setLoadingDash] = React.useState(true);
       const [clientePendiente, setClientePendiente] = React.useState(null);
       const [showBannerPendiente, setShowBannerPendiente] = React.useState(false);
@@ -3001,6 +3003,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           try {
             const api = getApiClient();
             const hoy = getTodayYmdLocal();
+            const ayerDate = new Date();
+            ayerDate.setDate(ayerDate.getDate() - 1);
+            const ayer = ayerDate.toLocaleDateString('en-CA');
 
             const contactosData = await api.get('/leads/assigned?page=1&limit=200&tab=todos');
             if (contactosData.success || contactosData.ok) {
@@ -3019,6 +3024,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             if (agendaData.success || agendaData.ok) {
               setAgendaHoy(agendaData.data.items || []);
             }
+
+            const jornadaRes = await api.get(`/api/reportes/jornada-diaria?fecha=${hoy}`);
+            const jornadaData = jornadaRes?.data?.data?.[0] || jornadaRes?.data?.[0] || null;
+            setMiJornada(jornadaData);
+            const jornadaAyerRes = await api.get(`/api/reportes/jornada-diaria?fecha=${ayer}`);
+            const jornadaAyerData = jornadaAyerRes?.data?.data?.[0] || jornadaAyerRes?.data?.[0] || null;
+            setMiJornadaAyer(jornadaAyerData);
           } catch (err) {
             console.error('[dashboard] error:', err);
           } finally {
@@ -3041,6 +3053,32 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const gestionados = stats?.tocados || 0;
       const ventasCerradas = stats?.ventas || 0;
       const seguimientosPendientes = stats?.seguimiento || 0;
+      const fmtSeg = (seg) => {
+        const total = Math.max(0, Number(seg || 0));
+        const h = Math.floor(total / 3600);
+        const m = Math.floor((total % 3600) / 60);
+        return `${h}h ${String(m).padStart(2, '0')}m`;
+      };
+      const formatHoraLocal = (value) => {
+        if (!value) return '—';
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) return value;
+        return parsed.toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' });
+      };
+      const now = new Date();
+      const past20 = now.getHours() >= 20;
+      const todayLabel = now.toLocaleDateString('es-UY');
+      const yesterdayLabel = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1).toLocaleDateString('es-UY');
+      const showTodayAlert = miJornada && !miJornada.logout_local && past20;
+      const showYesterdayAlert = miJornadaAyer && !miJornadaAyer.logout_local;
+      const jornadaEstadoRaw = String(miJornada?.estado_actual || '').toLowerCase();
+      const jornadaEstadoStyle = jornadaEstadoRaw.includes('trab')
+        ? { bg: 'rgba(16,185,129,0.15)', text: '#047857', border: 'rgba(16,185,129,0.35)' }
+        : jornadaEstadoRaw.includes('desc')
+          ? { bg: 'rgba(245,158,11,0.2)', text: '#b45309', border: 'rgba(245,158,11,0.35)' }
+          : jornadaEstadoRaw.includes('bañ') || jornadaEstadoRaw.includes('bano')
+            ? { bg: 'rgba(59,130,246,0.2)', text: '#1d4ed8', border: 'rgba(59,130,246,0.35)' }
+            : { bg: 'rgba(148,163,184,0.2)', text: '#64748b', border: 'rgba(148,163,184,0.4)' };
       const metricsRow1 = [
         { title: 'Contactos asignados', value: String(contactosAsignados), change: 0, label: 'lote recibido', trend: 'up', icon: Users, bg: 'rgba(37,99,235,0.12)', color: '#2563eb' },
         { title: 'Ventas cerradas', value: String(ventasCerradas), change: 0, label: `efectividad ${stats?.pct_efectividad ?? 0}%`, trend: 'up', icon: CheckCircle2, bg: 'rgba(22,163,74,0.12)', color: '#15803d' },
@@ -3062,6 +3100,20 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 <button onClick={() => onVentaCerrada && onVentaCerrada(clientePendiente)} style={{ background: '#F5A623', color: '#FFF', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Completar alta</button>
                 <button onClick={() => { try { localStorage.removeItem('cliente_pendiente_alta'); } catch {} setShowBannerPendiente(false); setClientePendiente(null); }} style={{ background: 'transparent', color: '#999', border: '1px solid #E0E0E0', borderRadius: 8, padding: '8px 14px', fontSize: 12, cursor: 'pointer' }}>Descartar</button>
               </div>
+            </div>
+          ) : null}
+          {showYesterdayAlert ? (
+            <div style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
+              <p style={{ margin: 0, color: '#b45309', fontWeight: 700, fontSize: 13 }}>
+                Tu jornada del {yesterdayLabel} no fue cerrada correctamente. Recordá cerrar sesión al finalizar tu turno.
+              </p>
+            </div>
+          ) : null}
+          {showTodayAlert ? (
+            <div style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
+              <p style={{ margin: 0, color: '#b45309', fontWeight: 700, fontSize: 13 }}>
+                Tu jornada del {todayLabel} no fue cerrada correctamente. Recordá cerrar sesión al finalizar tu turno.
+              </p>
             </div>
           ) : null}
           <section className="metrics-grid-4">
@@ -3086,6 +3138,44 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             </div>
             <div><MetricCard item={metricsRow1[1]} /></div>
             <div><MetricCard item={metricsRow1[2]} /></div>
+          </section>
+          <section className="content-grid">
+            <Panel className="span-8" title="Mi jornada de hoy" subtitle="Resumen de tu actividad diaria">
+              <div style={{ display: 'grid', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Inicio</div>
+                    <div style={{ fontWeight: 700 }}>{formatHoraLocal(miJornada?.login_local)}</div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fin</div>
+                    <div style={{ fontWeight: 700, color: miJornada?.logout_local ? 'inherit' : '#047857' }}>
+                      {miJornada?.logout_local ? formatHoraLocal(miJornada.logout_local) : 'En curso'}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Estado</div>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: jornadaEstadoStyle.bg, color: jornadaEstadoStyle.text, border: `1px solid ${jornadaEstadoStyle.border}` }}>
+                      {miJornada?.estado_actual || '—'}
+                    </span>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 999, background: 'rgba(16,185,129,0.15)', color: '#047857', fontSize: 12, fontWeight: 700 }}>
+                    Disponible · {fmtSeg(miJornada?.trabajo_seg)}
+                  </span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 999, background: 'rgba(245,158,11,0.2)', color: '#b45309', fontSize: 12, fontWeight: 700 }}>
+                    Descansos · {fmtSeg(miJornada?.descanso_seg)}
+                  </span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 999, background: 'rgba(59,130,246,0.2)', color: '#1d4ed8', fontSize: 12, fontWeight: 700 }}>
+                    Baños · {fmtSeg(miJornada?.bano_seg)}
+                  </span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 999, background: 'rgba(148,163,184,0.2)', color: '#475569', fontSize: 12, fontWeight: 700 }}>
+                    Total · {fmtSeg(miJornada?.total_jornada_seg)}
+                  </span>
+                </div>
+              </div>
+            </Panel>
           </section>
           <section className="content-grid">
             <Panel className="span-8" title="Operación del día" subtitle="Trabaja solo tus contactos asignados">
@@ -11145,7 +11235,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const estadoConfig = resolveEstadoUsuario(estadoUsuario);
       const currentRouteItem = navItems.find((item) => item.path === route);
       const isSupportRoute = route === 'soporte';
-      const breadcrumbCurrent = isSupportRoute ? 'Atención al cliente' : (currentRouteItem?.label || 'Dashboard');
+      const breadcrumbCurrent = isSupportRoute ? 'Atención al cliente' : (currentRouteItem?.label || 'Monitor');
       const roleLabel = effectiveRoleForUi === rolReal ? currentMeta.label : ('Modo vista: ' + currentMeta.label);
       const openNotificationsModule = React.useCallback((requestedRoute) => {
         const fallbackRoute = navItems.some((item) => item.path === 'sa_logs_actividad')
