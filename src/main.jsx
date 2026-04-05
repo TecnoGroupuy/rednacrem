@@ -3212,16 +3212,16 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 999, background: 'rgba(16,185,129,0.15)', color: '#047857', fontSize: 12, fontWeight: 700 }}>
-                    Disponible · {fmtSeg(miJornada?.trabajo_seg)}
+                    Disponible · {fmtSeg(miJornada?.disponibleSeg)}
                   </span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 999, background: 'rgba(245,158,11,0.2)', color: '#b45309', fontSize: 12, fontWeight: 700 }}>
-                    Descansos · {fmtSeg(miJornada?.descanso_seg)}
+                    Descansos · {fmtSeg(miJornada?.descansosSeg)}
                   </span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 999, background: 'rgba(59,130,246,0.2)', color: '#1d4ed8', fontSize: 12, fontWeight: 700 }}>
-                    Baños · {fmtSeg(miJornada?.bano_seg)}
+                    Baños · {fmtSeg(miJornada?.banosSeg)}
                   </span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 999, background: 'rgba(148,163,184,0.2)', color: '#475569', fontSize: 12, fontWeight: 700 }}>
-                    Total · {fmtSeg(miJornada?.total_jornada_seg)}
+                    Total · {fmtSeg(miJornada?.totalJornadaSeg)}
                   </span>
                 </div>
               </div>
