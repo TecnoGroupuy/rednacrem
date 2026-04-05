@@ -604,6 +604,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [vendorAlertCount, setVendorAlertCount] = React.useState(0);
       const panelRef = React.useRef(null);
       const triggerRef = React.useRef(null);
+      const normalizeNotificationTitle = (value) =>
+        String(value || '').replaceAll('·', '-').replaceAll('�', '-');
 
       const refreshNotifications = React.useCallback(() => {
         setItems(listNotifications({ userId, limit: 15 }));
@@ -759,6 +761,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         const TypeIcon = typeMeta.icon;
                         const agendaData = parseAgendaNotification(notification);
                         const description = agendaData?.message || notification.description;
+                        const safeTitle = normalizeNotificationTitle(notification.title);
                         return (
                           <button
                             key={notification.id}
@@ -770,7 +773,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             </div>
                             <div className="notification-body">
                               <div className="notification-title-row">
-                                <span className="notification-title">{notification.title}</span>
+                                <span className="notification-title">{safeTitle}</span>
                                 <span className="notification-time">{formatNotificationTime(notification.timestamp)}</span>
                               </div>
                               <p className="notification-description">{description}</p>
@@ -824,6 +827,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       const TypeIcon = typeMeta.icon;
                       const agendaData = parseAgendaNotification(notification);
                       const description = agendaData?.message || notification.description;
+                      const safeTitle = normalizeNotificationTitle(notification.title);
                       return (
                         <button
                           key={notification.id}
@@ -835,7 +839,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           </div>
                           <div className="notification-body">
                             <div className="notification-title-row">
-                              <span className="notification-title">{notification.title}</span>
+                              <span className="notification-title">{safeTitle}</span>
                               <span className="notification-time">{formatNotificationTime(notification.timestamp)}</span>
                             </div>
                             <p className="notification-description">{description}</p>
@@ -11332,8 +11336,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               const tipo = item.tipo_agenda || item.ultimo_resultado || 'seguimiento';
               const nombre = [item.nombre, item.apellido].filter(Boolean).join(' ') || 'un contacto';
               const mensaje = String(tipo).toLowerCase() === 'rellamar'
-                ? `Hay un rellamar pendiente con ${nombre}`
-                : `Hay un seguimiento que necesita su atención con ${nombre}`;
+                ? 'Revisa los rellamar'
+                : 'Revisa los seguimientos';
               const contactId = item.contact_id || item.contactId || item.lead_id || item.leadId || item.id || '';
               logActivityEvent({
                 entidad: 'agenda',
