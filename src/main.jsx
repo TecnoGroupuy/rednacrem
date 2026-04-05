@@ -5602,9 +5602,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               className="span-12"
               title="Mis ventas"
               subtitle="Contactos que convertiste en clientes"
-              action={onOpenNewClient ? (
-                <Button icon={<Plus size={18} />} onClick={() => onOpenNewClient()}>Nuevo cliente</Button>
-              ) : null}
             >
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, marginBottom: 16 }}>
                 <div style={{ borderRadius: 14, border: '1px solid rgba(16,185,129,0.2)', background: 'rgba(16,185,129,0.08)', padding: 14 }}>
