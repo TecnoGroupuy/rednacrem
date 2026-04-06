@@ -124,6 +124,12 @@ const parseCsv = (csvText) => {
     'telefono celular': 'celular',
     'telefono de contacto alternativo': 'telefono_alternativo',
     'telefono de contacto': 'telefono_familiar',
+    'nombre familiar': 'nombre_familiar',
+    'apellido familiar': 'apellido_familiar',
+    'nombre_familiar': 'nombre_familiar',
+    'apellido_familiar': 'apellido_familiar',
+    'nombre del familiar': 'nombre_familiar',
+    'apellido del familiar': 'apellido_familiar',
     'plan contratado': 'plan',
     'precio de venta (mensual)': 'precio',
     'departamento de residencia': 'departamento',
@@ -156,7 +162,11 @@ const parseCsv = (csvText) => {
     }
     const row = {};
   normalizedHeaders.forEach((header, i) => {
-    row[header] = cells[i] || '';
+    const nextValue = cells[i] || '';
+    const currentValue = row[header];
+    if (currentValue === undefined || currentValue === null || String(currentValue).trim() === '') {
+      row[header] = nextValue;
+    }
   });
     rows.push({ rowNumber: index + 2, ...row });
   });
