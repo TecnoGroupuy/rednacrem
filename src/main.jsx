@@ -9795,6 +9795,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [previewBatchId, setPreviewBatchId] = React.useState(null);
       const [createProductsOnImport, setCreateProductsOnImport] = React.useState(false);
       const [importSubmitting, setImportSubmitting] = React.useState(false);
+      const [importProgress, setImportProgress] = React.useState(null);
+      const [importPolling, setImportPolling] = React.useState(false);
       const [importDebug, setImportDebug] = React.useState({
         endpoint: '',
         payload: null,
@@ -9806,6 +9808,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
       const resolvedBatchId = previewBatchId || preview?.batchId || preview?.batch_id || null;
       const importPollRef = React.useRef(null);
+      const importProgressRef = React.useRef(null);
 
       const IMPORT_STATUS_LABELS = {
         queued: 'En cola',
@@ -9880,6 +9883,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           clearTimeout(importDeleteToastRef.current);
           importDeleteToastRef.current = null;
         }
+        if (importProgressRef.current) {
+          clearInterval(importProgressRef.current);
+          importProgressRef.current = null;
+        }
       }, []);
 
       const resolveImportId = React.useCallback((row = {}) => (
@@ -9901,6 +9908,43 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         if (normalizedLabel.includes('result')) return 'resultados';
         if (normalizedLabel.includes('cliente')) return 'clientes';
         return '';
+      }, []);
+
+      const importProgressPct = Math.min(100, Math.max(0, Number(importProgress?.progress?.pct || 0)));
+      const importProgressComplete = !!importProgress && (importProgress?.status === 'processed' || importProgressPct >= 100);
+      const importProgressStats = {
+        created: Number(importProgress?.progress?.created || 0),
+        updated: Number(importProgress?.progress?.updated || 0),
+        errors: Number(importProgress?.progress?.errors || 0),
+        pending: Number(importProgress?.progress?.pending || 0)
+      };
+
+      const startProgressPolling = React.useCallback((batchId) => {
+        if (!batchId) return;
+        if (importProgressRef.current) {
+          clearInterval(importProgressRef.current);
+          importProgressRef.current = null;
+        }
+        setImportPolling(true);
+        importProgressRef.current = setInterval(async () => {
+          try {
+            const api = getApiClient();
+            const res = await api.get(`/imports/clients/${batchId}/status`);
+            const data = res?.data?.data || res?.data || null;
+            setImportProgress(data);
+            if (data?.status === 'processed' || (data?.progress?.pct ?? 0) >= 100) {
+              clearInterval(importProgressRef.current);
+              importProgressRef.current = null;
+              setImportPolling(false);
+            }
+          } catch {
+            if (importProgressRef.current) {
+              clearInterval(importProgressRef.current);
+              importProgressRef.current = null;
+            }
+            setImportPolling(false);
+          }
+        }, 2000);
       }, []);
 
       const resolveImportStatusLabel = React.useCallback((row = {}) => (
@@ -10210,6 +10254,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         if (importSubmitting) return;
         setImportSubmitting(true);
         setImportSuccess('');
+        setImportProgress(null);
         try {
           let batchIdToUse = resolvedBatchId;
           const payload = {
@@ -10266,6 +10311,15 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             await loadImports({ silent: true });
             return;
           }
+          if (importDraft.importType === 'clientes') {
+            const progressBatchId = result?.id
+              || result?.batchId
+              || result?.batch_id
+              || result?.job?.id
+              || batchIdToUse
+              || null;
+            if (progressBatchId) startProgressPolling(progressBatchId);
+          }
           if (result?.report) setImportReport(result.report);
           setImportSuccess('Importación registrada correctamente.');
           setShowImportFlow(false);
@@ -10306,7 +10360,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <Button variant="ghost" icon={<Download size={16} />} onClick={downloadImportExampleCsv}>
                       Descargar ejemplo CSV
                     </Button>
-                    <Button icon={<Upload size={16} />} onClick={() => { setShowImportFlow(true); setImportSuccess(''); resetImportFlow(); }}>
+                    <Button icon={<Upload size={16} />} onClick={() => { setShowImportFlow(true); setImportSuccess(''); setImportProgress(null); setImportPolling(false); resetImportFlow(); }}>
                       Importar CSV
                     </Button>
                   </div>
@@ -10595,6 +10649,42 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           {importSubmitting ? 'Importando...' : 'Confirmar importación'}
                         </Button>
                       </div>
+                      {importProgress ? (
+                        <div style={{ marginTop: 16, padding: 14, borderRadius: 12, border: '1px solid rgba(20,34,53,0.12)', background: 'rgba(248,250,252,0.9)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                            <div style={{ fontWeight: 700 }}>Progreso de importación</div>
+                            <Tag variant={importProgressComplete ? 'success' : 'warning'}>
+                              {importProgressComplete ? 'Completado' : 'Procesando...'}
+                            </Tag>
+                          </div>
+                          <div style={{ marginTop: 10, height: 8, background: '#e2e8f0', borderRadius: 999 }}>
+                            <div
+                              style={{
+                                height: '100%',
+                                width: `${importProgressPct}%`,
+                                background: importProgressComplete ? '#16a34a' : '#f59e0b',
+                                borderRadius: 999
+                              }}
+                            />
+                          </div>
+                          <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8 }}>
+                            <div style={{ padding: 10, borderRadius: 10, background: 'rgba(16,185,129,0.12)', color: '#047857', fontWeight: 700 }}>Nuevos contactos: {importProgressStats.created}</div>
+                            <div style={{ padding: 10, borderRadius: 10, background: 'rgba(59,130,246,0.12)', color: '#1d4ed8', fontWeight: 700 }}>Actualizados: {importProgressStats.updated}</div>
+                            <div style={{ padding: 10, borderRadius: 10, background: 'rgba(239,68,68,0.12)', color: '#b91c1c', fontWeight: 700 }}>Errores: {importProgressStats.errors}</div>
+                            <div style={{ padding: 10, borderRadius: 10, background: 'rgba(148,163,184,0.2)', color: '#475569', fontWeight: 700 }}>Pendientes: {importProgressStats.pending}</div>
+                          </div>
+                          {importProgressComplete ? (
+                            <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+                              <div style={{ padding: 10, borderRadius: 10, background: 'rgba(15,118,110,0.08)', color: '#0f766e', fontWeight: 700 }}>
+                                Vendedores detectados: {importProgress?.report?.vendedoresDetectados ?? 0}
+                              </div>
+                              <div style={{ padding: 10, borderRadius: 10, background: 'rgba(30,64,175,0.08)', color: '#1d4ed8', fontWeight: 700 }}>
+                                Productos detectados: {importProgress?.report?.productosDetectados ?? 0}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 ) : null}
