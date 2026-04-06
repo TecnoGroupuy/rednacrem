@@ -10563,7 +10563,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         <span className="lot-step-index">2</span>
                         <div style={{ flex: 1 }}>
                           <h4>Validación previa</h4>
-                          <p>Columnas obligatorias: <strong>documento</strong>.</p>
+                          <p>Se requiere al menos <strong>nombre</strong> o <strong>apellido</strong> por fila.</p>
                           <div className="toolbar" style={{ marginTop: 8 }}>
                             <Button variant="secondary" onClick={validatePreview} disabled={!importDraft.csvText || previewLoading}>
                               {previewLoading ? 'Validando...' : 'Validar archivo'}
@@ -10578,11 +10578,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                               {preview.skippedEmptyRows ? (
                                 <div style={{ marginTop: 6, color: '#64748b', fontSize: '0.85rem' }}>
                                   Filas vacías ignoradas: {preview.skippedEmptyRows}
-                                </div>
-                              ) : null}
-                              {preview.rejectedMissingDocumento ? (
-                                <div style={{ marginTop: 6, color: '#b45309', fontSize: '0.85rem' }}>
-                                  Rechazados por documento vacío: {preview.rejectedMissingDocumento}
                                 </div>
                               ) : null}
                               {preview.newProductsCount ? (

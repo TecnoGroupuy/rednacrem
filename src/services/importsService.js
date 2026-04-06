@@ -147,7 +147,7 @@ const validateRows = (rows, importType) => {
     const errors = [];
 
     if (importType === 'clientes') {
-      if (!row.documento) errors.push('Documento vacío');
+      if (!row.nombre && !row.apellido) errors.push('Nombre y apellido vacíos');
     }
 
     if (importType === 'no_llamar') {
@@ -186,7 +186,7 @@ const validateRows = (rows, importType) => {
 
 const validateCsvByType = ({ headers, rows }, importType) => {
   const requiredByType = {
-    clientes: ['documento'],
+    clientes: [],
     no_llamar: ['telefono'],
     resultados: ['resultado'],
     datos_para_trabajar: []
