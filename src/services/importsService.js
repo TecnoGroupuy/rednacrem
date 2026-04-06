@@ -108,6 +108,43 @@ const parseCsv = (csvText) => {
 
   const separator = detectSeparator(lines[0]);
   const headers = parseCsvLine(lines[0], separator).map((h) => h.trim().toLowerCase());
+  const HEADER_ALIASES = {
+    'nombres': 'nombre',
+    'apellidos': 'apellido',
+    'nombre del asesor': 'vendedor_nombre',
+    'vendedor': 'vendedor_nombre',
+    'fecha y hora de la venta': 'fecha_venta',
+    'fecha de venta': 'fecha_venta',
+    'marca temporal': 'fecha_venta',
+    'cedula de identidad del beneficiario': 'documento',
+    'cedula de identidad de cobranza': 'documento_cobranza',
+    'documento de cobranza': 'documento_cobranza',
+    'telefono de venta': 'telefono',
+    'telefono fijo': 'telefono_fijo',
+    'telefono celular': 'celular',
+    'telefono de contacto alternativo': 'telefono_alternativo',
+    'telefono de contacto': 'telefono_familiar',
+    'plan contratado': 'plan',
+    'precio de venta (mensual)': 'precio',
+    'departamento de residencia': 'departamento',
+    'fecha de nacimiento': 'fecha_nacimiento',
+    '30_estado': 'estado',
+    '31_fecha de baja': 'fecha_baja',
+    '32_motivo de baja': 'motivo_baja',
+    'motivo de baja': 'motivo_baja',
+    'fecha de baja': 'fecha_baja',
+    'medio de pago': 'medio_pago',
+  };
+  const normalizedHeaders = headers.map((h) => {
+    const clean = h
+      .replace(/[áàäâ]/g, 'a')
+      .replace(/[éèëê]/g, 'e')
+      .replace(/[íìïî]/g, 'i')
+      .replace(/[óòöô]/g, 'o')
+      .replace(/[úùüû]/g, 'u')
+      .replace(/[ñ]/g, 'n');
+    return HEADER_ALIASES[clean] || HEADER_ALIASES[h] || h;
+  });
   const rows = [];
   let skippedEmptyRows = 0;
   lines.slice(1).forEach((line, index) => {
@@ -118,9 +155,9 @@ const parseCsv = (csvText) => {
       return;
     }
     const row = {};
-    headers.forEach((header, i) => {
-      row[header] = cells[i] || '';
-    });
+  normalizedHeaders.forEach((header, i) => {
+    row[header] = cells[i] || '';
+  });
     rows.push({ rowNumber: index + 2, ...row });
   });
 
