@@ -1,6 +1,7 @@
 ﻿import React from 'react';
 import { Filter, RefreshCw, Plus, X, Upload, Columns } from 'lucide-react';
 import { getApiClient } from '../services/apiClient.js';
+import { formatDate } from '../utils/dateFormat.js';
 
 const PAGE_SIZE = 50;
 
@@ -253,12 +254,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     }
   }, [api]);
 
-  const formatDate = (value) => {
-    if (!value) return '—';
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return '—';
-    return parsed.toLocaleDateString('es-UY');
-  };
 
   const formatDateTime = (value) => {
     if (!value) return '—';

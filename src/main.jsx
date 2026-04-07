@@ -106,6 +106,7 @@ import { getEffectiveRoleForUi, getVisibleNavItemsForRole, hasRealRole } from '.
 import { useRolEfectivo } from './hooks/useRolEfectivo.js';
 import AuthGate from './components/auth/AuthGate.jsx';
 import { downloadCsvFile } from './utils/importWizardHelpers.js';
+import { formatDate } from './utils/dateFormat.js';
 import { getApiClient, getApiBaseUrl } from './services/apiClient.js';
 import { io } from 'socket.io-client';
 import {
@@ -4346,7 +4347,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                 <div>
                                   <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Nacimiento</p>
                                   <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>
-                                    {new Date(dc.fecha_nacimiento).toLocaleDateString('es-UY')}
+                                    {formatDate(dc.fecha_nacimiento)}
                                     {dc.edad ? ` (${dc.edad} años)` : ''}
                                   </p>
                                 </div>
@@ -4957,7 +4958,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                 <div>
                                   <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Nacimiento</p>
                                   <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>
-                                    {new Date(drawerItem.fecha_nacimiento).toLocaleDateString('es-UY')}
+                                    {formatDate(drawerItem.fecha_nacimiento)}
                                     {drawerItem.edad ? ` (${drawerItem.edad} años)` : ''}
                                   </p>
                                 </div>
@@ -5767,33 +5768,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         cargar();
       }, []);
 
-      const formatFechaVenta = (raw) => {
-        if (!raw) return '—';
-        const value = String(raw).trim();
-        if (!value) return '—';
-        let date;
-        const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        const hasTimezone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(value);
-        const localDateTimeMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?$/);
-        if (dateOnlyMatch) {
-          const [, y, m, d] = dateOnlyMatch;
-          date = new Date(Number(y), Number(m) - 1, Number(d), 0, 0, 0);
-        } else if (localDateTimeMatch && !hasTimezone) {
-          const [, y, m, d, hh, mm, ss] = localDateTimeMatch;
-          date = new Date(Number(y), Number(m) - 1, Number(d), Number(hh), Number(mm), Number(ss || 0));
-        } else {
-          date = new Date(value);
-        }
-        if (!date || Number.isNaN(date.getTime())) return value;
-        try {
-          return date.toLocaleString('es-UY', {
-            day: 'numeric', month: 'numeric',
-            hour: '2-digit', minute: '2-digit'
-          });
-        } catch {
-          return value;
-        }
-      };
+      const formatFechaVenta = (raw) => formatDate(raw);
       const pickValue = (row, keys, fallback = '—') => {
         for (const key of keys) {
           const value = row?.[key];
@@ -5969,7 +5944,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         {renderDetailField('Plan', pickValue(selectedSale, ['plan', 'cuota']))}
                         {renderDetailField('Precio', pickValue(selectedSale, ['precio', 'monto']))}
                         {renderDetailField('Medio de pago', pickValue(selectedSale, ['medio_pago', 'metodo_pago', 'metodoDePago', 'payment_method', 'forma_pago']))}
-                        {renderDetailField('Fecha alta', pickValue(selectedSale, ['fecha_alta', 'fechaAlta']))}
+                        {renderDetailField('Fecha alta', formatDate(pickValue(selectedSale, ['fecha_alta', 'fechaAlta'])))}
                         {renderDetailField('Estado', (
                           () => {
                             const prodStatus = String(pickValue(selectedSale, ['producto_estado', 'estado_producto', 'estado']) || '').toLowerCase();
@@ -7208,7 +7183,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
                           <div><strong>Nombre completo:</strong> {`${selectedClient.nombre || selectedClient.name || ''} ${selectedClient.apellido || ''}`.trim() || '—'}</div>
                           <div><strong>Numero de documento:</strong> {selectedClient.documento || '—'}</div>
-                          <div><strong>Fecha de nacimiento:</strong> {formatDateShort(selectedClient.fechaNacimiento || selectedClient.fecha_nacimiento) || '—'}</div>
+                          <div><strong>Fecha de nacimiento:</strong> {formatDate(selectedClient.fechaNacimiento || selectedClient.fecha_nacimiento) || '—'}</div>
                           <div><strong>Edad:</strong> {calcAge(selectedClient.fechaNacimiento || selectedClient.fecha_nacimiento) || '—'}</div>
                           <div><strong>Telefono:</strong> {selectedClient.telefono || selectedClient.phone || '—'}</div>
                           <div><strong>Celular:</strong> {selectedClient.celular || selectedClient.cellphone || '—'}</div>
@@ -7220,7 +7195,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       <div style={{ borderRadius: 16, border: '1px solid rgba(148,163,184,0.25)', padding: 14 }}>
                         <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#64748b' }}>Servicio</div>
                         <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
-                          <div><strong>Fecha de alta:</strong> {formatDateShort((availableProducts[0]?.fechaAlta || selectedClient.fechaVenta || selectedClient.createdAt)) || '—'}</div>
+                          <div><strong>Fecha de alta:</strong> {(availableProducts[0]?.fechaAlta || selectedClient.fechaVenta)
+                            ? formatDate(availableProducts[0]?.fechaAlta || selectedClient.fechaVenta)
+                            : (formatDateShort(selectedClient.createdAt) || '—')}</div>
                           <div><strong>Estado:</strong> {String(availableProducts[0]?.estadoProducto || availableProducts[0]?.estado || '—')}</div>
                           <div><strong>Nombre del producto:</strong> {String(availableProducts[0]?.productoNombre || availableProducts[0]?.nombreProducto || availableProducts[0]?.nombre_producto || selectedClient.productoActualNombre || selectedClient.product?.nombreProducto || selectedClient.product?.nombre || selectedClient.productoNombre || selectedClient.producto_nombre || selectedClient.product || '—')}</div>
                           <div><strong>Precio:</strong> {availableProducts[0]?.precio ? `$ ${Number(String(availableProducts[0].precio).replace(/[^0-9.-]/g, '')).toLocaleString('es-UY')}` : (selectedClient.fee || '—')}</div>
@@ -7240,7 +7217,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             <option value="">Seleccionar producto</option>
                             {availableProducts.map((product) => (
                               <option key={product.id} value={product.id}>
-                                {(product.productoNombre || product.nombreProducto || product.nombre_producto || product.nombre || 'Producto')} · Alta {product.fechaAlta ? new Date(product.fechaAlta).toLocaleDateString('es-UY') : 's/f'}
+                                {(product.productoNombre || product.nombreProducto || product.nombre_producto || product.nombre || 'Producto')} · Alta {product.fechaAlta ? formatDate(product.fechaAlta) : 's/f'}
                               </option>
                             ))}
                           </select>
@@ -7664,7 +7641,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>
                         <div><strong>Nombre:</strong> {clientDetail?.product?.nombreProducto || clientDetail?.product?.nombre_producto || clientDetail?.product?.nombre || ticket.productoNombre || '—'}</div>
                         <div><strong>Estado:</strong> {clientDetail?.product?.estado || clientDetail?.product?.estadoProducto || '—'}</div>
-                        <div><strong>Fecha de alta:</strong> {formatDateShort(clientDetail?.product?.fechaAlta || clientDetail?.product?.fecha_alta || '') || '—'}</div>
+                        <div><strong>Fecha de alta:</strong> {formatDate(clientDetail?.product?.fechaAlta || clientDetail?.product?.fecha_alta || '') || '—'}</div>
                         <div><strong>Precio:</strong> {clientDetail?.product?.precio ? `$ ${Number(String(clientDetail.product.precio).replace(/[^0-9.-]/g, '')).toLocaleString('es-UY')}` : '—'}</div>
                       </div>
                     </div>
@@ -8654,7 +8631,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 <strong>{row.name || 'Sin dato'}</strong>
               </div>
             </td>
-            <td>{formatDateShort(row.fechaAlta || row.fechaVenta || row.createdAt) || 'Sin dato'}</td>
+            <td>{(row.fechaAlta || row.fechaVenta)
+              ? formatDate(row.fechaAlta || row.fechaVenta)
+              : (formatDateShort(row.createdAt) || 'Sin dato')}</td>
             <td>{row.product || 'Sin dato'}</td>
             <td>{row.fee || 'Sin dato'}</td>
             <td><Tag variant={statusVariant(row.status)}>{row.status || 'Sin dato'}</Tag></td>

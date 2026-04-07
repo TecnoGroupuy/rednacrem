@@ -18,6 +18,18 @@ export const toEsUyDate = (value) => {
   return date.toLocaleDateString('es-UY', { timeZone: 'America/Montevideo' });
 };
 
+export const formatDate = (value) => {
+  if (!value) return '—';
+  const text = String(value).trim();
+  if (!text) return '—';
+  const datePart = text.split('T')[0].split(' ')[0];
+  const parts = datePart.split('-');
+  if (parts.length !== 3) return text;
+  const [year, month, day] = parts;
+  if (!year || !month || !day) return text;
+  return `${day}/${month}/${year}`;
+};
+
 export const toEsUyTime = (value) => {
   if (!value) return '-';
   const date = new Date(value);
