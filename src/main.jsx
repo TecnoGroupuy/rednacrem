@@ -9776,6 +9776,16 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [importSubmitting, setImportSubmitting] = React.useState(false);
       const [importProgress, setImportProgress] = React.useState(null);
       const [importPolling, setImportPolling] = React.useState(false);
+      const [diffOpen, setDiffOpen] = React.useState(false);
+      const [diffLoading, setDiffLoading] = React.useState(false);
+      const [diffError, setDiffError] = React.useState('');
+      const [diffSummary, setDiffSummary] = React.useState(null);
+      const [diffData, setDiffData] = React.useState({
+        altaBdBajaCsv: [],
+        bajaBdAltaCsv: [],
+        noEncontrados: []
+      });
+      const [diffTab, setDiffTab] = React.useState('alta_bd_baja_csv');
       const [importDebug, setImportDebug] = React.useState({
         endpoint: '',
         payload: null,
@@ -9855,6 +9865,47 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         importDeleteToastRef.current = setTimeout(() => {
           setImportDeleteToast('');
         }, 4200);
+      }, []);
+
+      const openDiffFilePicker = React.useCallback(() => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.csv';
+        input.onchange = async () => {
+          const file = input.files && input.files[0];
+          if (!file) return;
+          setDiffError('');
+          setDiffLoading(true);
+          setDiffSummary(null);
+          setDiffData({ altaBdBajaCsv: [], bajaBdAltaCsv: [], noEncontrados: [] });
+          setDiffTab('alta_bd_baja_csv');
+          try {
+            const api = getApiClient();
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await api.post('/imports/clients/analyze-diff', formData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            const payload = res?.data?.data || res?.data || {};
+            const summary = payload?.summary || payload?.resumen || payload?.totals || payload?.stats || null;
+            const items = payload?.items || payload || {};
+            const altaBdBajaCsv = items?.alta_bd_baja_csv || items?.altaBdBajaCsv || [];
+            const bajaBdAltaCsv = items?.baja_bd_alta_csv || items?.bajaBdAltaCsv || [];
+            const noEncontrados = items?.no_encontrados || items?.noEncontrados || [];
+            setDiffSummary(summary);
+            setDiffData({
+              altaBdBajaCsv: Array.isArray(altaBdBajaCsv) ? altaBdBajaCsv : [],
+              bajaBdAltaCsv: Array.isArray(bajaBdAltaCsv) ? bajaBdAltaCsv : [],
+              noEncontrados: Array.isArray(noEncontrados) ? noEncontrados : []
+            });
+            setDiffOpen(true);
+          } catch (err) {
+            setDiffError(err?.message || 'No se pudo analizar el CSV.');
+          } finally {
+            setDiffLoading(false);
+          }
+        };
+        input.click();
       }, []);
 
       React.useEffect(() => () => {
@@ -10339,6 +10390,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <Button variant="ghost" icon={<Download size={16} />} onClick={downloadImportExampleCsv}>
                       Descargar ejemplo CSV
                     </Button>
+                    <Button
+                      variant="secondary"
+                      icon={<Search size={16} />}
+                      onClick={openDiffFilePicker}
+                      disabled={diffLoading}
+                    >
+                      {diffLoading ? 'Analizando...' : 'Analizar diferencias'}
+                    </Button>
                     <Button icon={<Upload size={16} />} onClick={() => { setShowImportFlow(true); setImportSuccess(''); setImportProgress(null); setImportPolling(false); resetImportFlow(); }}>
                       Importar CSV
                     </Button>
@@ -10714,6 +10773,95 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         >
                           {importDeleteLoading ? 'Eliminando...' : 'Eliminar'}
                         </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+                {diffOpen ? (
+                  <div className="lot-wizard-overlay" onClick={() => setDiffOpen(false)}>
+                    <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 980 }}>
+                      <div className="lot-wizard-header">
+                        <div><h3>Analizar diferencias</h3><p>Comparación entre CSV y base de datos.</p></div>
+                        <button className="icon-button" style={{ width: 36, height: 36 }} onClick={() => setDiffOpen(false)}><X size={16} color="#152235" /></button>
+                      </div>
+                      {diffError ? <div style={{ color: '#b91c1c', fontWeight: 700 }}>{diffError}</div> : null}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10, marginBottom: 16 }}>
+                        <div style={{ padding: 12, borderRadius: 12, background: 'rgba(15,118,110,0.08)' }}>
+                          <div style={{ fontSize: 11, color: '#0f766e', textTransform: 'uppercase', letterSpacing: 1 }}>Total CSV</div>
+                          <div style={{ fontSize: 18, fontWeight: 700 }}>{diffSummary?.totalCsv ?? diffSummary?.total_csv ?? 0}</div>
+                        </div>
+                        <div style={{ padding: 12, borderRadius: 12, background: 'rgba(16,185,129,0.12)' }}>
+                          <div style={{ fontSize: 11, color: '#047857', textTransform: 'uppercase', letterSpacing: 1 }}>Coinciden</div>
+                          <div style={{ fontSize: 18, fontWeight: 700 }}>{diffSummary?.coinciden ?? diffSummary?.match ?? 0}</div>
+                        </div>
+                        <div style={{ padding: 12, borderRadius: 12, background: 'rgba(239,68,68,0.12)' }}>
+                          <div style={{ fontSize: 11, color: '#b91c1c', textTransform: 'uppercase', letterSpacing: 1 }}>Alta BD / Baja CSV</div>
+                          <div style={{ fontSize: 18, fontWeight: 700 }}>{diffSummary?.altaBdBajaCsv ?? diffSummary?.alta_bd_baja_csv ?? diffData.altaBdBajaCsv.length}</div>
+                        </div>
+                        <div style={{ padding: 12, borderRadius: 12, background: 'rgba(59,130,246,0.12)' }}>
+                          <div style={{ fontSize: 11, color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: 1 }}>Baja BD / Alta CSV</div>
+                          <div style={{ fontSize: 18, fontWeight: 700 }}>{diffSummary?.bajaBdAltaCsv ?? diffSummary?.baja_bd_alta_csv ?? diffData.bajaBdAltaCsv.length}</div>
+                        </div>
+                        <div style={{ padding: 12, borderRadius: 12, background: 'rgba(148,163,184,0.2)' }}>
+                          <div style={{ fontSize: 11, color: '#475569', textTransform: 'uppercase', letterSpacing: 1 }}>No encontrados</div>
+                          <div style={{ fontSize: 18, fontWeight: 700 }}>{diffSummary?.noEncontrados ?? diffSummary?.no_encontrados ?? diffData.noEncontrados.length}</div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                        {[
+                          { key: 'alta_bd_baja_csv', label: 'Alta BD / Baja CSV' },
+                          { key: 'baja_bd_alta_csv', label: 'Baja BD / Alta CSV' },
+                          { key: 'no_encontrados', label: 'No encontrados' }
+                        ].map((tab) => (
+                          <button
+                            key={tab.key}
+                            type="button"
+                            onClick={() => setDiffTab(tab.key)}
+                            style={{
+                              padding: '8px 12px',
+                              borderRadius: 10,
+                              border: diffTab === tab.key ? '1px solid #1A5C4A' : '1px solid rgba(148,163,184,0.4)',
+                              background: diffTab === tab.key ? 'rgba(15,118,110,0.1)' : '#fff',
+                              fontWeight: diffTab === tab.key ? 700 : 500,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {tab.label}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="table-wrap">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Nombre</th>
+                              <th>Apellido</th>
+                              <th>Documento</th>
+                              <th>Estado CSV</th>
+                              <th>Estado BD</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(diffTab === 'alta_bd_baja_csv' ? diffData.altaBdBajaCsv
+                              : diffTab === 'baja_bd_alta_csv' ? diffData.bajaBdAltaCsv
+                              : diffData.noEncontrados
+                            ).slice(0, 50).map((row, index) => (
+                              <tr key={row.id || row.documento || index}>
+                                <td>{row.nombre || row.nombre_titular || '—'}</td>
+                                <td>{row.apellido || row.apellido_titular || '—'}</td>
+                                <td>{row.documento || row.cedula || '—'}</td>
+                                <td>{row.estado_csv || row.estadoCsv || '—'}</td>
+                                <td>{row.estado_bd || row.estadoBd || '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        {!((diffTab === 'alta_bd_baja_csv' ? diffData.altaBdBajaCsv
+                          : diffTab === 'baja_bd_alta_csv' ? diffData.bajaBdAltaCsv
+                          : diffData.noEncontrados
+                        ).length) ? (
+                          <div style={{ padding: 12, color: 'var(--muted)' }}>No hay registros para esta categoría.</div>
+                        ) : null}
                       </div>
                     </div>
                   </div>
