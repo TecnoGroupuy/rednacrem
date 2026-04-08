@@ -148,31 +148,39 @@ export default function SuperadminWorkbench({
       setDiffSummary(null);
       setDiffData({ altaBdBajaCsv: [], bajaBdAltaCsv: [], noEncontrados: [] });
       setDiffTab('alta_bd_baja_csv');
-      try {
-        const api = getApiClient();
-        const formData = new FormData();
-        formData.append('file', file);
-        const res = await api.post('/imports/clients/analyze-diff', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        const payload = res?.data?.data || res?.data || {};
-        const summary = payload?.summary || payload?.resumen || payload?.totals || payload?.stats || null;
-        const items = payload?.items || payload || {};
-        const altaBdBajaCsv = items?.alta_bd_baja_csv || items?.altaBdBajaCsv || [];
-        const bajaBdAltaCsv = items?.baja_bd_alta_csv || items?.bajaBdAltaCsv || [];
-        const noEncontrados = items?.no_encontrados || items?.noEncontrados || [];
-        setDiffSummary(summary);
-        setDiffData({
-          altaBdBajaCsv: Array.isArray(altaBdBajaCsv) ? altaBdBajaCsv : [],
-          bajaBdAltaCsv: Array.isArray(bajaBdAltaCsv) ? bajaBdAltaCsv : [],
-          noEncontrados: Array.isArray(noEncontrados) ? noEncontrados : []
-        });
-        setDiffOpen(true);
-      } catch (err) {
-        setDiffError(err?.message || 'No se pudo analizar el CSV.');
-      } finally {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const api = getApiClient();
+          const csvText = event?.target?.result ?? '';
+          const res = await api.post('/imports/clients/analyze-diff',
+            { csv: csvText },
+            { headers: { 'Content-Type': 'application/json' } }
+          );
+          const payload = res?.data?.data || res?.data || {};
+          const summary = payload?.summary || payload?.resumen || payload?.totals || payload?.stats || null;
+          const items = payload?.items || payload || {};
+          const altaBdBajaCsv = items?.alta_bd_baja_csv || items?.altaBdBajaCsv || [];
+          const bajaBdAltaCsv = items?.baja_bd_alta_csv || items?.bajaBdAltaCsv || [];
+          const noEncontrados = items?.no_encontrados || items?.noEncontrados || [];
+          setDiffSummary(summary);
+          setDiffData({
+            altaBdBajaCsv: Array.isArray(altaBdBajaCsv) ? altaBdBajaCsv : [],
+            bajaBdAltaCsv: Array.isArray(bajaBdAltaCsv) ? bajaBdAltaCsv : [],
+            noEncontrados: Array.isArray(noEncontrados) ? noEncontrados : []
+          });
+          setDiffOpen(true);
+        } catch (err) {
+          setDiffError(err?.message || 'No se pudo analizar el CSV.');
+        } finally {
+          setDiffLoading(false);
+        }
+      };
+      reader.onerror = () => {
+        setDiffError('No se pudo leer el archivo CSV.');
         setDiffLoading(false);
-      }
+      };
+      reader.readAsText(file, 'latin1');
     };
     input.click();
   }, []);
