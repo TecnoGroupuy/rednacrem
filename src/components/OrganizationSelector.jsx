@@ -7,7 +7,6 @@ export function OrganizationSelectorScreen({ onSelect }) {
   const [orgs, setOrgs] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
-  const [search, setSearch] = React.useState('');
   const [showForm, setShowForm] = React.useState(false);
   const [formDraft, setFormDraft] = React.useState({ nombre: '', descripcion: '' });
   const [formSaving, setFormSaving] = React.useState(false);
@@ -27,12 +26,6 @@ export function OrganizationSelectorScreen({ onSelect }) {
   }, []);
 
   React.useEffect(() => { load(); }, [load]);
-
-  const filtered = React.useMemo(() => {
-    const term = search.trim().toLowerCase();
-    if (!term) return orgs;
-    return orgs.filter((o) => o.nombre.toLowerCase().includes(term));
-  }, [orgs, search]);
 
   const handleCreate = async () => {
     if (!formDraft.nombre.trim()) {
@@ -55,183 +48,330 @@ export function OrganizationSelectorScreen({ onSelect }) {
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-      display: 'grid',
-      placeItems: 'center',
-      padding: 24
-    }}>
-      <div style={{
-        width: 'min(640px, 100%)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 24
-      }}>
-        {/* Header */}
-        <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: 64, height: 64, borderRadius: 20,
-            background: 'rgba(15,118,110,0.2)',
-            border: '1px solid rgba(15,118,110,0.4)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 16px'
-          }}>
-            <Building2 size={28} color="#0f766e" />
+    <div className="org-page">
+      <style>{`
+        .org-page {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+          background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+          color: #ffffff;
+          height: 100vh;
+          overflow: hidden;
+          position: relative;
+        }
+        .org-page * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        .org-status-bar {
+          height: 44px;
+          background: rgba(15, 23, 42, 0.95);
+          backdrop-filter: blur(10px);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 20px;
+          font-size: 14px;
+          font-weight: 600;
+          position: sticky;
+          top: 0;
+          z-index: 100;
+        }
+        .org-container {
+          height: calc(100vh - 44px);
+          overflow-y: auto;
+          padding: 24px 20px;
+          padding-bottom: 100px;
+          -webkit-overflow-scrolling: touch;
+        }
+        .org-header { margin-bottom: 32px; margin-top: 8px; }
+        .org-header-top {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 8px;
+        }
+        .org-title { font-size: 32px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.2; }
+        .org-subtitle { color: #94a3b8; font-size: 16px; line-height: 1.4; }
+        .org-edit-btn {
+          background: rgba(255, 255, 255, 0.1);
+          border: none;
+          color: #14b8a6;
+          padding: 8px 16px;
+          border-radius: 20px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          backdrop-filter: blur(10px);
+        }
+        .org-section-label {
+          font-size: 13px;
+          text-transform: uppercase;
+          color: #64748b;
+          font-weight: 700;
+          letter-spacing: 0.8px;
+          margin-bottom: 16px;
+          margin-left: 4px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .org-section-label::after {
+          content: '';
+          flex: 1;
+          height: 1px;
+          background: rgba(255, 255, 255, 0.05);
+          margin-left: 8px;
+        }
+        .org-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+        .org-card {
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 24px;
+          padding: 20px;
+          display: flex;
+          align-items: center;
+          gap: 18px;
+          cursor: pointer;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          position: relative;
+          overflow: hidden;
+          animation: orgSlideUp 0.5s ease-out forwards;
+          opacity: 0;
+        }
+        .org-card::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+          transform: translateX(-100%);
+          transition: transform 0.6s;
+        }
+        .org-card:active {
+          transform: scale(0.98);
+          background: rgba(255, 255, 255, 0.06);
+          border-color: rgba(20, 184, 166, 0.3);
+        }
+        .org-card:active::before { transform: translateX(100%); }
+        .org-logo-wrap { position: relative; flex-shrink: 0; }
+        .org-logo {
+          width: 64px;
+          height: 64px;
+          border-radius: 18px;
+          display: grid;
+          place-items: center;
+          border: 2px solid rgba(255, 255, 255, 0.1);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+          background: #1e293b;
+          color: #14b8a6;
+        }
+        .org-status-dot {
+          position: absolute;
+          bottom: -2px;
+          right: -2px;
+          width: 18px;
+          height: 18px;
+          background: #22c55e;
+          border: 3px solid #0f172a;
+          border-radius: 50%;
+        }
+        .org-status-dot.inactive { background: #64748b; }
+        .org-info { flex: 1; min-width: 0; }
+        .org-name {
+          font-size: 18px;
+          font-weight: 600;
+          margin-bottom: 6px;
+          color: #f8fafc;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .org-role {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 14px;
+          color: #14b8a6;
+          background: rgba(20, 184, 166, 0.1);
+          padding: 4px 10px;
+          border-radius: 12px;
+          font-weight: 500;
+        }
+        .org-meta {
+          font-size: 14px;
+          color: #64748b;
+          margin-top: 6px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .org-chevron {
+          color: #475569;
+          font-size: 24px;
+          transition: all 0.3s;
+          margin-left: 8px;
+        }
+        .org-card:active .org-chevron { color: #14b8a6; transform: translateX(4px); }
+        .org-fab {
+          position: fixed;
+          bottom: 24px;
+          right: 20px;
+          width: 60px;
+          height: 60px;
+          background: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          font-size: 28px;
+          font-weight: 300;
+          box-shadow: 0 6px 24px rgba(13, 148, 136, 0.5);
+          border: none;
+          cursor: pointer;
+          z-index: 90;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .org-fab:active { transform: scale(0.9) rotate(90deg); box-shadow: 0 3px 12px rgba(13, 148, 136, 0.4); }
+        .org-form {
+          background: rgba(255,255,255,0.06);
+          border: 1px solid rgba(255,255,255,0.12);
+          border-radius: 16px;
+          padding: 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          margin-bottom: 20px;
+        }
+        .org-input {
+          background: rgba(255,255,255,0.08);
+          border: 1px solid rgba(255,255,255,0.15);
+          border-radius: 10px;
+          padding: 10px 12px;
+          color: #f1f5f9;
+          font-size: 14px;
+          outline: none;
+        }
+        .org-actions { display: flex; gap: 8px; justify-content: flex-end; }
+        .org-btn-ghost {
+          padding: 8px 16px;
+          border-radius: 10px;
+          border: 1px solid rgba(255,255,255,0.15);
+          background: transparent;
+          color: #94a3b8;
+          cursor: pointer;
+        }
+        .org-btn-primary {
+          padding: 8px 16px;
+          border-radius: 10px;
+          border: none;
+          background: #0f766e;
+          color: #fff;
+          font-weight: 600;
+          cursor: pointer;
+        }
+        @keyframes orgSlideUp {
+          from { opacity: 0; transform: translateY(30px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+          .org-fab { bottom: calc(24px + env(safe-area-inset-bottom)); }
+          .org-container { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
+        }
+        .org-container::-webkit-scrollbar { width: 0px; background: transparent; }
+      `}</style>
+      <div className="org-status-bar">
+        <span>9:41</span>
+        <div style={{ display: 'flex', gap: 6, fontSize: 12 }}>
+          <span>📶</span>
+          <span>WiFi</span>
+          <span>🔋</span>
+        </div>
+      </div>
+      <div className="org-container">
+        <div className="org-header">
+          <div className="org-header-top">
+            <div>
+              <h1 className="org-title">Mis Empresas</h1>
+            </div>
           </div>
-          <h1 style={{ color: '#f8fafc', fontWeight: 800, fontSize: 26, margin: '0 0 8px' }}>
-            Seleccionar organización
-          </h1>
-          <p style={{ color: '#94a3b8', margin: 0 }}>
-            Elegí la organización con la que vas a trabajar en esta sesión.
-          </p>
+          <p className="org-subtitle">Seleccioná la empresa para comenzar a trabajar</p>
         </div>
 
-        {/* Searchbox + botón crear */}
-        <div style={{ display: 'flex', gap: 10 }}>
-          <div style={{
-            flex: 1, display: 'flex', alignItems: 'center', gap: 10,
-            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 12, padding: '10px 14px'
-          }}>
-            <Search size={16} color="#64748b" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar organización..."
-              style={{
-                flex: 1, background: 'transparent', border: 'none', outline: 'none',
-                color: '#f1f5f9', fontSize: 14
-              }}
-            />
-          </div>
-          <button
-            onClick={() => { setShowForm(true); setFormError(''); setFormDraft({ nombre: '', descripcion: '' }); }}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8,
-              padding: '10px 16px', borderRadius: 12,
-              background: '#0f766e', color: '#fff', border: 'none',
-              fontWeight: 600, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap'
-            }}
-          >
-            <Plus size={16} />
-            Nueva
-          </button>
-        </div>
-
-        {/* Formulario nueva org */}
         {showForm && (
-          <div style={{
-            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-            borderRadius: 16, padding: 20, display: 'flex', flexDirection: 'column', gap: 12
-          }}>
+          <div className="org-form">
             <div style={{ color: '#f1f5f9', fontWeight: 700 }}>Nueva organización</div>
             <input
               autoFocus
+              className="org-input"
               placeholder="Nombre *"
               value={formDraft.nombre}
               onChange={(e) => setFormDraft((p) => ({ ...p, nombre: e.target.value }))}
-              style={{
-                background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
-                borderRadius: 10, padding: '10px 12px', color: '#f1f5f9', fontSize: 14, outline: 'none'
-              }}
             />
             <input
+              className="org-input"
               placeholder="Descripción (opcional)"
               value={formDraft.descripcion}
               onChange={(e) => setFormDraft((p) => ({ ...p, descripcion: e.target.value }))}
-              style={{
-                background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
-                borderRadius: 10, padding: '10px 12px', color: '#f1f5f9', fontSize: 14, outline: 'none'
-              }}
             />
             {formError && <div style={{ color: '#f87171', fontSize: 13 }}>{formError}</div>}
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => setShowForm(false)}
-                style={{
-                  padding: '8px 16px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.15)',
-                  background: 'transparent', color: '#94a3b8', cursor: 'pointer'
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleCreate}
-                disabled={formSaving}
-                style={{
-                  padding: '8px 16px', borderRadius: 10, border: 'none',
-                  background: '#0f766e', color: '#fff', fontWeight: 600,
-                  cursor: formSaving ? 'wait' : 'pointer', opacity: formSaving ? 0.7 : 1
-                }}
-              >
+            <div className="org-actions">
+              <button className="org-btn-ghost" onClick={() => setShowForm(false)}>Cancelar</button>
+              <button className="org-btn-primary" onClick={handleCreate} disabled={formSaving}>
                 {formSaving ? 'Guardando...' : 'Crear y entrar'}
               </button>
             </div>
           </div>
         )}
 
-        {/* Lista */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {loading && (
-            <div style={{ textAlign: 'center', color: '#64748b', padding: 32 }}>Cargando...</div>
-          )}
-          {error && (
-            <div style={{
-              background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)',
-              borderRadius: 12, padding: 12, color: '#f87171', fontSize: 13
-            }}>
-              {error}
-            </div>
-          )}
-          {!loading && !filtered.length && !error && (
-            <div style={{ textAlign: 'center', color: '#64748b', padding: 32 }}>
-              {search ? 'Sin resultados para esa búsqueda.' : 'No hay organizaciones creadas aún.'}
-            </div>
-          )}
-          {filtered.map((org) => (
-            <button
+        <div className="org-section-label">Todas las empresas</div>
+
+        {loading && (
+          <div style={{ textAlign: 'center', color: '#64748b', padding: 32 }}>Cargando...</div>
+        )}
+        {error && (
+          <div style={{
+            background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)',
+            borderRadius: 12, padding: 12, color: '#f87171', fontSize: 13, marginBottom: 12
+          }}>
+            {error}
+          </div>
+        )}
+        {!loading && !orgs.length && !error && (
+          <div style={{ textAlign: 'center', color: '#64748b', padding: 32 }}>
+            No hay organizaciones creadas aún.
+          </div>
+        )}
+
+        <div className="org-grid">
+          {orgs.map((org, index) => (
+            <div
               key={org.id}
+              className="org-card"
+              style={{ animationDelay: `${Math.min(index + 1, 5) * 0.05}s`, opacity: org.activo === false ? 0.6 : 1 }}
               onClick={() => onSelect(org)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 14,
-                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: 14, padding: '14px 16px', cursor: 'pointer',
-                textAlign: 'left', transition: 'all 140ms ease',
-                opacity: org.activo === false ? 0.5 : 1
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(15,118,110,0.15)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
             >
-              <div style={{
-                width: 42, height: 42, borderRadius: 12, flexShrink: 0,
-                background: 'rgba(15,118,110,0.2)', border: '1px solid rgba(15,118,110,0.3)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center'
-              }}>
-                <Building2 size={18} color="#0f766e" />
+              <div className="org-logo-wrap">
+                <div className="org-logo">
+                  <Building2 size={22} />
+                </div>
+                <div className={`org-status-dot ${org.activo === false ? 'inactive' : ''}`}></div>
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: '#f1f5f9', fontWeight: 700, fontSize: 15 }}>{org.nombre}</div>
-                <div style={{ color: '#64748b', fontSize: 12, marginTop: 2 }}>
+              <div className="org-info">
+                <div className="org-name">{org.nombre}</div>
+                <span className="org-role">👤 {org.role || org.rol || 'Admin'}</span>
+                <div className="org-meta">
                   {org.descripcion || 'Sin descripción'}
                   {org.total_usuarios != null
                     ? ` · ${org.total_usuarios} usuario${org.total_usuarios !== 1 ? 's' : ''}`
                     : ''}
                 </div>
               </div>
-              {org.activo === false && (
-                <span style={{
-                  fontSize: 11, fontWeight: 700, color: '#f59e0b',
-                  background: 'rgba(245,158,11,0.15)', borderRadius: 999, padding: '2px 8px'
-                }}>
-                  Inactiva
-                </span>
-              )}
-              <ChevronRight size={16} color="#475569" />
-            </button>
+              <span className="org-chevron">›</span>
+            </div>
           ))}
         </div>
       </div>
+
+      <button className="org-fab" onClick={() => { setShowForm(true); setFormError(''); }}>
+        <Plus size={24} />
+      </button>
     </div>
   );
 }
