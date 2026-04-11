@@ -93,6 +93,7 @@ import {
 import SuperadminWorkbench from './components/SuperadminWorkbench.jsx';
 import SupervisorLotWizard from './components/SupervisorLotWizard.jsx';
 import ContactDetailModal from './components/ContactDetailModal.jsx';
+import { OrganizationSelectorScreen, OrganizationSwitcherModal } from './components/OrganizationSelector.jsx';
 import SupervisorContractsModule from './components/SupervisorContractsModule.jsx';
 import SupervisorRegistrationRequestsModule from './components/SupervisorRegistrationRequestsModule.jsx';
 import ClienteFichaForm from './components/ClienteFichaForm.jsx';
@@ -11068,6 +11069,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const role = rolEfectivo;
       const [route, setRoute] = React.useState('dashboard_global');
       const [isDesktop, setIsDesktop] = React.useState(window.innerWidth >= 1024);
+      const [activeOrg, setActiveOrg] = React.useState(null);
+      const [orgSwitcherOpen, setOrgSwitcherOpen] = React.useState(false);
       const [menuOpen, setMenuOpen] = React.useState(window.innerWidth >= 1024);
       const [estadoUsuario, setEstadoUsuario] = React.useState('disponible');
       const [pausaInicio, setPausaInicio] = React.useState('');
@@ -11769,10 +11772,21 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             </div>
           );
         }
-        if (route === 'soporte' && role === 'atencion_cliente') return <CustomerSupportModule />;
-        if (route === 'servicios') return <OperationsDashboard />;
-        return <PlaceholderView title={navItems.find((item) => item.path === route)?.label || 'Módulo'} subtitle="La estructura ya está integrada al sistema. Se puede profundizar con formularios, reglas de negocio, estados y persistencia cuando lo definas." cta="Volver al foco" />;
-      };
+      if (route === 'soporte' && role === 'atencion_cliente') return <CustomerSupportModule />;
+      if (route === 'servicios') return <OperationsDashboard />;
+      return <PlaceholderView title={navItems.find((item) => item.path === route)?.label || 'Módulo'} subtitle="La estructura ya está integrada al sistema. Se puede profundizar con formularios, reglas de negocio, estados y persistencia cuando lo definas." cta="Volver al foco" />;
+    };
+
+    if (rolReal === 'superadministrador' && !activeOrg) {
+      return (
+        <OrganizationSelectorScreen
+          onSelect={(org) => {
+            setActiveOrg(org);
+            setRoute('dashboard_global');
+          }}
+        />
+      );
+    }
 
       return (
         <>
@@ -11859,6 +11873,30 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   </div>
                 ) : null}
               </div>
+              {rolReal === 'superadministrador' && activeOrg && (
+                <button
+                  onClick={() => setOrgSwitcherOpen(true)}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    padding: '6px 12px', borderRadius: 10,
+                    border: '1px solid rgba(15,118,110,0.35)',
+                    background: 'rgba(15,118,110,0.08)',
+                    color: '#0f766e', fontWeight: 600, fontSize: 12,
+                    cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0
+                  }}
+                >
+                  <Building2 size={14} />
+                  {activeOrg.nombre}
+                  <ChevronDown size={12} />
+                </button>
+              )}
+              {orgSwitcherOpen && (
+                <OrganizationSwitcherModal
+                  currentOrgId={activeOrg?.id}
+                  onSelect={(org) => { setActiveOrg(org); setOrgSwitcherOpen(false); }}
+                  onClose={() => setOrgSwitcherOpen(false)}
+                />
+              )}
               {effectiveRoleForUi !== 'vendedor' && (
                 <div className="searchbox"><Search size={18} color="#69788d" /><input placeholder="Buscar clientes, gestiones o servicios..." /><div className="pill">Demo</div></div>
               )}
