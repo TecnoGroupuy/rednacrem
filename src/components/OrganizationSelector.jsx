@@ -174,7 +174,7 @@ export function OrganizationSelectorScreen({ onSelect }) {
         .org-status-dot.inactive { background: #64748b; }
         .org-info { flex: 1; min-width: 0; }
         .org-name {
-          font-size: 18px;
+          font-size: 20px;
           font-weight: 600;
           margin-bottom: 6px;
           color: #f8fafc;
@@ -276,14 +276,7 @@ export function OrganizationSelectorScreen({ onSelect }) {
         }
         .org-container::-webkit-scrollbar { width: 0px; background: transparent; }
       `}</style>
-      <div className="org-status-bar">
-        <span>9:41</span>
-        <div style={{ display: 'flex', gap: 6, fontSize: 12 }}>
-          <span>📶</span>
-          <span>WiFi</span>
-          <span>🔋</span>
-        </div>
-      </div>
+      <div className="org-status-bar" />
       <div className="org-container">
         <div className="org-header">
           <div className="org-header-top">
@@ -354,14 +347,15 @@ export function OrganizationSelectorScreen({ onSelect }) {
                 <div className={`org-status-dot ${org.activo === false ? 'inactive' : ''}`}></div>
               </div>
               <div className="org-info">
-                <div className="org-name">{org.nombre}</div>
-                <span className="org-role">👤 {org.role || org.rol || 'Admin'}</span>
-                <div className="org-meta">
-                  {org.descripcion || 'Sin descripción'}
-                  {org.total_usuarios != null
-                    ? ` · ${org.total_usuarios} usuario${org.total_usuarios !== 1 ? 's' : ''}`
-                    : ''}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <div className="org-name">{org.nombre}</div>
+                  <span className="org-role">{org.role || org.rol || 'Admin'}</span>
                 </div>
+                {org.total_usuarios != null ? (
+                  <div className="org-meta">
+                    {org.total_usuarios} usuario{org.total_usuarios !== 1 ? 's' : ''}
+                  </div>
+                ) : null}
               </div>
               <span className="org-chevron">›</span>
             </div>
