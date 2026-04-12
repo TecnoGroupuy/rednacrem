@@ -59,22 +59,8 @@ export function OrganizationSelectorScreen({ onSelect }) {
           position: relative;
         }
         .org-page * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        .org-status-bar {
-          height: 44px;
-          background: rgba(15, 23, 42, 0.95);
-          backdrop-filter: blur(10px);
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0 20px;
-          font-size: 14px;
-          font-weight: 600;
-          position: sticky;
-          top: 0;
-          z-index: 100;
-        }
         .org-container {
-          height: calc(100vh - 44px);
+          height: 100vh;
           overflow-y: auto;
           padding: 24px 20px;
           padding-bottom: 100px;
@@ -276,7 +262,6 @@ export function OrganizationSelectorScreen({ onSelect }) {
         }
         .org-container::-webkit-scrollbar { width: 0px; background: transparent; }
       `}</style>
-      <div className="org-status-bar" />
       <div className="org-container">
         <div className="org-header">
           <div className="org-header-top">
