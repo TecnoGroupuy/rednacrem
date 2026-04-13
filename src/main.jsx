@@ -11064,6 +11064,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       );
     }
 
+    const ACTIVE_ORG_STORAGE_KEY = 'rednacrem_active_org';
+
     function App() {
       const today = new Date().toLocaleDateString('es-UY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
       const oidcAuth = useOidcAuth();
@@ -11073,7 +11075,17 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const role = rolEfectivo;
       const [route, setRoute] = React.useState('dashboard_global');
       const [isDesktop, setIsDesktop] = React.useState(window.innerWidth >= 1024);
-      const [activeOrg, setActiveOrg] = React.useState(null);
+      const [activeOrg, setActiveOrg] = React.useState(() => {
+        try {
+          const stored = localStorage.getItem(ACTIVE_ORG_STORAGE_KEY);
+          if (!stored) return null;
+          const parsed = JSON.parse(stored);
+          if (parsed && typeof parsed === 'object' && parsed.id) return parsed;
+          return null;
+        } catch {
+          return null;
+        }
+      });
       const [orgSwitcherOpen, setOrgSwitcherOpen] = React.useState(false);
       const [menuOpen, setMenuOpen] = React.useState(window.innerWidth >= 1024);
       const [estadoUsuario, setEstadoUsuario] = React.useState('disponible');
@@ -11247,6 +11259,24 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setLastActivityAt(now);
         setInactivityWarning(false);
       }, []);
+
+      React.useEffect(() => {
+        if (activeOrg && activeOrg.id) {
+          setActiveOrganizationId(activeOrg.id);
+          try {
+            localStorage.setItem(ACTIVE_ORG_STORAGE_KEY, JSON.stringify(activeOrg));
+          } catch {
+            // no-op
+          }
+        } else {
+          setActiveOrganizationId(null);
+          try {
+            localStorage.removeItem(ACTIVE_ORG_STORAGE_KEY);
+          } catch {
+            // no-op
+          }
+        }
+      }, [activeOrg]);
 
       const fetchEstadoActual = React.useCallback(async () => {
         setEstadoActualLoading(true);
@@ -11462,6 +11492,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const agenteId = authUser?.id || '';
         if (agenteId) {
           api.post('/api/agent/event', { agente_id: agenteId, tipo: 'LOGOUT' }).catch(() => {});
+        }
+        setActiveOrganizationId(null);
+        setActiveOrg(null);
+        try {
+          localStorage.removeItem(ACTIVE_ORG_STORAGE_KEY);
+        } catch {
+          // no-op
         }
         // 1) Cerrar sesion OIDC local para evitar estado stale en el frontend.
         if (oidcAuth?.removeUser) {
@@ -11956,7 +11993,6 @@ createRoot(document.getElementById('root')).render(
   </React.StrictMode>
 );
   
-
 
 
 
