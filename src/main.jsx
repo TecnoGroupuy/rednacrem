@@ -1356,15 +1356,19 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         let active = true;
         const api = getApiClient();
         const fetchConfig = async () => {
+          console.log('[config] iniciando fetch');
           try {
             const response = await api.get('/api/config');
+            console.log('[config] logo_url:', response?.logo_url);
             if (active) {
               setTeamConfig(response || null);
               if (response?.logo_url) {
                 setBrandLogo(response.logo_url);
+                console.log('[brandLogo] seteado');
               }
             }
           } catch (err) {
+            console.log('[config] ERROR:', err?.message);
             if (active) setTeamConfig(null);
           }
         };
