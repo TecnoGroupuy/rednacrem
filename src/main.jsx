@@ -3485,7 +3485,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         direccion: '',
         departamento: '',
         localidad: '',
-        pais: 'Uruguay'
+        pais: 'Uruguay',
+        origen_dato: ''
       });
 
       React.useEffect(() => {
@@ -3576,7 +3577,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           direccion: '',
           departamento: '',
           localidad: '',
-          pais: 'Uruguay'
+          pais: 'Uruguay',
+          origen_dato: ''
         });
         setNuevoContactoOpen(true);
       };
@@ -3604,7 +3606,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             direccion: nuevoContacto.direccion || '',
             departamento: nuevoContacto.departamento || '',
             localidad: nuevoContacto.localidad || '',
-            pais: nuevoContacto.pais || 'Uruguay'
+            pais: nuevoContacto.pais || 'Uruguay',
+            origen_dato: nuevoContacto.origen_dato || ''
           }
         };
         setNuevoContactoSaving(true);
