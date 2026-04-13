@@ -8216,6 +8216,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             email: '',
             direccion: '',
             departamento: '',
+            origen_dato: '',
             pais: 'Uruguay',
             status: 'activo'
           },
@@ -8804,6 +8805,28 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           />
                         </label>
                       ))}
+                      <label style={{ gridColumn: '1 / -1', fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1 }}>
+                        Origen del dato
+                        <select
+                          value={newClientDraft.contact.origen_dato || ''}
+                          onChange={(event) => handleNewClientContactChange('origen_dato', event.target.value)}
+                          style={{
+                            marginTop: 6,
+                            width: '100%',
+                            padding: '10px 12px',
+                            borderRadius: 12,
+                            border: '1px solid #e5e7eb'
+                          }}
+                        >
+                          <option value="">Sin especificar</option>
+                          <option value="facebook">Facebook</option>
+                          <option value="instagram">Instagram</option>
+                          <option value="correo">Correo</option>
+                          <option value="whatsapp">WhatsApp</option>
+                          <option value="guia_telefonica">Guía telefónica</option>
+                          <option value="referido">Referido</option>
+                        </select>
+                      </label>
                       <label style={{ gridColumn: '1 / -1', fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1 }}>
                         Estado del contacto
                         <select
