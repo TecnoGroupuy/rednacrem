@@ -3951,6 +3951,22 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     País
                     <input className="input" value={nuevoContacto.pais} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, pais: e.target.value }))} />
                   </label>
+                  <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569', gridColumn: '1 / -1' }}>
+                    Origen del dato
+                    <select
+                      className="input"
+                      value={nuevoContacto.origen_dato || ''}
+                      onChange={(e) => setNuevoContacto((prev) => ({ ...prev, origen_dato: e.target.value }))}
+                    >
+                      <option value="">Sin especificar</option>
+                      <option value="facebook">Facebook</option>
+                      <option value="instagram">Instagram</option>
+                      <option value="correo">Correo</option>
+                      <option value="whatsapp">WhatsApp</option>
+                      <option value="guia_telefonica">Guía telefónica</option>
+                      <option value="referido">Referido</option>
+                    </select>
+                  </label>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
