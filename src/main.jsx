@@ -93,7 +93,11 @@ import {
 import SuperadminWorkbench from './components/SuperadminWorkbench.jsx';
 import SupervisorLotWizard from './components/SupervisorLotWizard.jsx';
 import ContactDetailModal from './components/ContactDetailModal.jsx';
-import { OrganizationSelectorScreen, OrganizationSwitcherModal } from './components/OrganizationSelector.jsx';
+import {
+  OrganizationSelectorScreen,
+  OrganizationSwitcherModal,
+  OrganizationTopbarChip
+} from './components/OrganizationSelector.jsx';
 import SupervisorContractsModule from './components/SupervisorContractsModule.jsx';
 import SupervisorRegistrationRequestsModule from './components/SupervisorRegistrationRequestsModule.jsx';
 import ClienteFichaForm from './components/ClienteFichaForm.jsx';
@@ -11777,7 +11781,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       return <PlaceholderView title={navItems.find((item) => item.path === route)?.label || 'Módulo'} subtitle="La estructura ya está integrada al sistema. Se puede profundizar con formularios, reglas de negocio, estados y persistencia cuando lo definas." cta="Volver al foco" />;
     };
 
-    if (rolReal === 'superadministrador' && !activeOrg) {
+    if (esSuperadmin && !activeOrg) {
       return (
         <OrganizationSelectorScreen
           onSelect={(org) => {
@@ -11873,29 +11877,23 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   </div>
                 ) : null}
               </div>
-              {rolReal === 'superadministrador' && activeOrg && (
-                <button
-                  onClick={() => setOrgSwitcherOpen(true)}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 8,
-                    padding: '6px 12px', borderRadius: 10,
-                    border: '1px solid rgba(15,118,110,0.35)',
-                    background: 'rgba(15,118,110,0.08)',
-                    color: '#0f766e', fontWeight: 600, fontSize: 12,
-                    cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0
-                  }}
-                >
-                  <Building2 size={14} />
-                  {activeOrg.nombre}
-                  <ChevronDown size={12} />
-                </button>
-              )}
-              {orgSwitcherOpen && (
-                <OrganizationSwitcherModal
-                  currentOrgId={activeOrg?.id}
-                  onSelect={(org) => { setActiveOrg(org); setOrgSwitcherOpen(false); }}
-                  onClose={() => setOrgSwitcherOpen(false)}
-                />
+              {esSuperadmin && activeOrg && (
+                <>
+                  <OrganizationTopbarChip
+                    org={activeOrg}
+                    onClick={() => setOrgSwitcherOpen(true)}
+                  />
+                  {orgSwitcherOpen && (
+                    <OrganizationSwitcherModal
+                      currentOrgId={activeOrg.id}
+                      onSelect={(org) => {
+                        setActiveOrg(org);
+                        setOrgSwitcherOpen(false);
+                      }}
+                      onClose={() => setOrgSwitcherOpen(false)}
+                    />
+                  )}
+                </>
               )}
               {effectiveRoleForUi !== 'vendedor' && (
                 <div className="searchbox"><Search size={18} color="#69788d" /><input placeholder="Buscar clientes, gestiones o servicios..." /><div className="pill">Demo</div></div>
@@ -11956,7 +11954,6 @@ createRoot(document.getElementById('root')).render(
   </React.StrictMode>
 );
   
-
 
 
 
