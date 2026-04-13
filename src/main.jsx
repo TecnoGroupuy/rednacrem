@@ -11097,13 +11097,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [inactivityWarning, setInactivityWarning] = React.useState(false);
       const [showProfileModal, setShowProfileModal] = React.useState(false);
       const [supportNewTickets, setSupportNewTickets] = React.useState(0);
-      const [brandLogo, setBrandLogo] = React.useState(() => {
-        try {
-          return localStorage.getItem('rednacrem_logo') || '';
-        } catch {
-          return '';
-        }
-      });
+      const [brandLogo, setBrandLogo] = React.useState(null);
       const [vendedorNewClientOpen, setVendedorNewClientOpen] = React.useState(false);
       const [vendedorNewClientDraft, setVendedorNewClientDraft] = React.useState(null);
       const [vendedorNewClientOnSuccess, setVendedorNewClientOnSuccess] = React.useState(null);
@@ -11223,6 +11217,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           if (observer) observer.disconnect();
         };
       }, []);
+
+      React.useEffect(() => {
+        if (activeOrg?.logo_url) {
+          setBrandLogo(activeOrg.logo_url);
+        }
+      }, [activeOrg?.logo_url]);
 
       React.useEffect(() => {
         try {
@@ -11424,10 +11424,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       };
 
       // Acción crítica: branding global solo con rol real superadmin.
-      const saveBrandLogoSecure = (nextLogo) => {
+      const saveBrandLogoSecure = React.useCallback((logoUrl) => {
         if (!hasRealSuperadminAccess) return;
-        setBrandLogo(nextLogo);
-      };
+        setBrandLogo(logoUrl);
+        setActiveOrg((prev) => prev ? { ...prev, logo_url: logoUrl } : prev);
+      }, [hasRealSuperadminAccess]);
 
       const handleEstadoUsuario = (estadoId) => {
         const next = resolveEstadoUsuario(estadoId);
@@ -11639,6 +11640,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 route={route}
                 onOpenRoute={setRoute}
                 logoUrl={brandLogo}
+                activeOrgId={activeOrg?.id}
                 onSaveLogo={saveBrandLogoSecure}
                 roleMeta={ROLE_META}
                 roleNav={ROLE_NAV}
@@ -11993,8 +11995,6 @@ createRoot(document.getElementById('root')).render(
   </React.StrictMode>
 );
   
-
-
 
 
 

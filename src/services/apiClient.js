@@ -62,6 +62,10 @@ export function setApiAccessTokenGetter(getter) {
   accessTokenGetter = typeof getter === 'function' ? getter : async () => null;
 }
 
+export async function getAccessToken() {
+  return accessTokenGetter();
+}
+
 export function createApiClient({ baseUrl, getAccessToken }) {
   const request = async (path, { method = 'GET', headers = {}, body } = {}) => {
     const rawUrl = buildApiUrl(path, baseUrl);

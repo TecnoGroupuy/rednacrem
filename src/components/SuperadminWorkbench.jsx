@@ -4,6 +4,7 @@ import { Search, Filter, Upload, Plus, CheckCircle2, X, Edit3, Activity, Phone, 
 import ContactDetailModal from './ContactDetailModal.jsx';
 import { listImports, previewCsvText, createImportFromCsv, deleteImportById, IMPORT_TYPES } from '../services/importsService.js';
 import { getApiClient } from '../services/apiClient.js';
+import { uploadOrganizationLogo } from '../services/organizationsService.js';
 import { listNoCallEntries, listPhoneResultEntries, getNoCallStats, listDatosParaTrabajar } from '../services/leadsService.js';
 import { listProductsAsync, createProduct, updateProduct } from '../services/productsService.js';
 import { listUsersAsync, createUser, updateUser } from '../services/usersService.js';
@@ -46,6 +47,7 @@ export default function SuperadminWorkbench({
   route,
   onOpenRoute,
   logoUrl,
+  activeOrgId,
   onSaveLogo,
   roleMeta,
   roleNav,
@@ -124,8 +126,10 @@ export default function SuperadminWorkbench({
   const [userFormLoading, setUserFormLoading] = React.useState(false);
 
   const [logoDraft, setLogoDraft] = React.useState(logoUrl || '');
+  const [logoFile, setLogoFile] = React.useState(null);
   const [logoError, setLogoError] = React.useState('');
   const [logoSaved, setLogoSaved] = React.useState('');
+  const [logoSaving, setLogoSaving] = React.useState(false);
   const [moduleRoleFilter, setModuleRoleFilter] = React.useState(() => Object.keys(roleMeta).find((key) => key !== 'superadministrador') || 'superadministrador');
 
   const resetImportFlow = React.useCallback(() => {
@@ -649,9 +653,11 @@ export default function SuperadminWorkbench({
     const file = event.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
+      setLogoFile(null);
       setLogoError('Selecciona una imagen válida.');
       return;
     }
+    setLogoFile(file);
     const dataUrl = await new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(String(reader.result || ''));
@@ -661,11 +667,30 @@ export default function SuperadminWorkbench({
     setLogoDraft(dataUrl);
   };
 
-  const saveLogo = () => {
-    onSaveLogo(logoDraft || '');
-    setLogoSaved('Logo guardado correctamente.');
-    logActivityEvent({ entidad: 'sistema', tipo: 'branding', descripcion: 'Identidad visual actualizada', usuarioId: 'usr-001' });
-    loadActivity();
+  const saveLogo = async () => {
+    if (!activeOrgId) {
+      setLogoError('Selecciona una organización antes de subir el logo.');
+      return;
+    }
+    if (!logoFile) {
+      setLogoError('Selecciona un archivo de logo.');
+      return;
+    }
+    setLogoSaving(true);
+    setLogoError('');
+    try {
+      const result = await uploadOrganizationLogo(activeOrgId, logoFile);
+      onSaveLogo(result.logo_url);
+      setLogoFile(null);
+      setLogoDraft(result.logo_url);
+      setLogoSaved('Logo guardado correctamente.');
+      logActivityEvent({ entidad: 'sistema', tipo: 'branding', descripcion: 'Identidad visual actualizada', usuarioId: 'usr-001' });
+      loadActivity();
+    } catch (err) {
+      setLogoError(err?.message || 'No se pudo subir el logo.');
+    } finally {
+      setLogoSaving(false);
+    }
   };
 
   const activeUsers = users.filter((item) => item.activo).length;
@@ -1526,7 +1551,7 @@ export default function SuperadminWorkbench({
   }
 
   if (route === 'sa_configuracion') {
-    return <div className="view"><section className="content-grid"><Panel className="span-8" title="Configuración general" subtitle="Parámetros globales"><div className="mini-stats"><div className="mini-stat"><span>Tipos de solicitud</span><strong>Atención al cliente</strong></div><div className="mini-stat"><span>Estados comerciales</span><strong>Ventas y seguimiento</strong></div><div className="mini-stat"><span>Parámetros generales</span><strong>Categorías y estados</strong></div></div></Panel><Panel className="span-4" title="Identidad visual" subtitle="Cambio de logo"><div className="list"><div style={{ borderRadius: 16, border: '1px solid var(--line)', minHeight: 100, display: 'grid', placeItems: 'center', background: 'rgba(20,34,53,0.03)' }}>{logoDraft ? <img src={logoDraft} alt="Logo" style={{ maxWidth: '100%', maxHeight: 80, objectFit: 'contain' }} /> : <strong>Sin logo personalizado</strong>}</div><input className="input" type="file" accept="image/*" onChange={onLogoFile} />{logoError ? <div style={{ color: '#be123c', fontWeight: 700 }}>{logoError}</div> : null}{logoSaved ? <div style={{ color: '#15803d', fontWeight: 700 }}>{logoSaved}</div> : null}<Button icon={<CheckCircle2 size={16} />} onClick={saveLogo}>Guardar logo</Button></div></Panel></section></div>;
+    return <div className="view"><section className="content-grid"><Panel className="span-8" title="Configuración general" subtitle="Parámetros globales"><div className="mini-stats"><div className="mini-stat"><span>Tipos de solicitud</span><strong>Atención al cliente</strong></div><div className="mini-stat"><span>Estados comerciales</span><strong>Ventas y seguimiento</strong></div><div className="mini-stat"><span>Parámetros generales</span><strong>Categorías y estados</strong></div></div></Panel><Panel className="span-4" title="Identidad visual" subtitle="Cambio de logo"><div className="list"><div style={{ borderRadius: 16, border: '1px solid var(--line)', minHeight: 100, display: 'grid', placeItems: 'center', background: 'rgba(20,34,53,0.03)' }}>{logoDraft ? <img src={logoDraft} alt="Logo" style={{ maxWidth: '100%', maxHeight: 80, objectFit: 'contain' }} /> : <strong>Sin logo personalizado</strong>}</div><input className="input" type="file" accept="image/*" onChange={onLogoFile} />{logoError ? <div style={{ color: '#be123c', fontWeight: 700 }}>{logoError}</div> : null}{logoSaved ? <div style={{ color: '#15803d', fontWeight: 700 }}>{logoSaved}</div> : null}<Button icon={<CheckCircle2 size={16} />} onClick={saveLogo} disabled={logoSaving}>{logoSaving ? 'Guardando...' : 'Guardar logo'}</Button></div></Panel></section></div>;
   }
 
   return <div className="view"><section className="metrics-grid">{globalMetrics.map((item) => <MetricCard key={item.title} item={item} />)}</section><section className="content-grid"><Panel className="span-7" title="Vista general del sistema" subtitle="Control rápido de módulos críticos"><div className="mini-stats"><div className="mini-stat"><span>Importaciones recientes</span><strong>{imports.slice(0, 5).length}</strong></div><div className="mini-stat"><span>Base No llamar activa</span><strong>{noCallMeta.total || noCallRows.length}</strong></div><div className="mini-stat"><span>Resultados telefónicos cargados</span><strong>{phoneResultsRows.length}</strong></div><div className="mini-stat"><span>Usuarios con actividad reciente</span><strong>{activeUsers}</strong></div></div><div className="toolbar" style={{ marginTop: 14 }}><Button icon={<Upload size={16} />} onClick={() => onOpenRoute('sa_importaciones')}>Ir a Importaciones</Button><Button variant="secondary" icon={<Phone size={16} />} onClick={() => onOpenRoute('sa_no_llamar')}>Base No llamar</Button><Button variant="secondary" icon={<PhoneCall size={16} />} onClick={() => onOpenRoute('sa_resultados')}>Resultados</Button></div></Panel><Panel className="span-5" title="Actividad reciente" subtitle="Monitoreo transversal">{listRecentActivity(6).map((item) => <div key={item.id} className="status-item"><div className="status-ring" style={{ background: 'rgba(37,99,235,0.12)', color: '#2563eb' }}><Activity size={16} /></div><div style={{ flex: 1 }}><div style={{ fontWeight: 700 }}>{item.tipo}</div><div style={{ color: 'var(--muted)' }}>{item.detalle}</div></div><span style={{ color: 'var(--muted)', fontSize: '0.84rem' }}>{item.at}</span></div>)}</Panel></section></div>;
