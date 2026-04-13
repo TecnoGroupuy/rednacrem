@@ -112,7 +112,7 @@ import { useRolEfectivo } from './hooks/useRolEfectivo.js';
 import AuthGate from './components/auth/AuthGate.jsx';
 import { downloadCsvFile } from './utils/importWizardHelpers.js';
 import { formatDate } from './utils/dateFormat.js';
-import { getApiClient, getApiBaseUrl } from './services/apiClient.js';
+import { getApiClient, getApiBaseUrl, setActiveOrganizationId } from './services/apiClient.js';
 import { io } from 'socket.io-client';
 import {
   createInitialModuleStates,
@@ -11785,6 +11785,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       return (
         <OrganizationSelectorScreen
           onSelect={(org) => {
+            setActiveOrganizationId(org.id);
             setActiveOrg(org);
             setRoute('dashboard_global');
           }}
@@ -11887,6 +11888,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <OrganizationSwitcherModal
                       currentOrgId={activeOrg.id}
                       onSelect={(org) => {
+                        setActiveOrganizationId(org.id);
                         setActiveOrg(org);
                         setOrgSwitcherOpen(false);
                       }}
@@ -11954,7 +11956,6 @@ createRoot(document.getElementById('root')).render(
   </React.StrictMode>
 );
   
-
 
 
 

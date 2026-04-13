@@ -15,6 +15,15 @@ const DEFAULT_BASE_URL = normalizeBaseUrl(
   typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL
 );
 let accessTokenGetter = async () => null;
+let activeOrganizationId = null;
+
+export function setActiveOrganizationId(orgId) {
+  activeOrganizationId = orgId || null;
+}
+
+export function getActiveOrganizationId() {
+  return activeOrganizationId;
+}
 const DEV_LOCAL_STORAGE_KEYS = {
   role: 'local_dev_user_role',
   email: 'local_dev_user_email',
@@ -55,7 +64,19 @@ export function setApiAccessTokenGetter(getter) {
 
 export function createApiClient({ baseUrl, getAccessToken }) {
   const request = async (path, { method = 'GET', headers = {}, body } = {}) => {
-    const finalUrl = buildApiUrl(path, baseUrl);
+    const rawUrl = buildApiUrl(path, baseUrl);
+    const finalUrl = (() => {
+      if (!activeOrganizationId) return rawUrl;
+      if (isAbsoluteUrl(rawUrl)) {
+        const u = new URL(rawUrl);
+        if (!u.searchParams.has('organization_id')) {
+          u.searchParams.set('organization_id', activeOrganizationId);
+        }
+        return u.toString();
+      }
+      const separator = rawUrl.includes('?') ? '&' : '?';
+      return `${rawUrl}${separator}organization_id=${encodeURIComponent(activeOrganizationId)}`;
+    })();
     const token = await getAccessToken();
     const hasBody = body !== undefined && body !== null;
     const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
@@ -106,7 +127,19 @@ export function createApiClient({ baseUrl, getAccessToken }) {
   };
 
   const requestBlob = async (path, { method = 'GET', headers = {} } = {}) => {
-    const finalUrl = buildApiUrl(path, baseUrl);
+    const rawUrl = buildApiUrl(path, baseUrl);
+    const finalUrl = (() => {
+      if (!activeOrganizationId) return rawUrl;
+      if (isAbsoluteUrl(rawUrl)) {
+        const u = new URL(rawUrl);
+        if (!u.searchParams.has('organization_id')) {
+          u.searchParams.set('organization_id', activeOrganizationId);
+        }
+        return u.toString();
+      }
+      const separator = rawUrl.includes('?') ? '&' : '?';
+      return `${rawUrl}${separator}organization_id=${encodeURIComponent(activeOrganizationId)}`;
+    })();
     const token = await getAccessToken();
     const isDevToken = import.meta?.env?.DEV && token === 'dev-token';
 
