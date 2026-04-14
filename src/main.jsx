@@ -100,6 +100,7 @@ import {
 } from './components/OrganizationSelector.jsx';
 import SupervisorContractsModule from './components/SupervisorContractsModule.jsx';
 import SupervisorRegistrationRequestsModule from './components/SupervisorRegistrationRequestsModule.jsx';
+import CampanasRedesModule from './components/CampanasRedesModule.jsx';
 import ClienteFichaForm from './components/ClienteFichaForm.jsx';
 import ProfileModal from './components/ProfileModal.jsx';
 import BotonVistaRol from './components/BotonVistaRol.jsx';
@@ -171,6 +172,7 @@ const ROLE_NAV = [
       { path: 'sa_logs_actividad', label: 'Logs y actividad', caption: 'Monitoreo e inactividad', roles: ['superadministrador'], icon: Zap },
       { path: 'sa_estado_modulos', label: 'Estado de módulos', caption: 'Visibilidad por rol', roles: ['superadministrador'], icon: Layers },
       { path: 'sa_configuracion', label: 'Configuración', caption: 'Identidad y parámetros', roles: ['superadministrador'], icon: Settings },
+      { path: 'campanas_redes', label: 'Campañas de redes', caption: 'Monitor de campañas', roles: ['superadministrador', 'director', 'supervisor'], icon: BarChart3 },
       { path: 'dashboard', label: 'Monitor', caption: 'Resumen principal', roles: ['director', 'supervisor', 'vendedor', 'operaciones'], icon: Activity },
       { path: 'contactos', label: 'Contacto', caption: 'Base comercial', roles: ['director', 'vendedor'], icon: Users },
       { path: 'recupero', label: 'Recupero', caption: 'Cartera en baja', roles: ['vendedor'], icon: FileText },
@@ -11879,6 +11881,16 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         }
       if (route === 'soporte' && role === 'atencion_cliente') return <CustomerSupportModule />;
       if (route === 'servicios') return <OperationsDashboard />;
+      if (route === 'campanas_redes') {
+        return (
+          <RequireRole
+            roles={['superadministrador', 'director', 'supervisor']}
+            fallback={<PlaceholderView title="Campañas de redes" subtitle="No tenés permisos para este módulo." cta="Volver al foco" />}
+          >
+            <CampanasRedesModule />
+          </RequireRole>
+        );
+      }
       return <PlaceholderView title={navItems.find((item) => item.path === route)?.label || 'Módulo'} subtitle="La estructura ya está integrada al sistema. Se puede profundizar con formularios, reglas de negocio, estados y persistencia cuando lo definas." cta="Volver al foco" />;
     };
 
