@@ -77,12 +77,13 @@ export default function CampanasRedesModule() {
   }, [periodo, origen]);
 
   const loadLeads = React.useCallback(async (page = 1) => {
+    console.log('[loadLeads called] v2', origen, page);
     setLeadsLoading(true);
     try {
       const api = getApiClient();
       const res = await api.get(`/campanas/leads?origen_dato=${origen}&page=${page}&limit=${LEADS_LIMIT}`);
       setLeads(res?.items || []);
-      setLeadsTotal(res?.total || 0);
+      setLeadsTotal(res?.total);
       console.log('[leads total]', res?.total, res?.ok);
       setLeadsPage(page);
     } catch (err) {
