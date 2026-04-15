@@ -1,4 +1,4 @@
-import React from 'react';
+ï»¿import React from 'react';
 import {
   BarChart3, TrendingUp, Users, XCircle,
   PhoneOff, AlertTriangle, RefreshCw, ChevronDown
@@ -7,8 +7,8 @@ import { getApiClient } from '../services/apiClient.js';
 
 const PERIODOS = [
   { value: 'dia', label: 'Hoy' },
-  { value: 'semana', label: 'Últimos 7 días' },
-  { value: 'mes', label: 'Últimos 30 días' }
+  { value: 'semana', label: 'Ultimos 7 dias' },
+  { value: 'mes', label: 'Ultimos 30 dias' }
 ];
 
 const ORIGENES = [
@@ -41,7 +41,7 @@ function MetricaTarjeta({ label, value, color, icon: Icon, sub }) {
         </div>
       </div>
       <div style={{ fontSize: 28, fontWeight: 800, color: '#0f172a' }}>
-        {value ?? '—'}
+        {value ?? '-'}
       </div>
       {sub && (
         <div style={{ fontSize: 12, color: '#94a3b8' }}>{sub}</div>
@@ -65,7 +65,7 @@ export default function CampanasRedesModule() {
       const res = await api.get(`/campanas/stats?periodo=${periodo}&origen_dato=${origen}`);
       setData(res);
     } catch (err) {
-      setError(err?.message || 'No se pudieron cargar las métricas.');
+      setError(err?.message || 'No se pudieron cargar las metricas.');
     } finally {
       setLoading(false);
     }
@@ -100,10 +100,10 @@ export default function CampanasRedesModule() {
                 padding: '4px 10px', marginBottom: 10
               }}>
                 <BarChart3 size={11} />
-                Campañas de redes
+                Campanas de redes
               </div>
-              <h1 className="hero-title">Monitor de campañas</h1>
-              <p className="hero-copy">Medición en tiempo real de leads, conversiones y gestión por vendedor.</p>
+              <h1 className="hero-title">Monitor de campanas</h1>
+              <p className="hero-copy">Medicion en tiempo real de leads, conversiones y gestion por vendedor.</p>
             </div>
             <button
               onClick={load}
@@ -171,7 +171,7 @@ export default function CampanasRedesModule() {
           </div>
         )}
 
-        {/* Métricas principales */}
+        {/* Metricas principales */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
@@ -182,22 +182,22 @@ export default function CampanasRedesModule() {
           <MetricaTarjeta label="Nuevos" value={m.nuevos} color="#2563eb" icon={TrendingUp}
             sub="Listos para gestionar" />
           <MetricaTarjeta label="Convertidos" value={m.convertidos} color="#15803d" icon={TrendingUp}
-            sub={`${conversionRate}% conversión`} />
+            sub={`${conversionRate}% conversion`} />
           <MetricaTarjeta label="No contesta" value={m.no_contesta} color="#d97706" icon={PhoneOff} />
           <MetricaTarjeta label="Rechazados" value={m.rechazados} color="#dc2626" icon={XCircle} />
           <MetricaTarjeta label="Bloqueados" value={m.bloqueados} color="#6b7280" icon={AlertTriangle}
             sub="Duplicados + ya clientes" />
         </div>
 
-        {/* Tabla por día */}
+        {/* Tabla por dia */}
         <div style={{
           background: '#fff', borderRadius: 16,
           border: '1px solid rgba(15,23,42,0.08)',
           overflow: 'hidden', marginBottom: 24
         }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(15,23,42,0.06)' }}>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>Ingresos por día</div>
-            <div style={{ color: '#94a3b8', fontSize: 12, marginTop: 2 }}>Últimos 30 días</div>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>Ingresos por dia</div>
+            <div style={{ color: '#94a3b8', fontSize: 12, marginTop: 2 }}>Ultimos 30 dias</div>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -217,7 +217,7 @@ export default function CampanasRedesModule() {
                 )}
                 {!loading && !porDia.length && (
                   <tr>
-                    <td colSpan={4} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>Sin datos para el período seleccionado</td>
+                    <td colSpan={4} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>Sin datos para el periodo seleccionado</td>
                   </tr>
                 )}
                 {porDia.map((row, i) => (
@@ -242,8 +242,8 @@ export default function CampanasRedesModule() {
           overflow: 'hidden'
         }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(15,23,42,0.06)' }}>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>Gestión por vendedor</div>
-            <div style={{ color: '#94a3b8', fontSize: 12, marginTop: 2 }}>Distribución y resultados del período</div>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>Gestion por vendedor</div>
+            <div style={{ color: '#94a3b8', fontSize: 12, marginTop: 2 }}>Distribucion y resultados del periodo</div>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -254,7 +254,7 @@ export default function CampanasRedesModule() {
                   <th style={{ padding: '10px 16px', textAlign: 'right', color: '#64748b', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>Convertidos</th>
                   <th style={{ padding: '10px 16px', textAlign: 'right', color: '#64748b', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>No contesta</th>
                   <th style={{ padding: '10px 16px', textAlign: 'right', color: '#64748b', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>Rechazados</th>
-                  <th style={{ padding: '10px 16px', textAlign: 'right', color: '#64748b', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>% Conversión</th>
+                  <th style={{ padding: '10px 16px', textAlign: 'right', color: '#64748b', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>% Conversion</th>
                 </tr>
               </thead>
               <tbody>
@@ -265,7 +265,7 @@ export default function CampanasRedesModule() {
                 )}
                 {!loading && !porVendedor.length && (
                   <tr>
-                    <td colSpan={6} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>Sin datos para el período seleccionado</td>
+                    <td colSpan={6} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>Sin datos para el periodo seleccionado</td>
                   </tr>
                 )}
                 {porVendedor.map((v, i) => {
