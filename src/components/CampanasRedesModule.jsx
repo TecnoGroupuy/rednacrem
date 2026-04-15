@@ -56,6 +56,11 @@ export default function CampanasRedesModule() {
   const [data, setData] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
+  const [leads, setLeads] = React.useState([]);
+  const [leadsLoading, setLeadsLoading] = React.useState(false);
+  const [leadsTotal, setLeadsTotal] = React.useState(0);
+  const [leadsPage, setLeadsPage] = React.useState(1);
+  const LEADS_LIMIT = 50;
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -71,7 +76,23 @@ export default function CampanasRedesModule() {
     }
   }, [periodo, origen]);
 
+  const loadLeads = React.useCallback(async (page = 1) => {
+    setLeadsLoading(true);
+    try {
+      const api = getApiClient();
+      const res = await api.get(`/campanas/leads?origen_dato=${origen}&page=${page}&limit=${LEADS_LIMIT}`);
+      setLeads(res?.items || []);
+      setLeadsTotal(res?.total || 0);
+      setLeadsPage(page);
+    } catch (err) {
+      console.error('Error loading leads:', err);
+    } finally {
+      setLeadsLoading(false);
+    }
+  }, [origen]);
+
   React.useEffect(() => { load(); }, [load]);
+  React.useEffect(() => { loadLeads(1); }, [loadLeads]);
 
   const m = data?.metricas || {};
   const porDia = data?.por_dia || [];
@@ -295,6 +316,145 @@ export default function CampanasRedesModule() {
               </tbody>
             </table>
           </div>
+        </div>
+
+        {/* Tabla de leads */}
+        <div style={{
+          background: '#fff', borderRadius: 16,
+          border: '1px solid rgba(15,23,42,0.08)',
+          overflow: 'hidden', marginTop: 24
+        }}>
+          <div style={{
+            padding: '16px 20px', borderBottom: '1px solid rgba(15,23,42,0.06)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+          }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>Detalle de leads</div>
+              <div style={{ color: '#94a3b8', fontSize: 12, marginTop: 2 }}>
+                {leadsTotal} leads totales
+              </div>
+            </div>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: '#f8fafc' }}>
+                  {['Nombre', 'Teléfono', 'Email', 'F. Nacimiento', 'Estado', 'Gestión', 'Intentos', 'Último intento', 'Vendedor', 'Ingreso'].map((h) => (
+                    <th key={h} style={{
+                      padding: '10px 12px', textAlign: 'left',
+                      color: '#64748b', fontWeight: 600,
+                      fontSize: 11, textTransform: 'uppercase',
+                      letterSpacing: 1, whiteSpace: 'nowrap'
+                    }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {leadsLoading && (
+                  <tr><td colSpan={10} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>Cargando...</td></tr>
+                )}
+                {!leadsLoading && !leads.length && (
+                  <tr><td colSpan={10} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>Sin datos</td></tr>
+                )}
+                {leads.map((lead) => {
+                  const estadoColor = {
+                    nuevo: '#2563eb', bloqueado: '#6b7280', trabajado: '#15803d'
+                  }[lead.estado] || '#475569';
+                  const gestionColor = {
+                    venta: '#15803d', no_contesta: '#d97706',
+                    rechazo: '#dc2626', nuevo: '#2563eb'
+                  }[lead.estado_venta] || '#475569';
+                  return (
+                    <tr key={lead.id} style={{ borderTop: '1px solid rgba(15,23,42,0.05)' }}>
+                      <td style={{ padding: '10px 12px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                        {[lead.nombre, lead.apellido].filter(Boolean).join(' ') || '—'}
+                      </td>
+                      <td style={{ padding: '10px 12px', color: '#475569' }}>
+                        {lead.telefono || lead.celular || '—'}
+                      </td>
+                      <td style={{ padding: '10px 12px', color: '#475569', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {lead.email || '—'}
+                      </td>
+                      <td style={{ padding: '10px 12px', color: '#475569', whiteSpace: 'nowrap' }}>
+                        {lead.fecha_nacimiento
+                          ? new Date(lead.fecha_nacimiento).toLocaleDateString('es-UY', { timeZone: 'UTC' })
+                          : '—'}
+                      </td>
+                      <td style={{ padding: '10px 12px' }}>
+                        <span style={{
+                          background: `${estadoColor}18`, color: estadoColor,
+                          borderRadius: 999, padding: '2px 8px',
+                          fontSize: 11, fontWeight: 700
+                        }}>
+                          {lead.estado || '—'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 12px' }}>
+                        <span style={{
+                          background: `${gestionColor}18`, color: gestionColor,
+                          borderRadius: 999, padding: '2px 8px',
+                          fontSize: 11, fontWeight: 700
+                        }}>
+                          {lead.estado_venta || '—'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 12px', textAlign: 'center', color: '#475569' }}>
+                        {lead.intentos ?? '—'}
+                      </td>
+                      <td style={{ padding: '10px 12px', color: '#475569', whiteSpace: 'nowrap' }}>
+                        {lead.ultimo_intento_at
+                          ? new Date(lead.ultimo_intento_at).toLocaleDateString('es-UY', { timeZone: 'America/Montevideo' })
+                          : '—'}
+                      </td>
+                      <td style={{ padding: '10px 12px', color: '#475569', whiteSpace: 'nowrap' }}>
+                        {[lead.vendedor_nombre, lead.vendedor_apellido].filter(Boolean).join(' ') || '—'}
+                      </td>
+                      <td style={{ padding: '10px 12px', color: '#475569', whiteSpace: 'nowrap' }}>
+                        {new Date(lead.created_at).toLocaleDateString('es-UY', { timeZone: 'America/Montevideo' })}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {/* Paginación */}
+          {leadsTotal > LEADS_LIMIT && (
+            <div style={{
+              padding: '12px 20px', borderTop: '1px solid rgba(15,23,42,0.06)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+            }}>
+              <div style={{ color: '#64748b', fontSize: 13 }}>
+                Página {leadsPage} de {Math.ceil(leadsTotal / LEADS_LIMIT)}
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => loadLeads(leadsPage - 1)}
+                  disabled={leadsPage === 1}
+                  style={{
+                    padding: '6px 14px', borderRadius: 8,
+                    border: '1px solid rgba(15,23,42,0.12)',
+                    background: '#fff', cursor: leadsPage === 1 ? 'not-allowed' : 'pointer',
+                    opacity: leadsPage === 1 ? 0.5 : 1, fontSize: 13
+                  }}
+                >
+                  Anterior
+                </button>
+                <button
+                  onClick={() => loadLeads(leadsPage + 1)}
+                  disabled={leadsPage >= Math.ceil(leadsTotal / LEADS_LIMIT)}
+                  style={{
+                    padding: '6px 14px', borderRadius: 8,
+                    border: '1px solid rgba(15,23,42,0.12)',
+                    background: '#fff', cursor: leadsPage >= Math.ceil(leadsTotal / LEADS_LIMIT) ? 'not-allowed' : 'pointer',
+                    opacity: leadsPage >= Math.ceil(leadsTotal / LEADS_LIMIT) ? 0.5 : 1, fontSize: 13
+                  }}
+                >
+                  Siguiente
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
