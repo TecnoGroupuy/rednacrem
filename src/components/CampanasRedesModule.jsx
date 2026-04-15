@@ -83,6 +83,7 @@ export default function CampanasRedesModule() {
       const res = await api.get(`/campanas/leads?origen_dato=${origen}&page=${page}&limit=${LEADS_LIMIT}`);
       setLeads(res?.items || []);
       setLeadsTotal(res?.total || 0);
+      console.log('[leads total]', res?.total, res?.ok);
       setLeadsPage(page);
     } catch (err) {
       console.error('Error loading leads:', err);
@@ -339,7 +340,7 @@ export default function CampanasRedesModule() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: '#f8fafc' }}>
-                  {['Nombre', 'Teléfono', 'Email', 'F. Nacimiento', 'Estado', 'Gestión', 'Intentos', 'Último intento', 'Vendedor', 'Ingreso'].map((h) => (
+                  {['Nombre', 'Teléfono', 'Email', 'Origen', 'F. Nacimiento', 'Estado', 'Gestión', 'Intentos', 'Último intento', 'Vendedor', 'Ingreso'].map((h) => (
                     <th key={h} style={{
                       padding: '10px 12px', textAlign: 'left',
                       color: '#64748b', fontWeight: 600,
@@ -351,10 +352,10 @@ export default function CampanasRedesModule() {
               </thead>
               <tbody>
                 {leadsLoading && (
-                  <tr><td colSpan={10} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>Cargando...</td></tr>
+                  <tr><td colSpan={11} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>Cargando...</td></tr>
                 )}
                 {!leadsLoading && !leads.length && (
-                  <tr><td colSpan={10} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>Sin datos</td></tr>
+                  <tr><td colSpan={11} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>Sin datos</td></tr>
                 )}
                 {leads.map((lead) => {
                   const estadoColor = {
@@ -374,6 +375,9 @@ export default function CampanasRedesModule() {
                       </td>
                       <td style={{ padding: '10px 12px', color: '#475569', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {lead.email || '—'}
+                      </td>
+                      <td style={{ padding: '10px 12px', color: '#475569' }}>
+                        {lead.origen_dato || '—'}
                       </td>
                       <td style={{ padding: '10px 12px', color: '#475569', whiteSpace: 'nowrap' }}>
                         {lead.fecha_nacimiento
