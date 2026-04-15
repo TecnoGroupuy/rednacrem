@@ -415,7 +415,7 @@ export default function CampanasRedesModule() {
                         {[lead.vendedor_nombre, lead.vendedor_apellido].filter(Boolean).join(' ') || '—'}
                       </td>
                       <td style={{ padding: '10px 12px', color: '#475569', whiteSpace: 'nowrap' }}>
-                        {new Date(lead.created_at).toLocaleDateString('es-UY', { timeZone: 'America/Montevideo' })}
+                        {new Date(lead.created_at).toLocaleString('es-UY', { timeZone: 'America/Montevideo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </td>
                     </tr>
                   );
