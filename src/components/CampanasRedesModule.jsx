@@ -407,12 +407,12 @@ export default function CampanasRedesModule() {
                         {lead.intentos ?? '—'}
                       </td>
                       <td style={{ padding: '10px 12px', color: '#475569', whiteSpace: 'nowrap' }}>
-                        {lead.ultimo_intento_at
-                          ? new Date(lead.ultimo_intento_at).toLocaleDateString('es-UY', { timeZone: 'America/Montevideo' })
+                        {lead.last_gestion_at
+                          ? new Date(lead.last_gestion_at).toLocaleDateString('es-UY', { timeZone: 'America/Montevideo' })
                           : '—'}
                       </td>
                       <td style={{ padding: '10px 12px', color: '#475569', whiteSpace: 'nowrap' }}>
-                        {[lead.vendedor_nombre, lead.vendedor_apellido].filter(Boolean).join(' ') || '—'}
+                        {lead.assigned_to_name || '—'}
                       </td>
                       <td style={{ padding: '10px 12px', color: '#475569', whiteSpace: 'nowrap' }}>
                         {new Date(lead.created_at).toLocaleString('es-UY', { timeZone: 'America/Montevideo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
