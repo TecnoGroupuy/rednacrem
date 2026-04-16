@@ -341,7 +341,7 @@ export default function CampanasRedesModule() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: '#f8fafc' }}>
-                  {['Nombre', 'Teléfono', 'Email', 'Origen', 'F. Nacimiento', 'Estado', 'Gestión', 'Intentos', 'Último intento', 'Vendedor', 'Ingreso'].map((h) => (
+                  {['Nombre', 'Teléfono', 'Email', 'Origen', 'F. Nacimiento', 'Estado', 'Motivo', 'Gestión', 'Intentos', 'Último intento', 'Vendedor', 'Ingreso'].map((h) => (
                     <th key={h} style={{
                       padding: '10px 12px', textAlign: 'left',
                       color: '#64748b', fontWeight: 600,
@@ -353,10 +353,10 @@ export default function CampanasRedesModule() {
               </thead>
               <tbody>
                 {leadsLoading && (
-                  <tr><td colSpan={11} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>Cargando...</td></tr>
+                  <tr><td colSpan={12} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>Cargando...</td></tr>
                 )}
                 {!leadsLoading && !leads.length && (
-                  <tr><td colSpan={11} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>Sin datos</td></tr>
+                  <tr><td colSpan={12} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>Sin datos</td></tr>
                 )}
                 {leads.map((lead) => {
                   const estadoColor = {
@@ -393,6 +393,13 @@ export default function CampanasRedesModule() {
                         }}>
                           {lead.estado || '—'}
                         </span>
+                      </td>
+                      <td style={{ padding: '10px 12px' }}>
+                        {lead.motivo_bloqueo === 'duplicado'
+                          ? <span style={{ background: '#f59e0b18', color: '#d97706', borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>Duplicado</span>
+                          : lead.motivo_bloqueo === 'cliente_existente'
+                          ? <span style={{ background: '#ef444418', color: '#dc2626', borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>Cliente</span>
+                          : <span style={{ color: '#94a3b8' }}>—</span>}
                       </td>
                       <td style={{ padding: '10px 12px' }}>
                         <span style={{
