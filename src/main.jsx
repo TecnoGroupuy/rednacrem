@@ -3377,6 +3377,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const LIMIT = 50;
       const [searchTerm, setSearchTerm] = React.useState('');
       const [searchDebounced, setSearchDebounced] = React.useState('');
+      const [filtroEstado, setFiltroEstado] = React.useState('');
+      const [filtroOrigen, setFiltroOrigen] = React.useState('');
+      const [filtroUbicacion, setFiltroUbicacion] = React.useState('');
+      const [filtroFechaDesde, setFiltroFechaDesde] = React.useState('');
+      const [filtroFechaHasta, setFiltroFechaHasta] = React.useState('');
 
       const loadStats = React.useCallback(async () => {
         try {
@@ -3530,7 +3535,26 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         }
       }, []);
 
-      const filteredContacts = React.useMemo(() => localContacts, [localContacts]);
+      const filteredContacts = React.useMemo(() => {
+        return localContacts.filter((contact) => {
+          if (filtroEstado && (contact.estado_venta || contact.status || '') !== filtroEstado) return false;
+          if (filtroOrigen) {
+            const origen = (contact.origen_dato || contact.origen || '').toLowerCase();
+            if (!origen.includes(filtroOrigen.toLowerCase())) return false;
+          }
+          if (filtroUbicacion) {
+            const ubicacion = (contact.departamento || contact.city || contact.localidad || '').toLowerCase();
+            if (!ubicacion.includes(filtroUbicacion.toLowerCase())) return false;
+          }
+          if (filtroFechaDesde && contact.created_at) {
+            if (new Date(contact.created_at) < new Date(filtroFechaDesde)) return false;
+          }
+          if (filtroFechaHasta && contact.created_at) {
+            if (new Date(contact.created_at) > new Date(filtroFechaHasta + 'T23:59:59')) return false;
+          }
+          return true;
+        });
+      }, [localContacts, filtroEstado, filtroOrigen, filtroUbicacion, filtroFechaDesde, filtroFechaHasta]);
       const visibleContacts = React.useMemo(
         () => filteredContacts.filter((contact) => (isRecupero ? true : contact.estado_venta !== 'dato_erroneo')),
         [filteredContacts, isRecupero]
@@ -4145,6 +4169,71 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             ))}
           </div>
 
+          <div style={{ display: 'flex', gap: 8, padding: '12px 0', flexWrap: 'wrap', alignItems: 'center' }}>
+            <select
+              value={filtroEstado}
+              onChange={(e) => setFiltroEstado(e.target.value)}
+              style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12, color: '#475569' }}
+            >
+              <option value="">Todos los estados</option>
+              <option value="nuevo">Nuevo</option>
+              <option value="no_contesta">No contesta</option>
+              <option value="seguimiento">Seguimiento</option>
+              <option value="rellamar">Rellamar</option>
+              <option value="rechazo">Rechazo</option>
+              <option value="venta">Venta</option>
+            </select>
+
+            <select
+              value={filtroOrigen}
+              onChange={(e) => setFiltroOrigen(e.target.value)}
+              style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12, color: '#475569' }}
+            >
+              <option value="">Todos los orígenes</option>
+              <option value="Facebook">Facebook</option>
+              <option value="Guia telefonica">Guía telefónica</option>
+              <option value="recupero">Recupero</option>
+              <option value="captacion">Captación</option>
+            </select>
+
+            <input
+              type="text"
+              placeholder="Filtrar ubicación..."
+              value={filtroUbicacion}
+              onChange={(e) => setFiltroUbicacion(e.target.value)}
+              style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12, color: '#475569', width: 150 }}
+            />
+
+            <input
+              type="date"
+              value={filtroFechaDesde}
+              onChange={(e) => setFiltroFechaDesde(e.target.value)}
+              style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12, color: '#475569' }}
+            />
+
+            <input
+              type="date"
+              value={filtroFechaHasta}
+              onChange={(e) => setFiltroFechaHasta(e.target.value)}
+              style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12, color: '#475569' }}
+            />
+
+            {(filtroEstado || filtroOrigen || filtroUbicacion || filtroFechaDesde || filtroFechaHasta) && (
+              <button
+                onClick={() => {
+                  setFiltroEstado('');
+                  setFiltroOrigen('');
+                  setFiltroUbicacion('');
+                  setFiltroFechaDesde('');
+                  setFiltroFechaHasta('');
+                }}
+                style={{ padding: '6px 12px', borderRadius: 8, border: 'none', background: '#f1f5f9', color: '#475569', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}
+              >
+                Limpiar filtros
+              </button>
+            )}
+          </div>
+
           <div className="table-wrap">
             <table className="sales-contacts-table">
               <thead>
@@ -4459,6 +4548,15 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           </div>
                         </div>
                       </>
+                      {dc.nota && (
+                        <>
+                          <hr style={{ border: 'none', borderTop: '1px solid #F0F0F0', margin: 0 }} />
+                          <div>
+                            <p style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px 0' }}>Observaciones</p>
+                            <p style={{ fontSize: 13, fontWeight: 500, margin: 0, color: '#475569' }}>{dc.nota}</p>
+                          </div>
+                        </>
+                      )}
                       <div>
                         <hr style={{ border: 'none', borderTop: '1px solid #F0F0F0', margin: 0 }} />
                         <div style={{ paddingTop: 12 }}>
