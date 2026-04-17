@@ -4892,11 +4892,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <thead>
                       <tr>
                         <th>Fecha y hora</th>
-                        <th>Contacto</th>
-                        <th>Teléfono</th>
-                        <th>Intentos</th>
-                        <th>Nota</th>
-                        <th>Estado</th>
+                        <th>Contacto</th><th>Origen</th><th>F. Ingreso</th><th>Teléfono</th><th>Intentos</th><th>Nota</th><th>Estado</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -4927,6 +4923,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                               )}
                             </td>
                             <td><strong>{[row.nombre, row.apellido].filter(Boolean).join(' ') || '—'}</strong></td>
+                            <td style={{ color: '#475569', fontSize: 12 }}>{row.origen_dato || row.origen || '—'}</td>
+                            <td style={{ color: '#475569', fontSize: 12, whiteSpace: 'nowrap' }}>
+                              {row.created_at
+                                ? new Date(row.created_at).toLocaleDateString('es-UY', { timeZone: 'America/Montevideo', day: '2-digit', month: '2-digit', year: 'numeric' })
+                                : '—'}
+                            </td>
                             <td>
                               {telefono
                                 ? <a href={`tel:${telefono.replace(/\s/g, '')}`} onClick={(e) => e.stopPropagation()} style={{ color: '#1A5C4A', fontWeight: 500 }}>{telefono}</a>
