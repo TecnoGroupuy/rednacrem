@@ -6888,21 +6888,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       <Button variant="secondary" icon={<CheckCircle2 size={16} />} onClick={closeLot}>Cerrar lote</Button>
                     </div>
 
-                    {/* CONTACTOS */}
-                    <div style={{ borderTop: '1px solid rgba(20,34,53,0.08)', paddingTop: 10, marginTop: 4 }}>
-                      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Contactos del lote</div>
-                      <div className="list">
-                        {selectedLot.contacts.slice(0, 8).map((contact) => (
-                          <div key={contact.id} className="alert">
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontWeight: 600, fontSize: 13 }}>{contact.name}</div>
-                              <div style={{ color: 'var(--muted)', fontSize: 12 }}>{contact.phone} · {contact.city}</div>
-                            </div>
-                            <SalesStatusBadge status={contact.status} small />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
                   </div>
                 ) : <div style={{ color: 'var(--muted)' }}>No hay lote seleccionado.</div>}
               </Panel>
