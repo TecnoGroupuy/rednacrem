@@ -6456,6 +6456,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [reassignTarget, setReassignTarget] = React.useState('');
       const [reassignLoading, setReassignLoading] = React.useState(false);
       const [reassignError, setReassignError] = React.useState('');
+      const [removeModal, setRemoveModal] = React.useState(null); // { sellerId, sellerName, contactCount, gestionados }
+      const [removeStep, setRemoveStep] = React.useState(1); // 1 = confirmación, 2 = elegir destino
+      const [addSellerOpen, setAddSellerOpen] = React.useState(false);
+      const [addSellerTarget, setAddSellerTarget] = React.useState('');
+      const [addSellerError, setAddSellerError] = React.useState('');
       const [showLotWizard, setShowLotWizard] = React.useState(false);
       const [wizardLotName, setWizardLotName] = React.useState('');
       const [wizardDeadline, setWizardDeadline] = React.useState('');
@@ -6731,9 +6736,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           if (!data.ok) throw new Error(data.message || 'Error al reasignar');
           setReassignModal(null);
           setReassignTarget('');
-          // Refrescar los lotes
-          if (typeof onCreated === 'function') onCreated();
-          else window.location.reload();
+          window.location.reload();
         } catch (err) {
           setReassignError(err.message || 'No se pudo reasignar.');
         } finally {
@@ -6758,148 +6761,306 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       };
 
       if (route === 'lotes') {
+        const formatDate = (str) => {
+          if (!str) return '-';
+          const d = new Date(str);
+          return d.toLocaleDateString('es-UY', { day: '2-digit', month: 'long', year: 'numeric' });
+        };
+
         return (
           <div className="view">
             <section className="content-grid">
-              <Panel className="span-7" title="Gestion de lotes" subtitle="Crea, asigna y controla el avance por lote" action={<Button icon={<Plus size={16} />} onClick={() => onOpenRoute('lotes_crear')}>Crear lote</Button>}>
+
+              {/* TABLA IZQUIERDA */}
+              <Panel className="span-7" title="Gestión de lotes" subtitle="Crea, asigna y controla el avance por lote"
+                action={<Button icon={<Plus size={16} />} onClick={() => onOpenRoute('lotes_crear')}>Crear lote</Button>}>
                 <div className="table-wrap">
                   <table>
-                    <thead><tr><th>Lote</th><th>Contactos</th><th>Estado</th><th>Vendedor</th><th>Creacion</th><th>Progreso</th></tr></thead>
+                    <thead>
+                      <tr><th>Lote</th><th>Contactos</th><th>Estado</th><th>Vendedores</th><th>Creación</th><th>Progreso</th></tr>
+                    </thead>
                     <tbody>
-                      {lotSummaries.map((lot) => (
-                        <tr key={lot.id} className="support-row" onClick={() => setSelectedLotId(lot.id)} style={{ cursor: 'pointer', background: selectedLot?.id === lot.id ? 'rgba(15,118,110,0.08)' : 'transparent' }}>
-                          <td><strong>{lot.name}</strong><div style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>{lot.id}</div></td>
-                          <td>{lot.count}</td>
-                          <td><Tag variant={lotStatusMeta(lot.status).variant}>{lotStatusMeta(lot.status).label}</Tag></td>
-                          <td>{lot.vendedores?.length ? lot.vendedores.map((v) => `${v.nombre || ''} ${v.apellido || ''}`.trim()).join(', ') : lot.seller || '-'}</td>
-                          <td>{lot.createdAt}</td>
-                          <td><div style={{ minWidth: 120 }}><div className="progress"><span style={{ width: lot.progress + '%' }}></span></div><div style={{ marginTop: 6, color: 'var(--muted)', fontSize: '0.8rem' }}>{lot.progress}%</div></div></td>
-                        </tr>
-                      ))}
+                      {lotSummaries.map((lot) => {
+                        const vendNames = lot.vendedores || [];
+                        const first = vendNames[0] ? `${vendNames[0].nombre || ''} ${vendNames[0].apellido || ''}`.trim() : (lot.seller || '-');
+                        const extra = vendNames.length > 1 ? vendNames.length - 1 : 0;
+                        return (
+                          <tr key={lot.id} className="support-row"
+                            onClick={() => setSelectedLotId(lot.id)}
+                            style={{ cursor: 'pointer', background: selectedLot?.id === lot.id ? 'rgba(15,118,110,0.08)' : 'transparent' }}>
+                            <td>
+                              <strong style={{ fontSize: 13 }}>{lot.name}</strong>
+                              <div style={{ color: 'var(--muted)', fontSize: 11, marginTop: 2, fontFamily: 'monospace' }}>{lot.id}</div>
+                            </td>
+                            <td>{lot.count}</td>
+                            <td><Tag variant={lotStatusMeta(lot.status).variant}>{lotStatusMeta(lot.status).label}</Tag></td>
+                            <td>
+                              <span style={{ fontSize: 13 }}>{first}</span>
+                              {extra > 0 && <span style={{ marginLeft: 6, fontSize: 11, background: 'rgba(20,34,53,0.08)', borderRadius: 10, padding: '1px 7px', color: 'var(--muted)' }}>+{extra}</span>}
+                            </td>
+                            <td style={{ fontSize: 12 }}>{lot.createdAt}</td>
+                            <td>
+                              <div style={{ minWidth: 100 }}>
+                                <div className="progress"><span style={{ width: lot.progress + '%' }}></span></div>
+                                <div style={{ marginTop: 4, color: 'var(--muted)', fontSize: 11 }}>{lot.progress}%</div>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
               </Panel>
-              <Panel className="span-5" title="Detalle de lote" subtitle={selectedLot ? selectedLot.name : 'Selecciona un lote'}>
+
+              {/* PANEL DERECHO */}
+              <Panel className="span-5" title="Detalle de lote" subtitle={selectedLot ? selectedLot.name : 'Seleccioná un lote'}>
                 {selectedLot ? (
                   <div className="list">
-                    <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Nombre</span><strong>{selectedLot.name}</strong></div>
-                    <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Cantidad de contactos</span><strong>{selectedLot.count}</strong></div>
-                    <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Estado</span><Tag variant={lotStatusMeta(selectedLot.status).variant}>{lotStatusMeta(selectedLot.status).label}</Tag></div>
-                    <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Fecha de creacion</span><strong>{selectedLot.createdAt}</strong></div>
 
-                    {/* VENDEDORES ASIGNADOS */}
-                    <div style={{ borderTop: '1px solid rgba(20,34,53,0.08)', paddingTop: 12, marginTop: 4 }}>
-                      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>Vendedores asignados</div>
+                    {/* RESUMEN COMPACTO */}
+                    <div style={{ background: 'rgba(20,34,53,0.03)', border: '1px solid rgba(20,34,53,0.08)', borderRadius: 10, padding: '12px 14px', marginBottom: 4 }}>
+                      <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 2 }}>{selectedLot.name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace', marginBottom: 10 }}>{selectedLot.id}</div>
+                      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+                        <span style={{ fontSize: 13 }}>📊 <strong>{selectedLot.count}</strong> contactos</span>
+                        <Tag variant={lotStatusMeta(selectedLot.status).variant}>{lotStatusMeta(selectedLot.status).label}</Tag>
+                        <span style={{ fontSize: 12, color: 'var(--muted)' }}>📅 {formatDate(selectedLot.createdAt)}</span>
+                      </div>
+                    </div>
+
+                    {/* VENDEDORES */}
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <span style={{ fontWeight: 600, fontSize: 13 }}>Vendedores asignados</span>
+                        <button
+                          onClick={() => setAddSellerOpen(true)}
+                          style={{ fontSize: 11, fontWeight: 500, color: '#0F6E56', background: '#E1F5EE', border: '1px solid #5DCAA5', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
+                        >+ Agregar vendedor</button>
+                      </div>
+
                       {(selectedLot.vendedores?.length ? selectedLot.vendedores : []).map((v) => {
-                        const nombreCompleto = `${v.nombre || ''} ${v.apellido || ''}`.trim();
-                        const initials = nombreCompleto.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
-                        const contactCount = selectedLot.contacts.filter(
-                          (c) => c.assignedToId === v.id || c.assignedTo === nombreCompleto
-                        ).length;
-                        const gestionados = selectedLot.contacts.filter(
-                          (c) => (c.assignedToId === v.id || c.assignedTo === nombreCompleto) && c.status !== 'nuevo'
-                        ).length;
+                        const nombre = `${v.nombre || ''} ${v.apellido || ''}`.trim();
+                        const initials = nombre.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+                        const total = v.total_contactos || 0;
+                        const gestionados = v.gestionados || 0;
+                        const pct = total > 0 ? Math.round((gestionados / total) * 100) : 0;
                         return (
-                          <div key={v.id} style={{
-                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            padding: '10px 12px', borderRadius: 8,
-                            border: '1px solid rgba(20,34,53,0.1)',
-                            background: 'rgba(20,34,53,0.02)', marginBottom: 8
-                          }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                              <div style={{
-                                width: 32, height: 32, borderRadius: '50%',
-                                background: '#E1F5EE', color: '#0F6E56',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: 11, fontWeight: 600, flexShrink: 0
-                              }}>{initials}</div>
-                              <div>
-                                <div style={{ fontSize: 13, fontWeight: 500 }}>{nombreCompleto}</div>
-                                <div style={{ fontSize: 11, color: 'var(--muted)' }}>{contactCount} contactos · {gestionados} gestionados</div>
+                          <div key={v.id} style={{ border: '1px solid rgba(20,34,53,0.1)', borderRadius: 8, padding: '10px 12px', marginBottom: 8, background: 'var(--bg)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#E1F5EE', color: '#0F6E56', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>{initials}</div>
+                                <div>
+                                  <div style={{ fontSize: 13, fontWeight: 600 }}>{nombre}</div>
+                                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>{total} contactos · {gestionados} gestionados</div>
+                                </div>
+                              </div>
+                              <div style={{ display: 'flex', gap: 6 }}>
+                                <button
+                                  onClick={() => { setReassignModal({ sellerId: v.id, sellerName: nombre, contactCount: total, gestionados }); setReassignTarget(''); setReassignError(''); }}
+                                  style={{ fontSize: 11, fontWeight: 500, color: '#185FA5', background: '#E6F1FB', border: '1px solid #85B7EB', borderRadius: 6, padding: '4px 9px', cursor: 'pointer' }}
+                                >Reasignar</button>
+                                {selectedLot.vendedores.length > 1 && (
+                                  <button
+                                    onClick={() => { setRemoveModal({ sellerId: v.id, sellerName: nombre, contactCount: total, gestionados }); }}
+                                    style={{ fontSize: 11, fontWeight: 500, color: '#993C1D', background: '#FAECE7', border: '1px solid #F0997B', borderRadius: 6, padding: '4px 9px', cursor: 'pointer' }}
+                                  >Quitar</button>
+                                )}
                               </div>
                             </div>
-                            {selectedLot.vendedores.length > 1 && (
-                              <button
-                                onClick={() => {
-                                  setReassignModal({ sellerId: v.id, sellerName: nombreCompleto, contactCount });
-                                  setReassignTarget('');
-                                  setReassignError('');
-                                }}
-                                style={{
-                                  fontSize: 11, fontWeight: 500,
-                                  color: '#993C1D', background: '#FAECE7',
-                                  border: '1px solid #F0997B', borderRadius: 6,
-                                  padding: '4px 10px', cursor: 'pointer', whiteSpace: 'nowrap'
-                                }}
-                              >
-                                Reasignar
-                              </button>
-                            )}
+                            {/* Barra de progreso por vendedor */}
+                            <div style={{ marginTop: 8 }}>
+                              <div style={{ height: 4, background: 'rgba(20,34,53,0.08)', borderRadius: 4, overflow: 'hidden' }}>
+                                <div style={{ height: '100%', width: pct + '%', background: pct > 0 ? '#1D9E75' : 'transparent', borderRadius: 4, transition: 'width 0.3s' }}></div>
+                              </div>
+                              <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 3 }}>{pct}% gestionado</div>
+                            </div>
                           </div>
                         );
                       })}
-                      {(!selectedLot.vendedores?.length) && (
-                        <div style={{ fontSize: 12, color: 'var(--muted)' }}>{selectedLot.seller || 'Sin vendedores asignados'}</div>
+                      {!selectedLot.vendedores?.length && (
+                        <div style={{ fontSize: 12, color: 'var(--muted)', padding: '8px 0' }}>Sin vendedores asignados.</div>
                       )}
                     </div>
 
-                    {/* ACCIONES */}
-                    <div className="toolbar" style={{ justifyContent: 'flex-end', marginTop: 4 }}>
+                    {/* ACCIÓN */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
                       <Button variant="secondary" icon={<CheckCircle2 size={16} />} onClick={closeLot}>Cerrar lote</Button>
                     </div>
 
+                    {/* CONTACTOS */}
+                    <div style={{ borderTop: '1px solid rgba(20,34,53,0.08)', paddingTop: 10, marginTop: 4 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Contactos del lote</div>
+                      <div className="list">
+                        {selectedLot.contacts.slice(0, 8).map((contact) => (
+                          <div key={contact.id} className="alert">
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 600, fontSize: 13 }}>{contact.name}</div>
+                              <div style={{ color: 'var(--muted)', fontSize: 12 }}>{contact.phone} · {contact.city}</div>
+                            </div>
+                            <SalesStatusBadge status={contact.status} small />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 ) : <div style={{ color: 'var(--muted)' }}>No hay lote seleccionado.</div>}
               </Panel>
             </section>
 
-            {/* MODAL REASIGNACIÓN — fuera del Panel para evitar overflow recortado */}
+            {/* MODAL: REASIGNAR */}
             {reassignModal && (
-              <div style={{
-                position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-              }}>
-                <div style={{
-                  background: 'var(--bg)', borderRadius: 12, padding: 24, width: 360,
-                  border: '1px solid rgba(20,34,53,0.12)', boxShadow: '0 8px 32px rgba(0,0,0,0.12)'
-                }}>
-                  <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>Reasignar datos del vendedor</div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>Los contactos serán transferidos al vendedor que elijas.</div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Vendedor a retirar</div>
-                  <div style={{
-                    fontSize: 13, fontWeight: 500, background: 'rgba(20,34,53,0.04)',
-                    border: '1px solid rgba(20,34,53,0.1)', borderRadius: 6,
-                    padding: '8px 12px', marginBottom: 12
-                  }}>
-                    {reassignModal.sellerName} · <span style={{ color: '#D85A30' }}>{reassignModal.contactCount} contactos</span>
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                <div style={{ background: 'var(--bg)', borderRadius: 12, padding: 24, width: 380, border: '1px solid rgba(20,34,53,0.12)', boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}>
+                  <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>Reasignar contactos</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>Lote: <strong>{selectedLot?.name}</strong></div>
+
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>De</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(20,34,53,0.04)', border: '1px solid rgba(20,34,53,0.1)', borderRadius: 8, padding: '10px 12px', marginBottom: 12 }}>
+                    <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#E1F5EE', color: '#0F6E56', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, flexShrink: 0 }}>
+                      {reassignModal.sellerName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>{reassignModal.sellerName}</div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>{reassignModal.contactCount} contactos · {reassignModal.gestionados} gestionados</div>
+                    </div>
                   </div>
-                  <div style={{
-                    fontSize: 11, color: '#884F0B', background: '#FAEEDA',
-                    border: '1px solid #EF9F27', borderRadius: 6,
-                    padding: '7px 10px', marginBottom: 14
-                  }}>
-                    Las gestiones ya realizadas quedan en el historial del vendedor original.
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Asignar a</div>
-                  <select
-                    className="input"
-                    style={{ width: '100%', marginBottom: 16 }}
+
+                  {reassignModal.gestionados > 0 && (
+                    <div style={{ fontSize: 11, color: '#884F0B', background: '#FAEEDA', border: '1px solid #EF9F27', borderRadius: 6, padding: '7px 10px', marginBottom: 14 }}>
+                      ⚠️ Este vendedor tiene {reassignModal.gestionados} gestión/es realizadas. Quedarán en su historial.
+                    </div>
+                  )}
+
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>A</div>
+                  <select className="input" style={{ width: '100%', marginBottom: 16 }}
                     value={reassignTarget}
-                    onChange={(e) => { setReassignTarget(e.target.value); setReassignError(''); }}
-                  >
+                    onChange={(e) => { setReassignTarget(e.target.value); setReassignError(''); }}>
                     <option value="">Seleccioná un vendedor...</option>
-                    {sellers
+                    {(selectedLot?.vendedores || [])
                       .filter((s) => s.id !== reassignModal.sellerId)
-                      .map((s) => <option key={s.id} value={s.id}>{s.label}</option>)
-                    }
+                      .map((s) => {
+                        const n = `${s.nombre || ''} ${s.apellido || ''}`.trim();
+                        return <option key={s.id} value={s.id}>{n} ({s.total_contactos || 0} contactos)</option>;
+                      })}
                   </select>
+
                   {reassignError && <div style={{ fontSize: 12, color: '#A32D2D', marginBottom: 10 }}>{reassignError}</div>}
                   <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                     <Button variant="secondary" onClick={() => { setReassignModal(null); setReassignError(''); }}>Cancelar</Button>
-                    <Button onClick={removeSeller} disabled={reassignLoading}>
-                      {reassignLoading ? 'Reasignando...' : 'Confirmar reasignación'}
-                    </Button>
+                    <Button onClick={removeSeller} disabled={reassignLoading}>{reassignLoading ? 'Reasignando...' : 'Confirmar'}</Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* MODAL: QUITAR VENDEDOR (wizard 2 pasos) */}
+            {removeModal && (
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                <div style={{ background: 'var(--bg)', borderRadius: 12, padding: 24, width: 380, border: '1px solid rgba(20,34,53,0.12)', boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}>
+                  {removeStep === 1 ? (
+                    <>
+                      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>Quitar vendedor del lote</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>Lote: <strong>{selectedLot?.name}</strong></div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(20,34,53,0.04)', border: '1px solid rgba(20,34,53,0.1)', borderRadius: 8, padding: '10px 12px', marginBottom: 14 }}>
+                        <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#FAECE7', color: '#993C1D', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, flexShrink: 0 }}>
+                          {removeModal.sellerName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>{removeModal.sellerName}</div>
+                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{removeModal.contactCount} contactos · {removeModal.gestionados} gestionados</div>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 12, color: '#A32D2D', background: '#FCEBEB', border: '1px solid #F09595', borderRadius: 6, padding: '8px 10px', marginBottom: 16 }}>
+                        Sus <strong>{removeModal.contactCount} contactos</strong> deben ser reasignados antes de quitar al vendedor.
+                        {removeModal.gestionados > 0 && <span> Las {removeModal.gestionados} gestiones realizadas quedarán en su historial.</span>}
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                        <Button variant="secondary" onClick={() => { setRemoveModal(null); setRemoveStep(1); setReassignTarget(''); }}>Cancelar</Button>
+                        <Button onClick={() => setRemoveStep(2)}>Siguiente → elegir destino</Button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>¿A quién reasignás los contactos?</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>Los {removeModal.contactCount} contactos de <strong>{removeModal.sellerName}</strong> pasarán a:</div>
+                      <select className="input" style={{ width: '100%', marginBottom: 16 }}
+                        value={reassignTarget}
+                        onChange={(e) => { setReassignTarget(e.target.value); setReassignError(''); }}>
+                        <option value="">Seleccioná un vendedor...</option>
+                        {(selectedLot?.vendedores || [])
+                          .filter((s) => s.id !== removeModal.sellerId)
+                          .map((s) => {
+                            const n = `${s.nombre || ''} ${s.apellido || ''}`.trim();
+                            return <option key={s.id} value={s.id}>{n} ({s.total_contactos || 0} contactos)</option>;
+                          })}
+                      </select>
+                      {reassignError && <div style={{ fontSize: 12, color: '#A32D2D', marginBottom: 10 }}>{reassignError}</div>}
+                      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                        <Button variant="secondary" onClick={() => setRemoveStep(1)}>← Volver</Button>
+                        <Button onClick={async () => {
+                          if (!reassignTarget) { setReassignError('Seleccioná un vendedor destino.'); return; }
+                          setReassignLoading(true); setReassignError('');
+                          try {
+                            const res = await fetch(buildApiUrl(`/lead-batches/${selectedLot.id}/remove-seller`, getApiBaseUrl()), {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(user?.accessToken) },
+                              body: JSON.stringify({ seller_id: removeModal.sellerId, new_seller_id: reassignTarget })
+                            });
+                            const data = await res.json();
+                            if (!data.ok) throw new Error(data.message || 'Error al quitar vendedor');
+                            setRemoveModal(null); setRemoveStep(1); setReassignTarget(''); setReassignError('');
+                            window.location.reload();
+                          } catch (err) {
+                            setReassignError(err.message || 'No se pudo completar la operación.');
+                          } finally {
+                            setReassignLoading(false);
+                          }
+                        }} disabled={reassignLoading}>{reassignLoading ? 'Procesando...' : 'Confirmar y quitar vendedor'}</Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* MODAL: AGREGAR VENDEDOR */}
+            {addSellerOpen && (
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                <div style={{ background: 'var(--bg)', borderRadius: 12, padding: 24, width: 360, border: '1px solid rgba(20,34,53,0.12)', boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}>
+                  <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>Agregar vendedor al lote</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>Lote: <strong>{selectedLot?.name}</strong></div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Vendedor</div>
+                  <select className="input" style={{ width: '100%', marginBottom: 16 }}
+                    value={addSellerTarget}
+                    onChange={(e) => { setAddSellerTarget(e.target.value); setAddSellerError(''); }}>
+                    <option value="">Seleccioná un vendedor...</option>
+                    {sellers
+                      .filter((s) => !(selectedLot?.vendedores || []).some((v) => v.id === s.id))
+                      .map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+                  </select>
+                  {addSellerError && <div style={{ fontSize: 12, color: '#A32D2D', marginBottom: 10 }}>{addSellerError}</div>}
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                    <Button variant="secondary" onClick={() => { setAddSellerOpen(false); setAddSellerTarget(''); setAddSellerError(''); }}>Cancelar</Button>
+                    <Button onClick={async () => {
+                      if (!addSellerTarget) { setAddSellerError('Seleccioná un vendedor.'); return; }
+                      setReassignLoading(true);
+                      try {
+                        const res = await fetch(buildApiUrl(`/lead-batches/${selectedLot.id}/add-seller`, getApiBaseUrl()), {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(user?.accessToken) },
+                          body: JSON.stringify({ seller_id: addSellerTarget })
+                        });
+                        const data = await res.json();
+                        if (!data.ok) throw new Error(data.message || 'Error al agregar vendedor');
+                        setAddSellerOpen(false); setAddSellerTarget(''); setAddSellerError('');
+                        window.location.reload();
+                      } catch (err) {
+                        setAddSellerError(err.message || 'No se pudo agregar el vendedor.');
+                      } finally {
+                        setReassignLoading(false);
+                      }
+                    }} disabled={reassignLoading}>Agregar</Button>
                   </div>
                 </div>
               </div>
