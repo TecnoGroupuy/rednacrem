@@ -6895,7 +6895,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
             {/* MODAL: REASIGNAR */}
             {reassignModal && (
-              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
                 <div style={{ background: '#FFFFFF', borderRadius: 12, padding: 24, width: 380, border: '1px solid rgba(20,34,53,0.12)', boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}>
                   <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>Reasignar contactos</div>
                   <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>Lote: <strong>{selectedLot?.name}</strong></div>
@@ -6941,7 +6941,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
             {/* MODAL: QUITAR VENDEDOR (wizard 2 pasos) */}
             {removeModal && (
-              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
                 <div style={{ background: '#FFFFFF', borderRadius: 12, padding: 24, width: 380, border: '1px solid rgba(20,34,53,0.12)', boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}>
                   {removeStep === 1 ? (
                     <>
@@ -7011,7 +7011,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
             {/* MODAL: AGREGAR VENDEDOR */}
             {addSellerOpen && (
-              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
                 <div style={{ background: '#FFFFFF', borderRadius: 12, padding: 24, width: 360, border: '1px solid rgba(20,34,53,0.12)', boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}>
                   <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>Agregar vendedor al lote</div>
                   <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>Lote: <strong>{selectedLot?.name}</strong></div>
