@@ -180,38 +180,38 @@ const ROLE_NAV = [
       { path: 'dashboard_global', label: 'Vista general', caption: 'Control transversal', roles: ['superadministrador'], icon: Activity },
       { path: 'sa_importaciones', label: 'Importaciones', caption: 'CSV por tipo de carga', roles: ['superadministrador'], icon: Upload },
       { path: 'sa_no_llamar', label: 'Base No llamar', caption: 'Bloqueos de contacto', roles: ['superadministrador'], icon: Phone },
-      { path: 'sa_resultados', label: 'Resultados telefónicos', caption: 'Historial de gestiones', roles: ['superadministrador'], icon: PhoneCall },
-      { path: 'sa_datos_trabajar', label: 'Datos para trabajar', caption: 'Preparación operativa', roles: ['superadministrador'], icon: FileText },
-      { path: 'sa_productos', label: 'Productos', caption: 'Catálogo comercial', roles: ['superadministrador'], icon: Briefcase },
+      { path: 'sa_resultados', label: 'Resultados telefÃ³nicos', caption: 'Historial de gestiones', roles: ['superadministrador'], icon: PhoneCall },
+      { path: 'sa_datos_trabajar', label: 'Datos para trabajar', caption: 'PreparaciÃ³n operativa', roles: ['superadministrador'], icon: FileText },
+      { path: 'sa_productos', label: 'Productos', caption: 'CatÃ¡logo comercial', roles: ['superadministrador'], icon: Briefcase },
       { path: 'sa_usuarios', label: 'Usuarios y roles', caption: 'Accesos del sistema', roles: ['superadministrador'], icon: UserCheck },
       { path: 'sa_logs_actividad', label: 'Logs y actividad', caption: 'Monitoreo e inactividad', roles: ['superadministrador'], icon: Zap },
-      { path: 'sa_estado_modulos', label: 'Estado de módulos', caption: 'Visibilidad por rol', roles: ['superadministrador'], icon: Layers },
-      { path: 'sa_configuracion', label: 'Configuración', caption: 'Identidad y parámetros', roles: ['superadministrador'], icon: Settings },
-      { path: 'campanas_redes', label: 'Campañas de redes', caption: 'Monitor de campañas', roles: ['superadministrador', 'director', 'supervisor'], icon: BarChart3 },
+      { path: 'sa_estado_modulos', label: 'Estado de mÃ³dulos', caption: 'Visibilidad por rol', roles: ['superadministrador'], icon: Layers },
+      { path: 'sa_configuracion', label: 'ConfiguraciÃ³n', caption: 'Identidad y parÃ¡metros', roles: ['superadministrador'], icon: Settings },
+      { path: 'campanas_redes', label: 'CampaÃ±as de redes', caption: 'Monitor de campaÃ±as', roles: ['superadministrador', 'director', 'supervisor'], icon: BarChart3 },
       { path: 'dashboard', label: 'Monitor', caption: 'Resumen principal', roles: ['director', 'supervisor', 'vendedor', 'operaciones'], icon: Activity },
       { path: 'contactos', label: 'Contacto', caption: 'Base comercial', roles: ['director', 'vendedor'], icon: Users },
       { path: 'recupero', label: 'Recupero', caption: 'Cartera en baja', roles: ['vendedor'], icon: FileText },
       { path: 'clientes', label: 'Clientes', caption: 'Cartera activa', roles: ['superadministrador', 'director', 'operaciones', 'supervisor'], icon: UserCheck },
-      { path: 'clientes', label: 'Mis ventas', caption: 'Clientes que cerré', roles: ['vendedor'], icon: UserCheck },
+      { path: 'clientes', label: 'Mis ventas', caption: 'Clientes que cerrÃ©', roles: ['vendedor'], icon: UserCheck },
       { path: 'base_general', label: 'Base general', caption: 'Carga y preparacion', roles: ['supervisor'], icon: Users },
       { path: 'lotes', label: 'Lotes', caption: 'Asignacion comercial', roles: ['supervisor'], icon: Layers },
       { path: 'numeros_error', label: 'Numeros con errores', caption: 'Fuera de flujo comercial', roles: ['supervisor'], icon: AlertTriangle },
       { path: 'seguimiento_vendedores', label: 'Codificaciones', caption: 'Codificaciones', roles: ['supervisor'], icon: BarChart3 },
-      { path: 'solicitudes_registro', label: 'Solicitudes registro', caption: 'Aprobación vendedores', roles: ['supervisor'], icon: Bell },
-      { path: 'agenda', label: 'Agenda', caption: 'Compromisos del día', roles: ['vendedor'], icon: Calendar },
-      { path: 'soporte', label: 'Atención al cliente', caption: 'Tickets y llamadas', roles: ['atencion_cliente'], icon: Headphones, badge: 12 },
+      { path: 'solicitudes_registro', label: 'Solicitudes registro', caption: 'AprobaciÃ³n vendedores', roles: ['supervisor'], icon: Bell },
+      { path: 'agenda', label: 'Agenda', caption: 'Compromisos del dÃ­a', roles: ['vendedor'], icon: Calendar },
+      { path: 'soporte', label: 'AtenciÃ³n al cliente', caption: 'Tickets y llamadas', roles: ['atencion_cliente'], icon: Headphones, badge: 12 },
       { path: 'contratos', label: 'Recupero', caption: 'Cartera de clientes', roles: ['director', 'supervisor', 'operaciones'], icon: FileText },
       { path: 'pagos', label: 'Pagos', caption: 'Cobranza y convenios', roles: ['director', 'operaciones'], icon: CreditCard },
       { path: 'servicios', label: 'Servicios', caption: 'Circuito operativo', roles: ['director', 'operaciones'], icon: Briefcase, badge: 12 },
       { path: 'proveedores', label: 'Proveedores', caption: 'Red de soporte', roles: ['director', 'operaciones'], icon: Building2 },
       { path: 'equipo', label: 'Equipo de venta', caption: 'Rendimiento comercial', roles: ['director', 'supervisor'], icon: Layers },
       { path: 'reportes', label: 'Reportes', caption: 'Exportables', roles: ['director', 'supervisor'], icon: BarChart3 },
-      { path: 'config', label: 'Configuración', caption: 'Parámetros del sistema', roles: ['director'], icon: Settings }
+      { path: 'config', label: 'ConfiguraciÃ³n', caption: 'ParÃ¡metros del sistema', roles: ['director'], icon: Settings }
     ];
 
 const statusVariant = (label) => {
-  if (['Al día', 'Al dia', 'Gestionado', 'Finalizado', 'Excelente'].includes(label)) return 'success';
-  if (['Pendiente', 'En gestión', 'En gestion', 'Control', 'Atención', 'Atencion'].includes(label)) return 'warning';
+  if (['Al dÃ­a', 'Al dia', 'Gestionado', 'Finalizado', 'Excelente'].includes(label)) return 'success';
+  if (['Pendiente', 'En gestiÃ³n', 'En gestion', 'Control', 'AtenciÃ³n', 'Atencion'].includes(label)) return 'warning';
   return 'info';
 };
 
@@ -255,7 +255,7 @@ const DEFAULT_CLIENT_METRICS = {
 
 const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
   { title: 'Activos', value: metrics.activos, change: 2.8, label: 'base viva', trend: 'up', icon: UserCheck, bg: 'rgba(21,128,61,0.12)', color: '#15803d' },
-  { title: 'En baja', value: metrics.enBaja, change: -12.2, label: 'contención', trend: 'up', icon: TrendingDown, bg: 'rgba(190,18,60,0.12)', color: '#be123c' },
+  { title: 'En baja', value: metrics.enBaja, change: -12.2, label: 'contenciÃ³n', trend: 'up', icon: TrendingDown, bg: 'rgba(190,18,60,0.12)', color: '#be123c' },
   { title: 'Cuota promedio', value: metrics.cuotaPromedioLabel || `$ ${Number(metrics.cuotaPromedio || 0).toLocaleString('es-UY')}`, change: 1.4, label: 'ticket medio', trend: 'up', icon: DollarSign, bg: 'rgba(217,119,6,0.12)', color: '#d97706' }
 ]);
     const normalizePaymentMethod = (value) => {
@@ -291,8 +291,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const normalized = normalizePaymentMethod(value);
       if (!normalized) return '';
       const labels = {
-        debito: 'Débito',
-        credito: 'Crédito',
+        debito: 'DÃ©bito',
+        credito: 'CrÃ©dito',
         efectivo: 'Efectivo',
         transferencia: 'Transferencia',
         mi_dinero: 'Mi dinero',
@@ -384,7 +384,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         icon: PauseCircleSafe,
         color: '#94a3b8',
         bloqueaPantalla: false,
-        mensaje: 'Sesión inactiva'
+        mensaje: 'SesiÃ³n inactiva'
       },
       desconectado: {
         id: 'desconectado',
@@ -396,7 +396,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       },
       bano: {
         id: 'bano',
-        label: 'Baño',
+        label: 'BaÃ±o',
         icon: Bath,
         color: '#f59e0b',
         bloqueaPantalla: true,
@@ -416,7 +416,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         icon: PersonStanding,
         color: '#a855f7',
         bloqueaPantalla: true,
-        mensaje: 'Reunión con supervisor'
+        mensaje: 'ReuniÃ³n con supervisor'
       }
     };
 
@@ -523,7 +523,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               </div>
               <div className="user-menu-separator"></div>
               <div className="user-menu-actions">
-                <button className="user-menu-item danger" onClick={onLogout}><LogOut size={16} />Cerrar sesión</button>
+                <button className="user-menu-item danger" onClick={onLogout}><LogOut size={16} />Cerrar sesiÃ³n</button>
               </div>
             </div>
           ) : null}
@@ -578,7 +578,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               >
                 Volver al trabajo
               </button>
-              <div style={{ marginTop: 10, color: 'rgba(148,163,184,0.78)', fontSize: '0.8rem' }}>Presiona el botón cuando estés listo para continuar</div>
+              <div style={{ marginTop: 10, color: 'rgba(148,163,184,0.78)', fontSize: '0.8rem' }}>Presiona el botÃ³n cuando estÃ©s listo para continuar</div>
             </div>
           </div>
         </div>
@@ -628,7 +628,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const panelRef = React.useRef(null);
       const triggerRef = React.useRef(null);
       const normalizeNotificationTitle = (value) =>
-        String(value || '').replaceAll('·', '-').replaceAll('?', '-');
+        String(value || '').replaceAll('Â·', '-').replaceAll('?', '-');
 
       const refreshNotifications = React.useCallback(() => {
         setItems(listNotifications({ userId, limit: 15 }));
@@ -752,7 +752,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   <div className="notifications-header">
                     <h4>Notificaciones</h4>
                     <button className="notifications-mark-all" onClick={handleMarkAllRead} disabled={items.length === 0}>
-                      Marcar todo leído
+                      Marcar todo leÃ­do
                     </button>
                   </div>
               <div className="notifications-list">
@@ -818,7 +818,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 <div className="notifications-header">
                   <h4>Notificaciones</h4>
                   <button className="notifications-mark-all" onClick={handleMarkAllRead} disabled={items.length === 0}>
-                    Marcar todo leído
+                    Marcar todo leÃ­do
                   </button>
                 </div>
               <div className="notifications-list">
@@ -930,7 +930,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
     function AlertsPanel({ alerts }) {
       return (
-        <Panel title="Alertas estratégicas" subtitle="Señales que requieren acción ejecutiva" action={<Tag variant="danger">{alerts.length} activas</Tag>}>
+        <Panel title="Alertas estratÃ©gicas" subtitle="SeÃ±ales que requieren acciÃ³n ejecutiva" action={<Tag variant="danger">{alerts.length} activas</Tag>}>
           <div className="alert-list">
             {alerts.map((alert) => (
               <div key={alert.id} className={'alert ' + alert.type}>
@@ -940,7 +940,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 <div>
                   <div style={{ fontWeight: 700, marginBottom: 4 }}>{alert.title}</div>
                   <div style={{ color: 'var(--muted)', lineHeight: 1.5 }}>{alert.detail}</div>
-                  <div style={{ marginTop: 8, fontSize: '0.82rem', color: 'var(--muted)' }}>{alert.time} · {alert.module}</div>
+                  <div style={{ marginTop: 8, fontSize: '0.82rem', color: 'var(--muted)' }}>{alert.time} Â· {alert.module}</div>
                 </div>
               </div>
             ))}
@@ -954,27 +954,27 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         <div className="view">
           <section className="hero">
             <div className="hero-panel">
-              <Tag variant="success">Salud de cartera en recuperación</Tag>
-              <h1 className="hero-title">Dirección con foco en crecimiento, retención y ejecución.</h1>
-              <p className="hero-copy">La cartera mantiene aceleración positiva, con más altas netas, menor desgaste y una caída sostenida en morosidad. La prioridad del día es sostener cobranzas y resolver cuellos operativos.</p>
+              <Tag variant="success">Salud de cartera en recuperaciÃ³n</Tag>
+              <h1 className="hero-title">DirecciÃ³n con foco en crecimiento, retenciÃ³n y ejecuciÃ³n.</h1>
+              <p className="hero-copy">La cartera mantiene aceleraciÃ³n positiva, con mÃ¡s altas netas, menor desgaste y una caÃ­da sostenida en morosidad. La prioridad del dÃ­a es sostener cobranzas y resolver cuellos operativos.</p>
               <div className="hero-kpis">
                 <div className="hero-kpi"><div className="hero-kpi-label">Altas netas del mes</div><div className="hero-kpi-value">+293</div></div>
-                <div className="hero-kpi"><div className="hero-kpi-label">Conversión comercial</div><div className="hero-kpi-value">29,4%</div></div>
+                <div className="hero-kpi"><div className="hero-kpi-label">ConversiÃ³n comercial</div><div className="hero-kpi-value">29,4%</div></div>
                 <div className="hero-kpi"><div className="hero-kpi-label">SLA operativo</div><div className="hero-kpi-value">93,2%</div></div>
               </div>
               <div className="hero-grid"></div>
             </div>
             <div className="hero-side">
-              <Panel title="Pulso del negocio" subtitle="Semáforos de dirección">
+              <Panel title="Pulso del negocio" subtitle="SemÃ¡foros de direcciÃ³n">
                 <div className="status-stack">
-                  <div className="status-item"><div className="status-ring" style={{ background: 'rgba(15,118,110,0.12)', color: '#0f766e' }}>A</div><div><div style={{ fontWeight: 700 }}>Adquisición</div><div style={{ color: 'var(--muted)' }}>Ritmo superior al objetivo semanal</div></div></div>
+                  <div className="status-item"><div className="status-ring" style={{ background: 'rgba(15,118,110,0.12)', color: '#0f766e' }}>A</div><div><div style={{ fontWeight: 700 }}>AdquisiciÃ³n</div><div style={{ color: 'var(--muted)' }}>Ritmo superior al objetivo semanal</div></div></div>
                   <div className="status-item"><div className="status-ring" style={{ background: 'rgba(217,119,6,0.12)', color: '#d97706' }}>C</div><div><div style={{ fontWeight: 700 }}>Cobranza</div><div style={{ color: 'var(--muted)' }}>Requiere refuerzo en tramos medios</div></div></div>
-                  <div className="status-item"><div className="status-ring" style={{ background: 'rgba(37,99,235,0.12)', color: '#2563eb' }}>O</div><div><div style={{ fontWeight: 700 }}>Operaciones</div><div style={{ color: 'var(--muted)' }}>SLA estable, con una incidencia crítica abierta</div></div></div>
+                  <div className="status-item"><div className="status-ring" style={{ background: 'rgba(37,99,235,0.12)', color: '#2563eb' }}>O</div><div><div style={{ fontWeight: 700 }}>Operaciones</div><div style={{ color: 'var(--muted)' }}>SLA estable, con una incidencia crÃ­tica abierta</div></div></div>
                 </div>
               </Panel>
-              <Panel title="Acciones rápidas" subtitle="Atajos del comité ejecutivo">
+              <Panel title="Acciones rÃ¡pidas" subtitle="Atajos del comitÃ© ejecutivo">
                 <div className="toolbar">
-                  <Button variant="secondary" icon={<Download size={18} />}>Exportar comité</Button>
+                  <Button variant="secondary" icon={<Download size={18} />}>Exportar comitÃ©</Button>
                   <Button variant="ghost" icon={<AlertTriangle size={18} />}>Ver riesgos</Button>
                   <Button icon={<Activity size={18} />}>Actualizar corte</Button>
                 </div>
@@ -983,7 +983,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           </section>
           <section className="metrics-grid">{DIRECTOR_METRICS.map((item) => <MetricCard key={item.title} item={item} />)}</section>
           <section className="content-grid">
-            <Panel className="span-8" title="Evolución de cartera" subtitle="Crecimiento y morosidad de los últimos seis cortes" action={<Tag variant="success">Tendencia positiva</Tag>}>
+            <Panel className="span-8" title="EvoluciÃ³n de cartera" subtitle="Crecimiento y morosidad de los Ãºltimos seis cortes" action={<Tag variant="success">Tendencia positiva</Tag>}>
               <div style={{ width: '100%', height: 320 }}>
                 <ResponsiveContainer>
                   <LineChart data={PORTFOLIO_TREND}>
@@ -998,7 +998,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 </ResponsiveContainer>
               </div>
             </Panel>
-            <Panel className="span-4" title="Mix de productos" subtitle="Distribución actual de cartera">
+            <Panel className="span-4" title="Mix de productos" subtitle="DistribuciÃ³n actual de cartera">
               <div style={{ width: '100%', height: 320 }}>
                 <ResponsiveContainer>
                   <RePieChart>
@@ -1013,7 +1013,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             </Panel>
           </section>
           <section className="content-grid">
-            <Panel className="span-7" title="Altas vs. bajas" subtitle="Flujo comercial del último semestre">
+            <Panel className="span-7" title="Altas vs. bajas" subtitle="Flujo comercial del Ãºltimo semestre">
               <div style={{ width: '100%', height: 300 }}>
                 <ResponsiveContainer>
                   <BarChart data={PORTFOLIO_TREND}>
@@ -1027,12 +1027,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 </ResponsiveContainer>
               </div>
             </Panel>
-            <Panel className="span-5" title="Mapa de alertas" subtitle="Frentes con mayor presión hoy">
+            <Panel className="span-5" title="Mapa de alertas" subtitle="Frentes con mayor presiÃ³n hoy">
               <div className="mini-stats">
-                <div className="mini-stat"><div><div style={{ fontWeight: 700 }}>Montevideo</div><div style={{ color: 'var(--muted)' }}>Morosidad + reclamos</div></div><Tag variant="danger">Crítico</Tag></div>
-                <div className="mini-stat"><div><div style={{ fontWeight: 700 }}>Canelones</div><div style={{ color: 'var(--muted)' }}>Buen desempeño comercial</div></div><Tag variant="success">Oportunidad</Tag></div>
+                <div className="mini-stat"><div><div style={{ fontWeight: 700 }}>Montevideo</div><div style={{ color: 'var(--muted)' }}>Morosidad + reclamos</div></div><Tag variant="danger">CrÃ­tico</Tag></div>
+                <div className="mini-stat"><div><div style={{ fontWeight: 700 }}>Canelones</div><div style={{ color: 'var(--muted)' }}>Buen desempeÃ±o comercial</div></div><Tag variant="success">Oportunidad</Tag></div>
                 <div className="mini-stat"><div><div style={{ fontWeight: 700 }}>Litoral</div><div style={{ color: 'var(--muted)' }}>Baja cobertura de seguimiento</div></div><Tag variant="warning">Revisar</Tag></div>
-                <div className="mini-stat"><div><div style={{ fontWeight: 700 }}>Interior Este</div><div style={{ color: 'var(--muted)' }}>Operación dentro de SLA</div></div><Tag variant="info">Estable</Tag></div>
+                <div className="mini-stat"><div><div style={{ fontWeight: 700 }}>Interior Este</div><div style={{ color: 'var(--muted)' }}>OperaciÃ³n dentro de SLA</div></div><Tag variant="info">Estable</Tag></div>
               </div>
             </Panel>
           </section>
@@ -1040,7 +1040,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <Panel className="span-7" title="Rendimiento por supervisor" subtitle="Comparativo consolidado">
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>Supervisor</th><th>Ventas</th><th>Conversión</th><th>Salud</th></tr></thead>
+                  <thead><tr><th>Supervisor</th><th>Ventas</th><th>ConversiÃ³n</th><th>Salud</th></tr></thead>
                   <tbody>{TEAM_ROWS.map((row) => <tr key={row.name}><td><div className="person"><div className="person-badge">{initials(row.name)}</div><div><div style={{ fontWeight: 700 }}>{row.name}</div><div style={{ color: 'var(--muted)', fontSize: '0.86rem' }}>Zona comercial</div></div></div></td><td>{row.sales}</td><td>{row.conversion}</td><td><Tag variant={row.badge}>{row.health}</Tag></td></tr>)}</tbody>
                 </table>
               </div>
@@ -1138,12 +1138,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           0
         );
         const status = item?.status || item?.estado || item?.statusLabel || 'Activo';
-        const name = item?.name || item?.nombre || item?.agent_name || '—';
-        const login = item?.login || item?.login_at || item?.ingreso || item?.login_time || '—';
+        const name = item?.name || item?.nombre || item?.agent_name || 'â€”';
+        const login = item?.login || item?.login_at || item?.ingreso || item?.login_time || 'â€”';
         const totalCalls = Number(item?.calls ?? item?.llamadas ?? item?.total_llamadas ?? 0);
         const totalSales = Number(item?.sales ?? item?.ventas ?? item?.total_ventas ?? 0);
         const workMinutes = toMinutes(item?.workTime ?? item?.tiempo_productivo ?? item?.work_time ?? item?.tiempo_conectado_minutos ?? 0);
-        const workTime = workMinutes ? `${Math.floor(workMinutes / 60)}h ${workMinutes % 60}m` : (item?.workTime || item?.tiempo_productivo || item?.work_time || '—');
+        const workTime = workMinutes ? `${Math.floor(workMinutes / 60)}h ${workMinutes % 60}m` : (item?.workTime || item?.tiempo_productivo || item?.work_time || 'â€”');
         return {
           id: item?.id || item?.agente_id || item?.agent_id || name,
           name,
@@ -1154,14 +1154,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           pauses: { count: pausesCount, minutes: pausesMinutes },
           login,
           workTime,
-          highlight: String(status).toLowerCase().includes('atencion') || String(status).toLowerCase().includes('atención')
+          highlight: String(status).toLowerCase().includes('atencion') || String(status).toLowerCase().includes('atenciÃ³n')
         };
       }, [parsePercent, toMinutes]);
       const mapSummaryCards = React.useCallback((summary, agentsList) => {
         const normalizedSummary = summary || null;
         if (normalizedSummary) {
           return [
-            { label: 'Agentes activos', value: normalizedSummary?.agentsActive || normalizedSummary?.agentesActivos || `${normalizedSummary?.activos ?? normalizedSummary?.agentes_activos ?? 0} / ${normalizedSummary?.total ?? normalizedSummary?.agentes_total ?? 0}`, sub: normalizedSummary?.attentionCount ? `${normalizedSummary.attentionCount} requiere atención` : (normalizedSummary?.nota || '') },
+            { label: 'Agentes activos', value: normalizedSummary?.agentsActive || normalizedSummary?.agentesActivos || `${normalizedSummary?.activos ?? normalizedSummary?.agentes_activos ?? 0} / ${normalizedSummary?.total ?? normalizedSummary?.agentes_total ?? 0}`, sub: normalizedSummary?.attentionCount ? `${normalizedSummary.attentionCount} requiere atenciÃ³n` : (normalizedSummary?.nota || '') },
             { label: 'Total llamadas', value: normalizedSummary?.calls ?? normalizedSummary?.llamadas ?? normalizedSummary?.total_llamadas ?? '0', sub: normalizedSummary?.callsGoal ?? normalizedSummary?.meta_llamadas ? `Meta del equipo: ${normalizedSummary.callsGoal ?? normalizedSummary.meta_llamadas}` : '' },
             { label: 'Total ventas', value: normalizedSummary?.sales ?? normalizedSummary?.ventas ?? normalizedSummary?.total_ventas ?? '0', sub: normalizedSummary?.salesGoal ?? normalizedSummary?.meta_ventas ? `Meta: ${normalizedSummary.salesGoal ?? normalizedSummary.meta_ventas}` : '' },
             { label: 'Conv. promedio', value: normalizedSummary?.avgConversion ?? normalizedSummary?.conversion_promedio ? `${parsePercent(normalizedSummary.avgConversion ?? normalizedSummary.conversion_promedio)}%` : '0%', sub: normalizedSummary?.avgConversionNote || '' }
@@ -1176,7 +1176,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const totalSales = agentsList.reduce((acc, agent) => acc + Number(agent.sales || 0), 0);
         const avgConversion = totalAgents ? Math.round(agentsList.reduce((acc, agent) => acc + Number(agent.conversion || 0), 0) / totalAgents) : 0;
         return [
-          { label: 'Agentes activos', value: `${totalAgents - attentionCount} / ${totalAgents}`, sub: attentionCount ? `${attentionCount} requiere atención` : '' },
+          { label: 'Agentes activos', value: `${totalAgents - attentionCount} / ${totalAgents}`, sub: attentionCount ? `${attentionCount} requiere atenciÃ³n` : '' },
           { label: 'Total llamadas', value: String(totalCalls), sub: '' },
           { label: 'Total ventas', value: String(totalSales), sub: '' },
           { label: 'Conv. promedio', value: `${avgConversion}%`, sub: '' }
@@ -1186,7 +1186,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const normalizeTeamPayload = React.useCallback((payload) => {
         if (!payload) return null;
         const base = payload?.data || payload;
-        // Prefer "agents" (en inglés) porque ya viene normalizado con login/workTime.
+        // Prefer "agents" (en inglÃ©s) porque ya viene normalizado con login/workTime.
         const agents = base?.agents || base?.data?.agents || base?.items || base?.team || base?.data?.items || [];
         const summary = base?.summary || base?.data?.summary || base?.kpis || null;
         const alertas = base?.alertas_activas || base?.alerts || base?.data?.alertas_activas || [];
@@ -1239,7 +1239,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const metrics = raw.metricas || raw.metrics || raw.kpis || raw.summary || {};
         const shiftStart = agent.turno_inicio || raw.turno_inicio || '';
         const shiftEnd = agent.turno_fin || raw.turno_fin || '';
-        const shift = raw.shift || raw.turno || raw.shiftLabel || raw.shift_label || (shiftStart || shiftEnd ? `${shiftStart || '—'} — ${shiftEnd || '—'}` : '') || fallbackDetail?.shift || '';
+        const shift = raw.shift || raw.turno || raw.shiftLabel || raw.shift_label || (shiftStart || shiftEnd ? `${shiftStart || 'â€”'} â€” ${shiftEnd || 'â€”'}` : '') || fallbackDetail?.shift || '';
         const status = agent.estado || raw.status || raw.estado || fallbackDetail?.status || 'Activo';
         const countFrom = (value) => {
           if (Array.isArray(value)) return value.length;
@@ -1265,8 +1265,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           kpis = [
             { label: 'Llamadas', value: String(Number.isFinite(callsCount) ? callsCount : 0), sub: metrics.meta_llamadas ? `Meta: ${metrics.meta_llamadas}` : (raw.callsGoal ? `Meta: ${raw.callsGoal}` : fallbackDetail?.kpis?.[0]?.sub || '') },
             { label: 'Ventas', value: String(Number.isFinite(salesCount) ? salesCount : 0), sub: metrics.meta_ventas ? `Meta: ${metrics.meta_ventas}` : (raw.salesGoal ? `Meta: ${raw.salesGoal}` : fallbackDetail?.kpis?.[1]?.sub || '') },
-            { label: 'Conversión', value: `${parsePercent(conversionRaw ?? derivedConversion ?? fallbackDetail?.kpis?.[2]?.value ?? 0)}%`, sub: metrics.conversion_promedio_equipo ? `Promedio equipo: ${parsePercent(metrics.conversion_promedio_equipo)}%` : (raw.conversionMin ? `Mínimo: ${raw.conversionMin}%` : fallbackDetail?.kpis?.[2]?.sub || '') },
-            { label: 'Tiempo productivo', value: metrics.porcentaje_productivo ? `${parsePercent(metrics.porcentaje_productivo)}%` : (raw.productivePercent ? `${parsePercent(raw.productivePercent)}%` : (fallbackDetail?.kpis?.[3]?.value || '—')), sub: metrics.tiempo_productivo_minutos ? `${metrics.tiempo_productivo_minutos}m` : (raw.productiveTime ? `${raw.productiveTime}` : fallbackDetail?.kpis?.[3]?.sub || '') }
+            { label: 'ConversiÃ³n', value: `${parsePercent(conversionRaw ?? derivedConversion ?? fallbackDetail?.kpis?.[2]?.value ?? 0)}%`, sub: metrics.conversion_promedio_equipo ? `Promedio equipo: ${parsePercent(metrics.conversion_promedio_equipo)}%` : (raw.conversionMin ? `MÃ­nimo: ${raw.conversionMin}%` : fallbackDetail?.kpis?.[2]?.sub || '') },
+            { label: 'Tiempo productivo', value: metrics.porcentaje_productivo ? `${parsePercent(metrics.porcentaje_productivo)}%` : (raw.productivePercent ? `${parsePercent(raw.productivePercent)}%` : (fallbackDetail?.kpis?.[3]?.value || 'â€”')), sub: metrics.tiempo_productivo_minutos ? `${metrics.tiempo_productivo_minutos}m` : (raw.productiveTime ? `${raw.productiveTime}` : fallbackDetail?.kpis?.[3]?.sub || '') }
           ];
         }
         const rawEvents = raw.eventos || raw.events || raw.activity || raw.events_turno || [];
@@ -1282,7 +1282,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           const label = tipo === 'login' ? 'Trabajo'
             : tipo === 'trabajo' ? 'Trabajo'
               : tipo === 'descanso' ? 'Descanso'
-                : (tipo === 'baño' || tipo === 'bano') ? 'Baño'
+                : (tipo === 'baÃ±o' || tipo === 'bano') ? 'BaÃ±o'
                   : tipo === 'supervisor' ? 'Con supervisor'
                     : tipo === 'logout' ? 'Logout'
                       : 'Trabajo';
@@ -1294,19 +1294,19 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 : label === 'Logout' ? '#e2e8f0'
                   : '#86efac';
           const extended = event?.excedido;
-          return { label: extended && (label === 'Baño' || label === 'Descanso') ? `${label} extendido` : label, minutes, color };
+          return { label: extended && (label === 'BaÃ±o' || label === 'Descanso') ? `${label} extendido` : label, minutes, color };
         }) : []);
         const activityCandidate = raw.activity || raw.events || raw.eventos || raw.events_turno || fallbackDetail?.activity || [];
         const activity = Array.isArray(activityCandidate) ? activityCandidate.map((event) => {
           const tipo = String(event?.tipo || event?.event || '').toLowerCase();
-          const label = tipo === 'login' ? 'Login' : tipo === 'logout' ? 'Logout' : tipo === 'trabajo' ? 'Trabajo' : tipo === 'descanso' ? 'Descanso' : (tipo === 'baño' || tipo === 'bano') ? 'Baño' : tipo === 'supervisor' ? 'Supervisor' : (event?.event || event?.tipo || '—');
+          const label = tipo === 'login' ? 'Login' : tipo === 'logout' ? 'Logout' : tipo === 'trabajo' ? 'Trabajo' : tipo === 'descanso' ? 'Descanso' : (tipo === 'baÃ±o' || tipo === 'bano') ? 'BaÃ±o' : tipo === 'supervisor' ? 'Supervisor' : (event?.event || event?.tipo || 'â€”');
           const duration = Number(event?.duracion_minutos ?? event?.duracion ?? event?.minutes ?? 0);
           const exceso = Number(event?.exceso_minutos ?? 0);
           return {
             time: event?.inicio || event?.hora || '',
             event: label,
-            duration: Number.isFinite(duration) && duration ? `${duration}m` : '—',
-            note: exceso ? `+${exceso}m sobre límite` : '',
+            duration: Number.isFinite(duration) && duration ? `${duration}m` : 'â€”',
+            note: exceso ? `+${exceso}m sobre lÃ­mite` : '',
             overLimit: Boolean(event?.excedido)
           };
         }) : [];
@@ -1315,13 +1315,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           const seconds = Number(call?.duracion_segundos ?? call?.duracion ?? 0);
           const minutes = Math.floor(seconds / 60);
           const remaining = seconds % 60;
-          const duration = seconds ? `${minutes}m ${String(remaining).padStart(2, '0')}s` : '—';
+          const duration = seconds ? `${minutes}m ${String(remaining).padStart(2, '0')}s` : 'â€”';
           const resultRaw = String(call?.resultado || call?.result || '').toLowerCase();
           const result = resultRaw === 'venta' ? 'Venta' : resultRaw === 'callback' ? 'Callback' : resultRaw === 'no_contesta' ? 'No contesta' : 'No venta';
           return {
             time: call?.hora || '',
             duration,
-            client: call?.cliente_nombre || call?.cliente || '—',
+            client: call?.cliente_nombre || call?.cliente || 'â€”',
             result,
             shortCall: seconds > 0 ? seconds < 60 : false
           };
@@ -1340,7 +1340,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           }));
           const resumen = week.resumen || {};
           const summary = [
-            { label: 'Conversión promedio', value: `${parsePercent(resumen.conversion_promedio_semana ?? 0)}%` },
+            { label: 'ConversiÃ³n promedio', value: `${parsePercent(resumen.conversion_promedio_semana ?? 0)}%` },
             { label: 'Total alertas', value: String(resumen.total_alertas_semana ?? 0) },
             { label: 'Total ventas', value: String(resumen.total_ventas_semana ?? 0) },
             { label: 'Total llamadas', value: String(resumen.total_llamadas_semana ?? 0) }
@@ -1438,7 +1438,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               setMarketWidget((prev) => ({ ...prev, status: 'error', error: message || 'No pudimos cargar Mercado abierto', requestId }));
               return;
             }
-            setMarketWidget((prev) => ({ ...prev, status: 'error', error: 'Respuesta inválida de Mercado abierto', requestId }));
+            setMarketWidget((prev) => ({ ...prev, status: 'error', error: 'Respuesta invÃ¡lida de Mercado abierto', requestId }));
           })
           .catch((err) => {
             if (!active) return;
@@ -1474,7 +1474,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               setRecuperoWidget((prev) => ({ ...prev, status: 'error', error: message || 'No pudimos cargar Recupero', requestId }));
               return;
             }
-            setRecuperoWidget((prev) => ({ ...prev, status: 'error', error: 'Respuesta inválida de Recupero', requestId }));
+            setRecuperoWidget((prev) => ({ ...prev, status: 'error', error: 'Respuesta invÃ¡lida de Recupero', requestId }));
           })
           .catch((err) => {
             if (!active) return;
@@ -1548,7 +1548,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const picked = firstMatch || fallback || alerts[0];
         const label = String(picked?.agente_nombre || '').trim();
         if (!label) return '';
-        return `${label} requiere atención — Conversión`.trim();
+        return `${label} requiere atenciÃ³n â€” ConversiÃ³n`.trim();
       }, [teamAgents, teamSummary]);
       const avgPauseMinutes = React.useMemo(() => {
         if (teamSummary?.avgPauseMinutes) return Number(teamSummary.avgPauseMinutes) || 0;
@@ -1561,7 +1561,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         if (key.includes('login')) return { bg: 'rgba(59,130,246,0.15)', color: '#2563eb' };
         if (key.includes('trab')) return { bg: 'rgba(59,130,246,0.15)', color: '#2563eb' };
         if (key.includes('desc')) return { bg: 'rgba(249,115,22,0.16)', color: '#b45309' };
-        if (key.includes('baño') || key.includes('bano')) return { bg: 'rgba(16,185,129,0.16)', color: '#15803d' };
+        if (key.includes('baÃ±o') || key.includes('bano')) return { bg: 'rgba(16,185,129,0.16)', color: '#15803d' };
         return { bg: 'rgba(148,163,184,0.2)', color: '#475569' };
       };
       const callBadge = (result) => {
@@ -1571,13 +1571,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return { bg: 'rgba(148,163,184,0.2)', color: '#475569' };
       };
       const conversionBarColor = (value, status) => {
-        if (status === 'Atención') return '#f59e0b';
+        if (status === 'AtenciÃ³n') return '#f59e0b';
         if (value >= 16) return '#22c55e';
         if (value >= 12) return '#3b82f6';
         return '#f97316';
       };
       const pauseBadgeStyle = (minutes, status) => {
-        const isHigh = (avgPauseMinutes ? minutes >= avgPauseMinutes : minutes >= 45) || status === 'Atención';
+        const isHigh = (avgPauseMinutes ? minutes >= avgPauseMinutes : minutes >= 45) || status === 'AtenciÃ³n';
         return {
           fontWeight: isHigh ? 700 : 500,
           color: isHigh ? '#b45309' : 'inherit'
@@ -1757,7 +1757,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const mapJornadaItem = React.useCallback((item) => {
         const nombre = item?.nombre || '';
         const apellido = item?.apellido || '';
-        const fullName = `${nombre} ${apellido}`.trim() || '—';
+        const fullName = `${nombre} ${apellido}`.trim() || 'â€”';
         const initials = `${nombre[0] || ''}${apellido[0] || ''}`.trim().toUpperCase() || 'U';
         const loginLocal = item?.login_local;
         const logoutLocal = item?.logout_local;
@@ -1776,9 +1776,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const estadoMap = {
           TRABAJO: { state: 'disponible', label: 'Disponible' },
           DESCANSO: { state: 'descanso', label: 'En descanso' },
-          BAÑO: { state: 'baño', label: 'En baño' },
-          BANO: { state: 'baño', label: 'En baño' },
-          SUPERVISOR: { state: 'capacitacion', label: 'En capacitación' },
+          BAÃ‘O: { state: 'baÃ±o', label: 'En baÃ±o' },
+          BANO: { state: 'baÃ±o', label: 'En baÃ±o' },
+          SUPERVISOR: { state: 'capacitacion', label: 'En capacitaciÃ³n' },
           LOGOUT: { state: 'fin', label: 'Finalizado' }
         };
         const mappedEstado = normalizedEstado ? estadoMap[normalizedEstado] : null;
@@ -1795,7 +1795,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           times: {
             disponible: Number(item?.disponibleSeg ?? 0),
             descanso: Number(item?.descansosSeg ?? 0),
-            baño: Number(item?.banosSeg ?? 0),
+            baÃ±o: Number(item?.banosSeg ?? 0),
             capacitacion: Number(item?.supervisorSeg ?? 0),
             productivo: Number(item?.tiempoProductivoSeg ?? 0),
             total: totalJornadaSeg
@@ -1822,7 +1822,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           const items = response?.items || response?.data?.items || [];
           setJornadaAgents(Array.isArray(items) ? items.map(mapJornadaItem) : []);
         } catch (err) {
-          setJornadaError(err?.message || 'No se pudo cerrar la sesión.');
+          setJornadaError(err?.message || 'No se pudo cerrar la sesiÃ³n.');
         }
       }, [formatDateYmd, jornadaTimezone, mapJornadaItem, selectedDate]);
       const formatTimeSince = (date) => {
@@ -1839,7 +1839,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, [jornadaAgents, jornadaFilter]);
       const jornadaCounters = React.useMemo(() => ({
         active: jornadaAgents.filter((agent) => agent.currentState !== 'fin').length,
-        pause: jornadaAgents.filter((agent) => agent.currentState === 'descanso' || agent.currentState === 'baño').length,
+        pause: jornadaAgents.filter((agent) => agent.currentState === 'descanso' || agent.currentState === 'baÃ±o').length,
         finished: jornadaAgents.filter((agent) => agent.currentState === 'fin').length
       }), [jornadaAgents]);
       const jornadaAvgDisponible = React.useMemo(() => {
@@ -1851,7 +1851,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const stateBadgeStyle = (state) => {
         if (state === 'disponible') return { background: '#d1fae5', color: '#065f46' };
         if (state === 'descanso') return { background: '#fef3c7', color: '#92400e' };
-        if (state === 'baño') return { background: '#fef9c3', color: '#854d0e' };
+        if (state === 'baÃ±o') return { background: '#fef9c3', color: '#854d0e' };
         if (state === 'capacitacion') return { background: '#ede9fe', color: '#5b21b6' };
         if (state === 'fin') return { background: '#f1f5f9', color: '#475569', border: '2px dashed #cbd5e1' };
         return { background: '#e2e8f0', color: '#334155' };
@@ -1859,8 +1859,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const stateLabel = (state) => {
         if (state === 'disponible') return 'Disponible';
         if (state === 'descanso') return 'Descanso';
-        if (state === 'baño') return 'Baño';
-        if (state === 'capacitacion') return 'Capacitación';
+        if (state === 'baÃ±o') return 'BaÃ±o';
+        if (state === 'capacitacion') return 'CapacitaciÃ³n';
         if (state === 'fin') return 'Jornada Finalizada';
         return 'Estado';
       };
@@ -1982,14 +1982,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           .filter((evt) => evt.tipo);
         const firstLogin = normalized.find((evt) => evt.tipo === 'login');
         const lastLogout = [...normalized].reverse().find((evt) => evt.tipo === 'logout');
-        const startLabel = firstLogin?.inicio || '—';
-        const endLabel = lastLogout?.fin || lastLogout?.inicio || '—';
+        const startLabel = firstLogin?.inicio || 'â€”';
+        const endLabel = lastLogout?.fin || lastLogout?.inicio || 'â€”';
         return (
           <div style={{ background: 'rgba(248,250,252,0.7)', border: '1px solid rgba(15,23,42,0.08)', borderRadius: 14, padding: 16, marginTop: 16 }}>
-            <div style={{ fontWeight: 700, marginBottom: 10 }}>Línea de tiempo del turno</div>
+            <div style={{ fontWeight: 700, marginBottom: 10 }}>LÃ­nea de tiempo del turno</div>
             <div style={{ display: 'flex', height: 32, borderRadius: 999, overflow: 'hidden' }}>
               {(detail?.timeline || []).map((segment, idx) => (
-                <div key={`${segment.label}-${idx}`} style={{ flexGrow: segment.minutes, background: segment.color }} title={`${segment.label} · ${segment.minutes}m`}></div>
+                <div key={`${segment.label}-${idx}`} style={{ flexGrow: segment.minutes, background: segment.color }} title={`${segment.label} Â· ${segment.minutes}m`}></div>
               ))}
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: '0.82rem', color: 'var(--muted)' }}>
@@ -1999,8 +1999,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <div style={{ display: 'flex', gap: 14, marginTop: 10, fontSize: '0.82rem', color: 'var(--muted)', flexWrap: 'wrap' }}>
               <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 4, background: '#93c5fd', marginRight: 6 }}></span>Trabajo</span>
               <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 4, background: '#fdba74', marginRight: 6 }}></span>Descanso</span>
-              <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 4, background: '#f59e0b', marginRight: 6 }}></span>Baño extendido</span>
-              <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 4, background: '#86efac', marginRight: 6 }}></span>Baño</span>
+              <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 4, background: '#f59e0b', marginRight: 6 }}></span>BaÃ±o extendido</span>
+              <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 4, background: '#86efac', marginRight: 6 }}></span>BaÃ±o</span>
             </div>
           </div>
         );
@@ -2014,18 +2014,18 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           if (key === 'trabajo') return 'trabajo';
           if (key === 'descanso') return 'descanso';
           if (key === 'supervisor') return 'supervisor';
-          if (key === 'baño' || key === 'bano') return 'bano';
+          if (key === 'baÃ±o' || key === 'bano') return 'bano';
           return '';
         };
         const formatMinutes = (mins) => {
-          if (mins === null || mins === undefined) return '—';
+          if (mins === null || mins === undefined) return 'â€”';
           const total = Math.max(0, Number(mins) || 0);
           const h = Math.floor(total / 60);
           const m = total % 60;
           return h ? `${h}h ${m}m` : `${m}m`;
         };
         const formatSeconds = (secs) => {
-          if (secs === null || secs === undefined) return '—';
+          if (secs === null || secs === undefined) return 'â€”';
           const total = Math.max(0, Math.floor(Number(secs) || 0));
           const h = Math.floor(total / 3600);
           const m = Math.floor((total % 3600) / 60);
@@ -2035,10 +2035,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           return `${s}s`;
         };
         const formatDuration = (inicio, fin) => {
-          if (!inicio) return '—';
+          if (!inicio) return 'â€”';
           const start = new Date(inicio);
           const end = fin ? new Date(fin) : new Date();
-          if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '—';
+          if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 'â€”';
           const totalSeconds = Math.floor((end - start) / 1000);
           if (totalSeconds < 60) return `${totalSeconds}s`;
           const mins = Math.floor(totalSeconds / 60);
@@ -2047,9 +2047,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           return `${mins}m`;
         };
         const formatMinutesWithRaw = (mins) => {
-          if (mins === null || mins === undefined) return '—';
+          if (mins === null || mins === undefined) return 'â€”';
           const total = Math.max(0, Number(mins) || 0);
-          if (!total) return '—';
+          if (!total) return 'â€”';
           return total >= 60 ? `${total}m ? ${formatMinutes(total)}` : `${total}m`;
         };
         const toTimeMinutes = (value) => {
@@ -2091,7 +2091,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 ?? (Number.isFinite(duration) ? Math.round(duration * 60) : null));
             return {
               type,
-              start: evt?.inicio || '—',
+              start: evt?.inicio || 'â€”',
               end: evt?.fin || '',
               duration: computed === null ? null : computed,
               durationSeconds: computedSeconds,
@@ -2107,7 +2107,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const labelByType = {
           login: 'Ingreso',
           trabajo: 'Trabajo efectivo',
-          bano: 'Baño',
+          bano: 'BaÃ±o',
           descanso: 'Descanso',
           supervisor: 'Con supervisor',
           logout: 'Cierre'
@@ -2139,17 +2139,17 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const totalJornada = totalWork + totalPausas;
         const totalJornadaSeconds = totalWorkSeconds + totalPausasSeconds;
         const summaryRows = [
-          { type: 'login', label: labelByType.login, icon: iconByType.login, text: firstLogin?.start || '—' },
+          { type: 'login', label: labelByType.login, icon: iconByType.login, text: firstLogin?.start || 'â€”' },
           { type: 'trabajo', label: labelByType.trabajo, icon: iconByType.trabajo, text: formatMinutesWithRaw(totalWork), indent: true },
           ...['descanso', 'bano', 'supervisor'].map((type) => {
             const row = grouped.find((item) => item.type === type);
             const first = row?.events?.[0];
             const detail = row?.count
-              ? `${first?.start || '—'} · ${first?.inProgress ? 'En curso' : formatMinutes(first?.duration)}`
-              : '—';
+              ? `${first?.start || 'â€”'} Â· ${first?.inProgress ? 'En curso' : formatMinutes(first?.duration)}`
+              : 'â€”';
             return { type, label: labelByType[type], icon: iconByType[type], text: detail };
           }),
-          { type: 'logout', label: labelByType.logout, icon: iconByType.logout, text: lastLogout?.start || '—' }
+          { type: 'logout', label: labelByType.logout, icon: iconByType.logout, text: lastLogout?.start || 'â€”' }
         ];
         const multiRows = grouped.filter((row) => row.count > 1 && ['bano', 'descanso', 'supervisor'].includes(row.type));
         const summaryRowsByType = ['trabajo', 'bano', 'descanso', 'supervisor'].map((type) => {
@@ -2167,8 +2167,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <div style={{ fontWeight: 700, marginBottom: 8 }}>Registro de actividad</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', border: '1px solid rgba(15,23,42,0.08)', borderRadius: 12, background: '#fff', marginBottom: 12 }}>
               {[
-                { label: 'Ingreso', value: firstLogin?.start || '—', icon: iconByType.login },
-                { label: 'Cierre', value: lastLogout?.start || '—', icon: iconByType.logout },
+                { label: 'Ingreso', value: firstLogin?.start || 'â€”', icon: iconByType.login },
+                { label: 'Cierre', value: lastLogout?.start || 'â€”', icon: iconByType.logout },
                 { label: 'Jornada total', value: formatSeconds(totalJornadaSeconds), icon: '?' }
               ].map((item, idx, arr) => (
                 <div
@@ -2193,8 +2193,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               {summaryRowsByType.map((row) => (
                 <div key={`summary-${row.type}`} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 140px', gap: 0, padding: '10px 12px', borderBottom: '1px solid rgba(148,163,184,0.2)' }}>
                   <div style={{ fontWeight: 600 }}>{row.label}</div>
-                  <div>{row.count || '—'}</div>
-                  <div>{row.count ? formatSeconds(row.totalSeconds) : '—'}</div>
+                  <div>{row.count || 'â€”'}</div>
+                  <div>{row.count ? formatSeconds(row.totalSeconds) : 'â€”'}</div>
                 </div>
               ))}
             </div>
@@ -2203,7 +2203,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               onClick={() => setActivityExpanded((prev) => !prev)}
               style={{ border: '1px solid rgba(15,23,42,0.1)', borderRadius: 10, padding: '8px 12px', background: '#fff', fontWeight: 600, cursor: 'pointer', width: 'fit-content', marginTop: 12 }}
             >
-              {activityExpanded ? 'Ocultar detalle' : 'Ver detalle cronológico'}
+              {activityExpanded ? 'Ocultar detalle' : 'Ver detalle cronolÃ³gico'}
             </button>
             {activityExpanded ? (
               <div style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 12, padding: 10, maxHeight: 200, overflowY: 'auto', background: '#fff', marginTop: 8 }}>
@@ -2214,7 +2214,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <div key={`detail-${idx}`} style={{ display: 'grid', gridTemplateColumns: '90px 1fr 120px', gap: 10, padding: '6px 4px', borderBottom: '1px solid rgba(148,163,184,0.2)' }}>
                       <div>{evt.start}</div>
                       <div>{label}</div>
-                      <div>{durationLabel || '—'}</div>
+                      <div>{durationLabel || 'â€”'}</div>
                     </div>
                   );
                 }) : <div style={{ color: 'var(--muted)' }}>Sin eventos.</div>}
@@ -2224,7 +2224,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         );
       };
       const detailStatus = activeDetail?.status || detailAgent?.status || 'Activo';
-      const isAttentionView = detailStatus.toLowerCase().includes('atencion') || detailStatus.toLowerCase().includes('atención');
+      const isAttentionView = detailStatus.toLowerCase().includes('atencion') || detailStatus.toLowerCase().includes('atenciÃ³n');
       const WidgetContainer = ({
         status,
         dataLength,
@@ -2270,12 +2270,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <Panel
               className="span-12"
               title="Mercado abierto"
-              subtitle="Medición diaria por vendedor"
+              subtitle="MediciÃ³n diaria por vendedor"
               action={(
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Button variant="ghost" onClick={() => setSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - 1))}>‹</Button>
+                  <Button variant="ghost" onClick={() => setSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - 1))}>â€¹</Button>
                   <div style={{ padding: '8px 16px', borderRadius: 12, border: '1px solid rgba(15,23,42,0.12)', background: '#fff', fontWeight: 600 }}>{formatDateLabel(selectedDate)}</div>
-                  <Button variant="ghost" onClick={() => setSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 1))}>›</Button>
+                  <Button variant="ghost" onClick={() => setSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 1))}>â€º</Button>
                 </div>
               )}
             >
@@ -2291,7 +2291,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 dataLength={sellerSummary.length}
                 errorText="No pudimos cargar Mercado abierto"
                 emptyText="No hay vendedores con lote asignado"
-                partialText="Algunos datos no están disponibles"
+                partialText="Algunos datos no estÃ¡n disponibles"
                 onRetry={fetchMarketSummary}
               >
                 <div className="table-wrap">
@@ -2300,7 +2300,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       <tr>
                         <th>Vendedor</th>
                         <th>Asignados</th>
-                        <th>Gestiones del día</th>
+                        <th>Gestiones del dÃ­a</th>
                         <th>Ventas</th>
                         <th>Seguimientos</th>
                         <th>Rellamadas</th>
@@ -2318,7 +2318,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             <div className="person">
                               <SellerAvatar nombre={row.nombre} apellido={row.apellido} />
                               <div>
-                                <strong>{`${row.nombre || ''} ${row.apellido || ''}`.trim() || '—'}</strong>
+                                <strong>{`${row.nombre || ''} ${row.apellido || ''}`.trim() || 'â€”'}</strong>
                               </div>
                             </div>
                           </td>
@@ -2358,14 +2358,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <Panel
               className="span-12"
               title="Recupero"
-              subtitle="Gestión de recupero"
+              subtitle="GestiÃ³n de recupero"
             >
               <WidgetContainer
                 status={recuperoWidget.status}
                 dataLength={sellerRecuperoSummary.length}
                 errorText="No pudimos cargar Recupero"
                 emptyText="No hay vendedores con lote de recupero"
-                partialText="Algunos datos no están disponibles"
+                partialText="Algunos datos no estÃ¡n disponibles"
                 onRetry={fetchRecuperoSummary}
               >
                 <div className="table-wrap">
@@ -2374,7 +2374,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       <tr>
                         <th>Vendedor</th>
                         <th>Asignados</th>
-                        <th>Gestiones del día</th>
+                        <th>Gestiones del dÃ­a</th>
                         <th>Ventas</th>
                         <th>Seguimientos</th>
                         <th>Rellamadas</th>
@@ -2392,7 +2392,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             <div className="person">
                               <SellerAvatar nombre={row.nombre} apellido={row.apellido} />
                               <div>
-                                <strong>{`${row.nombre || ''} ${row.apellido || ''}`.trim() || '—'}</strong>
+                                <strong>{`${row.nombre || ''} ${row.apellido || ''}`.trim() || 'â€”'}</strong>
                               </div>
                             </div>
                           </td>
@@ -2433,7 +2433,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, marginBottom: 16 }}>
                 <div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Log de Jornada Laboral</div>
-                  <div style={{ color: '#64748b', fontSize: 13 }}>Seguimiento de tiempos y estados · {formatDateLabel(selectedDate)}</div>
+                  <div style={{ color: '#64748b', fontSize: 13 }}>Seguimiento de tiempos y estados Â· {formatDateLabel(selectedDate)}</div>
                 </div>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#dbeafe', color: '#1e40af', padding: '8px 16px', borderRadius: 999, fontSize: 12, fontWeight: 700 }}>
                   <span style={{ width: 8, height: 8, borderRadius: 999, background: '#3b82f6', display: 'inline-block' }}></span>
@@ -2452,7 +2452,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 <div style={{ background: '#fff', borderRadius: 12, borderLeft: '4px solid #f59e0b', padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
                   <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 }}>En Pausa</div>
                   <div style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', marginTop: 6 }}>{jornadaCounters.pause}</div>
-                  <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>Descanso o baño</div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>Descanso o baÃ±o</div>
                 </div>
                 <div style={{ background: '#fff', borderRadius: 12, borderLeft: '4px solid #64748b', padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
                   <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 }}>Finalizados</div>
@@ -2472,8 +2472,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     { key: 'todos', label: 'Todos', dot: '#334155' },
                     { key: 'disponible', label: 'Disponible', dot: '#10b981' },
                     { key: 'descanso', label: 'Descanso', dot: '#f59e0b' },
-                    { key: 'baño', label: 'Baño', dot: '#eab308' },
-                    { key: 'capacitacion', label: 'Capacitación', dot: '#8b5cf6' },
+                    { key: 'baÃ±o', label: 'BaÃ±o', dot: '#eab308' },
+                    { key: 'capacitacion', label: 'CapacitaciÃ³n', dot: '#8b5cf6' },
                     { key: 'fin', label: 'Fin', dot: '#64748b' }
                   ].map((item) => (
                     <button
@@ -2537,14 +2537,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   ) : null}
                   {filteredJornadaAgents.map((agent) => {
                     const isFinished = agent.currentState === 'fin';
-                    const isLongPause = (agent.currentState === 'baño' && agent.times.baño > 900)
+                    const isLongPause = (agent.currentState === 'baÃ±o' && agent.times.baÃ±o > 900)
                       || (agent.currentState === 'descanso' && agent.times.descanso > 1800);
                     const totalBase = agent.times.total || Math.max(agent.times.productivo, agent.times.disponible) || 28800;
                     const totalWorked = agent.times.disponible;
                     const progress = totalBase ? Math.min((totalWorked / totalBase) * 100, 100) : 0;
                     const labelDisponible = formatDurationFromSeconds(agent.times.disponible);
                     const labelDescanso = agent.labels?.descansos || formatDurationFromSeconds(agent.times.descanso);
-                    const labelBanos = agent.labels?.banos || formatDurationFromSeconds(agent.times.baño);
+                    const labelBanos = agent.labels?.banos || formatDurationFromSeconds(agent.times.baÃ±o);
                     const labelCapacitacion = agent.labels?.supervisor || formatDurationFromSeconds(agent.times.capacitacion);
                     const labelProductivo = agent.labels?.productivo || formatDurationFromSeconds(agent.times.productivo);
                     const labelTotal = agent.labels?.total || (agent.times.total ? formatDurationFromSeconds(agent.times.total) : '--');
@@ -2572,7 +2572,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             <div>
                               <div style={{ fontWeight: 700, fontSize: 15 }}>{agent.name}</div>
                               <div style={{ fontSize: 12, color: '#94a3b8' }}>
-                                Inicio: {agent.loginTime}{agent.logoutTime ? ` · Fin: ${agent.logoutTime}` : ''}
+                                Inicio: {agent.loginTime}{agent.logoutTime ? ` Â· Fin: ${agent.logoutTime}` : ''}
                               </div>
                             </div>
                           </div>
@@ -2631,7 +2631,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                       cursor: 'pointer'
                                     }}
                                   >
-                                    Cerrar sesión
+                                    Cerrar sesiÃ³n
                                   </button>
                                 </div>
                               ) : null}
@@ -2660,9 +2660,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                               </div>
                             </div>
                           ) : null}
-                          {agent.times.baño > 0 ? (
+                          {agent.times.baÃ±o > 0 ? (
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                              <div style={{ width: 80, fontSize: 12, color: '#64748b' }}>Baños</div>
+                              <div style={{ width: 80, fontSize: 12, color: '#64748b' }}>BaÃ±os</div>
                               <div style={{ flex: 1, height: 28, background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
                                 <div style={{ width: '100%', height: '100%', background: '#eab308', display: 'flex', alignItems: 'center', padding: '0 10px', color: '#422006', fontSize: 12, fontWeight: 700 }}>
                                   {labelBanos}
@@ -2745,7 +2745,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                               const blockColor = block.type === 'login' ? '#059669'
                                 : block.type === 'disponible' ? '#34d399'
                                   : block.type === 'descanso' ? '#f59e0b'
-                                    : block.type === 'baño' ? '#eab308'
+                                    : block.type === 'baÃ±o' ? '#eab308'
                                       : block.type === 'capacitacion' ? '#8b5cf6'
                                         : '#64748b';
                               return (
@@ -2787,8 +2787,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       { label: 'Inicio', color: '#059669' },
                       { label: 'Disponible', color: '#34d399' },
                       { label: 'Descanso', color: '#f59e0b' },
-                      { label: 'Baño', color: '#eab308' },
-                      { label: 'Capacitación', color: '#8b5cf6' },
+                      { label: 'BaÃ±o', color: '#eab308' },
+                      { label: 'CapacitaciÃ³n', color: '#8b5cf6' },
                       { label: 'Fin', color: 'repeating-linear-gradient(45deg, #94a3b8, #94a3b8 6px, #64748b 6px, #64748b 12px)' }
                     ].map((item) => (
                       <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#475569' }}>
@@ -2812,7 +2812,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         <h3 style={{ margin: 0 }}>{detailAgent.name}</h3>
                         <Tag variant={statusVariant(detailStatus)}>{detailStatus}</Tag>
                         <span style={{ color: 'var(--muted)', fontSize: '0.86rem' }}>
-                          Login {detailAgent?.login || '—'} · {detailAgent?.workTime || '—'}
+                          Login {detailAgent?.login || 'â€”'} Â· {detailAgent?.workTime || 'â€”'}
                         </span>
                       </div>
                       <div style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>{activeDetail?.shift}</div>
@@ -2881,7 +2881,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     {detailTab === 'llamadas' ? (
                       <div className="table-wrap">
                         <table>
-                          <thead><tr><th>Hora</th><th>Duración</th><th>Cliente</th><th>Resultado</th></tr></thead>
+                          <thead><tr><th>Hora</th><th>DuraciÃ³n</th><th>Cliente</th><th>Resultado</th></tr></thead>
                           <tbody>
                             {(activeDetail?.calls || []).map((row, idx) => {
                               const badge = callBadge(row.result);
@@ -2901,7 +2901,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     ) : null}
                     {detailTab === 'semana' ? (
                       <div>
-                        <div style={{ marginBottom: 12, fontWeight: 700 }}>Tendencia de conversión</div>
+                        <div style={{ marginBottom: 12, fontWeight: 700 }}>Tendencia de conversiÃ³n</div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, alignItems: 'end', height: 140, marginBottom: 16 }}>
                           {(activeDetail?.week?.trend || []).map((item) => (
                             <div key={item.day} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
@@ -2912,13 +2912,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         </div>
                         <div className="table-wrap" style={{ marginBottom: 14 }}>
                           <table>
-                            <thead><tr><th>Día</th><th>Conversión</th><th>Alertas</th></tr></thead>
+                            <thead><tr><th>DÃ­a</th><th>ConversiÃ³n</th><th>Alertas</th></tr></thead>
                             <tbody>
                               {(activeDetail?.week?.trend || []).map((item) => (
                                 <tr key={`row-${item.day}`}>
                                   <td>{item.day}</td>
                                   <td>{item.value}%</td>
-                                  <td>{item.value < 10 ? '? Conversión baja' : '—'}</td>
+                                  <td>{item.value < 10 ? '? ConversiÃ³n baja' : 'â€”'}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -2952,10 +2952,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       {renderTimeline(activeDetail)}
                     </div>
                     <div>
-                      <div style={{ fontWeight: 700, marginBottom: 8 }}>Últimas llamadas del día</div>
+                      <div style={{ fontWeight: 700, marginBottom: 8 }}>Ãšltimas llamadas del dÃ­a</div>
                       <div className="table-wrap">
                         <table>
-                          <thead><tr><th>Hora</th><th>Duración</th><th>Cliente</th><th>Resultado</th></tr></thead>
+                          <thead><tr><th>Hora</th><th>DuraciÃ³n</th><th>Cliente</th><th>Resultado</th></tr></thead>
                           <tbody>
                             {(activeDetail?.calls || []).map((row, idx) => {
                               const badge = callBadge(row.result);
@@ -3114,7 +3114,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return `${h}h ${String(m).padStart(2, '0')}m`;
       };
       const formatHoraLocal = (value) => {
-        if (!value) return '—';
+        if (!value) return 'â€”';
         const parsed = new Date(value);
         if (Number.isNaN(parsed.getTime())) return value;
         return parsed.toLocaleTimeString('es-UY', {
@@ -3142,7 +3142,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         ? { bg: 'rgba(16,185,129,0.15)', text: '#047857', border: 'rgba(16,185,129,0.35)' }
         : jornadaEstadoRaw.includes('desc')
           ? { bg: 'rgba(245,158,11,0.2)', text: '#b45309', border: 'rgba(245,158,11,0.35)' }
-          : jornadaEstadoRaw.includes('bañ') || jornadaEstadoRaw.includes('bano')
+          : jornadaEstadoRaw.includes('baÃ±') || jornadaEstadoRaw.includes('bano')
             ? { bg: 'rgba(59,130,246,0.2)', text: '#1d4ed8', border: 'rgba(59,130,246,0.35)' }
             : { bg: 'rgba(148,163,184,0.2)', text: '#64748b', border: 'rgba(148,163,184,0.4)' };
       const metricsRow1 = [
@@ -3158,8 +3158,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: 18 }}>??</span>
                 <div>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: '#333', margin: 0 }}>Tenés un alta de cliente pendiente</p>
-                  <p style={{ fontSize: 12, color: '#666', margin: 0 }}>{clientePendiente.nombre} {clientePendiente.apellido} — guardado el {new Date(clientePendiente.timestamp).toLocaleString('es-UY', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#333', margin: 0 }}>TenÃ©s un alta de cliente pendiente</p>
+                  <p style={{ fontSize: 12, color: '#666', margin: 0 }}>{clientePendiente.nombre} {clientePendiente.apellido} â€” guardado el {new Date(clientePendiente.timestamp).toLocaleString('es-UY', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
@@ -3171,14 +3171,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           {showYesterdayAlert ? (
             <div style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
               <p style={{ margin: 0, color: '#b45309', fontWeight: 700, fontSize: 13 }}>
-                Tu jornada del {yesterdayLabel} no fue cerrada correctamente. Recordá cerrar sesión al finalizar tu turno.
+                Tu jornada del {yesterdayLabel} no fue cerrada correctamente. RecordÃ¡ cerrar sesiÃ³n al finalizar tu turno.
               </p>
             </div>
           ) : null}
           {showTodayAlert ? (
             <div style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
               <p style={{ margin: 0, color: '#b45309', fontWeight: 700, fontSize: 13 }}>
-                Tu jornada del {todayLabel} no fue cerrada correctamente. Recordá cerrar sesión al finalizar tu turno.
+                Tu jornada del {todayLabel} no fue cerrada correctamente. RecordÃ¡ cerrar sesiÃ³n al finalizar tu turno.
               </p>
             </div>
           ) : null}
@@ -3220,7 +3220,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       setJornadaFecha(d.toLocaleDateString('en-CA'));
                     }}
                   >
-                    ‹
+                    â€¹
                   </button>
                   <span>{jornadaFechaLabel}</span>
                   <button
@@ -3233,7 +3233,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       if (next <= todayYmd) setJornadaFecha(next);
                     }}
                   >
-                    ›
+                    â€º
                   </button>
                 </div>
               )}
@@ -3242,7 +3242,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Inicio</div>
-                    <div style={{ fontWeight: 700 }}>{miJornada?.login_time || '—'}</div>
+                    <div style={{ fontWeight: 700 }}>{miJornada?.login_time || 'â€”'}</div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fin</div>
@@ -3255,29 +3255,29 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Estado</div>
                     <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: jornadaEstadoStyle.bg, color: jornadaEstadoStyle.text, border: `1px solid ${jornadaEstadoStyle.border}` }}>
-                      {miJornada?.estado_actual || '—'}
+                      {miJornada?.estado_actual || 'â€”'}
                     </span>
                   </div>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 999, background: 'rgba(16,185,129,0.15)', color: '#047857', fontSize: 12, fontWeight: 700 }}>
-                    Disponible · {fmtSeg(miJornada?.disponibleSeg)}
+                    Disponible Â· {fmtSeg(miJornada?.disponibleSeg)}
                   </span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 999, background: 'rgba(245,158,11,0.2)', color: '#b45309', fontSize: 12, fontWeight: 700 }}>
-                    Descansos · {fmtSeg(miJornada?.descansosSeg)}
+                    Descansos Â· {fmtSeg(miJornada?.descansosSeg)}
                   </span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 999, background: 'rgba(59,130,246,0.2)', color: '#1d4ed8', fontSize: 12, fontWeight: 700 }}>
-                    Baños · {fmtSeg(miJornada?.banosSeg)}
+                    BaÃ±os Â· {fmtSeg(miJornada?.banosSeg)}
                   </span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 999, background: 'rgba(148,163,184,0.2)', color: '#475569', fontSize: 12, fontWeight: 700 }}>
-                    Total · {fmtSeg(miJornada?.totalJornadaSeg)}
+                    Total Â· {fmtSeg(miJornada?.totalJornadaSeg)}
                   </span>
                 </div>
               </div>
             </Panel>
           </section>
           <section className="content-grid">
-            <Panel className="span-8" title="Operación del día" subtitle="Trabaja solo tus contactos asignados">
+            <Panel className="span-8" title="OperaciÃ³n del dÃ­a" subtitle="Trabaja solo tus contactos asignados">
               <div className="list">
                 {agendaHoy.slice(0, 4).map((item) => {
                   const isVencido = new Date(item.fecha_agenda) < new Date(new Date().toDateString());
@@ -3374,7 +3374,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           { value: 'volver_a_llamar', label: 'Rellamar' },
           { value: 'interesado', label: 'Seguimiento' },
           { value: 'rechazo', label: 'Rechazo' },
-          { value: 'dato_erroneo', label: 'Dato erróneo' },
+          { value: 'dato_erroneo', label: 'Dato errÃ³neo' },
           { value: 'alta', label: 'Venta' }
         ]
         : [
@@ -3382,7 +3382,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           { value: 'rellamar', label: 'Rellamar' },
           { value: 'seguimiento', label: 'Seguimiento' },
           { value: 'rechazo', label: 'Rechazo' },
-          { value: 'dato_erroneo', label: 'Dato erróneo' },
+          { value: 'dato_erroneo', label: 'Dato errÃ³neo' },
           { value: 'venta', label: 'Venta' }
         ];
       const [tabActivo, setTabActivo] = React.useState(isRecupero ? 'nuevos' : 'nuevo');
@@ -3681,8 +3681,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           { label: 'Llamar en 1 hora', hora: formatHm(en1hora), fecha: formatYmd(en1hora), visible: true },
           { label: 'Llamar en 2 horas', hora: formatHm(en2horas), fecha: formatYmd(en2horas), visible: true },
           { label: 'Llamar antes de las 16hs', hora: '15:45', fecha: hoy, visible: true },
-          { label: 'Mañana por la mañana', hora: '10:00', fecha: mananaStr, visible: true },
-          { label: 'Mañana por la tarde', hora: '17:00', fecha: mananaStr, visible: true }
+          { label: 'MaÃ±ana por la maÃ±ana', hora: '10:00', fecha: mananaStr, visible: true },
+          { label: 'MaÃ±ana por la tarde', hora: '17:00', fecha: mananaStr, visible: true }
         ].filter((o) => o.visible);
       };
 
@@ -3733,7 +3733,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const closeDrawer = () => {
         if (!estadoGestion) {
           setActiveTab('gestion');
-          setGestionError('Seleccioná una codificación para cerrar.');
+          setGestionError('SeleccionÃ¡ una codificaciÃ³n para cerrar.');
           return;
         }
         setDrawerContact(null);
@@ -3789,7 +3789,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             const fecha = fechaAgenda || fechaAgendaRef.current;
             const hora = horaAgenda || horaAgendaRef.current || '10:00';
             if (!fecha) {
-              setGestionError('Seleccioná una opción de agenda antes de guardar.');
+              setGestionError('SeleccionÃ¡ una opciÃ³n de agenda antes de guardar.');
               setGuardando(false);
               return;
             }
@@ -3861,7 +3861,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           if (msg.includes('409')) {
             setGestionError('Este contacto ya fue gestionado recientemente.');
           } else {
-            setGestionError(msg || 'No se pudo guardar la gestión.');
+            setGestionError(msg || 'No se pudo guardar la gestiÃ³n.');
           }
         } finally {
           setGuardando(false);
@@ -3896,7 +3896,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
               <div className="searchbox" style={{ width: 280 }}>
                 <Search size={16} color="#69788d" />
-                <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar por nombre, teléfono o documento..." />
+                <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar por nombre, telÃ©fono o documento..." />
               </div>
               {!isRecupero ? (
                 <button
@@ -3914,9 +3914,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: accentColor, color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontWeight: 600, fontSize: 13, cursor: nextLoading ? 'wait' : 'pointer', whiteSpace: 'nowrap', opacity: nextLoading ? 0.7 : 1 }}
                 >
                   <span>?</span>
-                  {nextLoading ? 'Buscando...' : 'Empezar gestión'}
+                  {nextLoading ? 'Buscando...' : 'Empezar gestiÃ³n'}
                 </button>
-                <span style={{ fontSize: 11, color: '#9CA3AF' }}>El sistema te asigna el próximo contacto a llamar</span>
+                <span style={{ fontSize: 11, color: '#9CA3AF' }}>El sistema te asigna el prÃ³ximo contacto a llamar</span>
               </div>
             </div>
           </div>
@@ -3965,7 +3965,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <input className="input" type="date" value={nuevoContacto.fecha_nacimiento} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, fecha_nacimiento: e.target.value }))} />
                   </label>
                   <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
-                    Teléfono
+                    TelÃ©fono
                     <input className="input" value={nuevoContacto.telefono} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, telefono: e.target.value }))} />
                   </label>
                   <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
@@ -3977,7 +3977,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <input className="input" value={nuevoContacto.correo_electronico} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, correo_electronico: e.target.value }))} />
                   </label>
                   <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569', gridColumn: '1 / -1' }}>
-                    Dirección
+                    DirecciÃ³n
                     <input className="input" value={nuevoContacto.direccion} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, direccion: e.target.value }))} />
                   </label>
                   <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
@@ -3989,7 +3989,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <input className="input" value={nuevoContacto.localidad} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, localidad: e.target.value }))} />
                   </label>
                   <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
-                    País
+                    PaÃ­s
                     <input className="input" value={nuevoContacto.pais} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, pais: e.target.value }))} />
                   </label>
                   <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569', gridColumn: '1 / -1' }}>
@@ -4004,7 +4004,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       <option value="instagram">Instagram</option>
                       <option value="correo">Correo</option>
                       <option value="whatsapp">WhatsApp</option>
-                      <option value="guia_telefonica">Guía telefónica</option>
+                      <option value="guia_telefonica">GuÃ­a telefÃ³nica</option>
                       <option value="referido">Referido</option>
                     </select>
                   </label>
@@ -4025,8 +4025,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: 18 }}>??</span>
                 <div>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: '#333', margin: 0 }}>Tenés un alta de cliente pendiente</p>
-                  <p style={{ fontSize: 12, color: '#666', margin: 0 }}>{clientePendiente.nombre} {clientePendiente.apellido} — guardado el {new Date(clientePendiente.timestamp).toLocaleString('es-UY', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#333', margin: 0 }}>TenÃ©s un alta de cliente pendiente</p>
+                  <p style={{ fontSize: 12, color: '#666', margin: 0 }}>{clientePendiente.nombre} {clientePendiente.apellido} â€” guardado el {new Date(clientePendiente.timestamp).toLocaleString('es-UY', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
@@ -4204,16 +4204,16 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               onChange={(e) => setFiltroOrigen(e.target.value)}
               style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12, color: '#475569' }}
             >
-              <option value="">Todos los orígenes</option>
+              <option value="">Todos los orÃ­genes</option>
               <option value="Facebook">Facebook</option>
-              <option value="Guia telefonica">Guía telefónica</option>
+              <option value="Guia telefonica">GuÃ­a telefÃ³nica</option>
               <option value="recupero">Recupero</option>
-              <option value="captacion">Captación</option>
+              <option value="captacion">CaptaciÃ³n</option>
             </select>
 
             <input
               type="text"
-              placeholder="Filtrar ubicación..."
+              placeholder="Filtrar ubicaciÃ³n..."
               value={filtroUbicacion}
               onChange={(e) => setFiltroUbicacion(e.target.value)}
               style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12, color: '#475569', width: 150 }}
@@ -4254,7 +4254,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               <thead>
                 <tr>
                   <th>Estado</th><th>Ingreso</th><th>Origen del dato</th><th>Contacto</th>
-                  <th>Ubicación</th><th>Última gestión</th>
+                  <th>UbicaciÃ³n</th><th>Ãšltima gestiÃ³n</th>
                 </tr>
               </thead>
               <tbody>
@@ -4280,10 +4280,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                 timeZone: 'America/Montevideo',
                                 day: '2-digit', month: '2-digit', year: 'numeric'
                               })
-                              : '—'}
+                              : 'â€”'}
                           </td>
                           <td>
-                            {contact.origen_dato || contact.origen || contact.source || contact.origenDato || contact.origin || '—'}
+                            {contact.origen_dato || contact.origen || contact.source || contact.origenDato || contact.origin || 'â€”'}
                           </td>
                           <td>
                             <div className="person">
@@ -4292,7 +4292,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             </div>
                           </td>
                           <td>{contact.city}</td>
-                          <td>{!isNuevo && contact.last ? contact.last : <span style={{ color: '#ccc' }}>—</span>}</td>
+                          <td>{!isNuevo && contact.last ? contact.last : <span style={{ color: '#ccc' }}>â€”</span>}</td>
                         </>
                       );
                     })()}
@@ -4307,7 +4307,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               <div style={{ padding: 16, color: 'var(--muted)' }}>
                 {isRecupero && tabActivo === 'nuevos'
                   ? 'No hay contactos nuevos de recupero'
-                  : 'No hay contactos activos para la búsqueda aplicada.'}
+                  : 'No hay contactos activos para la bÃºsqueda aplicada.'}
               </div>
             ) : null}
           </div>
@@ -4374,7 +4374,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
                 <div style={{ padding: '20px 24px', flex: 1, display: 'flex', flexDirection: 'column', gap: 18 }}>
                   <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid #F0F0F0', marginBottom: 18 }}>
-                    {[{ key: 'datos', label: 'Datos' }, { key: 'gestion', label: 'Gestión' }].map((tab) => (
+                    {[{ key: 'datos', label: 'Datos' }, { key: 'gestion', label: 'GestiÃ³n' }].map((tab) => (
                       <button
                         key={tab.key}
                         onClick={() => { setActiveTab(tab.key); setGestionError(''); }}
@@ -4399,7 +4399,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   {activeTab === 'datos' ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, padding: '16px 0' }}>
                       <div>
-                        <p style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px 0' }}>Teléfonos</p>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px 0' }}>TelÃ©fonos</p>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                           {(dc.telefono || dc.phone) && (
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -4488,7 +4488,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                   <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Nacimiento</p>
                                   <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>
                                     {formatDate(dc.fecha_nacimiento)}
-                                    {dc.edad ? ` (${dc.edad} años)` : ''}
+                                    {dc.edad ? ` (${dc.edad} aÃ±os)` : ''}
                                   </p>
                                 </div>
                               )}
@@ -4500,7 +4500,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       <>
                         <hr style={{ border: 'none', borderTop: '1px solid #F0F0F0', margin: 0 }} />
                         <div>
-                          <p style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px 0' }}>Ubicación</p>
+                          <p style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px 0' }}>UbicaciÃ³n</p>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                             {(dc.departamento || dc.city) && (
                               <div>
@@ -4515,14 +4515,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                               </div>
                             )}
                             <div style={{ gridColumn: '1 / -1' }}>
-                              <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Dirección</p>
+                              <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>DirecciÃ³n</p>
                               {drawerDireccion ? (
                                 <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{drawerDireccion}</p>
                               ) : (
                                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                                   <input
                                     className="input"
-                                    placeholder="Ingresar dirección"
+                                    placeholder="Ingresar direcciÃ³n"
                                     value={draftDireccion}
                                     onChange={(e) => setDraftDireccion(e.target.value)}
                                     style={{ flex: 1 }}
@@ -4587,9 +4587,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                   </div>
                                   <div style={{ fontSize: 12, color: '#64748b' }}>
                                     {item.telefono ? `Fijo: ${item.telefono}` : ''}
-                                    {item.telefono && item.celular ? ' · ' : ''}
+                                    {item.telefono && item.celular ? ' Â· ' : ''}
                                     {item.celular ? `Celular: ${item.celular}` : ''}
-                                    {!item.telefono && !item.celular ? 'Sin teléfonos' : ''}
+                                    {!item.telefono && !item.celular ? 'Sin telÃ©fonos' : ''}
                                   </div>
                                 </div>
                               ))}
@@ -4603,7 +4603,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                       <div>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 10 }}>Resultado de la gestión</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 10 }}>Resultado de la gestiÃ³n</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                           {opcionesGestion.map((opt) => (
                             <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '8px 10px', borderRadius: 6, border: estadoGestion === opt.value ? `1.5px solid ${accentColor}` : '1.5px solid #E8E8E8', background: estadoGestion === opt.value ? accentSoft : '#fff', fontSize: 13, fontWeight: estadoGestion === opt.value ? 600 : 400 }}>
@@ -4709,7 +4709,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         disabled={guardando || !estadoGestion}
                         style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: accentColor, color: '#fff', border: 'none', borderRadius: 8, padding: '10px 18px', fontWeight: 600, fontSize: 13, cursor: (guardando || !estadoGestion) ? 'not-allowed' : 'pointer', opacity: (guardando || !estadoGestion) ? 0.5 : 1 }}
                       >
-                        {guardando ? 'Guardando...' : (isVentaFlow ? 'Iniciar gestión' : 'Guardar gestión')}
+                        {guardando ? 'Guardando...' : (isVentaFlow ? 'Iniciar gestiÃ³n' : 'Guardar gestiÃ³n')}
                       </button>
                     </div>
                   )}
@@ -4777,11 +4777,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const pasado = new Date(ahora); pasado.setDate(pasado.getDate() + 2);
         const pasadoStr = pasado.toISOString().split('T')[0];
         return [
-          { label: 'Llamar esta mañana', hora: '10:00', fecha: hoy, visible: ahora.getHours() < 11 },
+          { label: 'Llamar esta maÃ±ana', hora: '10:00', fecha: hoy, visible: ahora.getHours() < 11 },
           { label: 'Llamar esta tarde', hora: '17:00', fecha: hoy, visible: ahora.getHours() < 16 },
-          { label: 'Mañana a la mañana', hora: '10:00', fecha: mananaStr, visible: true },
-          { label: 'Mañana a la tarde', hora: '17:00', fecha: mananaStr, visible: true },
-          { label: 'En 2 días', hora: '10:00', fecha: pasadoStr, visible: true }
+          { label: 'MaÃ±ana a la maÃ±ana', hora: '10:00', fecha: mananaStr, visible: true },
+          { label: 'MaÃ±ana a la tarde', hora: '17:00', fecha: mananaStr, visible: true },
+          { label: 'En 2 dÃ­as', hora: '10:00', fecha: pasadoStr, visible: true }
         ].filter((o) => o.visible);
       };
 
@@ -4828,7 +4828,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             const fecha = agFecha || agFechaRef.current;
             const hora = agHora || agHoraRef.current || '10:00';
             if (!fecha) {
-              setAgError('Seleccioná una opción de agenda antes de guardar.');
+              setAgError('SeleccionÃ¡ una opciÃ³n de agenda antes de guardar.');
               setAgGuardando(false);
               return;
             }
@@ -4870,7 +4870,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             cargarAgenda();
           }
         } catch (err) {
-          setAgError(err?.message || 'No se pudo guardar la gestión.');
+          setAgError(err?.message || 'No se pudo guardar la gestiÃ³n.');
         } finally {
           setAgGuardando(false);
         }
@@ -4878,7 +4878,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
       const ahora = new Date();
       const fmtFechaHora = (iso) => {
-        if (!iso) return '—';
+        if (!iso) return 'â€”';
         try {
           return new Date(iso).toLocaleString('es-UY', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
         } catch { return iso; }
@@ -4899,7 +4899,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 <div style={{ textAlign: 'center', padding: '48px 20px', color: '#aaa' }}>
                   <p style={{ fontSize: 32, margin: '0 0 8px 0' }}>?</p>
                   <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Sin seguimientos pendientes</p>
-                  <p style={{ fontSize: 12, margin: '4px 0 0 0' }}>Cuando agendés un seguimiento aparecerá acá</p>
+                  <p style={{ fontSize: 12, margin: '4px 0 0 0' }}>Cuando agendÃ©s un seguimiento aparecerÃ¡ acÃ¡</p>
                 </div>
               ) : (
                 <div className="table-wrap">
@@ -4907,7 +4907,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <thead>
                       <tr>
                         <th>Fecha y hora</th>
-                        <th>Contacto</th><th>Origen</th><th>F. Ingreso</th><th>Teléfono</th><th>Intentos</th><th>Nota</th><th>Estado</th>
+                        <th>Contacto</th><th>Origen</th><th>F. Ingreso</th><th>TelÃ©fono</th><th>Intentos</th><th>Nota</th><th>Estado</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -4921,7 +4921,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           : intentos === 2
                           ? { bg: 'rgba(245,166,35,0.15)', color: '#F5A623', label: `${intentos} intentos` }
                           : { bg: 'rgba(158,158,158,0.12)', color: '#9E9E9E', label: `${intentos} intentos` };
-                        const notaText = row.nota ? (row.nota.length > 40 ? row.nota.slice(0, 40) + '…' : row.nota) : null;
+                        const notaText = row.nota ? (row.nota.length > 40 ? row.nota.slice(0, 40) + 'â€¦' : row.nota) : null;
                         const tipoAgenda = row.tipo_agenda || row.estado_venta;
                         return (
                           <tr
@@ -4931,30 +4931,30 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           >
                             <td>
                               <div style={{ color: vencida ? '#E53E3E' : undefined, fontWeight: vencida ? 600 : undefined }}>
-                                {fechaDt ? fmtFechaHora(row.fecha_agenda) : '—'}
+                                {fechaDt ? fmtFechaHora(row.fecha_agenda) : 'â€”'}
                               </div>
                               {vencida && (
                                 <span style={{ display: 'inline-block', marginTop: 2, fontSize: 10, fontWeight: 700, background: '#E53E3E', color: '#fff', borderRadius: 4, padding: '1px 6px' }}>Vencida</span>
                               )}
                             </td>
-                            <td><strong>{[row.nombre, row.apellido].filter(Boolean).join(' ') || '—'}</strong></td>
-                            <td style={{ color: '#475569', fontSize: 12 }}>{row.origen_dato || row.origen || '—'}</td>
+                            <td><strong>{[row.nombre, row.apellido].filter(Boolean).join(' ') || 'â€”'}</strong></td>
+                            <td style={{ color: '#475569', fontSize: 12 }}>{row.origen_dato || row.origen || 'â€”'}</td>
                             <td style={{ color: '#475569', fontSize: 12, whiteSpace: 'nowrap' }}>
                               {row.created_at
                                 ? new Date(row.created_at).toLocaleDateString('es-UY', { timeZone: 'America/Montevideo', day: '2-digit', month: '2-digit', year: 'numeric' })
-                                : '—'}
+                                : 'â€”'}
                             </td>
                             <td>
                               {telefono
                                 ? <a href={`tel:${telefono.replace(/\s/g, '')}`} onClick={(e) => e.stopPropagation()} style={{ color: '#1A5C4A', fontWeight: 500 }}>{telefono}</a>
-                                : '—'}
+                                : 'â€”'}
                             </td>
                             <td>
                               <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 999, background: intentosMeta.bg, color: intentosMeta.color, fontSize: 12, fontWeight: 600 }}>
                                 {intentosMeta.label}
                               </span>
                             </td>
-                            <td style={{ color: notaText ? '#888' : '#ccc', fontSize: 13 }}>{notaText || '—'}</td>
+                            <td style={{ color: notaText ? '#888' : '#ccc', fontSize: 13 }}>{notaText || 'â€”'}</td>
                             <td>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                                 <span style={{
@@ -5047,7 +5047,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   </div>
                   {/* Tabs */}
                   <div style={{ display: 'flex', gap: 0, marginTop: 4 }}>
-                    {[{ key: 'datos', label: 'Datos' }, { key: 'historial', label: 'Historial' }, { key: 'gestion', label: 'Gestión' }].map((t) => (
+                    {[{ key: 'datos', label: 'Datos' }, { key: 'historial', label: 'Historial' }, { key: 'gestion', label: 'GestiÃ³n' }].map((t) => (
                       <button
                         key={t.key}
                         type="button"
@@ -5068,7 +5068,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   {agendaTab === 'datos' ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, padding: '16px 0' }}>
                       <div>
-                        <p style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px 0' }}>Teléfonos</p>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px 0' }}>TelÃ©fonos</p>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                           {drawerItem.telefono && (
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -5089,7 +5089,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             </div>
                           )}
                           {!drawerItem.telefono && !drawerItem.celular && (
-                            <p style={{ fontSize: 13, color: '#aaa' }}>Sin teléfonos registrados</p>
+                            <p style={{ fontSize: 13, color: '#aaa' }}>Sin telÃ©fonos registrados</p>
                           )}
                         </div>
                       </div>
@@ -5110,7 +5110,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                   <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Nacimiento</p>
                                   <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>
                                     {formatDate(drawerItem.fecha_nacimiento)}
-                                    {drawerItem.edad ? ` (${drawerItem.edad} años)` : ''}
+                                    {drawerItem.edad ? ` (${drawerItem.edad} aÃ±os)` : ''}
                                   </p>
                                 </div>
                               )}
@@ -5140,7 +5140,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   ) : agendaTab === 'historial' ? (
                     <div>
                       {(drawerItem.historial || []).length === 0 ? (
-                        <p style={{ color: '#aaa', fontSize: 13, textAlign: 'center', marginTop: 24 }}>Sin gestiones registradas aún</p>
+                        <p style={{ color: '#aaa', fontSize: 13, textAlign: 'center', marginTop: 24 }}>Sin gestiones registradas aÃºn</p>
                       ) : (
                         (drawerItem.historial || []).map((h, i) => {
                           const hMeta = salesStatusMeta(h.resultado || h.estado);
@@ -5170,29 +5170,29 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       {/* Alerta 3 intentos */}
                       {(drawerItem.intentos || 0) >= 3 && (
                         <div style={{ background: '#FFF3F3', border: '1px solid #E53E3E', borderRadius: 10, padding: '12px 14px' }}>
-                          <p style={{ fontSize: 13, fontWeight: 700, color: '#E53E3E', margin: '0 0 4px 0' }}>No te contestó 3 veces</p>
-                          <p style={{ fontSize: 12, color: '#666', margin: '0 0 10px 0' }}>Este contacto no respondió en 3 intentos consecutivos. Se recomienda finalizar como rechazo.</p>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: '#E53E3E', margin: '0 0 4px 0' }}>No te contestÃ³ 3 veces</p>
+                          <p style={{ fontSize: 12, color: '#666', margin: '0 0 10px 0' }}>Este contacto no respondiÃ³ en 3 intentos consecutivos. Se recomienda finalizar como rechazo.</p>
                           <button
                             type="button"
                             onClick={() => handleForzarRechazo(drawerItem)}
                             disabled={agGuardando}
                             style={{ width: '100%', padding: 10, background: '#E53E3E', color: '#FFF', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: agGuardando ? 'not-allowed' : 'pointer', opacity: agGuardando ? 0.6 : 1 }}
                           >
-                            Finalizar — Marcar como rechazo
+                            Finalizar â€” Marcar como rechazo
                           </button>
                         </div>
                       )}
 
                       {/* Opciones */}
                       <div>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 10 }}>Resultado de la gestión</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 10 }}>Resultado de la gestiÃ³n</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                           {[
                             { value: 'no_contesta', label: 'No contesta' },
                             { value: 'rellamar', label: 'Rellamar' },
                             { value: 'seguimiento', label: 'Seguimiento' },
                             { value: 'rechazo', label: 'Rechazo' },
-                            { value: 'dato_erroneo', label: 'Dato erróneo' },
+                            { value: 'dato_erroneo', label: 'Dato errÃ³neo' },
                             { value: 'venta', label: 'Venta' }
                           ].map((opt) => (
                             <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '8px 10px', borderRadius: 6, border: agEstado === opt.value ? '1.5px solid #1A5C4A' : '1.5px solid #E8E8E8', background: agEstado === opt.value ? '#F0FAF6' : '#fff', fontSize: 13, fontWeight: agEstado === opt.value ? 600 : 400 }}>
@@ -5203,7 +5203,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         </div>
                       </div>
 
-                      {/* Agenda rápida seguimiento */}
+                      {/* Agenda rÃ¡pida seguimiento */}
                       {['seguimiento', 'rellamar'].includes(agEstado) && (
                         <div style={{ background: '#F8F0FF', border: '1px solid rgba(155,89,182,0.2)', borderRadius: 10, padding: '12px 14px' }}>
                           <p style={{ fontSize: 12, fontWeight: 600, color: '#9B59B6', margin: '0 0 10px 0' }}>Agenda de seguimiento</p>
@@ -5248,7 +5248,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
                       <button type="button" onClick={handleGuardarAgendaGestion} disabled={agGuardando || !agEstado}
                         style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: '#1A5C4A', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 18px', fontWeight: 600, fontSize: 13, cursor: (agGuardando || !agEstado) ? 'not-allowed' : 'pointer', opacity: (agGuardando || !agEstado) ? 0.5 : 1 }}>
-                        {agGuardando ? 'Guardando...' : 'Guardar gestión'}
+                        {agGuardando ? 'Guardando...' : 'Guardar gestiÃ³n'}
                       </button>
                     </div>
                   )}
@@ -5319,26 +5319,26 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, []);
 
       const formatDateTime = (value) => {
-        if (!value) return '—';
+        if (!value) return 'â€”';
         const parsed = new Date(value);
-        if (Number.isNaN(parsed.getTime())) return '—';
+        if (Number.isNaN(parsed.getTime())) return 'â€”';
         return parsed.toLocaleString('es-UY', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
       };
 
       const formatPhone = (row) => {
         const raw = row?.telefono_display || row?.telefono || row?.celular || '';
-        if (!raw) return '—';
+        if (!raw) return 'â€”';
         return String(raw).replace(/[\s-]/g, '');
       };
       const formatSeller = (row) => row?.vendedor_nombre_completo
         || [row?.vendedor_nombre, row?.vendedor_apellido].filter(Boolean).join(' ').trim()
-        || '—';
-      const formatSupervisor = (row) => row?.supervisor_nombre_completo || '—';
+        || 'â€”';
+      const formatSupervisor = (row) => row?.supervisor_nombre_completo || 'â€”';
 
       const normalizeResultadoLabel = React.useCallback((value) => {
-        if (!value) return '—';
+        if (!value) return 'â€”';
         const raw = String(value).trim();
-        if (!raw) return '—';
+        if (!raw) return 'â€”';
         const key = raw.toLowerCase();
         const labelMap = {
           no_contesta: 'No contesta',
@@ -5353,7 +5353,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         };
         if (labelMap[key]) return labelMap[key];
         const clean = raw.replace(/_/g, ' ').trim();
-        if (!clean) return '—';
+        if (!clean) return 'â€”';
         return clean.charAt(0).toUpperCase() + clean.slice(1);
       }, []);
 
@@ -5405,7 +5405,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           setCatalogo(Array.isArray(itemsList) ? itemsList : []);
         } catch {
           setCatalogo([]);
-          setCatalogoError('No se pudo cargar el catálogo.');
+          setCatalogoError('No se pudo cargar el catÃ¡logo.');
         } finally {
           setCatalogoLoading(false);
         }
@@ -5574,15 +5574,15 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         );
         const managementId = auditItem?.management_id || auditItem?.id || '';
         if (!managementId || !isValidUuid(managementId)) {
-          setAuditError('Seleccione una gestión válida.');
+          setAuditError('Seleccione una gestiÃ³n vÃ¡lida.');
           return;
         }
         if (!auditResultado) {
-          setAuditError('Seleccioná una codificación corregida.');
+          setAuditError('SeleccionÃ¡ una codificaciÃ³n corregida.');
           return;
         }
         if (auditResultado && auditItem?.resultado_corregido && auditResultado === auditItem.resultado_corregido) {
-          setAuditError('La codificación seleccionada ya está aplicada.');
+          setAuditError('La codificaciÃ³n seleccionada ya estÃ¡ aplicada.');
           return;
         }
         setAuditSaving(true);
@@ -5595,7 +5595,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           closeAudit();
           loadCodificaciones();
         } catch (err) {
-          setAuditError(err?.message || 'No se pudo guardar la corrección.');
+          setAuditError(err?.message || 'No se pudo guardar la correcciÃ³n.');
         } finally {
           setAuditSaving(false);
         }
@@ -5607,7 +5607,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         );
         const managementId = row?.management_id || row?.id || '';
         if (!managementId || !isValidUuid(managementId)) {
-          setError('Seleccione una gestión válida para ver el historial.');
+          setError('Seleccione una gestiÃ³n vÃ¡lida para ver el historial.');
           return;
         }
         setHistoryOpen(true);
@@ -5636,7 +5636,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <Panel
               className="span-12"
               title="Codificaciones"
-              subtitle="Auditoría de resultados de gestión"
+              subtitle="AuditorÃ­a de resultados de gestiÃ³n"
             >
               <div style={{ display: 'grid', gap: 10, marginBottom: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -5657,13 +5657,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       ))}
                     </select>
                     <select className="input" style={{ minWidth: 180 }} value={resultadoOriginal} onChange={(event) => setResultadoOriginal(event.target.value)}>
-                      <option value="">Codificación original</option>
+                      <option value="">CodificaciÃ³n original</option>
                       {catalogo.map((item) => (
                         <option key={item.id || item.nombre || item} value={item.nombre || item}>{item.nombre || item}</option>
                       ))}
                     </select>
                     <select className="input" style={{ minWidth: 180 }} value={resultadoCorregido} onChange={(event) => setResultadoCorregido(event.target.value)}>
-                      <option value="">Codificación corregida</option>
+                      <option value="">CodificaciÃ³n corregida</option>
                       {catalogo.map((item) => (
                         <option key={item.id || item.nombre || item} value={item.nombre || item}>{item.nombre || item}</option>
                       ))}
@@ -5682,7 +5682,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 <div className="searchbox" style={{ width: '100%' }}>
                   <Search size={16} color="#69788d" />
                   <input
-                    placeholder="Buscar por teléfono"
+                    placeholder="Buscar por telÃ©fono"
                     value={searchPhone}
                     onChange={(event) => setSearchPhone(event.target.value)}
                   />
@@ -5697,13 +5697,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   <thead>
                     <tr>
                       <th>Fecha/Hora</th>
-                      <th>Teléfono</th>
+                      <th>TelÃ©fono</th>
                       <th>Vendedor</th>
-                      <th>Codificación original</th>
-                      <th>Estado auditoría</th>
-                      <th>Codificación corregida</th>
+                      <th>CodificaciÃ³n original</th>
+                      <th>Estado auditorÃ­a</th>
+                      <th>CodificaciÃ³n corregida</th>
                       <th>Supervisor</th>
-                      <th>Acción</th>
+                      <th>AcciÃ³n</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -5732,7 +5732,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             <Tag variant={badge.variant}>{badge.label}</Tag>
                           </td>
                           <td title={correctedValue}>
-                            {correctedValue === '—' ? '—' : <Tag variant={resultadoVariant(correctedValueRaw)}>{correctedValue}</Tag>}
+                            {correctedValue === 'â€”' ? 'â€”' : <Tag variant={resultadoVariant(correctedValueRaw)}>{correctedValue}</Tag>}
                           </td>
                           <td title={supervisorValue}>
                             <div style={cellEllipsisStyle}>{supervisorValue}</div>
@@ -5750,7 +5750,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 </table>
                 {!loading && !rows.length ? (
                   <div style={{ padding: 16, color: 'var(--muted)' }}>
-                    {searchPhone ? 'No se encontraron resultados para ese teléfono.' : 'No hay codificaciones para mostrar.'}
+                    {searchPhone ? 'No se encontraron resultados para ese telÃ©fono.' : 'No hay codificaciones para mostrar.'}
                   </div>
                 ) : null}
               </div>
@@ -5761,7 +5761,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <Button variant="ghost" disabled={page <= 1 || !hasFilters} onClick={() => setPage((prev) => Math.max(1, prev - 1))}>Anterior</Button>
-                  <div style={{ fontWeight: 600 }}>Página {page} de {totalPages}</div>
+                  <div style={{ fontWeight: 600 }}>PÃ¡gina {page} de {totalPages}</div>
                   <Button variant="ghost" disabled={page >= totalPages || !hasFilters} onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}>Siguiente</Button>
                 </div>
               </div>
@@ -5772,7 +5772,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <div className="lot-wizard-overlay" onClick={closeAudit}>
               <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 520 }}>
                 <div className="lot-wizard-header">
-                  <div style={{ fontWeight: 700 }}>Auditar codificación</div>
+                  <div style={{ fontWeight: 700 }}>Auditar codificaciÃ³n</div>
                   <button className="close-btn" onClick={closeAudit}><X size={16} /></button>
                 </div>
                 <div className="lot-wizard-content">
@@ -5781,17 +5781,17 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   ) : (
                     <>
                       <div className="list">
-                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>ID gestión</span><strong>{auditItem?.management_id || auditItem?.id || '—'}</strong></div>
+                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>ID gestiÃ³n</span><strong>{auditItem?.management_id || auditItem?.id || 'â€”'}</strong></div>
                         <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Fecha/Hora</span><strong>{formatDateTime(auditItem?.fecha_gestion)}</strong></div>
-                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Teléfono</span><strong>{formatPhone(auditItem)}</strong></div>
+                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>TelÃ©fono</span><strong>{formatPhone(auditItem)}</strong></div>
                         <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Vendedor</span><strong>{formatSeller(auditItem)}</strong></div>
-                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Cliente</span><strong>{auditItem?.cliente || '—'}</strong></div>
-                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Lote/Campaña</span><strong>{auditItem?.batch_nombre || auditItem?.batch_id || '—'}</strong></div>
-                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Codificación original</span><strong>{normalizeResultadoLabel(auditItem?.resultado_original)}</strong></div>
+                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Cliente</span><strong>{auditItem?.cliente || 'â€”'}</strong></div>
+                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Lote/CampaÃ±a</span><strong>{auditItem?.batch_nombre || auditItem?.batch_id || 'â€”'}</strong></div>
+                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>CodificaciÃ³n original</span><strong>{normalizeResultadoLabel(auditItem?.resultado_original)}</strong></div>
                       </div>
 
                       <label style={{ display: 'grid', gap: 6, marginTop: 12 }}>
-                        <span style={{ fontSize: 12, color: '#64748b' }}>Nueva codificación</span>
+                        <span style={{ fontSize: 12, color: '#64748b' }}>Nueva codificaciÃ³n</span>
                         <select
                           className="input"
                           value={auditResultado}
@@ -5825,7 +5825,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       {auditError ? <div style={{ marginTop: 10, color: '#b91c1c' }}>{auditError}</div> : null}
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
                         <Button variant="ghost" onClick={closeAudit}>Cancelar</Button>
-                        <Button disabled={auditSaving || !auditResultado} onClick={saveAudit}>{auditSaving ? 'Guardando...' : 'Guardar corrección'}</Button>
+                        <Button disabled={auditSaving || !auditResultado} onClick={saveAudit}>{auditSaving ? 'Guardando...' : 'Guardar correcciÃ³n'}</Button>
                       </div>
                     </>
                   )}
@@ -5838,7 +5838,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <div className="lot-wizard-overlay" onClick={closeHistory}>
               <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 600 }}>
                 <div className="lot-wizard-header">
-                  <div style={{ fontWeight: 700 }}>Historial de codificación</div>
+                  <div style={{ fontWeight: 700 }}>Historial de codificaciÃ³n</div>
                   <button className="close-btn" onClick={closeHistory}><X size={16} /></button>
                 </div>
                 <div className="lot-wizard-content">
@@ -5851,8 +5851,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       <div style={{ marginBottom: 12 }}>
                         <div style={{ fontWeight: 700, marginBottom: 6 }}>Original</div>
                         <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Fecha/Hora</span><strong>{formatDateTime(historyData?.management?.fecha_gestion)}</strong></div>
-                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Vendedor</span><strong>{historyData?.management?.vendedor_nombre_completo || '—'}</strong></div>
-                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Codificación</span><strong>{normalizeResultadoLabel(historyData?.management?.resultado_original)}</strong></div>
+                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Vendedor</span><strong>{historyData?.management?.vendedor_nombre_completo || 'â€”'}</strong></div>
+                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>CodificaciÃ³n</span><strong>{normalizeResultadoLabel(historyData?.management?.resultado_original)}</strong></div>
                       </div>
                       <div style={{ fontWeight: 700, marginBottom: 6 }}>Correcciones</div>
                       {(historyData?.audits || []).length ? (
@@ -5866,7 +5866,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                                 <div>
                                   <div style={{ fontWeight: 700 }}>{normalizeResultadoLabel(audit.resultado_corregido)}</div>
-                                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>{audit.supervisor_nombre_completo || audit.corrected_by || '—'}</div>
+                                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>{audit.supervisor_nombre_completo || audit.corrected_by || 'â€”'}</div>
                                   {audit.motivo ? <div style={{ fontSize: 12, marginTop: 4 }}>{audit.motivo}</div> : null}
                                 </div>
                                 <div style={{ color: 'var(--muted)', fontSize: 12 }}>{formatDateTime(audit.corrected_at)}</div>
@@ -5920,7 +5920,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, []);
 
       const formatFechaVenta = (raw) => formatDate(raw);
-      const pickValue = (row, keys, fallback = '—') => {
+      const pickValue = (row, keys, fallback = 'â€”') => {
         for (const key of keys) {
           const value = row?.[key];
           if (value !== undefined && value !== null && String(value).trim() !== '') return value;
@@ -5930,7 +5930,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const renderDetailField = (label, value) => (
         <div style={{ display: 'grid', gap: 4 }}>
           <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
-          <div style={{ fontWeight: 600 }}>{value || '—'}</div>
+          <div style={{ fontWeight: 600 }}>{value || 'â€”'}</div>
         </div>
       );
       const todayKey = new Date().toLocaleDateString('en-CA');
@@ -5989,7 +5989,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               </div>
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>Estado</th><th>Contacto</th><th>Ubicación</th><th>Origen del dato</th><th>Relacionadas</th><th>Fecha</th></tr></thead>
+                  <thead><tr><th>Estado</th><th>Contacto</th><th>UbicaciÃ³n</th><th>Origen del dato</th><th>Relacionadas</th><th>Fecha</th></tr></thead>
                   <tbody>
                     {ventas.map((row) => {
                       const statusRaw = row.estado || row.status || 'alta';
@@ -6001,12 +6001,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           : { bg: 'rgba(148,163,184,0.2)', text: '#64748b', border: 'rgba(148,163,184,0.4)' };
                       const nombre = [row.nombre, row.apellido].filter(Boolean).join(' ')
                         || [row.contact_nombre, row.contact_apellido].filter(Boolean).join(' ')
-                        || '—';
-                      const telefono = row.celular || row.telefono || row.phone || '—';
+                        || 'â€”';
+                      const telefono = row.celular || row.telefono || row.phone || 'â€”';
                       const ubicacion = row.ubicacion
                         || [row.departamento, row.localidad].filter(Boolean).join(', ')
-                        || '—';
-                      const origenDato = (row.origen_dato && String(row.origen_dato).trim()) ? row.origen_dato : '—';
+                        || 'â€”';
+                      const origenDato = (row.origen_dato && String(row.origen_dato).trim()) ? row.origen_dato : 'â€”';
                       const relatedCount = getRelatedSales(row).length;
                       return (
                         <tr
@@ -6031,7 +6031,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             {relatedCount ? (
                               <span style={{ fontSize: 12, fontWeight: 700, color: '#0f766e' }}>+{relatedCount}</span>
                             ) : (
-                              <span style={{ color: '#aaa', fontSize: 12 }}>—</span>
+                              <span style={{ color: '#aaa', fontSize: 12 }}>â€”</span>
                             )}
                           </td>
                           <td>{formatFechaVenta(row.fecha_venta)}</td>
@@ -6043,10 +6043,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 {!loadingVentas && !ventas.length ? (
                   <div style={{ textAlign: 'center', padding: '48px', color: '#aaa' }}>
                     <p style={{ fontSize: 14, fontWeight: 600, color: '#333', margin: '0 0 4px 0' }}>
-                      Aún no tenés ventas registradas
+                      AÃºn no tenÃ©s ventas registradas
                     </p>
                     <p style={{ fontSize: 12, margin: 0 }}>
-                      Cuando cerrés una venta aparecerá acá
+                      Cuando cerrÃ©s una venta aparecerÃ¡ acÃ¡
                     </p>
                   </div>
                 ) : null}
@@ -6059,7 +6059,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 <div className="lot-wizard-header">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div className="person-badge" style={{ width: 42, height: 42 }}>
-                      {initials([selectedSale.nombre, selectedSale.apellido].filter(Boolean).join(' ') || '—')}
+                      {initials([selectedSale.nombre, selectedSale.apellido].filter(Boolean).join(' ') || 'â€”')}
                     </div>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>Detalle de la venta</div>
@@ -6068,7 +6068,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       </div>
                     </div>
                   </div>
-                  <button className="close-btn" onClick={() => setSelectedSale(null)}>×</button>
+                  <button className="close-btn" onClick={() => setSelectedSale(null)}>Ã—</button>
                 </div>
                 <div className="lot-wizard-content">
                   <div style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
@@ -6081,11 +6081,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         ].filter(Boolean).join(' ') || [
                           selectedSale.contact_nombre,
                           selectedSale.contact_apellido
-                        ].filter(Boolean).join(' ') || '—')}
+                        ].filter(Boolean).join(' ') || 'â€”')}
                         {renderDetailField('Documento', pickValue(selectedSale, ['documento', 'contact_documento', 'contacto_documento', 'dni', 'cedula']))}
-                        {renderDetailField('Teléfono', pickValue(selectedSale, ['celular', 'telefono', 'phone']))}
+                        {renderDetailField('TelÃ©fono', pickValue(selectedSale, ['celular', 'telefono', 'phone']))}
                         {renderDetailField('Email', pickValue(selectedSale, ['email', 'correo']))}
-                        {renderDetailField('Ubicación', [selectedSale.departamento, selectedSale.localidad].filter(Boolean).join(', ') || '—')}
+                        {renderDetailField('UbicaciÃ³n', [selectedSale.departamento, selectedSale.localidad].filter(Boolean).join(', ') || 'â€”')}
                       </div>
                     </div>
                     <div style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 12, padding: 12 }}>
@@ -6106,7 +6106,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                 : { bg: 'rgba(148,163,184,0.2)', text: '#64748b', border: 'rgba(148,163,184,0.4)' };
                             return (
                               <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: pill.bg, color: pill.text, border: `1px solid ${pill.border}` }}>
-                                {prodStatus || '—'}
+                                {prodStatus || 'â€”'}
                               </span>
                             );
                           }
@@ -6120,7 +6120,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           {getRelatedSales(selectedSale).map((item, index) => {
                             const nombre = [item?.nombre, item?.apellido].filter(Boolean).join(' ')
                               || [item?.contact_nombre, item?.contact_apellido].filter(Boolean).join(' ')
-                              || '—';
+                              || 'â€”';
                             return (
                               <div key={item?.id || item?.sale_id || index} style={{ borderRadius: 10, padding: 10, border: '1px solid rgba(15,23,42,0.08)', background: '#fff' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
@@ -6130,7 +6130,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8, marginTop: 8 }}>
                                   {renderDetailField('Producto', pickValue(item, ['nombre_producto', 'producto', 'producto_nombre', 'servicio']))}
                                   {renderDetailField('Precio', pickValue(item, ['precio', 'monto']))}
-                                  {renderDetailField('Relación', pickValue(item, ['relacion', 'relacionConTitular', 'relacion_con_titular', 'relation']))}
+                                  {renderDetailField('RelaciÃ³n', pickValue(item, ['relacion', 'relacionConTitular', 'relacion_con_titular', 'relation']))}
                                 </div>
                               </div>
                             );
@@ -6221,7 +6221,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           return;
         }
         if (!familyForm.telefono.trim()) {
-          setFamilyError('Ingresa el teléfono del familiar.');
+          setFamilyError('Ingresa el telÃ©fono del familiar.');
           return;
         }
         if (!familyForm.productoId) {
@@ -6248,7 +6248,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
       const submit = () => {
         if (status === 'seguimiento' && !nextAction) {
-          setError('Seguimiento requiere fecha y hora de próxima acción.');
+          setError('Seguimiento requiere fecha y hora de prÃ³xima acciÃ³n.');
           return;
         }
         if (status === 'rellamar' && !nextAction && !timeSlot) {
@@ -6269,7 +6269,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const submitQuickSale = () => {
         onRegister(contact.id, {
           status: 'venta',
-          note: note.trim() || 'Venta registrada desde gestión',
+          note: note.trim() || 'Venta registrada desde gestiÃ³n',
           nextAction: ''
         });
         setStatus('venta');
@@ -6288,7 +6288,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <div className="status-ring" style={{ background: 'rgba(37,99,235,0.12)', color: '#2563eb' }}><User size={18} /></div>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700 }}>{contact.name}</div>
-              <div style={{ color: 'var(--muted)' }}>{contact.phone} · {contact.city}</div>
+              <div style={{ color: 'var(--muted)' }}>{contact.phone} Â· {contact.city}</div>
             </div>
             <a className="sales-call-btn" href={'tel:' + contact.phone.replace(/\s/g, '')} title="Llamar contacto">
               <PhoneCall size={15} />
@@ -6298,14 +6298,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
           <div className="toolbar" style={{ marginBottom: 10 }}>
             <Button variant={activeTab === 'datos' ? 'primary' : 'secondary'} onClick={() => setActiveTab('datos')}>Datos del contacto</Button>
-            <Button variant={activeTab === 'gestion' ? 'primary' : 'secondary'} onClick={() => setActiveTab('gestion')}>Gestión</Button>
+            <Button variant={activeTab === 'gestion' ? 'primary' : 'secondary'} onClick={() => setActiveTab('gestion')}>GestiÃ³n</Button>
           </div>
 
           {activeTab === 'datos' ? (
             <div className="list">
               <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Documento</span><strong>{contact.documento || '-'}</strong></div>
               <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Email</span><strong>{contact.email || '-'}</strong></div>
-              <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Dirección</span><strong>{contact.direccion || '-'}</strong></div>
+              <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>DirecciÃ³n</span><strong>{contact.direccion || '-'}</strong></div>
               <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Fuente</span><strong>{contact.source || '-'}</strong></div>
               <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Lote</span><strong>{contact.lotId || '-'}</strong></div>
               <div className="toolbar" style={{ marginTop: 8 }}>
@@ -6321,23 +6321,23 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               {isEditing ? (
                 <div className="list" style={{ marginTop: 8 }}>
                   <input className="input" value={profileDraft.name} onChange={(event) => setProfileDraft((prev) => ({ ...prev, name: event.target.value }))} placeholder="Nombre y apellido" />
-                  <input className="input" value={profileDraft.phone} onChange={(event) => setProfileDraft((prev) => ({ ...prev, phone: event.target.value }))} placeholder="Teléfono" />
+                  <input className="input" value={profileDraft.phone} onChange={(event) => setProfileDraft((prev) => ({ ...prev, phone: event.target.value }))} placeholder="TelÃ©fono" />
                   <input className="input" value={profileDraft.documento} onChange={(event) => setProfileDraft((prev) => ({ ...prev, documento: event.target.value }))} placeholder="Documento" />
                   <input className="input" value={profileDraft.email} onChange={(event) => setProfileDraft((prev) => ({ ...prev, email: event.target.value }))} placeholder="Email" />
-                  <input className="input" value={profileDraft.city} onChange={(event) => setProfileDraft((prev) => ({ ...prev, city: event.target.value }))} placeholder="Ubicación" />
-                  <textarea className="input" rows="2" value={profileDraft.direccion} onChange={(event) => setProfileDraft((prev) => ({ ...prev, direccion: event.target.value }))} placeholder="Dirección" />
+                  <input className="input" value={profileDraft.city} onChange={(event) => setProfileDraft((prev) => ({ ...prev, city: event.target.value }))} placeholder="UbicaciÃ³n" />
+                  <textarea className="input" rows="2" value={profileDraft.direccion} onChange={(event) => setProfileDraft((prev) => ({ ...prev, direccion: event.target.value }))} placeholder="DirecciÃ³n" />
                 </div>
               ) : null}
             </div>
           ) : (
             <div className="list">
-              <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Resultado de gestión</span><SalesStatusBadge status={contact.resultadoGestion || contact.status} small /></div>
+              <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Resultado de gestiÃ³n</span><SalesStatusBadge status={contact.resultadoGestion || contact.status} small /></div>
               <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Estado operativo</span><strong>{(contact.estadoOperativo || '-').replace(/_/g, ' ')}</strong></div>
               <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Intentos</span><strong>{contact.attempts}</strong></div>
-              <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Próxima acción</span><strong style={{ color: contact.nextAction ? '#0f766e' : 'var(--muted)' }}>{formatNextAction(contact.nextAction)}</strong></div>
+              <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>PrÃ³xima acciÃ³n</span><strong style={{ color: contact.nextAction ? '#0f766e' : 'var(--muted)' }}>{formatNextAction(contact.nextAction)}</strong></div>
 
               <div style={{ borderTop: '1px solid rgba(20,34,53,0.08)', paddingTop: 12 }}>
-                <div style={{ fontFamily: 'inherit', fontWeight: 800, marginBottom: 10 }}>Registrar gestión</div>
+                <div style={{ fontFamily: 'inherit', fontWeight: 800, marginBottom: 10 }}>Registrar gestiÃ³n</div>
                 <div className="toolbar" style={{ marginBottom: 8 }}>
                   <select className="input" style={{ width: '100%' }} value={status} onChange={(event) => setStatus(event.target.value)}>
                     <option value="venta">Venta</option>
@@ -6345,15 +6345,15 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <option value="no_contesta">No contesta</option>
                     <option value="rechazo">Rechazo</option>
                     <option value="rellamar">Rellamar</option>
-                    <option value="dato_erroneo">Dato erróneo</option>
+                    <option value="dato_erroneo">Dato errÃ³neo</option>
                   </select>
                 </div>
                 {status === 'seguimiento' ? <input className="input" type="datetime-local" value={nextAction} onChange={(event) => setNextAction(event.target.value)} style={{ marginBottom: 8 }} /> : null}
                 {status === 'rellamar' ? <div className="list" style={{ marginBottom: 8 }}><input className="input" type="datetime-local" value={nextAction} onChange={(event) => setNextAction(event.target.value)} /><input className="input" placeholder="o franja horaria (ej. 18:00 a 20:00)" value={timeSlot} onChange={(event) => setTimeSlot(event.target.value)} /></div> : null}
-                <input className="input" placeholder="Nota de gestión" value={note} onChange={(event) => setNote(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') submit(); }} />
+                <input className="input" placeholder="Nota de gestiÃ³n" value={note} onChange={(event) => setNote(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') submit(); }} />
                 {error ? <div style={{ marginTop: 8, color: '#be123c', fontSize: '0.83rem', fontWeight: 700 }}>{error}</div> : null}
                 <div className="toolbar" style={{ marginTop: 10 }}>
-                  <Button icon={<Activity size={16} />} onClick={submit}>Registrar gestión</Button>
+                  <Button icon={<Activity size={16} />} onClick={submit}>Registrar gestiÃ³n</Button>
                   {contact.estadoOperativo !== 'finalizado_venta' ? <Button variant="secondary" icon={<CheckCircle2 size={16} />} onClick={submitQuickSale}>Registrar venta</Button> : null}
                 </div>
               </div>
@@ -6364,7 +6364,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   {(contact.history || []).slice(0, 8).map((item) => (
                     <div key={item.at + item.status + item.note} className="alert">
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 700 }}>{salesStatusMeta(item.status).label} <span style={{ color: 'var(--muted)', fontWeight: 500 }}>· {item.at}</span></div>
+                        <div style={{ fontWeight: 700 }}>{salesStatusMeta(item.status).label} <span style={{ color: 'var(--muted)', fontWeight: 500 }}>Â· {item.at}</span></div>
                         <div style={{ color: 'var(--muted)' }}>{item.note || '-'}</div>
                       </div>
                     </div>
@@ -6380,11 +6380,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <div key={sale.id} className="alert">
                       <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: 700 }}>
-                          {sale.clienteNombre} — {products.find((p) => p.id === sale.productoId)?.nombre || 'Producto'}
+                          {sale.clienteNombre} â€” {products.find((p) => p.id === sale.productoId)?.nombre || 'Producto'}
                         </div>
                         <div style={{ color: 'var(--muted)' }}>
-                          {sale.grupoFamiliar ? ('Familiar · ' + (sale.relacionConTitular || '-')) : 'Venta principal'}
-                          {' · '}
+                          {sale.grupoFamiliar ? ('Familiar Â· ' + (sale.relacionConTitular || '-')) : 'Venta principal'}
+                          {' Â· '}
                           {sale.cuota ? ('$ ' + Number(sale.cuota).toLocaleString('es-UY')) : 'Cuota pendiente'}
                         </div>
                       </div>
@@ -6400,7 +6400,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     {showFamilyForm ? (
                       <div className="list" style={{ marginTop: 10 }}>
                         <input className="input" placeholder="Nombre" value={familyForm.nombre} onChange={(event) => setFamilyForm((prev) => ({ ...prev, nombre: event.target.value }))} />
-                        <input className="input" placeholder="Teléfono" value={familyForm.telefono} onChange={(event) => setFamilyForm((prev) => ({ ...prev, telefono: event.target.value }))} />
+                        <input className="input" placeholder="TelÃ©fono" value={familyForm.telefono} onChange={(event) => setFamilyForm((prev) => ({ ...prev, telefono: event.target.value }))} />
                         <input className="input" placeholder="Documento (opcional)" value={familyForm.documento} onChange={(event) => setFamilyForm((prev) => ({ ...prev, documento: event.target.value }))} />
                         <select className="input" value={familyForm.relacionConTitular} onChange={(event) => setFamilyForm((prev) => ({ ...prev, relacionConTitular: event.target.value }))}>
                           <option value="hijo">Hijo</option>
@@ -6457,7 +6457,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [reassignLoading, setReassignLoading] = React.useState(false);
       const [reassignError, setReassignError] = React.useState('');
       const [removeModal, setRemoveModal] = React.useState(null); // { sellerId, sellerName, contactCount, gestionados }
-      const [removeStep, setRemoveStep] = React.useState(1); // 1 = confirmación, 2 = elegir destino
+      const [removeStep, setRemoveStep] = React.useState(1); // 1 = confirmaciÃ³n, 2 = elegir destino
       const [addSellerOpen, setAddSellerOpen] = React.useState(false);
       const [addSellerTarget, setAddSellerTarget] = React.useState('');
       const [addSellerError, setAddSellerError] = React.useState('');
@@ -6660,7 +6660,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           return;
         }
         if (wizardAssignMode === 'individual' && !wizardSeller) {
-          setWizardError('Selecciona un vendedor para asignación individual.');
+          setWizardError('Selecciona un vendedor para asignaciÃ³n individual.');
           return;
         }
         if (wizardAssignMode === 'grupo' && wizardGroupSellers.length < 2) {
@@ -6721,7 +6721,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
       const removeSeller = async () => {
         if (!reassignModal || !reassignTarget) {
-          setReassignError('Seleccioná un vendedor destino.');
+          setReassignError('SeleccionÃ¡ un vendedor destino.');
           return;
         }
         setReassignLoading(true);
@@ -6772,12 +6772,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <section className="content-grid">
 
               {/* TABLA IZQUIERDA */}
-              <Panel className="span-7" title="Gestión de lotes" subtitle="Crea, asigna y controla el avance por lote"
+              <Panel className="span-7" title="GestiÃ³n de lotes" subtitle="Crea, asigna y controla el avance por lote"
                 action={<Button icon={<Plus size={16} />} onClick={() => onOpenRoute('lotes_crear')}>Crear lote</Button>}>
                 <div className="table-wrap">
                   <table>
                     <thead>
-                      <tr><th>Lote</th><th>Contactos</th><th>Estado</th><th>Vendedores</th><th>Creación</th><th>Progreso</th></tr>
+                      <tr><th>Lote</th><th>Contactos</th><th>Estado</th><th>Vendedores</th><th>CreaciÃ³n</th><th>Progreso</th></tr>
                     </thead>
                     <tbody>
                       {lotSummaries.map((lot) => {
@@ -6814,7 +6814,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               </Panel>
 
               {/* PANEL DERECHO */}
-              <Panel className="span-5" title="Detalle de lote" subtitle={selectedLot ? selectedLot.name : 'Seleccioná un lote'}>
+              <Panel className="span-5" title="Detalle de lote" subtitle={selectedLot ? selectedLot.name : 'SeleccionÃ¡ un lote'}>
                 {selectedLot ? (
                   <div className="list">
 
@@ -6852,7 +6852,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                 <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#E1F5EE', color: '#0F6E56', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>{initials}</div>
                                 <div>
                                   <div style={{ fontSize: 13, fontWeight: 600 }}>{nombre}</div>
-                                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>{total} contactos · {gestionados} gestionados</div>
+                                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>{total} contactos Â· {gestionados} gestionados</div>
                                 </div>
                               </div>
                               <div style={{ display: 'flex', gap: 6 }}>
@@ -6883,7 +6883,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       )}
                     </div>
 
-                    {/* ACCIÓN */}
+                    {/* ACCIÃ“N */}
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
                       <Button variant="secondary" icon={<CheckCircle2 size={16} />} onClick={closeLot}>Cerrar lote</Button>
                     </div>
@@ -6907,13 +6907,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     </div>
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 600 }}>{reassignModal.sellerName}</div>
-                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>{reassignModal.contactCount} contactos · {reassignModal.gestionados} gestionados</div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>{reassignModal.contactCount} contactos Â· {reassignModal.gestionados} gestionados</div>
                     </div>
                   </div>
 
                   {reassignModal.gestionados > 0 && (
                     <div style={{ fontSize: 11, color: '#884F0B', background: '#FAEEDA', border: '1px solid #EF9F27', borderRadius: 6, padding: '7px 10px', marginBottom: 14 }}>
-                      ?? Este vendedor tiene {reassignModal.gestionados} gestión/es realizadas. Quedarán en su historial.
+                      ?? Este vendedor tiene {reassignModal.gestionados} gestiÃ³n/es realizadas. QuedarÃ¡n en su historial.
                     </div>
                   )}
 
@@ -6921,7 +6921,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   <select className="input" style={{ width: '100%', marginBottom: 16 }}
                     value={reassignTarget}
                     onChange={(e) => { setReassignTarget(e.target.value); setReassignError(''); }}>
-                    <option value="">Seleccioná un vendedor...</option>
+                    <option value="">SeleccionÃ¡ un vendedor...</option>
                     {(selectedLot?.vendedores || [])
                       .filter((s) => s.id !== reassignModal.sellerId)
                       .map((s) => {
@@ -6953,12 +6953,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         </div>
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 600 }}>{removeModal.sellerName}</div>
-                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{removeModal.contactCount} contactos · {removeModal.gestionados} gestionados</div>
+                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{removeModal.contactCount} contactos Â· {removeModal.gestionados} gestionados</div>
                         </div>
                       </div>
                       <div style={{ fontSize: 12, color: '#A32D2D', background: '#FCEBEB', border: '1px solid #F09595', borderRadius: 6, padding: '8px 10px', marginBottom: 16 }}>
                         Sus <strong>{removeModal.contactCount} contactos</strong> deben ser reasignados antes de quitar al vendedor.
-                        {removeModal.gestionados > 0 && <span> Las {removeModal.gestionados} gestiones realizadas quedarán en su historial.</span>}
+                        {removeModal.gestionados > 0 && <span> Las {removeModal.gestionados} gestiones realizadas quedarÃ¡n en su historial.</span>}
                       </div>
                       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                         <Button variant="secondary" onClick={() => { setRemoveModal(null); setRemoveStep(1); setReassignTarget(''); }}>Cancelar</Button>
@@ -6967,12 +6967,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     </>
                   ) : (
                     <>
-                      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>¿A quién reasignás los contactos?</div>
-                      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>Los {removeModal.contactCount} contactos de <strong>{removeModal.sellerName}</strong> pasarán a:</div>
+                      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>Â¿A quiÃ©n reasignÃ¡s los contactos?</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>Los {removeModal.contactCount} contactos de <strong>{removeModal.sellerName}</strong> pasarÃ¡n a:</div>
                       <select className="input" style={{ width: '100%', marginBottom: 16 }}
                         value={reassignTarget}
                         onChange={(e) => { setReassignTarget(e.target.value); setReassignError(''); }}>
-                        <option value="">Seleccioná un vendedor...</option>
+                        <option value="">SeleccionÃ¡ un vendedor...</option>
                         {(selectedLot?.vendedores || [])
                           .filter((s) => s.id !== removeModal.sellerId)
                           .map((s) => {
@@ -6984,7 +6984,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                         <Button variant="secondary" onClick={() => setRemoveStep(1)}>? Volver</Button>
                         <Button onClick={async () => {
-                          if (!reassignTarget) { setReassignError('Seleccioná un vendedor destino.'); return; }
+                          if (!reassignTarget) { setReassignError('SeleccionÃ¡ un vendedor destino.'); return; }
                           setReassignLoading(true); setReassignError('');
                           try {
                             const res = await fetch(buildApiUrl(`/lead-batches/${selectedLot.id}/remove-seller`, getApiBaseUrl()), {
@@ -6997,7 +6997,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             setRemoveModal(null); setRemoveStep(1); setReassignTarget(''); setReassignError('');
                             window.location.reload();
                           } catch (err) {
-                            setReassignError(err.message || 'No se pudo completar la operación.');
+                            setReassignError(err.message || 'No se pudo completar la operaciÃ³n.');
                           } finally {
                             setReassignLoading(false);
                           }
@@ -7019,7 +7019,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   <select className="input" style={{ width: '100%', marginBottom: 16 }}
                     value={addSellerTarget}
                     onChange={(e) => { setAddSellerTarget(e.target.value); setAddSellerError(''); }}>
-                    <option value="">Seleccioná un vendedor...</option>
+                    <option value="">SeleccionÃ¡ un vendedor...</option>
                     {sellers
                       .filter((s) => !(selectedLot?.vendedores || []).some((v) => v.id === s.id))
                       .map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
@@ -7028,7 +7028,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                     <Button variant="secondary" onClick={() => { setAddSellerOpen(false); setAddSellerTarget(''); setAddSellerError(''); }}>Cancelar</Button>
                     <Button onClick={async () => {
-                      if (!addSellerTarget) { setAddSellerError('Seleccioná un vendedor.'); return; }
+                      if (!addSellerTarget) { setAddSellerError('SeleccionÃ¡ un vendedor.'); return; }
                       setReassignLoading(true);
                       try {
                         const res = await fetch(buildApiUrl(`/lead-batches/${selectedLot.id}/add-seller`, getApiBaseUrl()), {
@@ -7107,7 +7107,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   <input
                     value={workDataSearch}
                     onChange={(event) => { setWorkDataPage(1); setWorkDataSearch(event.target.value); }}
-                    placeholder="Buscar por nombre, teléfono o documento..."
+                    placeholder="Buscar por nombre, telÃ©fono o documento..."
                   />
                 </div>
                 <select
@@ -7118,7 +7118,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 >
                   {workDataOriginOptions.map((origin) => (
                     <option key={origin} value={origin}>
-                      {origin === 'todos' ? 'Todos los orígenes' : origin}
+                      {origin === 'todos' ? 'Todos los orÃ­genes' : origin}
                     </option>
                   ))}
                 </select>
@@ -7154,13 +7154,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   <thead>
                     <tr>
                       <th>Nombre</th>
-                      <th>Teléfono</th>
+                      <th>TelÃ©fono</th>
                       <th>Departamento</th>
                       <th>Origen del dato</th>
                       <th>Estado</th>
-                      <th>Última gestión</th>
-                      <th>Próxima acción</th>
-                      <th style={{ minWidth: 140 }}>Acción</th>
+                      <th>Ãšltima gestiÃ³n</th>
+                      <th>PrÃ³xima acciÃ³n</th>
+                      <th style={{ minWidth: 140 }}>AcciÃ³n</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -7204,11 +7204,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 {workDataLoading ? <div style={{ padding: 16, color: 'var(--muted)' }}>Cargando registros...</div> : null}
                 {workDataError ? <div style={{ padding: 16, color: '#be123c', fontWeight: 700 }}>{workDataError}</div> : null}
                 {!workDataLoading && !workDataError && !filteredWorkDataRows.length ? (
-                  <div style={{ padding: 16, color: 'var(--muted)' }}>No hay datos cargados aún.</div>
+                  <div style={{ padding: 16, color: 'var(--muted)' }}>No hay datos cargados aÃºn.</div>
                 ) : null}
               </div>
               <div className="toolbar" style={{ justifyContent: 'space-between', marginTop: 12 }}>
-                <span className="pill">Página {workDataMeta.page} de {workDataMeta.totalPages}</span>
+                <span className="pill">PÃ¡gina {workDataMeta.page} de {workDataMeta.totalPages}</span>
                 <div className="toolbar">
                   <Button variant="ghost" onClick={() => setWorkDataPage((p) => Math.max(1, p - 1))} disabled={workDataMeta.page <= 1}>Anterior</Button>
                   <Button variant="ghost" onClick={() => setWorkDataPage((p) => Math.min(workDataMeta.totalPages, p + 1))} disabled={workDataMeta.page >= workDataMeta.totalPages}>Siguiente</Button>
@@ -7224,12 +7224,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
     const supportStatusMeta = (status) => {
       const map = {
         nuevo: { label: 'Nuevo', bg: 'rgba(6, 182, 212, 0.12)', color: '#0891b2', border: 'rgba(6, 182, 212, 0.25)' },
-        gestion: { label: 'En gestión', bg: 'rgba(217, 119, 6, 0.12)', color: '#b45309', border: 'rgba(217, 119, 6, 0.28)' },
+        gestion: { label: 'En gestiÃ³n', bg: 'rgba(217, 119, 6, 0.12)', color: '#b45309', border: 'rgba(217, 119, 6, 0.28)' },
         derivado: { label: 'Derivado', bg: 'rgba(124, 58, 237, 0.12)', color: '#7c3aed', border: 'rgba(124, 58, 237, 0.28)' },
         resuelto: { label: 'Resuelto', bg: 'rgba(22, 163, 74, 0.12)', color: '#15803d', border: 'rgba(22, 163, 74, 0.25)' },
         cerrado: { label: 'Cerrado', bg: 'rgba(100, 116, 139, 0.14)', color: '#475569', border: 'rgba(100, 116, 139, 0.3)' },
         servicio_iniciado: { label: 'Iniciado', bg: 'rgba(37, 99, 235, 0.12)', color: '#1d4ed8', border: 'rgba(37, 99, 235, 0.28)' },
-        servicio_en_gestion: { label: 'En gestión', bg: 'rgba(217, 119, 6, 0.12)', color: '#b45309', border: 'rgba(217, 119, 6, 0.28)' },
+        servicio_en_gestion: { label: 'En gestiÃ³n', bg: 'rgba(217, 119, 6, 0.12)', color: '#b45309', border: 'rgba(217, 119, 6, 0.28)' },
         servicio_finalizado: { label: 'Finalizado', bg: 'rgba(22, 163, 74, 0.12)', color: '#15803d', border: 'rgba(22, 163, 74, 0.25)' }
       };
       return map[status] || map.nuevo;
@@ -7282,7 +7282,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         if (monthDelta < 0 || (monthDelta === 0 && now.getDate() < parsed.getDate())) {
           years -= 1;
         }
-        return years >= 0 ? `${years} años` : '';
+        return years >= 0 ? `${years} aÃ±os` : '';
       };
       const formatDateShort = (value) => {
         if (!value) return '';
@@ -7391,7 +7391,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           const status = err?.status;
           const backendMessage = err?.details?.message || err?.details?.error || err?.message || '';
           const statusLabel = status ? ` (HTTP ${status})` : '';
-          const detailLabel = backendMessage ? ` · ${backendMessage}` : '';
+          const detailLabel = backendMessage ? ` Â· ${backendMessage}` : '';
           setSupportDetailError(`No se pudo cargar el detalle del cliente${statusLabel}${detailLabel}.`);
         }
       }, []);
@@ -7429,7 +7429,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             const hasBajaProduct = products.some((product) => String(product.estadoProducto || '').toLowerCase() === 'baja');
             if (hasBajaProduct && nextType === 'solicitud_baja') {
               nextType = 'info_servicio';
-              setManualError('El producto ya está en baja. Solo se permite una solicitud informativa.');
+              setManualError('El producto ya estÃ¡ en baja. Solo se permite una solicitud informativa.');
             }
             const autoSelectedProductId = nextType === 'solicitud_baja' && products.length === 1
               ? products[0].id
@@ -7439,7 +7439,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             setManualDraft((prev) => ({ ...prev, tipoSolicitud: nextType, productoContratoId: autoSelectedProductId }));
           }
         } catch {
-          // Mantener datos básicos si falla el detalle.
+          // Mantener datos bÃ¡sicos si falla el detalle.
         }
       };
 
@@ -7537,13 +7537,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             <div style={{ flex: 1 }}>
                               <div style={{ fontWeight: 700 }}>{client.nombre}</div>
                               <div style={{ color: 'var(--muted)', fontSize: '0.86rem', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                                <span>CI {client.documento} · {client.telefono} · {client.productoActualNombre}</span>
+                                <span>CI {client.documento} Â· {client.telefono} Â· {client.productoActualNombre}</span>
                                 {productStatusBadge(client.status || client.estado || client.estadoProducto)}
                               </div>
                             </div>
                             <div className="toolbar">
                               <Button variant="ghost" icon={<Eye size={15} />} onClick={() => handleViewSupportFicha(client)}>Ver</Button>
-                              <Button variant="secondary" icon={<Plus size={15} />} onClick={(event) => { event.stopPropagation(); openManualForm(client); }}>Nueva gestión</Button>
+                              <Button variant="secondary" icon={<Plus size={15} />} onClick={(event) => { event.stopPropagation(); openManualForm(client); }}>Nueva gestiÃ³n</Button>
                               <Button
                                 icon={<Briefcase size={15} />}
                                 disabled={String(client.status || client.estado || client.estadoProducto || '').toLowerCase().includes('baja')}
@@ -7570,13 +7570,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                 <div style={{ flex: 1 }}>
                                   <div style={{ fontWeight: 700 }}>{client.name || 'Cliente'}</div>
                               <div style={{ color: 'var(--muted)', fontSize: '0.86rem', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                                <span>CI {client.documento || '—'} · {client.phone || '—'} · {client.product || 'Sin producto'}</span>
+                                <span>CI {client.documento || 'â€”'} Â· {client.phone || 'â€”'} Â· {client.product || 'Sin producto'}</span>
                                 {productStatusBadge(client.status || client.estado || client.estadoProducto)}
                               </div>
                                 </div>
                                 <div className="toolbar">
                                   <Button variant="ghost" icon={<Eye size={15} />} onClick={() => handleViewSupportFicha(client)}>Ver</Button>
-                                  <Button variant="secondary" icon={<Plus size={15} />} onClick={(event) => { event.stopPropagation(); openManualForm(client); }}>Nueva gestión</Button>
+                                  <Button variant="secondary" icon={<Plus size={15} />} onClick={(event) => { event.stopPropagation(); openManualForm(client); }}>Nueva gestiÃ³n</Button>
                                   <Button
                                     icon={<Briefcase size={15} />}
                                     disabled={String(client.status || client.estado || client.estadoProducto || '').toLowerCase().includes('baja')}
@@ -7598,22 +7598,22 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 {showManualForm && selectedClient ? (
                   <div style={{ marginTop: 12 }}>
                     <div style={{ marginBottom: 12 }}>
-                      <div style={{ fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', color: '#64748b' }}>Formulario de gestión</div>
+                      <div style={{ fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', color: '#64748b' }}>Formulario de gestiÃ³n</div>
                       <div style={{ fontWeight: 700, fontSize: 18 }}>Crear solicitud para {selectedClient.nombre}</div>
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
                       <div style={{ borderRadius: 16, border: '1px solid rgba(148,163,184,0.25)', padding: 14, background: '#f8fafc' }}>
-                        <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#64748b' }}>Información del cliente</div>
+                        <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#64748b' }}>InformaciÃ³n del cliente</div>
                         <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
-                          <div><strong>Nombre completo:</strong> {`${selectedClient.nombre || selectedClient.name || ''} ${selectedClient.apellido || ''}`.trim() || '—'}</div>
-                          <div><strong>Numero de documento:</strong> {selectedClient.documento || '—'}</div>
-                          <div><strong>Fecha de nacimiento:</strong> {formatDate(selectedClient.fechaNacimiento || selectedClient.fecha_nacimiento) || '—'}</div>
-                          <div><strong>Edad:</strong> {calcAge(selectedClient.fechaNacimiento || selectedClient.fecha_nacimiento) || '—'}</div>
-                          <div><strong>Telefono:</strong> {selectedClient.telefono || selectedClient.phone || '—'}</div>
-                          <div><strong>Celular:</strong> {selectedClient.celular || selectedClient.cellphone || '—'}</div>
-                          <div><strong>Dirección:</strong> {selectedClient.direccion || '—'}</div>
-                          <div><strong>Departamento:</strong> {selectedClient.departamento || '—'}</div>
+                          <div><strong>Nombre completo:</strong> {`${selectedClient.nombre || selectedClient.name || ''} ${selectedClient.apellido || ''}`.trim() || 'â€”'}</div>
+                          <div><strong>Numero de documento:</strong> {selectedClient.documento || 'â€”'}</div>
+                          <div><strong>Fecha de nacimiento:</strong> {formatDate(selectedClient.fechaNacimiento || selectedClient.fecha_nacimiento) || 'â€”'}</div>
+                          <div><strong>Edad:</strong> {calcAge(selectedClient.fechaNacimiento || selectedClient.fecha_nacimiento) || 'â€”'}</div>
+                          <div><strong>Telefono:</strong> {selectedClient.telefono || selectedClient.phone || 'â€”'}</div>
+                          <div><strong>Celular:</strong> {selectedClient.celular || selectedClient.cellphone || 'â€”'}</div>
+                          <div><strong>DirecciÃ³n:</strong> {selectedClient.direccion || 'â€”'}</div>
+                          <div><strong>Departamento:</strong> {selectedClient.departamento || 'â€”'}</div>
                         </div>
                       </div>
 
@@ -7622,11 +7622,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
                           <div><strong>Fecha de alta:</strong> {(availableProducts[0]?.fechaAlta || selectedClient.fechaVenta)
                             ? formatDate(availableProducts[0]?.fechaAlta || selectedClient.fechaVenta)
-                            : (formatDateShort(selectedClient.createdAt) || '—')}</div>
-                          <div><strong>Estado:</strong> {String(availableProducts[0]?.estadoProducto || availableProducts[0]?.estado || '—')}</div>
-                          <div><strong>Nombre del producto:</strong> {String(availableProducts[0]?.productoNombre || availableProducts[0]?.nombreProducto || availableProducts[0]?.nombre_producto || selectedClient.productoActualNombre || selectedClient.product?.nombreProducto || selectedClient.product?.nombre || selectedClient.productoNombre || selectedClient.producto_nombre || selectedClient.product || '—')}</div>
-                          <div><strong>Precio:</strong> {availableProducts[0]?.precio ? `$ ${Number(String(availableProducts[0].precio).replace(/[^0-9.-]/g, '')).toLocaleString('es-UY')}` : (selectedClient.fee || '—')}</div>
-                          <div><strong>Carencia:</strong> {String(availableProducts[0]?.carenciaCuotas ?? availableProducts[0]?.carencia_cuotas ?? '—')}</div>
+                            : (formatDateShort(selectedClient.createdAt) || 'â€”')}</div>
+                          <div><strong>Estado:</strong> {String(availableProducts[0]?.estadoProducto || availableProducts[0]?.estado || 'â€”')}</div>
+                          <div><strong>Nombre del producto:</strong> {String(availableProducts[0]?.productoNombre || availableProducts[0]?.nombreProducto || availableProducts[0]?.nombre_producto || selectedClient.productoActualNombre || selectedClient.product?.nombreProducto || selectedClient.product?.nombre || selectedClient.productoNombre || selectedClient.producto_nombre || selectedClient.product || 'â€”')}</div>
+                          <div><strong>Precio:</strong> {availableProducts[0]?.precio ? `$ ${Number(String(availableProducts[0].precio).replace(/[^0-9.-]/g, '')).toLocaleString('es-UY')}` : (selectedClient.fee || 'â€”')}</div>
+                          <div><strong>Carencia:</strong> {String(availableProducts[0]?.carenciaCuotas ?? availableProducts[0]?.carencia_cuotas ?? 'â€”')}</div>
                         </div>
                       </div>
 
@@ -7642,7 +7642,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             <option value="">Seleccionar producto</option>
                             {availableProducts.map((product) => (
                               <option key={product.id} value={product.id}>
-                                {(product.productoNombre || product.nombreProducto || product.nombre_producto || product.nombre || 'Producto')} · Alta {product.fechaAlta ? formatDate(product.fechaAlta) : 's/f'}
+                                {(product.productoNombre || product.nombreProducto || product.nombre_producto || product.nombre || 'Producto')} Â· Alta {product.fechaAlta ? formatDate(product.fechaAlta) : 's/f'}
                               </option>
                             ))}
                           </select>
@@ -7650,7 +7650,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       </div>
 
                       <div style={{ borderRadius: 16, border: '1px solid rgba(148,163,184,0.25)', padding: 14, gridColumn: '1 / -1' }}>
-                        <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#64748b' }}>Motivo de la gestión</div>
+                        <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#64748b' }}>Motivo de la gestiÃ³n</div>
                         <div className="toolbar" style={{ marginTop: 8, flexWrap: 'wrap' }}>
                           {manualDraft.tipoSolicitud !== 'solicitud_servicio' ? (
                             <select
@@ -7670,7 +7670,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                               {!availableProducts.some((product) => String(product.estadoProducto || '').toLowerCase() === 'baja') ? (
                                 <option value="solicitud_baja">Solicitud de baja</option>
                               ) : null}
-                              <option value="cambio_metodo_pago">Cambio de método de pago</option>
+                              <option value="cambio_metodo_pago">Cambio de mÃ©todo de pago</option>
                               <option value="reclamo">Reclamo</option>
                               <option value="otro">Otro</option>
                             </select>
@@ -7695,12 +7695,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
                             <input className="input" placeholder="Nombre completo" value={manualDraft.solicitanteNombre} onChange={(event) => setManualDraft((prev) => ({ ...prev, solicitanteNombre: event.target.value }))} />
                             <input className="input" placeholder="Documento de identidad" value={manualDraft.solicitanteDocumento} onChange={(event) => setManualDraft((prev) => ({ ...prev, solicitanteDocumento: event.target.value }))} />
-                            <input className="input" placeholder="Teléfono de contacto" value={manualDraft.solicitanteTelefono} onChange={(event) => setManualDraft((prev) => ({ ...prev, solicitanteTelefono: event.target.value }))} />
-                            <input className="input" placeholder="Relación con el fallecido" value={manualDraft.solicitanteRelacion} onChange={(event) => setManualDraft((prev) => ({ ...prev, solicitanteRelacion: event.target.value }))} />
+                            <input className="input" placeholder="TelÃ©fono de contacto" value={manualDraft.solicitanteTelefono} onChange={(event) => setManualDraft((prev) => ({ ...prev, solicitanteTelefono: event.target.value }))} />
+                            <input className="input" placeholder="RelaciÃ³n con el fallecido" value={manualDraft.solicitanteRelacion} onChange={(event) => setManualDraft((prev) => ({ ...prev, solicitanteRelacion: event.target.value }))} />
                           </div>
 
                           <div style={{ marginTop: 10, display: 'grid', gap: 10 }}>
-                            <input className="input" placeholder="¿Dónde se encuentra el cuerpo actualmente? (hospital, domicilio, morgue)" value={manualDraft.cuerpoUbicacion} onChange={(event) => setManualDraft((prev) => ({ ...prev, cuerpoUbicacion: event.target.value }))} />
+                            <input className="input" placeholder="Â¿DÃ³nde se encuentra el cuerpo actualmente? (hospital, domicilio, morgue)" value={manualDraft.cuerpoUbicacion} onChange={(event) => setManualDraft((prev) => ({ ...prev, cuerpoUbicacion: event.target.value }))} />
                             <div className="toolbar" style={{ flexWrap: 'wrap' }}>
                               <select className="input" style={{ width: 220 }} value={manualDraft.requiereTraslado} onChange={(event) => setManualDraft((prev) => ({ ...prev, requiereTraslado: event.target.value }))}>
                                 <option value="no">No requiere traslado</option>
@@ -7799,20 +7799,20 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   {mode === 'service' ? (
                     <>
                       <option value="servicio_iniciado">Iniciado</option>
-                      <option value="servicio_en_gestion">En gestión</option>
+                      <option value="servicio_en_gestion">En gestiÃ³n</option>
                       <option value="servicio_finalizado">Finalizado</option>
                     </>
                   ) : (
                     <>
                       <option value="nuevo">Nuevo</option>
-                      <option value="gestion">En gestión</option>
+                      <option value="gestion">En gestiÃ³n</option>
                       <option value="derivado">Derivado</option>
                       <option value="resuelto">Resuelto</option>
                       <option value="cerrado">Cerrado</option>
                     </>
                   )}
                 </select>
-                <div className="pill">{inProgress} en gestión</div>
+                <div className="pill">{inProgress} en gestiÃ³n</div>
                 {mode === 'general' ? <div className="pill">{derived} derivados</div> : null}
               </div>
 
@@ -7836,7 +7836,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               </div>
               {filtered.length ? (
                 <div className="toolbar" style={{ justifyContent: 'space-between', marginTop: 12 }}>
-                  <span className="pill">Página {safePage} de {totalPages} · {filtered.length} tickets</span>
+                  <span className="pill">PÃ¡gina {safePage} de {totalPages} Â· {filtered.length} tickets</span>
                   <div className="toolbar">
                     <Button variant="ghost" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1}>Anterior</Button>
                     <Button variant="ghost" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages}>Siguiente</Button>
@@ -7998,10 +7998,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const transcript = ticket.transcripcion
         ? ticket.transcripcion.split('\n').filter(Boolean)
         : [
-            'IA: Hola, gracias por llamar a Rednacrem. ¿En qué puedo ayudarte hoy?',
+            'IA: Hola, gracias por llamar a Rednacrem. Â¿En quÃ© puedo ayudarte hoy?',
             'Cliente: Necesito revisar un movimiento de mi cuenta.',
             'IA: Perfecto, verifico tus datos y genero solicitud para seguimiento.',
-            'Cliente: Gracias, quedo a la espera de confirmación.'
+            'Cliente: Gracias, quedo a la espera de confirmaciÃ³n.'
           ];
 
       return (
@@ -8010,7 +8010,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <Panel
               className="span-8"
               title={'Solicitud #' + String(ticket.numero || ticket.id).padStart(6, '0')}
-              subtitle={'Tipo: ' + supportRequestTypeLabel(ticket) + ' · Creado ' + (formatDateTimeShort(ticket.hora) || ticket.hora) + ' por ' + ticket.agente}
+              subtitle={'Tipo: ' + supportRequestTypeLabel(ticket) + ' Â· Creado ' + (formatDateTimeShort(ticket.hora) || ticket.hora) + ' por ' + ticket.agente}
               action={<div className="toolbar"><button type="button" className="button ghost" onClick={(event) => { event.stopPropagation(); onBack(); }}><ArrowDownRight size={16} />Volver</button></div>}
             >
               <div className="toolbar" style={{ marginBottom: 14 }}>
@@ -8045,14 +8045,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       <div style={{ fontWeight: 800, marginBottom: 8 }}>Cliente</div>
                       {clientDetailError ? <div style={{ color: '#be123c', fontWeight: 700 }}>{clientDetailError}</div> : null}
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>
-                        <div><strong>Nombre:</strong> {clientDetail?.name || `${clientDetail?.nombre || ''} ${clientDetail?.apellido || ''}`.trim() || ticket.cliente || '—'}</div>
-                        <div><strong>Documento:</strong> {clientDetail?.documento || '—'}</div>
-                        <div><strong>Teléfono:</strong> {clientDetail?.telefono || clientDetail?.phone || ticket.telefono || '—'}</div>
-                        <div><strong>Celular:</strong> {clientDetail?.celular || clientDetail?.cellphone || '—'}</div>
-                        <div><strong>Email:</strong> {clientDetail?.email || '—'}</div>
-                        <div><strong>Dirección:</strong> {clientDetail?.direccion || '—'}</div>
-                        <div><strong>Departamento:</strong> {clientDetail?.departamento || '—'}</div>
-                        <div><strong>País:</strong> {clientDetail?.pais || '—'}</div>
+                        <div><strong>Nombre:</strong> {clientDetail?.name || `${clientDetail?.nombre || ''} ${clientDetail?.apellido || ''}`.trim() || ticket.cliente || 'â€”'}</div>
+                        <div><strong>Documento:</strong> {clientDetail?.documento || 'â€”'}</div>
+                        <div><strong>TelÃ©fono:</strong> {clientDetail?.telefono || clientDetail?.phone || ticket.telefono || 'â€”'}</div>
+                        <div><strong>Celular:</strong> {clientDetail?.celular || clientDetail?.cellphone || 'â€”'}</div>
+                        <div><strong>Email:</strong> {clientDetail?.email || 'â€”'}</div>
+                        <div><strong>DirecciÃ³n:</strong> {clientDetail?.direccion || 'â€”'}</div>
+                        <div><strong>Departamento:</strong> {clientDetail?.departamento || 'â€”'}</div>
+                        <div><strong>PaÃ­s:</strong> {clientDetail?.pais || 'â€”'}</div>
                       </div>
                     </div>
                   </div>
@@ -8064,10 +8064,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 800, marginBottom: 8 }}>Producto</div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>
-                        <div><strong>Nombre:</strong> {clientDetail?.product?.nombreProducto || clientDetail?.product?.nombre_producto || clientDetail?.product?.nombre || ticket.productoNombre || '—'}</div>
-                        <div><strong>Estado:</strong> {clientDetail?.product?.estado || clientDetail?.product?.estadoProducto || '—'}</div>
-                        <div><strong>Fecha de alta:</strong> {formatDate(clientDetail?.product?.fechaAlta || clientDetail?.product?.fecha_alta || '') || '—'}</div>
-                        <div><strong>Precio:</strong> {clientDetail?.product?.precio ? `$ ${Number(String(clientDetail.product.precio).replace(/[^0-9.-]/g, '')).toLocaleString('es-UY')}` : '—'}</div>
+                        <div><strong>Nombre:</strong> {clientDetail?.product?.nombreProducto || clientDetail?.product?.nombre_producto || clientDetail?.product?.nombre || ticket.productoNombre || 'â€”'}</div>
+                        <div><strong>Estado:</strong> {clientDetail?.product?.estado || clientDetail?.product?.estadoProducto || 'â€”'}</div>
+                        <div><strong>Fecha de alta:</strong> {formatDate(clientDetail?.product?.fechaAlta || clientDetail?.product?.fecha_alta || '') || 'â€”'}</div>
+                        <div><strong>Precio:</strong> {clientDetail?.product?.precio ? `$ ${Number(String(clientDetail.product.precio).replace(/[^0-9.-]/g, '')).toLocaleString('es-UY')}` : 'â€”'}</div>
                       </div>
                     </div>
                   </div>
@@ -8088,18 +8088,18 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
                           {!editingServiceRequest ? (
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, marginTop: 6 }}>
-                              <div><strong>Nombre completo:</strong> {ticket.serviceRequest?.solicitanteNombre || '—'}</div>
-                              <div><strong>Documento de identidad:</strong> {ticket.serviceRequest?.solicitanteDocumento || '—'}</div>
-                              <div><strong>Teléfono de contacto:</strong> {ticket.serviceRequest?.solicitanteTelefono || '—'}</div>
-                              <div><strong>Relación con el fallecido:</strong> {ticket.serviceRequest?.solicitanteRelacion || '—'}</div>
+                              <div><strong>Nombre completo:</strong> {ticket.serviceRequest?.solicitanteNombre || 'â€”'}</div>
+                              <div><strong>Documento de identidad:</strong> {ticket.serviceRequest?.solicitanteDocumento || 'â€”'}</div>
+                              <div><strong>TelÃ©fono de contacto:</strong> {ticket.serviceRequest?.solicitanteTelefono || 'â€”'}</div>
+                              <div><strong>RelaciÃ³n con el fallecido:</strong> {ticket.serviceRequest?.solicitanteRelacion || 'â€”'}</div>
                             </div>
                           ) : (
                             <>
                               <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
                                 <input className="input" placeholder="Nombre completo" value={serviceRequestDraft.solicitanteNombre} onChange={(event) => setServiceRequestDraft((prev) => ({ ...prev, solicitanteNombre: event.target.value }))} />
                                 <input className="input" placeholder="Documento de identidad" value={serviceRequestDraft.solicitanteDocumento} onChange={(event) => setServiceRequestDraft((prev) => ({ ...prev, solicitanteDocumento: event.target.value }))} />
-                                <input className="input" placeholder="Teléfono de contacto" value={serviceRequestDraft.solicitanteTelefono} onChange={(event) => setServiceRequestDraft((prev) => ({ ...prev, solicitanteTelefono: event.target.value }))} />
-                                <input className="input" placeholder="Relación con el fallecido" value={serviceRequestDraft.solicitanteRelacion} onChange={(event) => setServiceRequestDraft((prev) => ({ ...prev, solicitanteRelacion: event.target.value }))} />
+                                <input className="input" placeholder="TelÃ©fono de contacto" value={serviceRequestDraft.solicitanteTelefono} onChange={(event) => setServiceRequestDraft((prev) => ({ ...prev, solicitanteTelefono: event.target.value }))} />
+                                <input className="input" placeholder="RelaciÃ³n con el fallecido" value={serviceRequestDraft.solicitanteRelacion} onChange={(event) => setServiceRequestDraft((prev) => ({ ...prev, solicitanteRelacion: event.target.value }))} />
                               </div>
                             </>
                           )}
@@ -8114,23 +8114,23 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           <div style={{ fontWeight: 800 }}>Datos del servicio</div>
                           {!editingServiceRequest ? (
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, marginTop: 6 }}>
-                              <div><strong>Ubicación del cuerpo:</strong> {ticket.serviceRequest?.cuerpoUbicacion || '—'}</div>
-                              <div><strong>Traslado:</strong> {ticket.serviceRequest?.requiereTraslado ? 'Sí' : 'No'}</div>
+                              <div><strong>UbicaciÃ³n del cuerpo:</strong> {ticket.serviceRequest?.cuerpoUbicacion || 'â€”'}</div>
+                              <div><strong>Traslado:</strong> {ticket.serviceRequest?.requiereTraslado ? 'SÃ­' : 'No'}</div>
                               {ticket.serviceRequest?.requiereTraslado ? (
                                 <>
-                                  <div><strong>Origen:</strong> {ticket.serviceRequest?.trasladoOrigen || '—'}</div>
-                                  <div><strong>Destino:</strong> {ticket.serviceRequest?.trasladoDestino || '—'}</div>
+                                  <div><strong>Origen:</strong> {ticket.serviceRequest?.trasladoOrigen || 'â€”'}</div>
+                                  <div><strong>Destino:</strong> {ticket.serviceRequest?.trasladoDestino || 'â€”'}</div>
                                 </>
                               ) : null}
-                              <div><strong>Tipo de servicio:</strong> {ticket.serviceRequest?.servicioTipo || '—'}</div>
-                              <div><strong>Lugar del velatorio:</strong> {ticket.serviceRequest?.velatorioLugar || '—'}</div>
-                              <div><strong>Fecha y hora estimada:</strong> {formatDateTimeShort(ticket.serviceRequest?.servicioFechaHora) || ticket.serviceRequest?.servicioFechaHora || '—'}</div>
-                              <div><strong>Crematorio seleccionado:</strong> {ticket.serviceRequest?.crematorio || '—'}</div>
+                              <div><strong>Tipo de servicio:</strong> {ticket.serviceRequest?.servicioTipo || 'â€”'}</div>
+                              <div><strong>Lugar del velatorio:</strong> {ticket.serviceRequest?.velatorioLugar || 'â€”'}</div>
+                              <div><strong>Fecha y hora estimada:</strong> {formatDateTimeShort(ticket.serviceRequest?.servicioFechaHora) || ticket.serviceRequest?.servicioFechaHora || 'â€”'}</div>
+                              <div><strong>Crematorio seleccionado:</strong> {ticket.serviceRequest?.crematorio || 'â€”'}</div>
                             </div>
                           ) : (
                             <>
                               <div style={{ marginTop: 8, display: 'grid', gap: 10 }}>
-                                <input className="input" placeholder="¿Dónde se encuentra el cuerpo actualmente?" value={serviceRequestDraft.cuerpoUbicacion} onChange={(event) => setServiceRequestDraft((prev) => ({ ...prev, cuerpoUbicacion: event.target.value }))} />
+                                <input className="input" placeholder="Â¿DÃ³nde se encuentra el cuerpo actualmente?" value={serviceRequestDraft.cuerpoUbicacion} onChange={(event) => setServiceRequestDraft((prev) => ({ ...prev, cuerpoUbicacion: event.target.value }))} />
                                 <div className="toolbar" style={{ flexWrap: 'wrap' }}>
                                   <select className="input" style={{ width: 220 }} value={serviceRequestDraft.requiereTraslado ? 'si' : 'no'} onChange={(event) => setServiceRequestDraft((prev) => ({ ...prev, requiereTraslado: event.target.value === 'si' }))}>
                                     <option value="no">No requiere traslado</option>
@@ -8173,7 +8173,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <div className="status-ring" style={{ background: 'rgba(14,116,144,0.12)', color: '#0e7490' }}><FileText size={18} /></div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 800, marginBottom: 8 }}>Resumen</div>
-                      <div style={{ color: 'var(--muted)' }}>{ticket.resumen || '—'}</div>
+                      <div style={{ color: 'var(--muted)' }}>{ticket.resumen || 'â€”'}</div>
                     </div>
                   </div>
                 </div>
@@ -8189,7 +8189,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         <div style={{ fontWeight: 700 }}>
                           {item.autor}
                           <span style={{ color: 'var(--muted)', fontWeight: 500 }}>
-                            {' · '}
+                            {' Â· '}
                             {item.hora || formatDateTimeShort(item.createdAt) || ''}
                           </span>
                         </div>
@@ -8199,7 +8199,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   ))}
                 </div>
                 <div className="toolbar">
-                  <input className="input" value={note} disabled={isClosedTicket} onChange={(event) => setNote(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') pushNote(); }} placeholder={isClosedTicket ? 'Ticket cerrado' : 'Agregar nota rápida...'} />
+                  <input className="input" value={note} disabled={isClosedTicket} onChange={(event) => setNote(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') pushNote(); }} placeholder={isClosedTicket ? 'Ticket cerrado' : 'Agregar nota rÃ¡pida...'} />
                   <Button icon={<Send size={16} />} onClick={pushNote} disabled={isClosedTicket}>Guardar</Button>
                 </div>
               </div>
@@ -8211,9 +8211,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     {ticket.cierreHistory.map((entry, idx) => (
                       <div key={(entry.at || '') + (entry.resultado || '') + idx} className="alert">
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8 }}>
-                          <div><strong>Fecha y hora:</strong> {formatDateTimeShort(entry.at) || entry.at || '—'}</div>
-                          <div><strong>Usuario:</strong> {entry.user || '—'}</div>
-                          <div><strong>Resultado:</strong> {entry.resultado || '—'}</div>
+                          <div><strong>Fecha y hora:</strong> {formatDateTimeShort(entry.at) || entry.at || 'â€”'}</div>
+                          <div><strong>Usuario:</strong> {entry.user || 'â€”'}</div>
+                          <div><strong>Resultado:</strong> {entry.resultado || 'â€”'}</div>
                         </div>
                       </div>
                     ))}
@@ -8352,7 +8352,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           const cierreEntry = {
             at: formatDateTimeShort(new Date().toISOString()) || new Date().toISOString(),
             user: 'Agente',
-            resultado: outcomeLabel || '—'
+            resultado: outcomeLabel || 'â€”'
           };
           const cierreHistory = Array.isArray(updated.cierreHistory)
             ? [cierreEntry, ...updated.cierreHistory]
@@ -8419,8 +8419,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return (
           <div className="view">
             <section className="content-grid">
-              <Panel className="span-12" title="Atención al cliente" subtitle="Cargando solicitudes...">
-                <div style={{ color: 'var(--muted)' }}>Obteniendo tickets telefónicos.</div>
+              <Panel className="span-12" title="AtenciÃ³n al cliente" subtitle="Cargando solicitudes...">
+                <div style={{ color: 'var(--muted)' }}>Obteniendo tickets telefÃ³nicos.</div>
               </Panel>
             </section>
           </div>
@@ -8456,7 +8456,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <SupportTicketsView
               mode="general"
               title="Gestiones con clientes"
-              subtitle="Tickets generales de atención"
+              subtitle="Tickets generales de atenciÃ³n"
               tickets={tickets}
               onSelect={openTicket}
               selectedId={selectedId}
@@ -8481,7 +8481,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const metrics = [
         { title: 'Servicios abiertos', value: '12', change: -4, label: 'carga activa', trend: 'up', icon: Briefcase, bg: 'rgba(217,119,6,0.12)', color: '#d97706' },
         { title: 'SLA operativo', value: '93%', change: 1.8, label: 'sobre objetivo', trend: 'up', icon: Zap, bg: 'rgba(15,118,110,0.12)', color: '#0f766e' },
-        { title: 'Proveedores críticos', value: '2', change: 0, label: 'sin cambios', trend: 'up', icon: Building2, bg: 'rgba(190,18,60,0.12)', color: '#be123c' },
+        { title: 'Proveedores crÃ­ticos', value: '2', change: 0, label: 'sin cambios', trend: 'up', icon: Building2, bg: 'rgba(190,18,60,0.12)', color: '#be123c' },
         { title: 'Casos finalizados', value: '145', change: 9.3, label: 'acumulado', trend: 'up', icon: CheckCircle2, bg: 'rgba(37,99,235,0.12)', color: '#2563eb' }
       ];
       return (
@@ -8490,22 +8490,22 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <div className="hero-panel">
               <Tag variant="warning">Modo operaciones</Tag>
               <h1 className="hero-title">Circuito operativo con trazabilidad, prioridad y tiempos visibles.</h1>
-              <p className="hero-copy">El tablero organiza solicitudes, proveedores y alertas de SLA para reducir fricción entre comercial, coordinación y ejecución final.</p>
+              <p className="hero-copy">El tablero organiza solicitudes, proveedores y alertas de SLA para reducir fricciÃ³n entre comercial, coordinaciÃ³n y ejecuciÃ³n final.</p>
               <div className="hero-kpis">
                 <div className="hero-kpi"><div className="hero-kpi-label">Pendientes de hoy</div><div className="hero-kpi-value">5</div></div>
                 <div className="hero-kpi"><div className="hero-kpi-label">Tiempo medio</div><div className="hero-kpi-value">2h 14m</div></div>
-                <div className="hero-kpi"><div className="hero-kpi-label">Proveedor líder</div><div className="hero-kpi-value">Centro</div></div>
+                <div className="hero-kpi"><div className="hero-kpi-label">Proveedor lÃ­der</div><div className="hero-kpi-value">Centro</div></div>
               </div>
               <div className="hero-grid"></div>
             </div>
-            <Panel title="Acciones operativas" subtitle="Lo más usado por coordinación"><div className="toolbar"><Button icon={<Plus size={18} />}>Nueva solicitud</Button><Button variant="secondary" icon={<Building2 size={18} />}>Ver proveedores</Button></div></Panel>
+            <Panel title="Acciones operativas" subtitle="Lo mÃ¡s usado por coordinaciÃ³n"><div className="toolbar"><Button icon={<Plus size={18} />}>Nueva solicitud</Button><Button variant="secondary" icon={<Building2 size={18} />}>Ver proveedores</Button></div></Panel>
           </section>
           <section className="metrics-grid">{metrics.map((item) => <MetricCard key={item.title} item={item} />)}</section>
           <section className="content-grid">
             <Panel className="span-12" title="Servicios recientes" subtitle="Seguimiento del circuito operativo">
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>ID</th><th>Cliente</th><th>Tipo</th><th>Fecha</th><th>Proveedor</th><th>Estado</th><th>Acción</th></tr></thead>
+                  <thead><tr><th>ID</th><th>Cliente</th><th>Tipo</th><th>Fecha</th><th>Proveedor</th><th>Estado</th><th>AcciÃ³n</th></tr></thead>
                   <tbody>{serviceRows.map((row) => <tr key={row.id}><td>{row.id}</td><td>{row.client}</td><td>{row.type}</td><td>{row.date}</td><td>{row.provider}</td><td><Tag variant={statusVariant(row.status)}>{row.status}</Tag></td><td><Button variant="ghost" icon={<MoreHorizontal size={16} />}>Gestionar</Button></td></tr>)}</tbody>
                 </table>
                 {!serviceRows.length ? <div style={{ padding: 16, color: 'var(--muted)' }}>No hay servicios registrados.</div> : null}
@@ -8588,15 +8588,15 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return (
           <div className="view">
             <section className="content-grid">
-              <Panel className="span-12" title="Base de contactos" subtitle="1.240 registros listos para gestión" action={<Button icon={<Plus size={18} />}>Nuevo contacto</Button>}>
+              <Panel className="span-12" title="Base de contactos" subtitle="1.240 registros listos para gestiÃ³n" action={<Button icon={<Plus size={18} />}>Nuevo contacto</Button>}>
                 <div className="toolbar" style={{ marginBottom: 16 }}>
-                  <div className="searchbox"><Search size={18} color="#69788d" /><input placeholder="Buscar por nombre, teléfono o documento..." /></div>
+                  <div className="searchbox"><Search size={18} color="#69788d" /><input placeholder="Buscar por nombre, telÃ©fono o documento..." /></div>
                   <Button variant="secondary" icon={<Filter size={18} />}>Filtros</Button>
                   <Button variant="ghost" icon={<Layers size={18} />}>Ver segmentos</Button>
                 </div>
                 <div className="table-wrap">
                   <table>
-                    <thead><tr><th>Contacto</th><th>Teléfono</th><th>Celular</th><th>Ubicación</th><th>Estado</th><th>Última gestión</th><th>Acción</th></tr></thead>
+                    <thead><tr><th>Contacto</th><th>TelÃ©fono</th><th>Celular</th><th>UbicaciÃ³n</th><th>Estado</th><th>Ãšltima gestiÃ³n</th><th>AcciÃ³n</th></tr></thead>
                     <tbody>{renderContactsBody()}</tbody>
                   </table>
                 </div>
@@ -8758,7 +8758,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           const backendMessage =
             err?.details?.message || err?.details?.error || err?.message || '';
           const statusLabel = status ? ` (HTTP ${status})` : '';
-          const detailLabel = backendMessage ? ` · ${backendMessage}` : '';
+          const detailLabel = backendMessage ? ` Â· ${backendMessage}` : '';
           setClientDetailError(`No se pudo cargar el detalle del cliente${statusLabel}${detailLabel}.`);
         }
       }, [clientRows]);
@@ -8804,7 +8804,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const handleDeleteClient = React.useCallback(async (clientId, clientName) => {
         if (!clientId) return;
         const label = clientName || 'este cliente';
-        const confirmed = window.confirm(`¿Seguro que querés eliminar a ${label}? Esta acción es definitiva.`);
+        const confirmed = window.confirm(`Â¿Seguro que querÃ©s eliminar a ${label}? Esta acciÃ³n es definitiva.`);
         if (!confirmed) return;
         try {
           await deleteClient(clientId);
@@ -8903,7 +8903,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           products: selectedProducts.map((product) => ({
             nombreProducto: product.nombre || product.nombreProducto || product.nombre_producto,
             nombre_producto: product.nombre || product.nombreProducto || product.nombre_producto,
-              plan: product.plan || product.categoria || 'Plan estándar',
+              plan: product.plan || product.categoria || 'Plan estÃ¡ndar',
               precio: product.precio,
               medioPago: normalizePaymentMethod(newClientDraft.sale?.medioPago || product.medioPago || product.medio_pago || 'debito'),
               medio_pago: normalizePaymentMethod(newClientDraft.sale?.medioPago || product.medioPago || product.medio_pago || 'debito'),
@@ -8947,7 +8947,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   return;
                 }
               } catch {}
-              setNewClientError(err?.details?.message || 'Hay errores de validación en el formulario.');
+              setNewClientError(err?.details?.message || 'Hay errores de validaciÃ³n en el formulario.');
             } else {
               try {
                 const directory = await fetchClientsDirectory({ page: clientPage, limit: clientPageSize, search: clientSearchDebounced });
@@ -9079,7 +9079,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             {clientMetrics.map((item) => <MetricCard key={item.title} item={item} />)}
           </section>
           <section className="content-grid">
-            <Panel className="span-12" title="Clientes" subtitle="Gestión de cartera activa">
+            <Panel className="span-12" title="Clientes" subtitle="GestiÃ³n de cartera activa">
               <div className="toolbar" style={{ marginBottom: 16 }}>
                 <input
                   className="input"
@@ -9092,7 +9092,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               </div>
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>Cliente</th><th>Fecha de alta</th><th>Producto</th><th>Cuota</th><th>Estado</th><th>Acción</th></tr></thead>
+                  <thead><tr><th>Cliente</th><th>Fecha de alta</th><th>Producto</th><th>Cuota</th><th>Estado</th><th>AcciÃ³n</th></tr></thead>
                   <tbody>{renderClientRows()}</tbody>
                 </table>
               </div>
@@ -9102,7 +9102,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <Button variant="ghost" disabled={clientPage <= 1} onClick={() => setClientPage((prev) => Math.max(1, prev - 1))}>Anterior</Button>
-                  <div style={{ fontWeight: 600 }}>Página {clientPage} de {totalPages}</div>
+                  <div style={{ fontWeight: 600 }}>PÃ¡gina {clientPage} de {totalPages}</div>
                   <Button variant="ghost" disabled={clientPage >= totalPages} onClick={() => setClientPage((prev) => Math.min(totalPages, prev + 1))}>Siguiente</Button>
                 </div>
               </div>
@@ -9200,12 +9200,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         { label: 'Apellido', field: 'apellido' },
                         { label: 'Documento', field: 'documento' },
                         { label: 'Fecha de nacimiento', field: 'fecha_nacimiento', type: 'date' },
-                        { label: 'Teléfono', field: 'telefono' },
+                        { label: 'TelÃ©fono', field: 'telefono' },
                         { label: 'Celular', field: 'celular' },
                         { label: 'Email', field: 'email' },
-                        { label: 'Dirección', field: 'direccion', full: true },
+                        { label: 'DirecciÃ³n', field: 'direccion', full: true },
                         { label: 'Departamento', field: 'departamento' },
-                        { label: 'País', field: 'pais' }
+                        { label: 'PaÃ­s', field: 'pais' }
                       ].map(({ label, field, type, full }) => (
                         <label key={field} style={{ fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, gridColumn: full ? '1 / -1' : 'auto' }}>
                           {label}
@@ -9241,7 +9241,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           <option value="instagram">Instagram</option>
                           <option value="correo">Correo</option>
                           <option value="whatsapp">WhatsApp</option>
-                          <option value="guia_telefonica">Guía telefónica</option>
+                          <option value="guia_telefonica">GuÃ­a telefÃ³nica</option>
                           <option value="referido">Referido</option>
                         </select>
                       </label>
@@ -9313,7 +9313,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                 </span>
                               </div>
                               <div style={{ marginTop: 6, fontSize: 12, color: '#64748b' }}>
-                                {product.categoria || 'General'} · {formatCurrency(product.precio || 0)} {product.moneda || 'UYU'}
+                                {product.categoria || 'General'} Â· {formatCurrency(product.precio || 0)} {product.moneda || 'UYU'}
                               </div>
                               {product.descripcion ? (
                                 <div style={{ marginTop: 6, fontSize: 12, color: '#94a3b8' }}>{product.descripcion}</div>
@@ -9419,8 +9419,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             { value: 'antel', label: 'ANTEL' },
                             { value: 'cabal', label: 'Cabal' },
                             { value: 'creditel', label: 'Creditel' },
-                            { value: 'credito', label: 'Crédito' },
-                            { value: 'debito', label: 'Débito' },
+                            { value: 'credito', label: 'CrÃ©dito' },
+                            { value: 'debito', label: 'DÃ©bito' },
                             { value: 'efectivo', label: 'Efectivo' },
                             { value: 'master', label: 'MASTER' },
                             { value: 'mastercard', label: 'MASTERCARD' },
@@ -9457,7 +9457,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         cursor: 'pointer'
                       }}
                     >
-                      Atrás
+                      AtrÃ¡s
                     </button>
                   ) : null}
                   <button
@@ -9711,7 +9711,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           return {
             nombreProducto: product.nombre || product.nombreProducto || product.nombre_producto,
             nombre_producto: product.nombre || product.nombreProducto || product.nombre_producto,
-            plan: product.plan || product.categoria || 'Plan estándar',
+            plan: product.plan || product.categoria || 'Plan estÃ¡ndar',
             precio: product.precio,
             medioPago: normalizePaymentMethod(newClientDraft.sale?.medioPago || product.medioPago || product.medio_pago || 'debito'),
             medio_pago: normalizePaymentMethod(newClientDraft.sale?.medioPago || product.medioPago || product.medio_pago || 'debito'),
@@ -9769,7 +9769,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           if (status === 409) {
             setNewClientError('Ya existe un contacto con ese documento o email.');
           } else if (status === 422) {
-            setNewClientError(err?.details?.message || 'Hay errores de validación en el formulario.');
+            setNewClientError(err?.details?.message || 'Hay errores de validaciÃ³n en el formulario.');
           } else {
             setNewClientError(err?.message || 'No se pudo guardar el cliente.');
           }
@@ -9871,12 +9871,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       { label: 'Apellido', field: 'apellido' },
                       { label: 'Documento', field: 'documento' },
                       { label: 'Fecha de nacimiento', field: 'fecha_nacimiento', type: 'date' },
-                      { label: 'Teléfono', field: 'telefono' },
+                      { label: 'TelÃ©fono', field: 'telefono' },
                       { label: 'Celular', field: 'celular' },
                       { label: 'Email', field: 'email' },
-                      { label: 'Dirección', field: 'direccion', full: true },
+                      { label: 'DirecciÃ³n', field: 'direccion', full: true },
                       { label: 'Departamento', field: 'departamento' },
-                      { label: 'País', field: 'pais' }
+                      { label: 'PaÃ­s', field: 'pais' }
                     ].map(({ label, field, type, full }) => (
                       <label key={field} style={{ fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, gridColumn: full ? '1 / -1' : 'auto' }}>
                         {label}
@@ -9972,10 +9972,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                               { label: 'Nombre', field: 'nombre' },
                               { label: 'Apellido', field: 'apellido' },
                               { label: 'Documento', field: 'documento' },
-                              { label: 'Teléfono', field: 'telefono' },
+                              { label: 'TelÃ©fono', field: 'telefono' },
                               { label: 'Celular', field: 'celular' },
                               { label: 'Fecha de nacimiento', field: 'fecha_nacimiento', type: 'date' },
-                              { label: 'Dirección', field: 'direccion', full: true }
+                              { label: 'DirecciÃ³n', field: 'direccion', full: true }
                             ].map(({ label, field }) => (
                               <label key={field} style={{ fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, gridColumn: field === 'direccion' ? '1 / -1' : 'auto' }}>
                                 {label}
@@ -9988,7 +9988,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                               </label>
                             ))}
                             <label style={{ fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1 }}>
-                              Relación
+                              RelaciÃ³n
                               <select
                                 value={fam.relacion || ''}
                                 onChange={(event) => handleFamiliarChange(fam.id, 'relacion', event.target.value)}
@@ -10024,7 +10024,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           <option value="">Seleccionar producto...</option>
                           {productsCatalog.map((product) => (
                             <option key={product.id} value={product.id}>
-                              {product.nombre} · {formatCurrency(product.precio || 0)} {product.moneda || 'UYU'}
+                              {product.nombre} Â· {formatCurrency(product.precio || 0)} {product.moneda || 'UYU'}
                             </option>
                           ))}
                         </select>
@@ -10089,8 +10089,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           { value: 'antel', label: 'ANTEL' },
                           { value: 'cabal', label: 'Cabal' },
                           { value: 'creditel', label: 'Creditel' },
-                          { value: 'credito', label: 'Crédito' },
-                          { value: 'debito', label: 'Débito' },
+                          { value: 'credito', label: 'CrÃ©dito' },
+                          { value: 'debito', label: 'DÃ©bito' },
                           { value: 'efectivo', label: 'Efectivo' },
                           { value: 'master', label: 'MASTER' },
                           { value: 'mastercard', label: 'MASTERCARD' },
@@ -10106,10 +10106,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       </select>
                     </div>
                     <label style={{ fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1 }}>
-                      Cédula de identidad de cobranza
+                      CÃ©dula de identidad de cobranza
                       <input
                         type="text"
-                        placeholder="Ingresar cédula"
+                        placeholder="Ingresar cÃ©dula"
                         value={newClientDraft.sale.cobranzaDocumento}
                         onChange={(event) => handleCobranzaDocumentoChange(event.target.value)}
                         style={{ marginTop: 6, width: '100%', padding: '10px 12px', borderRadius: 12, border: '1px solid #e5e7eb' }}
@@ -10137,7 +10137,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     cursor: 'pointer'
                   }}
                 >
-                  Atrás
+                  AtrÃ¡s
                 </button>
               ) : null}
               <button
@@ -10278,9 +10278,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const progressPercent = row.progress_percent ?? row.progressPercent ?? row.pct_progress ?? null;
         return {
           id: row.id || row.job_id || row.jobId || row.batchId || row.batch_id || row.nombreArchivo || row.file_name,
-          fileName: row.file_name || row.nombreArchivo || row.archivo || '—',
+          fileName: row.file_name || row.nombreArchivo || row.archivo || 'â€”',
           importType: row.import_type || row.tipo || row.importType || '',
-          importTypeLabel: row.import_type_label || row.importTypeLabel || row.tipo_label || row.tipo || '—',
+          importTypeLabel: row.import_type_label || row.importTypeLabel || row.tipo_label || row.tipo || 'â€”',
           createdAt: row.created_at || row.fecha || '',
           totalRows,
           insertedRows,
@@ -10290,12 +10290,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           statusKey,
           statusLabel: IMPORT_STATUS_LABELS[statusKey] || row.estado || row.status || 'En cola',
           statusVariant: IMPORT_STATUS_VARIANTS[statusKey] || 'info',
-          createdBy: row.created_by_name || row.usuario || row.usuarioId || '—',
+          createdBy: row.created_by_name || row.usuario || row.usuarioId || 'â€”',
           errorMessage: row.error_message || row.error || row.mensaje_error || ''
         };
       };
       const formatImportDate = (value) => {
-        if (!value) return '—';
+        if (!value) return 'â€”';
         try {
           return new Date(value).toLocaleString('es-UY', {
             day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit'
@@ -10469,7 +10469,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             setImportDeleteTarget(null);
           }
         } catch (error) {
-          showImportDeleteToast(error?.message || 'No se pudo eliminar la importación.');
+          showImportDeleteToast(error?.message || 'No se pudo eliminar la importaciÃ³n.');
         } finally {
           setImportDeleteLoading(false);
         }
@@ -10569,7 +10569,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             setNoCallJob((prev) => ({ ...prev, ...job }));
             if (job.status === 'completed' || job.status === 'failed') {
               setNoCallJob(null);
-              setImportSuccess(job.status === 'completed' ? 'Importación No llamar completada.' : 'Importación No llamar fallida.');
+              setImportSuccess(job.status === 'completed' ? 'ImportaciÃ³n No llamar completada.' : 'ImportaciÃ³n No llamar fallida.');
               setImportReport({
                 productosDetectados: 0,
                 productosCreados: 0,
@@ -10621,7 +10621,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           const items = await listProductsAsync();
           setProducts(items);
         } catch (err) {
-          setProductsError(err.message || 'No se pudo cargar el catálogo de productos.');
+          setProductsError(err.message || 'No se pudo cargar el catÃ¡logo de productos.');
         } finally {
           setProductsLoading(false);
         }
@@ -10699,7 +10699,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           .get('/imports/sample?type=clientes')
           .then((csvText) => {
             if (!csvText || typeof csvText !== 'string') {
-              throw new Error('Respuesta inválida del servidor.');
+              throw new Error('Respuesta invÃ¡lida del servidor.');
             }
             downloadCsvFile(csvText, 'importacion-clientes-ejemplo.csv');
           })
@@ -10769,7 +10769,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           }));
           if (result?.asyncJob && result?.jobId) {
             setNoCallJob({ jobId: result.jobId, status: 'queued' });
-            setImportSuccess('Importación registrada correctamente.');
+            setImportSuccess('ImportaciÃ³n registrada correctamente.');
             const optimisticRow = formatImportRow(result?.job || {
               id: result.jobId,
               file_name: result?.nombreArchivo || importDraft.fileName,
@@ -10781,7 +10781,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               skipped_rows: 0,
               processed_rows: 0,
               status: 'queued',
-              created_by_name: result?.createdByName || '—'
+              created_by_name: result?.createdByName || 'â€”'
             });
             setImports((prev) => [optimisticRow, ...prev.filter((row) => row.id !== optimisticRow.id)]);
             setShowImportFlow(false);
@@ -10799,26 +10799,26 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             if (progressBatchId) startProgressPolling(progressBatchId);
           }
           if (result?.report) setImportReport(result.report);
-          setImportSuccess('Importación registrada correctamente.');
+          setImportSuccess('ImportaciÃ³n registrada correctamente.');
           setShowImportFlow(false);
           resetImportFlow();
           await loadImports({ silent: true });
         } catch (err) {
           console.error('CSV_IMPORT_ERROR', err);
           setImportDebug((prev) => ({ ...prev, error: err?.message || String(err || 'Error') }));
-          setImportsError('No se pudo crear la importación. Revisa el archivo e intenta nuevamente.');
+          setImportsError('No se pudo crear la importaciÃ³n. Revisa el archivo e intenta nuevamente.');
         } finally {
           setImportSubmitting(false);
         }
       };
 
       const globalMetrics = [
-        { title: 'Ventas del día', value: '26', change: 8.1, label: 'últimas 24h', trend: 'up', icon: TrendingUp, bg: 'rgba(22,163,74,0.12)', color: '#15803d' },
+        { title: 'Ventas del dÃ­a', value: '26', change: 8.1, label: 'Ãºltimas 24h', trend: 'up', icon: TrendingUp, bg: 'rgba(22,163,74,0.12)', color: '#15803d' },
         { title: 'Tickets abiertos', value: '17', change: -4.0, label: 'mesa de ayuda', trend: 'up', icon: Headphones, bg: 'rgba(37,99,235,0.12)', color: '#2563eb' },
         { title: 'Casos en operaciones', value: '12', change: 2.2, label: 'en curso', trend: 'up', icon: Briefcase, bg: 'rgba(217,119,6,0.12)', color: '#d97706' },
         { title: 'Seguimientos pendientes', value: '41', change: -3.2, label: 'comercial', trend: 'up', icon: Calendar, bg: 'rgba(124,58,237,0.12)', color: '#7c3aed' },
         { title: 'Usuarios activos', value: '23', change: 4.4, label: 'sesiones abiertas', trend: 'up', icon: Users, bg: 'rgba(15,118,110,0.12)', color: '#0f766e' },
-        { title: 'Lotes activos', value: '6', change: 0.0, label: 'en gestión', trend: 'up', icon: Layers, bg: 'rgba(20,34,53,0.12)', color: '#1f2937' }
+        { title: 'Lotes activos', value: '6', change: 0.0, label: 'en gestiÃ³n', trend: 'up', icon: Layers, bg: 'rgba(20,34,53,0.12)', color: '#1f2937' }
       ];
 
       const toggleUserState = (email) => {
@@ -10956,7 +10956,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                               )}
                               {row.statusKey === 'failed' ? (
                                 <div style={{ fontSize: 11, color: '#b91c1c' }}>
-                                  <div>La importación se creó, pero falló el procesamiento.</div>
+                                  <div>La importaciÃ³n se creÃ³, pero fallÃ³ el procesamiento.</div>
                                   {row.errorMessage ? (
                                     <div style={{ marginTop: 4 }}>
                                       <span style={{ color: '#7f1d1d' }}>Detalle:</span> {row.errorMessage}
@@ -10980,16 +10980,16 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                     `fileName: ${row.fileName}`,
                                     `importType: ${row.importType || row.importTypeLabel}`,
                                     `endpoint: /imports`,
-                                    `batchId: ${row.id || '—'}`,
+                                    `batchId: ${row.id || 'â€”'}`,
                                     `status: ${row.statusKey}`,
-                                    `error: ${row.errorMessage || '—'}`
+                                    `error: ${row.errorMessage || 'â€”'}`
                                   ].join('\n');
                                   if (navigator?.clipboard?.writeText) {
                                     navigator.clipboard.writeText(payload);
                                   }
                                 }}
                               >
-                                Copiar diagnóstico
+                                Copiar diagnÃ³stico
                               </Button>
                             </div>
                           </td>
@@ -11023,7 +11023,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   {!importsLoading && !imports.length ? <div style={{ padding: 16, color: 'var(--muted)' }}>No hay importaciones para los filtros aplicados.</div> : null}
                 </div>
                 <div className="toolbar" style={{ justifyContent: 'space-between', marginTop: 12 }}>
-                  <span className="pill">Página {importsMeta.page} de {importsMeta.totalPages} · {importsMeta.total} registros</span>
+                  <span className="pill">PÃ¡gina {importsMeta.page} de {importsMeta.totalPages} Â· {importsMeta.total} registros</span>
                   <div className="toolbar">
                     <Button variant="ghost" onClick={() => setImportsPage((p) => Math.max(1, p - 1))} disabled={importsMeta.page <= 1}>Anterior</Button>
                     <Button variant="ghost" onClick={() => setImportsPage((p) => Math.min(importsMeta.totalPages, p + 1))} disabled={importsMeta.page >= importsMeta.totalPages}>Siguiente</Button>
@@ -11034,7 +11034,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   <div className="lot-wizard-overlay" onClick={() => setShowImportFlow(false)}>
                     <div className="lot-wizard" onClick={(event) => event.stopPropagation()}>
                       <div className="lot-wizard-header">
-                        <div><h3>Importar clientes</h3><p>Carga, validación previa y confirmación.</p></div>
+                        <div><h3>Importar clientes</h3><p>Carga, validaciÃ³n previa y confirmaciÃ³n.</p></div>
                         <button className="icon-button" style={{ width: 36, height: 36 }} onClick={() => setShowImportFlow(false)}><X size={16} color="#152235" /></button>
                       </div>
                       <div className="lot-step">
@@ -11048,7 +11048,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       <div className="lot-step">
                         <span className="lot-step-index">2</span>
                         <div style={{ flex: 1 }}>
-                          <h4>Validación previa</h4>
+                          <h4>ValidaciÃ³n previa</h4>
                           <p>Se requiere al menos <strong>nombre</strong> o <strong>apellido</strong> por fila.</p>
                           <div className="toolbar" style={{ marginTop: 8 }}>
                             <Button variant="secondary" onClick={validatePreview} disabled={!importDraft.csvText || previewLoading}>
@@ -11059,11 +11059,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             <div style={{ marginTop: 10, padding: 10, border: '1px solid rgba(20,34,53,0.08)', borderRadius: 12, background: 'rgba(20,34,53,0.03)' }}>
                               <div style={{ fontWeight: 700 }}>Preview</div>
                               <div style={{ color: 'var(--muted)' }}>
-                                Total: {preview.summary.total} · Importables: {preview.summary.importados} · Rechazados: {preview.summary.rechazados}
+                                Total: {preview.summary.total} Â· Importables: {preview.summary.importados} Â· Rechazados: {preview.summary.rechazados}
                               </div>
                               {preview.skippedEmptyRows ? (
                                 <div style={{ marginTop: 6, color: '#64748b', fontSize: '0.85rem' }}>
-                                  Filas vacías ignoradas: {preview.skippedEmptyRows}
+                                  Filas vacÃ­as ignoradas: {preview.skippedEmptyRows}
                                 </div>
                               ) : null}
                               {preview.newProductsCount ? (
@@ -11072,7 +11072,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                     Productos nuevos detectados: {preview.newProductsCount}
                                   </div>
                                   <div style={{ marginTop: 6, color: '#7c2d12', fontSize: '0.85rem' }}>
-                                    {preview.newProducts.slice(0, 6).join(', ')}{preview.newProducts.length > 6 ? '…' : ''}
+                                    {preview.newProducts.slice(0, 6).join(', ')}{preview.newProducts.length > 6 ? 'â€¦' : ''}
                                   </div>
                                   <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, fontSize: '0.85rem', color: '#7c2d12' }}>
                                     <input
@@ -11086,7 +11086,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                               ) : null}
                               {preview.usesBackend && !(previewBatchId || preview?.batchId || preview?.batch_id) ? (
                                 <div style={{ marginTop: 8, color: '#b91c1c', fontWeight: 700 }}>
-                                  La validación no devolvió `batchId`. Revisá que el backend sea el correcto y esté actualizado.
+                                  La validaciÃ³n no devolviÃ³ `batchId`. RevisÃ¡ que el backend sea el correcto y estÃ© actualizado.
                                 </div>
                               ) : null}
                               {preview.rowErrors.length ? (
@@ -11102,17 +11102,17 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                   Hay filas rechazadas. Revisa el detalle en el backend.
                                 </div>
                               ) : (
-                                <div style={{ marginTop: 8, color: '#15803d', fontWeight: 700 }}>Sin errores de validación.</div>
+                                <div style={{ marginTop: 8, color: '#15803d', fontWeight: 700 }}>Sin errores de validaciÃ³n.</div>
                               )}
                             </div>
                           ) : null}
                         </div>
                       </div>
-                      <div className="lot-step"><span className="lot-step-index">3</span><div><h4>Confirmar importación</h4><p>Se registrará en el historial con resultado final.</p></div></div>
+                      <div className="lot-step"><span className="lot-step-index">3</span><div><h4>Confirmar importaciÃ³n</h4><p>Se registrarÃ¡ en el historial con resultado final.</p></div></div>
                       <div style={{ marginTop: 8, padding: 10, borderRadius: 12, border: '1px solid rgba(20,34,53,0.08)', background: 'rgba(248,250,252,0.9)' }}>
-                        <div style={{ fontSize: 12, color: '#475569' }}><strong>Archivo:</strong> {importDraft.fileName || '—'}</div>
+                        <div style={{ fontSize: 12, color: '#475569' }}><strong>Archivo:</strong> {importDraft.fileName || 'â€”'}</div>
                         <div style={{ fontSize: 12, color: '#475569' }}>
-                          <strong>Tipo:</strong> {IMPORT_TYPES[importDraft.importType]?.label || '—'}
+                          <strong>Tipo:</strong> {IMPORT_TYPES[importDraft.importType]?.label || 'â€”'}
                         </div>
                         {isDevEnv ? (
                           <div style={{ fontSize: 11, color: '#94a3b8' }}>
@@ -11127,13 +11127,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           onClick={confirmImport}
                           disabled={!importDraft.fileName || !importDraft.csvText || importSubmitting}
                         >
-                          {importSubmitting ? 'Importando...' : 'Confirmar importación'}
+                          {importSubmitting ? 'Importando...' : 'Confirmar importaciÃ³n'}
                         </Button>
                       </div>
                       {importProgress ? (
                         <div style={{ marginTop: 16, padding: 14, borderRadius: 12, border: '1px solid rgba(20,34,53,0.12)', background: 'rgba(248,250,252,0.9)' }}>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                            <div style={{ fontWeight: 700 }}>Progreso de importación</div>
+                            <div style={{ fontWeight: 700 }}>Progreso de importaciÃ³n</div>
                             <Tag variant={importProgressComplete ? 'success' : 'warning'}>
                               {importProgressComplete ? 'Completado' : 'Procesando...'}
                             </Tag>
@@ -11173,7 +11173,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   <div className="lot-wizard-overlay" onClick={() => setShowImportRows(false)}>
                     <div className="lot-wizard" onClick={(event) => event.stopPropagation()}>
                       <div className="lot-wizard-header">
-                        <div><h3>Detalle de importación</h3><p>Batch: {importRowsBatchId}</p></div>
+                        <div><h3>Detalle de importaciÃ³n</h3><p>Batch: {importRowsBatchId}</p></div>
                         <button className="icon-button" style={{ width: 36, height: 36 }} onClick={() => setShowImportRows(false)}><X size={16} color="#152235" /></button>
                       </div>
                       {importRowsLoading ? <div style={{ color: 'var(--muted)' }}>Cargando filas...</div> : null}
@@ -11187,7 +11187,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                 <tr key={row.id || row.row_number}>
                                   <td>{row.row_number}</td>
                                   <td>{row.import_status}</td>
-                                  <td style={{ color: row.error_detail ? '#b45309' : 'var(--muted)' }}>{row.error_detail || '—'}</td>
+                                  <td style={{ color: row.error_detail ? '#b45309' : 'var(--muted)' }}>{row.error_detail || 'â€”'}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -11203,8 +11203,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 420 }}>
                       <div className="lot-wizard-header">
                         <div>
-                          <h3>¿Eliminar importación?</h3>
-                          <p>Esta acción no se puede deshacer.</p>
+                          <h3>Â¿Eliminar importaciÃ³n?</h3>
+                          <p>Esta acciÃ³n no se puede deshacer.</p>
                         </div>
                         <button className="icon-button" style={{ width: 36, height: 36 }} onClick={closeImportDeleteModal}><X size={16} color="#152235" /></button>
                       </div>
@@ -11229,7 +11229,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   <div className="lot-wizard-overlay" onClick={() => setDiffOpen(false)}>
                     <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 980 }}>
                       <div className="lot-wizard-header">
-                        <div><h3>Analizar diferencias</h3><p>Comparación entre CSV y base de datos.</p></div>
+                        <div><h3>Analizar diferencias</h3><p>ComparaciÃ³n entre CSV y base de datos.</p></div>
                         <button className="icon-button" style={{ width: 36, height: 36 }} onClick={() => setDiffOpen(false)}><X size={16} color="#152235" /></button>
                       </div>
                       {diffError ? <div style={{ color: '#b91c1c', fontWeight: 700 }}>{diffError}</div> : null}
@@ -11295,11 +11295,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                               : diffData.noEncontrados
                             ).slice(0, 50).map((row, index) => (
                               <tr key={row.id || row.documento || index}>
-                                <td>{row.nombre || row.nombre_titular || '—'}</td>
-                                <td>{row.apellido || row.apellido_titular || '—'}</td>
-                                <td>{row.documento || row.cedula || '—'}</td>
-                                <td>{row.estado_csv || row.estadoCsv || '—'}</td>
-                                <td>{row.estado_bd || row.estadoBd || '—'}</td>
+                                <td>{row.nombre || row.nombre_titular || 'â€”'}</td>
+                                <td>{row.apellido || row.apellido_titular || 'â€”'}</td>
+                                <td>{row.documento || row.cedula || 'â€”'}</td>
+                                <td>{row.estado_csv || row.estadoCsv || 'â€”'}</td>
+                                <td>{row.estado_bd || row.estadoBd || 'â€”'}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -11308,7 +11308,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           : diffTab === 'baja_bd_alta_csv' ? diffData.bajaBdAltaCsv
                           : diffData.noEncontrados
                         ).length) ? (
-                          <div style={{ padding: 12, color: 'var(--muted)' }}>No hay registros para esta categoría.</div>
+                          <div style={{ padding: 12, color: 'var(--muted)' }}>No hay registros para esta categorÃ­a.</div>
                         ) : null}
                       </div>
                     </div>
@@ -11319,11 +11319,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', marginBottom: 6 }}>Debug import</div>
                     <div style={{ fontSize: 11, color: '#64748b' }}>
                       <div>importType: {importDraft.importType}</div>
-                      <div>endpoint: {importDebug.endpoint || '—'}</div>
-                      <div>batchId: {importDebug.batchId || '—'}</div>
-                      <div>payload: {importDebug.payload ? JSON.stringify(importDebug.payload) : '—'}</div>
-                      <div>response: {importDebug.response ? JSON.stringify(importDebug.response) : '—'}</div>
-                      <div>error: {importDebug.error || '—'}</div>
+                      <div>endpoint: {importDebug.endpoint || 'â€”'}</div>
+                      <div>batchId: {importDebug.batchId || 'â€”'}</div>
+                      <div>payload: {importDebug.payload ? JSON.stringify(importDebug.payload) : 'â€”'}</div>
+                      <div>response: {importDebug.response ? JSON.stringify(importDebug.response) : 'â€”'}</div>
+                      <div>error: {importDebug.error || 'â€”'}</div>
                     </div>
                   </div>
                 ) : null}
@@ -11337,10 +11337,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return (
           <div className="view">
             <section className="content-grid">
-              <Panel className="span-8" title="Productos" subtitle="Administración de catálogo comercial" action={<Button icon={<Plus size={16} />}>Crear producto</Button>}>
+              <Panel className="span-8" title="Productos" subtitle="AdministraciÃ³n de catÃ¡logo comercial" action={<Button icon={<Plus size={16} />}>Crear producto</Button>}>
                 <div className="table-wrap">
                   <table>
-                    <thead><tr><th>Nombre</th><th>Categoría</th><th>Precio</th><th>Estado</th><th>Actualización</th><th>Acción</th></tr></thead>
+                    <thead><tr><th>Nombre</th><th>CategorÃ­a</th><th>Precio</th><th>Estado</th><th>ActualizaciÃ³n</th><th>AcciÃ³n</th></tr></thead>
                     <tbody>
                       {products.map((item) => (
                         <tr key={item.id}>
@@ -11362,8 +11362,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               <Panel className="span-4" title="Formulario de producto" subtitle="Estructura lista para backend">
                 <div className="list">
                   <input className="input" placeholder="Nombre" value={productDraft.nombre} onChange={(event) => handleProductDraftChange('nombre', event.target.value)} />
-                  <input className="input" placeholder="Categoría" value={productDraft.categoria} onChange={(event) => handleProductDraftChange('categoria', event.target.value)} />
-                  <textarea className="input" rows="3" placeholder="Descripción" value={productDraft.descripcion} onChange={(event) => handleProductDraftChange('descripcion', event.target.value)}></textarea>
+                  <input className="input" placeholder="CategorÃ­a" value={productDraft.categoria} onChange={(event) => handleProductDraftChange('categoria', event.target.value)} />
+                  <textarea className="input" rows="3" placeholder="DescripciÃ³n" value={productDraft.descripcion} onChange={(event) => handleProductDraftChange('descripcion', event.target.value)}></textarea>
                   <input className="input" placeholder="Precio" value={productDraft.precio} onChange={(event) => handleProductDraftChange('precio', event.target.value)} />
                   <select className="input" value={productDraft.activo ? 'activo' : 'inactivo'} onChange={(event) => handleProductDraftChange('activo', event.target.value === 'activo')}>
                     <option value="activo">Activo</option>
@@ -11382,10 +11382,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return (
           <div className="view">
             <section className="content-grid">
-              <Panel className="span-12" title="Usuarios y roles" subtitle="Gestión de accesos y alcance" action={<Button icon={<Plus size={16} />}>Crear usuario</Button>}>
+              <Panel className="span-12" title="Usuarios y roles" subtitle="GestiÃ³n de accesos y alcance" action={<Button icon={<Plus size={16} />}>Crear usuario</Button>}>
                 <div className="table-wrap">
                   <table>
-                    <thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Estado</th><th>Último acceso</th><th>Módulos / alcance</th><th>Acción</th></tr></thead>
+                    <thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Estado</th><th>Ãšltimo acceso</th><th>MÃ³dulos / alcance</th><th>AcciÃ³n</th></tr></thead>
                     <tbody>
                       {users.map((userRow) => (
                         <tr key={userRow.email}>
@@ -11418,19 +11418,19 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <div key={item.at + item.tipo} className="alert">
                       <div className="status-ring" style={{ width: 36, height: 36, borderRadius: 12, background: 'rgba(15,118,110,0.12)', color: '#0f766e' }}><Activity size={16} /></div>
                       <div>
-                        <div style={{ fontWeight: 700 }}>{item.tipo} <span style={{ color: 'var(--muted)', fontWeight: 500 }}>· {item.at}</span></div>
+                        <div style={{ fontWeight: 700 }}>{item.tipo} <span style={{ color: 'var(--muted)', fontWeight: 500 }}>Â· {item.at}</span></div>
                         <div style={{ color: 'var(--muted)' }}>{item.detalle}</div>
                       </div>
                     </div>
                   ))}
                 </div>
               </Panel>
-              <Panel className="span-5" title="Módulos en vivo" subtitle="Estado rápido por área">
+              <Panel className="span-5" title="MÃ³dulos en vivo" subtitle="Estado rÃ¡pido por Ã¡rea">
                 <div className="mini-stats">
-                  <div className="mini-stat"><span>Ventas recientes</span><Tag variant="success">8 en la última hora</Tag></div>
+                  <div className="mini-stat"><span>Ventas recientes</span><Tag variant="success">8 en la Ãºltima hora</Tag></div>
                   <div className="mini-stat"><span>Tickets recientes</span><Tag variant="info">5 nuevos</Tag></div>
                   <div className="mini-stat"><span>Casos operaciones</span><Tag variant="warning">3 en seguimiento</Tag></div>
-                  <div className="mini-stat"><span>Lotes supervisión</span><Tag variant="info">2 asignados hoy</Tag></div>
+                  <div className="mini-stat"><span>Lotes supervisiÃ³n</span><Tag variant="info">2 asignados hoy</Tag></div>
                   <div className="mini-stat"><span>Usuarios activos</span><Tag variant="success">23 conectados</Tag></div>
                 </div>
               </Panel>
@@ -11443,11 +11443,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return (
           <div className="view">
             <section className="content-grid">
-              <Panel className="span-12" title="Configuración general" subtitle="Parámetros globales del sistema">
+              <Panel className="span-12" title="ConfiguraciÃ³n general" subtitle="ParÃ¡metros globales del sistema">
                 <div className="content-grid" style={{ marginBottom: 0 }}>
-                  <Panel className="span-4" title="Tipos de solicitud" subtitle="Atención al cliente"><div className="list"><div className="alert"><div>Reclamo</div></div><div className="alert"><div>Solicitud de baja</div></div><div className="alert"><div>Información sobre servicio</div></div></div></Panel>
+                  <Panel className="span-4" title="Tipos de solicitud" subtitle="AtenciÃ³n al cliente"><div className="list"><div className="alert"><div>Reclamo</div></div><div className="alert"><div>Solicitud de baja</div></div><div className="alert"><div>InformaciÃ³n sobre servicio</div></div></div></Panel>
                   <Panel className="span-4" title="Estados comerciales" subtitle="Ventas"><div className="list"><div className="alert"><div>Venta</div></div><div className="alert"><div>Seguimiento</div></div><div className="alert"><div>Rellamar</div></div></div></Panel>
-                  <Panel className="span-4" title="Parámetros generales" subtitle="Sistema"><div className="list"><div className="alert"><div>Orígenes de leads</div></div><div className="alert"><div>Categorías de producto</div></div><div className="alert"><div>Estados de tickets</div></div></div></Panel>
+                  <Panel className="span-4" title="ParÃ¡metros generales" subtitle="Sistema"><div className="list"><div className="alert"><div>OrÃ­genes de leads</div></div><div className="alert"><div>CategorÃ­as de producto</div></div><div className="alert"><div>Estados de tickets</div></div></div></Panel>
                 </div>
               </Panel>
             </section>
@@ -11459,7 +11459,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         <div className="view">
           <section className="metrics-grid">{globalMetrics.map((item) => <MetricCard key={item.title} item={item} />)}</section>
           <section className="content-grid">
-            <Panel className="span-7" title="Actividad reciente del sistema" subtitle="Últimos eventos globales">
+            <Panel className="span-7" title="Actividad reciente del sistema" subtitle="Ãšltimos eventos globales">
               <div className="list">
                 {SUPERADMIN_REALTIME_FEED.slice(0, 4).map((item) => (
                   <div key={item.at + item.tipo} className="status-item">
@@ -11470,17 +11470,17 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 ))}
               </div>
             </Panel>
-            <Panel className="span-5" title="Comandos globales" subtitle="Acceso rápido del superadministrador">
+            <Panel className="span-5" title="Comandos globales" subtitle="Acceso rÃ¡pido del superadministrador">
               <div className="toolbar">
                 <Button icon={<Upload size={16} />}>Importar CSV</Button>
                 <Button variant="secondary" icon={<Briefcase size={16} />}>Gestionar productos</Button>
                 <Button variant="secondary" icon={<UserCheck size={16} />}>Gestionar usuarios</Button>
-                <Button variant="ghost" icon={<Settings size={16} />}>Parámetros globales</Button>
+                <Button variant="ghost" icon={<Settings size={16} />}>ParÃ¡metros globales</Button>
               </div>
               <div style={{ marginTop: 12 }} className="mini-stats">
-                <div className="mini-stat"><span>Última venta registrada</span><strong>Hoy 09:21</strong></div>
-                <div className="mini-stat"><span>Último ticket creado</span><strong>#2044</strong></div>
-                <div className="mini-stat"><span>Último lote asignado</span><strong>Lote Marzo Litoral</strong></div>
+                <div className="mini-stat"><span>Ãšltima venta registrada</span><strong>Hoy 09:21</strong></div>
+                <div className="mini-stat"><span>Ãšltimo ticket creado</span><strong>#2044</strong></div>
+                <div className="mini-stat"><span>Ãšltimo lote asignado</span><strong>Lote Marzo Litoral</strong></div>
               </div>
             </Panel>
           </section>
@@ -11496,7 +11496,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               <div style={{ minHeight: 320, display: 'grid', placeItems: 'center', borderRadius: 24, border: '1px dashed rgba(20,34,53,0.16)', background: 'rgba(20,34,53,0.03)', textAlign: 'center', padding: 24 }}>
                 <div>
                   <div className="status-ring" style={{ margin: '0 auto 14px', width: 64, height: 64, background: 'rgba(15,118,110,0.12)', color: '#0f766e' }}><Building2 size={28} /></div>
-                  <h2 className="panel-title" style={{ fontSize: '1.5rem' }}>Módulo listo para extender</h2>
+                  <h2 className="panel-title" style={{ fontSize: '1.5rem' }}>MÃ³dulo listo para extender</h2>
                   <p className="panel-subtitle" style={{ maxWidth: 540 }}>{subtitle}</p>
                   <div style={{ marginTop: 18 }}><Button icon={<Activity size={18} />} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>{cta}</Button></div>
                 </div>
@@ -11754,7 +11754,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           }
           const tipo = String(estado?.tipo || '').toUpperCase();
           const tipoMap = {
-            BAÑO: 'bano',
+            BAÃ‘O: 'bano',
             BANO: 'bano',
             DESCANSO: 'descanso',
             SUPERVISOR: 'supervisor',
@@ -11878,13 +11878,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         await refreshContactsFromService();
       };
 
-      // Acción crítica: depende del rol real (no de rolEfectivo).
+      // AcciÃ³n crÃ­tica: depende del rol real (no de rolEfectivo).
       const updateModuleVisibility = (targetRole, modulePath, estado) => {
         if (!hasRealSuperadminAccess) return;
         setModuleStates((prev) => setModuleState(prev, { role: targetRole, path: modulePath, estado }));
       };
 
-      // Acción crítica: branding global solo con rol real superadmin.
+      // AcciÃ³n crÃ­tica: branding global solo con rol real superadmin.
       const saveBrandLogoSecure = React.useCallback((logoUrl) => {
         if (!hasRealSuperadminAccess) return;
         setBrandLogo(logoUrl);
@@ -12027,7 +12027,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const estadoConfig = resolveEstadoUsuario(estadoUsuario);
       const currentRouteItem = navItems.find((item) => item.path === route);
       const isSupportRoute = route === 'soporte';
-      const breadcrumbCurrent = isSupportRoute ? 'Atención al cliente' : (currentRouteItem?.label || 'Monitor');
+      const breadcrumbCurrent = isSupportRoute ? 'AtenciÃ³n al cliente' : (currentRouteItem?.label || 'Monitor');
       const roleLabel = effectiveRoleForUi === rolReal ? currentMeta.label : ('Modo vista: ' + currentMeta.label);
       const openNotificationsModule = React.useCallback((requestedRoute) => {
         const fallbackRoute = navItems.some((item) => item.path === 'sa_logs_actividad')
@@ -12095,7 +12095,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           return (
             <RealRoleGate
               allowRoles={['superadministrador']}
-              fallback={<PlaceholderView title="Acceso restringido" subtitle="Este módulo requiere permisos reales de Superadministrador validados por backend." cta="Volver al foco" />}
+              fallback={<PlaceholderView title="Acceso restringido" subtitle="Este mÃ³dulo requiere permisos reales de Superadministrador validados por backend." cta="Volver al foco" />}
             >
               <SuperadminWorkbench
                 route={route}
@@ -12161,7 +12161,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           return (
             <RequireRole
               roles={['supervisor']}
-              fallback={<PlaceholderView title="Solicitudes de registro" subtitle="No tienes permisos para este módulo." cta="Volver al foco" />}
+              fallback={<PlaceholderView title="Solicitudes de registro" subtitle="No tienes permisos para este mÃ³dulo." cta="Volver al foco" />}
             >
               <SupervisorRegistrationRequestsModule Panel={Panel} Button={Button} Tag={Tag} />
             </RequireRole>
@@ -12234,7 +12234,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           const teamSinceLabel = formatTeamSinceDateLabel(user?.last_login_at || user?.created_at || user?.createdAt);
           const teamStatusMeta = resolveEstadoUsuario(estadoUsuario);
           const displayUserName = currentUser.name || 'Usuario';
-          const displayUserEmail = currentUser.email ? ` · ${currentUser.email}` : '';
+          const displayUserEmail = currentUser.email ? ` Â· ${currentUser.email}` : '';
 
           return (
             <div className="view">
@@ -12242,7 +12242,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 <div className="hero-panel">
                   <Tag variant="info">Equipo de venta</Tag>
                   <h1 className="hero-title">Equipo de venta</h1>
-                  <p className="hero-copy">Control rápido del equipo activo, su último ingreso y el estado operativo actual.</p>
+                  <p className="hero-copy">Control rÃ¡pido del equipo activo, su Ãºltimo ingreso y el estado operativo actual.</p>
                   <div
                     style={{
                       marginTop: 20,
@@ -12282,13 +12282,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return (
           <RequireRole
             roles={['superadministrador', 'director', 'supervisor']}
-            fallback={<PlaceholderView title="Campañas de redes" subtitle="No tenés permisos para este módulo." cta="Volver al foco" />}
+            fallback={<PlaceholderView title="CampaÃ±as de redes" subtitle="No tenÃ©s permisos para este mÃ³dulo." cta="Volver al foco" />}
           >
             <CampanasRedesModule />
           </RequireRole>
         );
       }
-      return <PlaceholderView title={navItems.find((item) => item.path === route)?.label || 'Módulo'} subtitle="La estructura ya está integrada al sistema. Se puede profundizar con formularios, reglas de negocio, estados y persistencia cuando lo definas." cta="Volver al foco" />;
+      return <PlaceholderView title={navItems.find((item) => item.path === route)?.label || 'MÃ³dulo'} subtitle="La estructura ya estÃ¡ integrada al sistema. Se puede profundizar con formularios, reglas de negocio, estados y persistencia cuando lo definas." cta="Volver al foco" />;
     };
 
     if (esSuperadmin && !activeOrg) {
@@ -12322,7 +12322,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 </div>
               </div>
               <div className="sidebar-nav-region">
-                <div className="sidebar-section-label">Navegación</div>
+                <div className="sidebar-section-label">NavegaciÃ³n</div>
                 <div className="nav-list">
                   {navItems.map((item) => {
                     const NavIcon = item.icon;
@@ -12364,7 +12364,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       {isSupportRoute ? (
                         <>
                           <span> / </span>
-                          <strong style={{ color: 'var(--text)' }}>Atención al cliente</strong>
+                          <strong style={{ color: 'var(--text)' }}>AtenciÃ³n al cliente</strong>
                         </>
                       ) : (
                         <>
@@ -12414,7 +12414,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           </header>
           {inactivityWarning && estadoUsuario === 'disponible' && !mostrarPausa ? (
             <div style={{ margin: '0 24px 12px', padding: '10px 14px', borderRadius: 12, border: '1px solid rgba(251,191,36,0.6)', background: 'rgba(251,191,36,0.15)', color: '#92400e', fontWeight: 600 }}>
-              Estás inactivo, tu sesión pasará a inactiva
+              EstÃ¡s inactivo, tu sesiÃ³n pasarÃ¡ a inactiva
             </div>
           ) : null}
           {renderRoute()}
