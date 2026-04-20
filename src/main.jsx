@@ -113,7 +113,7 @@ import { useRolEfectivo } from './hooks/useRolEfectivo.js';
 import AuthGate from './components/auth/AuthGate.jsx';
 import { downloadCsvFile } from './utils/importWizardHelpers.js';
 import { formatDate } from './utils/dateFormat.js';
-import { getApiClient, getApiBaseUrl, setActiveOrganizationId } from './services/apiClient.js';
+import { buildApiUrl, getApiClient, getApiBaseUrl, setActiveOrganizationId } from './services/apiClient.js';
 import { io } from 'socket.io-client';
 import {
   createInitialModuleStates,
@@ -135,6 +135,21 @@ const ROLE_ICONS = {
 const ROLE_META = Object.fromEntries(
   Object.entries(ROLE_META_BASE).map(([key, value]) => [key, { ...value, icon: ROLE_ICONS[key] || Activity }])
 );
+
+const buildAuthHeaders = (token) => {
+  const headers = {};
+  if (!token) return headers;
+  if (token === 'dev-token') {
+    headers['X-Dev-Auth'] = 'true';
+    headers['X-Dev-User-Email'] = localStorage.getItem('local_dev_user_email') || 'admin@local.test';
+    headers['X-Dev-User-Role'] = localStorage.getItem('local_dev_user_role') || 'superadministrador';
+    const devSub = localStorage.getItem('local_dev_user_sub');
+    if (devSub) headers['X-Dev-User-Sub'] = devSub;
+  } else {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+};
 
 const USERS = getRoleUsersDictionary();
 const SUPERADMIN_ROUTES = ['dashboard_global', 'sa_importaciones', 'sa_no_llamar', 'sa_resultados', 'sa_datos_trabajar', 'sa_productos', 'sa_usuarios', 'sa_logs_actividad', 'sa_estado_modulos', 'sa_configuracion'];
@@ -6437,6 +6452,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [lotNameDraft, setLotNameDraft] = React.useState('');
       const [selectedLotId, setSelectedLotId] = React.useState(lots[0]?.id || '');
       const [lotSellerDraft, setLotSellerDraft] = React.useState('');
+      const [reassignModal, setReassignModal] = React.useState(null); // { sellerId, sellerName, contactCount }
+      const [reassignTarget, setReassignTarget] = React.useState('');
+      const [reassignLoading, setReassignLoading] = React.useState(false);
+      const [reassignError, setReassignError] = React.useState('');
       const [showLotWizard, setShowLotWizard] = React.useState(false);
       const [wizardLotName, setWizardLotName] = React.useState('');
       const [wizardDeadline, setWizardDeadline] = React.useState('');
@@ -6695,6 +6714,33 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         await onCloseLot(selectedLot.id);
       };
 
+      const removeSeller = async () => {
+        if (!reassignModal || !reassignTarget) {
+          setReassignError('Seleccioná un vendedor destino.');
+          return;
+        }
+        setReassignLoading(true);
+        setReassignError('');
+        try {
+          const res = await fetch(buildApiUrl(`/lead-batches/${selectedLot.id}/remove-seller`, getApiBaseUrl()), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(user?.accessToken) },
+            body: JSON.stringify({ seller_id: reassignModal.sellerId, new_seller_id: reassignTarget })
+          });
+          const data = await res.json();
+          if (!data.ok) throw new Error(data.message || 'Error al reasignar');
+          setReassignModal(null);
+          setReassignTarget('');
+          // Refrescar los lotes
+          if (typeof onCreated === 'function') onCreated();
+          else window.location.reload();
+        } catch (err) {
+          setReassignError(err.message || 'No se pudo reasignar.');
+        } finally {
+          setReassignLoading(false);
+        }
+      };
+
       const reactivateErrorNumber = async (id) => {
         await onReactivateError(id);
       };
@@ -6738,25 +6784,142 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 {selectedLot ? (
                   <div className="list">
                     <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Nombre</span><strong>{selectedLot.name}</strong></div>
-                    <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Vendedores</span><strong>{selectedLot.vendedores?.length ? selectedLot.vendedores.map((v) => `${v.nombre || ''} ${v.apellido || ''}`.trim()).join(', ') : selectedLot.seller || '-'}</strong></div>
                     <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Cantidad de contactos</span><strong>{selectedLot.count}</strong></div>
                     <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Estado</span><Tag variant={lotStatusMeta(selectedLot.status).variant}>{lotStatusMeta(selectedLot.status).label}</Tag></div>
                     <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Fecha de creacion</span><strong>{selectedLot.createdAt}</strong></div>
-                    {selectedLot.status === 'borrador' ? (
-                      <>
-                        <div className="toolbar"><select className="input" style={{ width: '100%' }} value={lotSellerDraft} onChange={(event) => setLotSellerDraft(event.target.value)}><option value="">Asignar vendedor...</option>{sellers.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}</select></div>
-                        <div className="toolbar"><Button icon={<UserCheck size={16} />} onClick={assignSellerToLot}>Asignar vendedor</Button><Button variant="secondary" icon={<CheckCircle2 size={16} />} onClick={closeLot}>Cerrar lote</Button></div>
-                      </>
-                    ) : (
-                      <div className="toolbar" style={{ justifyContent: 'space-between' }}>
-                        <p style={{ fontSize: 12, color: '#888', margin: 0 }}>Los vendedores se asignan al crear el lote. Para cambiar vendedores cerrá este lote y creá uno nuevo.</p>
-                        <Button variant="secondary" icon={<CheckCircle2 size={16} />} onClick={closeLot}>Cerrar lote</Button>
+
+                    {/* VENDEDORES ASIGNADOS */}
+                    <div style={{ borderTop: '1px solid rgba(20,34,53,0.08)', paddingTop: 12, marginTop: 4 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>Vendedores asignados</div>
+                      {(selectedLot.vendedores?.length ? selectedLot.vendedores : []).map((v) => {
+                        const nombreCompleto = `${v.nombre || ''} ${v.apellido || ''}`.trim();
+                        const initials = nombreCompleto.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+                        const contactCount = selectedLot.contacts.filter(
+                          (c) => c.assignedToId === v.id || c.assignedTo === nombreCompleto
+                        ).length;
+                        const gestionados = selectedLot.contacts.filter(
+                          (c) => (c.assignedToId === v.id || c.assignedTo === nombreCompleto) && c.status !== 'nuevo'
+                        ).length;
+                        return (
+                          <div key={v.id} style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '10px 12px', borderRadius: 8,
+                            border: '1px solid rgba(20,34,53,0.1)',
+                            background: 'rgba(20,34,53,0.02)', marginBottom: 8
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <div style={{
+                                width: 32, height: 32, borderRadius: '50%',
+                                background: '#E1F5EE', color: '#0F6E56',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: 11, fontWeight: 600, flexShrink: 0
+                              }}>{initials}</div>
+                              <div>
+                                <div style={{ fontSize: 13, fontWeight: 500 }}>{nombreCompleto}</div>
+                                <div style={{ fontSize: 11, color: 'var(--muted)' }}>{contactCount} contactos · {gestionados} gestionados</div>
+                              </div>
+                            </div>
+                            {selectedLot.vendedores.length > 1 && (
+                              <button
+                                onClick={() => {
+                                  setReassignModal({ sellerId: v.id, sellerName: nombreCompleto, contactCount });
+                                  setReassignTarget('');
+                                  setReassignError('');
+                                }}
+                                style={{
+                                  fontSize: 11, fontWeight: 500,
+                                  color: '#993C1D', background: '#FAECE7',
+                                  border: '1px solid #F0997B', borderRadius: 6,
+                                  padding: '4px 10px', cursor: 'pointer', whiteSpace: 'nowrap'
+                                }}
+                              >
+                                Reasignar
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {(!selectedLot.vendedores?.length) && (
+                        <div style={{ fontSize: 12, color: 'var(--muted)' }}>{selectedLot.seller || 'Sin vendedores asignados'}</div>
+                      )}
+                    </div>
+
+                    {/* ACCIONES */}
+                    <div className="toolbar" style={{ justifyContent: 'flex-end', marginTop: 4 }}>
+                      <Button variant="secondary" icon={<CheckCircle2 size={16} />} onClick={closeLot}>Cerrar lote</Button>
+                    </div>
+
+                    {/* CONTACTOS */}
+                    <div style={{ borderTop: '1px solid rgba(20,34,53,0.08)', paddingTop: 10 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Contactos del lote</div>
+                      <div className="list">
+                        {selectedLot.contacts.slice(0, 8).map((contact) => (
+                          <div key={contact.id} className="alert">
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 600 }}>{contact.name}</div>
+                              <div style={{ color: 'var(--muted)', fontSize: 12 }}>{contact.phone} · {contact.city}</div>
+                            </div>
+                            <SalesStatusBadge status={contact.status} small />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* MODAL REASIGNACIÓN */}
+                    {reassignModal && (
+                      <div style={{
+                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+                      }}>
+                        <div style={{
+                          background: 'var(--bg)', borderRadius: 12, padding: 24, width: 360,
+                          border: '1px solid rgba(20,34,53,0.12)', boxShadow: '0 8px 32px rgba(0,0,0,0.12)'
+                        }}>
+                          <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>Reasignar datos del vendedor</div>
+                          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>Los contactos serán transferidos al vendedor que elijas.</div>
+
+                          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Vendedor a retirar</div>
+                          <div style={{
+                            fontSize: 13, fontWeight: 500, background: 'rgba(20,34,53,0.04)',
+                            border: '1px solid rgba(20,34,53,0.1)', borderRadius: 6,
+                            padding: '8px 12px', marginBottom: 12
+                          }}>
+                            {reassignModal.sellerName} · <span style={{ color: '#D85A30' }}>{reassignModal.contactCount} contactos</span>
+                          </div>
+
+                          <div style={{
+                            fontSize: 11, color: '#884F0B', background: '#FAEEDA',
+                            border: '1px solid #EF9F27', borderRadius: 6,
+                            padding: '7px 10px', marginBottom: 14
+                          }}>
+                            Las gestiones ya realizadas quedan en el historial del vendedor original.
+                          </div>
+
+                          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Asignar a</div>
+                          <select
+                            className="input"
+                            style={{ width: '100%', marginBottom: 16 }}
+                            value={reassignTarget}
+                            onChange={(e) => { setReassignTarget(e.target.value); setReassignError(''); }}
+                          >
+                            <option value="">Seleccioná un vendedor...</option>
+                            {sellers
+                              .filter((s) => s.id !== reassignModal.sellerId)
+                              .map((s) => <option key={s.id} value={s.id}>{s.label}</option>)
+                            }
+                          </select>
+
+                          {reassignError && <div style={{ fontSize: 12, color: '#A32D2D', marginBottom: 10 }}>{reassignError}</div>}
+
+                          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                            <Button variant="secondary" onClick={() => { setReassignModal(null); setReassignError(''); }}>Cancelar</Button>
+                            <Button onClick={removeSeller} disabled={reassignLoading}>
+                              {reassignLoading ? 'Reasignando...' : 'Confirmar reasignación'}
+                            </Button>
+                          </div>
+                        </div>
                       </div>
                     )}
-                    <div style={{ borderTop: '1px solid rgba(20,34,53,0.08)', paddingTop: 10 }}>
-                      <div style={{ fontWeight: 700, marginBottom: 8 }}>Contactos del lote</div>
-                      <div className="list">{selectedLot.contacts.slice(0, 8).map((contact) => <div key={contact.id} className="alert"><div style={{ flex: 1 }}><div style={{ fontWeight: 700 }}>{contact.name}</div><div style={{ color: 'var(--muted)' }}>{contact.phone} · {contact.city}</div></div><SalesStatusBadge status={contact.status} small /></div>)}</div>
-                    </div>
                   </div>
                 ) : <div style={{ color: 'var(--muted)' }}>No hay lote seleccionado.</div>}
               </Panel>
