@@ -6849,81 +6849,61 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       <Button variant="secondary" icon={<CheckCircle2 size={16} />} onClick={closeLot}>Cerrar lote</Button>
                     </div>
 
-                    {/* CONTACTOS */}
-                    <div style={{ borderTop: '1px solid rgba(20,34,53,0.08)', paddingTop: 10 }}>
-                      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Contactos del lote</div>
-                      <div className="list">
-                        {selectedLot.contacts.slice(0, 8).map((contact) => (
-                          <div key={contact.id} className="alert">
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontWeight: 600 }}>{contact.name}</div>
-                              <div style={{ color: 'var(--muted)', fontSize: 12 }}>{contact.phone} · {contact.city}</div>
-                            </div>
-                            <SalesStatusBadge status={contact.status} small />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* MODAL REASIGNACIÓN */}
-                    {reassignModal && (
-                      <div style={{
-                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-                      }}>
-                        <div style={{
-                          background: 'var(--bg)', borderRadius: 12, padding: 24, width: 360,
-                          border: '1px solid rgba(20,34,53,0.12)', boxShadow: '0 8px 32px rgba(0,0,0,0.12)'
-                        }}>
-                          <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>Reasignar datos del vendedor</div>
-                          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>Los contactos serán transferidos al vendedor que elijas.</div>
-
-                          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Vendedor a retirar</div>
-                          <div style={{
-                            fontSize: 13, fontWeight: 500, background: 'rgba(20,34,53,0.04)',
-                            border: '1px solid rgba(20,34,53,0.1)', borderRadius: 6,
-                            padding: '8px 12px', marginBottom: 12
-                          }}>
-                            {reassignModal.sellerName} · <span style={{ color: '#D85A30' }}>{reassignModal.contactCount} contactos</span>
-                          </div>
-
-                          <div style={{
-                            fontSize: 11, color: '#884F0B', background: '#FAEEDA',
-                            border: '1px solid #EF9F27', borderRadius: 6,
-                            padding: '7px 10px', marginBottom: 14
-                          }}>
-                            Las gestiones ya realizadas quedan en el historial del vendedor original.
-                          </div>
-
-                          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Asignar a</div>
-                          <select
-                            className="input"
-                            style={{ width: '100%', marginBottom: 16 }}
-                            value={reassignTarget}
-                            onChange={(e) => { setReassignTarget(e.target.value); setReassignError(''); }}
-                          >
-                            <option value="">Seleccioná un vendedor...</option>
-                            {sellers
-                              .filter((s) => s.id !== reassignModal.sellerId)
-                              .map((s) => <option key={s.id} value={s.id}>{s.label}</option>)
-                            }
-                          </select>
-
-                          {reassignError && <div style={{ fontSize: 12, color: '#A32D2D', marginBottom: 10 }}>{reassignError}</div>}
-
-                          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                            <Button variant="secondary" onClick={() => { setReassignModal(null); setReassignError(''); }}>Cancelar</Button>
-                            <Button onClick={removeSeller} disabled={reassignLoading}>
-                              {reassignLoading ? 'Reasignando...' : 'Confirmar reasignación'}
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 ) : <div style={{ color: 'var(--muted)' }}>No hay lote seleccionado.</div>}
               </Panel>
             </section>
+
+            {/* MODAL REASIGNACIÓN — fuera del Panel para evitar overflow recortado */}
+            {reassignModal && (
+              <div style={{
+                position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+              }}>
+                <div style={{
+                  background: 'var(--bg)', borderRadius: 12, padding: 24, width: 360,
+                  border: '1px solid rgba(20,34,53,0.12)', boxShadow: '0 8px 32px rgba(0,0,0,0.12)'
+                }}>
+                  <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>Reasignar datos del vendedor</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>Los contactos serán transferidos al vendedor que elijas.</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Vendedor a retirar</div>
+                  <div style={{
+                    fontSize: 13, fontWeight: 500, background: 'rgba(20,34,53,0.04)',
+                    border: '1px solid rgba(20,34,53,0.1)', borderRadius: 6,
+                    padding: '8px 12px', marginBottom: 12
+                  }}>
+                    {reassignModal.sellerName} · <span style={{ color: '#D85A30' }}>{reassignModal.contactCount} contactos</span>
+                  </div>
+                  <div style={{
+                    fontSize: 11, color: '#884F0B', background: '#FAEEDA',
+                    border: '1px solid #EF9F27', borderRadius: 6,
+                    padding: '7px 10px', marginBottom: 14
+                  }}>
+                    Las gestiones ya realizadas quedan en el historial del vendedor original.
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Asignar a</div>
+                  <select
+                    className="input"
+                    style={{ width: '100%', marginBottom: 16 }}
+                    value={reassignTarget}
+                    onChange={(e) => { setReassignTarget(e.target.value); setReassignError(''); }}
+                  >
+                    <option value="">Seleccioná un vendedor...</option>
+                    {sellers
+                      .filter((s) => s.id !== reassignModal.sellerId)
+                      .map((s) => <option key={s.id} value={s.id}>{s.label}</option>)
+                    }
+                  </select>
+                  {reassignError && <div style={{ fontSize: 12, color: '#A32D2D', marginBottom: 10 }}>{reassignError}</div>}
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                    <Button variant="secondary" onClick={() => { setReassignModal(null); setReassignError(''); }}>Cancelar</Button>
+                    <Button onClick={removeSeller} disabled={reassignLoading}>
+                      {reassignLoading ? 'Reasignando...' : 'Confirmar reasignación'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         );
       }
