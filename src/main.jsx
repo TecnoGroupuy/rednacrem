@@ -6977,6 +6977,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           ✓ <strong>Rellamar y seguimiento</strong> siempre van al vendedor destino — tienen contexto de gestión previa.
                         </div>
                       )}
+                      <div style={{ fontSize: 12, background: 'rgba(20,34,53,0.04)', color: 'var(--muted)', border: '1px solid rgba(20,34,53,0.08)', borderRadius: 8, padding: '8px 12px', marginBottom: 16 }}>
+                        ✓ <strong>Ventas, rechazos y datos erróneos</strong> no se mueven — quedan en el historial del vendedor original.
+                      </div>
 
                       <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 8 }}>
                         Nuevo y no contesta ({removeModal.contactCount} contactos sin contexto):
