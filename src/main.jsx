@@ -2269,13 +2269,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           <section className="content-grid">
             <Panel
               className="span-12"
-              title="Mercado abierto"
-              subtitle="Medición diaria por vendedor"
               action={(
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Button variant="ghost" onClick={() => setSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - 1))}>"¹</Button>
+                  <Button variant="ghost" onClick={() => setSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - 1))}>‹</Button>
                   <div style={{ padding: '8px 16px', borderRadius: 12, border: '1px solid rgba(15,23,42,0.12)', background: '#fff', fontWeight: 600 }}>{formatDateLabel(selectedDate)}</div>
-                  <Button variant="ghost" onClick={() => setSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 1))}>"º</Button>
+                  <Button variant="ghost" onClick={() => setSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 1))}>›</Button>
                 </div>
               )}
             >
@@ -2285,6 +2283,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           <section className="content-grid">
             <Panel
               className="span-12"
+              title="Contactos"
             >
               <WidgetContainer
                 status={marketWidget.status}
