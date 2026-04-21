@@ -1581,15 +1581,13 @@ export default function SuperadminWorkbench({
                     setPauseLoading(true);
                     try {
                       const safeFields = pauseModal.safeFields;
-                      if (!safeFields?.canToggle) {
-                        setUserFormError('Completá apellido desde Editar antes de pausar este usuario.');
-                        setUserFormSuccess('');
-                        return;
-                      }
+                      const nombrePartes = (pauseModal.nombre || '').trim().split(' ');
+                      const nombreFinal = nombrePartes[0] || safeFields.nombre || 'Sin nombre';
+                      const apellidoFinal = nombrePartes.slice(1).join(' ') || safeFields.apellido || 'Sin apellido';
                       await updateUser(pauseModal.id, {
                         userId: pauseModal.id,
-                        nombre: safeFields.nombre,
-                        apellido: safeFields.apellido,
+                        nombre: nombreFinal,
+                        apellido: apellidoFinal,
                         email: pauseModal.email || '',
                         telefono: pauseModal.telefono || '',
                         role: pauseModal.role || DEFAULT_USER_ROLE,
