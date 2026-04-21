@@ -6457,6 +6457,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [reassignError, setReassignError] = React.useState('');
       const [removeModal, setRemoveModal] = React.useState(null); // { sellerId, sellerName, contactCount, gestionados }
       const [removeStep, setRemoveStep] = React.useState(1); // 1 = confirmación, 2 = elegir destino
+      const [removeMode, setRemoveMode] = React.useState('specific');
       const [addSellerOpen, setAddSellerOpen] = React.useState(false);
       const [addSellerTarget, setAddSellerTarget] = React.useState('');
       const [addSellerError, setAddSellerError] = React.useState('');
@@ -6960,40 +6961,93 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         {removeModal.gestionados > 0 && <span> Las {removeModal.gestionados} gestiones realizadas quedarán en su historial.</span>}
                       </div>
                       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                        <Button variant="secondary" onClick={() => { setRemoveModal(null); setRemoveStep(1); setReassignTarget(''); }}>Cancelar</Button>
+                        <Button variant="secondary" onClick={() => { setRemoveModal(null); setRemoveStep(1); setRemoveMode('specific'); setReassignTarget(''); }}>Cancelar</Button>
                         <Button onClick={() => setRemoveStep(2)}>Siguiente ? elegir destino</Button>
                       </div>
                     </>
                   ) : (
                     <>
-                      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>¿A quién reasignás los contactos?</div>
-                      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>Los {removeModal.contactCount} contactos de <strong>{removeModal.sellerName}</strong> pasarán a:</div>
-                      <select className="input" style={{ width: '100%', marginBottom: 16 }}
-                        value={reassignTarget}
-                        onChange={(e) => { setReassignTarget(e.target.value); setReassignError(''); }}>
-                        <option value="">Seleccioná un vendedor...</option>
-                        {(selectedLot?.vendedores || [])
-                          .filter((s) => s.id !== removeModal.sellerId)
-                          .map((s) => {
-                            const n = `${s.nombre || ''} ${s.apellido || ''}`.trim();
-                            return <option key={s.id} value={s.id}>{n} ({s.total_contactos || 0} contactos)</option>;
-                          })}
-                      </select>
+                      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>¿Cómo redistribuís los contactos?</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>
+                        Lote: <strong>{selectedLot?.name}</strong> · Vendedor: <strong>{removeModal.sellerName}</strong>
+                      </div>
+
+                      {(removeModal.contactCount > 0) && (
+                        <div style={{ fontSize: 12, background: '#E1F5EE', color: '#085041', border: '1px solid #5DCAA5', borderRadius: 8, padding: '8px 12px', marginBottom: 16 }}>
+                          ✓ <strong>Rellamar y seguimiento</strong> siempre van al vendedor destino — tienen contexto de gestión previa.
+                        </div>
+                      )}
+
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 8 }}>
+                        Nuevo y no contesta ({removeModal.contactCount} contactos sin contexto):
+                      </div>
+
+                      {['specific', 'roundrobin', 'pool'].map((m) => (
+                        <div key={m}
+                          onClick={() => { setRemoveMode(m); setReassignError(''); }}
+                          style={{
+                            display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px',
+                            borderRadius: 8, marginBottom: 8, cursor: 'pointer',
+                            border: `1px solid ${removeMode === m ? '#1D9E75' : 'rgba(20,34,53,0.1)'}`,
+                            background: removeMode === m ? '#E1F5EE' : 'var(--color-background-secondary)'
+                          }}>
+                          <div style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${removeMode === m ? '#1D9E75' : 'rgba(20,34,53,0.3)'}`, marginTop: 1, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {removeMode === m && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#1D9E75' }}></div>}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 500 }}>
+                              {m === 'specific' ? 'Asignar a un vendedor específico' : m === 'roundrobin' ? 'Distribuir entre vendedores del lote' : 'Dejar sin asignar (pool)'}
+                            </div>
+                            <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                              {m === 'specific' ? 'Elegís a quién van todos los contactos' : m === 'roundrobin' ? 'Se reparten en partes iguales entre los vendedores restantes' : 'Quedan en el lote disponibles para asignar después'}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {(removeMode === 'specific' || removeMode === 'roundrobin') && (
+                        <>
+                          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 12, marginBottom: 4 }}>
+                            {removeMode === 'specific' ? 'Todos van a:' : 'Rellamar y seguimiento van a:'}
+                          </div>
+                          <select className="input" style={{ width: '100%', marginBottom: 8 }}
+                            value={reassignTarget}
+                            onChange={(e) => { setReassignTarget(e.target.value); setReassignError(''); }}>
+                            <option value="">Seleccioná un vendedor...</option>
+                            {(selectedLot?.vendedores || [])
+                              .filter((s) => s.id !== removeModal.sellerId)
+                              .map((s) => {
+                                const n = `${s.nombre || ''} ${s.apellido || ''}`.trim();
+                                return <option key={s.id} value={s.id}>{n} ({s.total_contactos || 0} contactos)</option>;
+                              })}
+                          </select>
+                        </>
+                      )}
+
                       {reassignError && <div style={{ fontSize: 12, color: '#A32D2D', marginBottom: 10 }}>{reassignError}</div>}
-                      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                        <Button variant="secondary" onClick={() => setRemoveStep(1)}>? Volver</Button>
+
+                      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
+                        <Button variant="secondary" onClick={() => setRemoveStep(1)}>← Volver</Button>
                         <Button onClick={async () => {
-                          if (!reassignTarget) { setReassignError('Seleccioná un vendedor destino.'); return; }
+                          if (!removeMode) { setReassignError('Seleccioná una opción.'); return; }
+                          if ((removeMode === 'specific' || removeMode === 'roundrobin') && !reassignTarget) {
+                            setReassignError('Seleccioná un vendedor destino.'); return;
+                          }
                           setReassignLoading(true); setReassignError('');
                           try {
                             const res = await fetch(buildApiUrl(`/lead-batches/${selectedLot.id}/remove-seller`, getApiBaseUrl()), {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(user?.accessToken) },
-                              body: JSON.stringify({ seller_id: removeModal.sellerId, new_seller_id: reassignTarget })
+                              body: JSON.stringify({
+                                seller_id: removeModal.sellerId,
+                                mode: removeMode,
+                                new_seller_id: reassignTarget || undefined
+                              })
                             });
                             const data = await res.json();
                             if (!data.ok) throw new Error(data.message || 'Error al quitar vendedor');
-                            setRemoveModal(null); setRemoveStep(1); setReassignTarget(''); setReassignError('');
+                            setRemoveModal(null); setRemoveStep(1); setRemoveMode('specific');
+                            setReassignTarget(''); setReassignError('');
                             window.location.reload();
                           } catch (err) {
                             setReassignError(err.message || 'No se pudo completar la operación.');
