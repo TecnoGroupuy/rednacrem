@@ -74,6 +74,8 @@ export default function SuperadminWorkbench({
 
   const [products, setProducts] = React.useState([]);
   const [users, setUsers] = React.useState([]);
+  const [pauseModal, setPauseModal] = React.useState(null);
+  const [pauseLoading, setPauseLoading] = React.useState(false);
   const [noCallRows, setNoCallRows] = React.useState([]);
   const [noCallStats, setNoCallStats] = React.useState({ total: 0, celulares: 0, montevideo: 0, interior: 0 });
   const [noCallSearch, setNoCallSearch] = React.useState('');
@@ -1085,6 +1087,55 @@ export default function SuperadminWorkbench({
             ) : null}
           </Panel>
         </section>
+
+        {/* MODAL PAUSAR VENDEDOR */}
+        {pauseModal && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+            <div style={{ background: '#FFFFFF', borderRadius: 12, padding: 24, width: 400, border: '1px solid rgba(20,34,53,0.12)', boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}>
+              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>Pausar vendedor</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>
+                Vas a pausar a <strong>{pauseModal.nombre}</strong>.
+              </div>
+              <div style={{ fontSize: 12, background: '#FAEEDA', color: '#884F0B', border: '1px solid #EF9F27', borderRadius: 8, padding: '10px 12px', marginBottom: 16 }}>
+                ⚠️ El vendedor no podrá ingresar al sistema ni recibirá datos nuevos mientras esté pausado.<br /><br />
+                Sus contactos pendientes en los lotes activos deben ser reasignados desde la vista de <strong>Lotes</strong>.
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 20 }}>
+                Cuando vuelva, podés reactivarlo desde esta misma vista.
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <Button variant="secondary" onClick={() => setPauseModal(null)}>Cancelar</Button>
+                <Button
+                  onClick={async () => {
+                    setPauseLoading(true);
+                    try {
+                      const safeFields = pauseModal.safeFields;
+                      await updateUser(pauseModal.id, {
+                        userId: pauseModal.id,
+                        nombre: safeFields.nombre,
+                        apellido: safeFields.apellido,
+                        email: pauseModal.email || '',
+                        telefono: pauseModal.telefono || '',
+                        role: pauseModal.role || DEFAULT_USER_ROLE,
+                        status: 'pausado',
+                        reason: 'Pausado por ausencia temporal'
+                      });
+                      await loadUsers();
+                      setPauseModal(null);
+                    } catch (err) {
+                      setUserFormError(err.message || 'No se pudo pausar el usuario.');
+                    } finally {
+                      setPauseLoading(false);
+                    }
+                  }}
+                  disabled={pauseLoading}
+                >
+                  {pauseLoading ? 'Pausando...' : 'Confirmar pausa'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -1366,7 +1417,11 @@ export default function SuperadminWorkbench({
                       <td><strong>{item.nombre}</strong></td>
                       <td>{item.email}</td>
                       <td>{roleMeta[item.rol]?.label || item.rol}</td>
-                      <td><Tag variant={item.activo ? 'success' : 'warning'}>{item.activo ? 'Activo' : 'Bloqueado'}</Tag></td>
+                      <td>
+                        <Tag variant={item.status === 'pausado' ? 'warning' : item.activo ? 'success' : 'danger'}>
+                          {item.status === 'pausado' ? 'Pausado' : item.activo ? 'Activo' : 'Bloqueado'}
+                        </Tag>
+                      </td>
                       <td>{formatDate(item.ultimoAcceso)}</td>
                       <td>{daysWithoutAccess(item.ultimoAcceso)}</td>
                       <td>
@@ -1393,34 +1448,78 @@ export default function SuperadminWorkbench({
                           >
                             Editar
                           </Button>
-                          <Button
-                            variant="secondary"
-                            onClick={async () => {
-                              const safeFields = buildSafeToggleUserFields(item);
-                              if (!safeFields.canToggle) {
-                                setUserFormError('Completá apellido desde Editar antes de cambiar el estado de este usuario.');
-                                setUserFormSuccess('');
-                                return;
-                              }
+                          {/* Botón Pausar — solo para vendedores activos */}
+                          {item.status === 'approved' && (item.rol === 'vendedor' || item.role === 'vendedor') && (
+                            <Button
+                              variant="secondary"
+                              onClick={() => setPauseModal({
+                                id: item.id,
+                                nombre: item.nombre,
+                                email: item.email,
+                                telefono: item.telefono,
+                                role: item.rol || item.role,
+                                safeFields: buildSafeToggleUserFields(item)
+                              })}
+                              disabled={!buildSafeToggleUserFields(item).canToggle}
+                            >
+                              Pausar
+                            </Button>
+                          )}
 
-                              const nextStatus = item.status === 'approved' ? 'blocked' : 'approved';
-                              await updateUser(item.id, {
-                                userId: item.id,
-                                nombre: safeFields.nombre,
-                                apellido: safeFields.apellido,
-                                email: item.email || '',
-                                telefono: item.telefono || '',
-                                role: item.rol || item.role || DEFAULT_USER_ROLE,
-                                status: nextStatus,
-                                reason: nextStatus === 'approved' ? 'Reactivado desde toggle rápido' : 'Bloqueado desde toggle rápido'
-                              });
-                              await loadUsers();
-                            }}
-                            disabled={!buildSafeToggleUserFields(item).canToggle}
-                            title={!buildSafeToggleUserFields(item).canToggle ? 'Completá apellido desde Editar antes de cambiar estado.' : undefined}
-                          >
-                            {item.activo ? 'Bloquear' : 'Activar'}
-                          </Button>
+                          {/* Botón Reactivar — si está pausado */}
+                          {item.status === 'pausado' && (
+                            <Button
+                              variant="secondary"
+                              onClick={async () => {
+                                const safeFields = buildSafeToggleUserFields(item);
+                                if (!safeFields.canToggle) return;
+                                await updateUser(item.id, {
+                                  userId: item.id,
+                                  nombre: safeFields.nombre,
+                                  apellido: safeFields.apellido,
+                                  email: item.email || '',
+                                  telefono: item.telefono || '',
+                                  role: item.rol || item.role || DEFAULT_USER_ROLE,
+                                  status: 'approved',
+                                  reason: 'Reactivado desde vista de usuarios'
+                                });
+                                await loadUsers();
+                              }}
+                            >
+                              Reactivar
+                            </Button>
+                          )}
+
+                          {/* Botón Bloquear/Activar — comportamiento original para no-vendedores o bloqueados */}
+                          {item.status !== 'pausado' && (
+                            <Button
+                              variant="secondary"
+                              onClick={async () => {
+                                const safeFields = buildSafeToggleUserFields(item);
+                                if (!safeFields.canToggle) {
+                                  setUserFormError('Completá apellido desde Editar antes de cambiar el estado de este usuario.');
+                                  setUserFormSuccess('');
+                                  return;
+                                }
+                                const nextStatus = item.status === 'approved' ? 'blocked' : 'approved';
+                                await updateUser(item.id, {
+                                  userId: item.id,
+                                  nombre: safeFields.nombre,
+                                  apellido: safeFields.apellido,
+                                  email: item.email || '',
+                                  telefono: item.telefono || '',
+                                  role: item.rol || item.role || DEFAULT_USER_ROLE,
+                                  status: nextStatus,
+                                  reason: nextStatus === 'approved' ? 'Reactivado desde toggle rápido' : 'Bloqueado desde toggle rápido'
+                                });
+                                await loadUsers();
+                              }}
+                              disabled={!buildSafeToggleUserFields(item).canToggle}
+                              title={!buildSafeToggleUserFields(item).canToggle ? 'Completá apellido desde Editar antes de cambiar estado.' : undefined}
+                            >
+                              {item.activo ? 'Bloquear' : 'Activar'}
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
