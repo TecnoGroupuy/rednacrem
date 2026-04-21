@@ -1,4 +1,4 @@
-
+﻿
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { AuthProvider as OidcAuthProvider, useAuth as useOidcAuth } from 'react-oidc-context';
@@ -628,7 +628,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const panelRef = React.useRef(null);
       const triggerRef = React.useRef(null);
       const normalizeNotificationTitle = (value) =>
-        String(value || '').replaceAll('·', '-').replaceAll('?', '-');
+        String(value || '').replaceAll('Â·', '-').replaceAll('?', '-');
 
       const refreshNotifications = React.useCallback(() => {
         setItems(listNotifications({ userId, limit: 15 }));
@@ -940,7 +940,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 <div>
                   <div style={{ fontWeight: 700, marginBottom: 4 }}>{alert.title}</div>
                   <div style={{ color: 'var(--muted)', lineHeight: 1.5 }}>{alert.detail}</div>
-                  <div style={{ marginTop: 8, fontSize: '0.82rem', color: 'var(--muted)' }}>{alert.time} · {alert.module}</div>
+                  <div style={{ marginTop: 8, fontSize: '0.82rem', color: 'var(--muted)' }}>{alert.time} Â· {alert.module}</div>
                 </div>
               </div>
             ))}
@@ -1138,12 +1138,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           0
         );
         const status = item?.status || item?.estado || item?.statusLabel || 'Activo';
-        const name = item?.name || item?.nombre || item?.agent_name || '—';
-        const login = item?.login || item?.login_at || item?.ingreso || item?.login_time || '—';
+        const name = item?.name || item?.nombre || item?.agent_name || 'â€”';
+        const login = item?.login || item?.login_at || item?.ingreso || item?.login_time || 'â€”';
         const totalCalls = Number(item?.calls ?? item?.llamadas ?? item?.total_llamadas ?? 0);
         const totalSales = Number(item?.sales ?? item?.ventas ?? item?.total_ventas ?? 0);
         const workMinutes = toMinutes(item?.workTime ?? item?.tiempo_productivo ?? item?.work_time ?? item?.tiempo_conectado_minutos ?? 0);
-        const workTime = workMinutes ? `${Math.floor(workMinutes / 60)}h ${workMinutes % 60}m` : (item?.workTime || item?.tiempo_productivo || item?.work_time || '—');
+        const workTime = workMinutes ? `${Math.floor(workMinutes / 60)}h ${workMinutes % 60}m` : (item?.workTime || item?.tiempo_productivo || item?.work_time || 'â€”');
         return {
           id: item?.id || item?.agente_id || item?.agent_id || name,
           name,
@@ -1239,7 +1239,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const metrics = raw.metricas || raw.metrics || raw.kpis || raw.summary || {};
         const shiftStart = agent.turno_inicio || raw.turno_inicio || '';
         const shiftEnd = agent.turno_fin || raw.turno_fin || '';
-        const shift = raw.shift || raw.turno || raw.shiftLabel || raw.shift_label || (shiftStart || shiftEnd ? `${shiftStart || '—'} — ${shiftEnd || '—'}` : '') || fallbackDetail?.shift || '';
+        const shift = raw.shift || raw.turno || raw.shiftLabel || raw.shift_label || (shiftStart || shiftEnd ? `${shiftStart || 'â€”'} â€” ${shiftEnd || 'â€”'}` : '') || fallbackDetail?.shift || '';
         const status = agent.estado || raw.status || raw.estado || fallbackDetail?.status || 'Activo';
         const countFrom = (value) => {
           if (Array.isArray(value)) return value.length;
@@ -1266,7 +1266,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             { label: 'Llamadas', value: String(Number.isFinite(callsCount) ? callsCount : 0), sub: metrics.meta_llamadas ? `Meta: ${metrics.meta_llamadas}` : (raw.callsGoal ? `Meta: ${raw.callsGoal}` : fallbackDetail?.kpis?.[0]?.sub || '') },
             { label: 'Ventas', value: String(Number.isFinite(salesCount) ? salesCount : 0), sub: metrics.meta_ventas ? `Meta: ${metrics.meta_ventas}` : (raw.salesGoal ? `Meta: ${raw.salesGoal}` : fallbackDetail?.kpis?.[1]?.sub || '') },
             { label: 'Conversión', value: `${parsePercent(conversionRaw ?? derivedConversion ?? fallbackDetail?.kpis?.[2]?.value ?? 0)}%`, sub: metrics.conversion_promedio_equipo ? `Promedio equipo: ${parsePercent(metrics.conversion_promedio_equipo)}%` : (raw.conversionMin ? `Mínimo: ${raw.conversionMin}%` : fallbackDetail?.kpis?.[2]?.sub || '') },
-            { label: 'Tiempo productivo', value: metrics.porcentaje_productivo ? `${parsePercent(metrics.porcentaje_productivo)}%` : (raw.productivePercent ? `${parsePercent(raw.productivePercent)}%` : (fallbackDetail?.kpis?.[3]?.value || '—')), sub: metrics.tiempo_productivo_minutos ? `${metrics.tiempo_productivo_minutos}m` : (raw.productiveTime ? `${raw.productiveTime}` : fallbackDetail?.kpis?.[3]?.sub || '') }
+            { label: 'Tiempo productivo', value: metrics.porcentaje_productivo ? `${parsePercent(metrics.porcentaje_productivo)}%` : (raw.productivePercent ? `${parsePercent(raw.productivePercent)}%` : (fallbackDetail?.kpis?.[3]?.value || 'â€”')), sub: metrics.tiempo_productivo_minutos ? `${metrics.tiempo_productivo_minutos}m` : (raw.productiveTime ? `${raw.productiveTime}` : fallbackDetail?.kpis?.[3]?.sub || '') }
           ];
         }
         const rawEvents = raw.eventos || raw.events || raw.activity || raw.events_turno || [];
@@ -1299,13 +1299,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const activityCandidate = raw.activity || raw.events || raw.eventos || raw.events_turno || fallbackDetail?.activity || [];
         const activity = Array.isArray(activityCandidate) ? activityCandidate.map((event) => {
           const tipo = String(event?.tipo || event?.event || '').toLowerCase();
-          const label = tipo === 'login' ? 'Login' : tipo === 'logout' ? 'Logout' : tipo === 'trabajo' ? 'Trabajo' : tipo === 'descanso' ? 'Descanso' : (tipo === 'baño' || tipo === 'bano') ? 'Baño' : tipo === 'supervisor' ? 'Supervisor' : (event?.event || event?.tipo || '—');
+          const label = tipo === 'login' ? 'Login' : tipo === 'logout' ? 'Logout' : tipo === 'trabajo' ? 'Trabajo' : tipo === 'descanso' ? 'Descanso' : (tipo === 'baño' || tipo === 'bano') ? 'Baño' : tipo === 'supervisor' ? 'Supervisor' : (event?.event || event?.tipo || 'â€”');
           const duration = Number(event?.duracion_minutos ?? event?.duracion ?? event?.minutes ?? 0);
           const exceso = Number(event?.exceso_minutos ?? 0);
           return {
             time: event?.inicio || event?.hora || '',
             event: label,
-            duration: Number.isFinite(duration) && duration ? `${duration}m` : '—',
+            duration: Number.isFinite(duration) && duration ? `${duration}m` : 'â€”',
             note: exceso ? `+${exceso}m sobre límite` : '',
             overLimit: Boolean(event?.excedido)
           };
@@ -1315,13 +1315,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           const seconds = Number(call?.duracion_segundos ?? call?.duracion ?? 0);
           const minutes = Math.floor(seconds / 60);
           const remaining = seconds % 60;
-          const duration = seconds ? `${minutes}m ${String(remaining).padStart(2, '0')}s` : '—';
+          const duration = seconds ? `${minutes}m ${String(remaining).padStart(2, '0')}s` : 'â€”';
           const resultRaw = String(call?.resultado || call?.result || '').toLowerCase();
           const result = resultRaw === 'venta' ? 'Venta' : resultRaw === 'callback' ? 'Callback' : resultRaw === 'no_contesta' ? 'No contesta' : 'No venta';
           return {
             time: call?.hora || '',
             duration,
-            client: call?.cliente_nombre || call?.cliente || '—',
+            client: call?.cliente_nombre || call?.cliente || 'â€”',
             result,
             shortCall: seconds > 0 ? seconds < 60 : false
           };
@@ -1548,7 +1548,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const picked = firstMatch || fallback || alerts[0];
         const label = String(picked?.agente_nombre || '').trim();
         if (!label) return '';
-        return `${label} requiere atención — Conversión`.trim();
+        return `${label} requiere atención â€” Conversión`.trim();
       }, [teamAgents, teamSummary]);
       const avgPauseMinutes = React.useMemo(() => {
         if (teamSummary?.avgPauseMinutes) return Number(teamSummary.avgPauseMinutes) || 0;
@@ -1757,7 +1757,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const mapJornadaItem = React.useCallback((item) => {
         const nombre = item?.nombre || '';
         const apellido = item?.apellido || '';
-        const fullName = `${nombre} ${apellido}`.trim() || '—';
+        const fullName = `${nombre} ${apellido}`.trim() || 'â€”';
         const initials = `${nombre[0] || ''}${apellido[0] || ''}`.trim().toUpperCase() || 'U';
         const loginLocal = item?.login_local;
         const logoutLocal = item?.logout_local;
@@ -1776,8 +1776,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const estadoMap = {
           TRABAJO: { state: 'disponible', label: 'Disponible' },
           DESCANSO: { state: 'descanso', label: 'En descanso' },
-          BAÑO: { state: 'baño', label: 'En baño' },
-          BANO: { state: 'baño', label: 'En baño' },
+          "BA\u00D1O": { state: 'ba\u00F1o', label: 'En ba\u00F1o' },
+          BANO: { state: 'ba\u00F1o', label: 'En ba\u00F1o' },
           SUPERVISOR: { state: 'capacitacion', label: 'En capacitación' },
           LOGOUT: { state: 'fin', label: 'Finalizado' }
         };
@@ -1795,7 +1795,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           times: {
             disponible: Number(item?.disponibleSeg ?? 0),
             descanso: Number(item?.descansosSeg ?? 0),
-            baño: Number(item?.banosSeg ?? 0),
+            bano: Number(item?.banosSeg ?? 0),
             capacitacion: Number(item?.supervisorSeg ?? 0),
             productivo: Number(item?.tiempoProductivoSeg ?? 0),
             total: totalJornadaSeg
@@ -1982,14 +1982,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           .filter((evt) => evt.tipo);
         const firstLogin = normalized.find((evt) => evt.tipo === 'login');
         const lastLogout = [...normalized].reverse().find((evt) => evt.tipo === 'logout');
-        const startLabel = firstLogin?.inicio || '—';
-        const endLabel = lastLogout?.fin || lastLogout?.inicio || '—';
+        const startLabel = firstLogin?.inicio || 'â€”';
+        const endLabel = lastLogout?.fin || lastLogout?.inicio || 'â€”';
         return (
           <div style={{ background: 'rgba(248,250,252,0.7)', border: '1px solid rgba(15,23,42,0.08)', borderRadius: 14, padding: 16, marginTop: 16 }}>
             <div style={{ fontWeight: 700, marginBottom: 10 }}>Línea de tiempo del turno</div>
             <div style={{ display: 'flex', height: 32, borderRadius: 999, overflow: 'hidden' }}>
               {(detail?.timeline || []).map((segment, idx) => (
-                <div key={`${segment.label}-${idx}`} style={{ flexGrow: segment.minutes, background: segment.color }} title={`${segment.label} · ${segment.minutes}m`}></div>
+                <div key={`${segment.label}-${idx}`} style={{ flexGrow: segment.minutes, background: segment.color }} title={`${segment.label} Â· ${segment.minutes}m`}></div>
               ))}
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: '0.82rem', color: 'var(--muted)' }}>
@@ -2018,14 +2018,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           return '';
         };
         const formatMinutes = (mins) => {
-          if (mins === null || mins === undefined) return '—';
+          if (mins === null || mins === undefined) return 'â€”';
           const total = Math.max(0, Number(mins) || 0);
           const h = Math.floor(total / 60);
           const m = total % 60;
           return h ? `${h}h ${m}m` : `${m}m`;
         };
         const formatSeconds = (secs) => {
-          if (secs === null || secs === undefined) return '—';
+          if (secs === null || secs === undefined) return 'â€”';
           const total = Math.max(0, Math.floor(Number(secs) || 0));
           const h = Math.floor(total / 3600);
           const m = Math.floor((total % 3600) / 60);
@@ -2035,10 +2035,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           return `${s}s`;
         };
         const formatDuration = (inicio, fin) => {
-          if (!inicio) return '—';
+          if (!inicio) return 'â€”';
           const start = new Date(inicio);
           const end = fin ? new Date(fin) : new Date();
-          if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '—';
+          if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 'â€”';
           const totalSeconds = Math.floor((end - start) / 1000);
           if (totalSeconds < 60) return `${totalSeconds}s`;
           const mins = Math.floor(totalSeconds / 60);
@@ -2047,9 +2047,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           return `${mins}m`;
         };
         const formatMinutesWithRaw = (mins) => {
-          if (mins === null || mins === undefined) return '—';
+          if (mins === null || mins === undefined) return 'â€”';
           const total = Math.max(0, Number(mins) || 0);
-          if (!total) return '—';
+          if (!total) return 'â€”';
           return total >= 60 ? `${total}m ? ${formatMinutes(total)}` : `${total}m`;
         };
         const toTimeMinutes = (value) => {
@@ -2091,7 +2091,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 ?? (Number.isFinite(duration) ? Math.round(duration * 60) : null));
             return {
               type,
-              start: evt?.inicio || '—',
+              start: evt?.inicio || 'â€”',
               end: evt?.fin || '',
               duration: computed === null ? null : computed,
               durationSeconds: computedSeconds,
@@ -2139,17 +2139,17 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const totalJornada = totalWork + totalPausas;
         const totalJornadaSeconds = totalWorkSeconds + totalPausasSeconds;
         const summaryRows = [
-          { type: 'login', label: labelByType.login, icon: iconByType.login, text: firstLogin?.start || '—' },
+          { type: 'login', label: labelByType.login, icon: iconByType.login, text: firstLogin?.start || 'â€”' },
           { type: 'trabajo', label: labelByType.trabajo, icon: iconByType.trabajo, text: formatMinutesWithRaw(totalWork), indent: true },
           ...['descanso', 'bano', 'supervisor'].map((type) => {
             const row = grouped.find((item) => item.type === type);
             const first = row?.events?.[0];
             const detail = row?.count
-              ? `${first?.start || '—'} · ${first?.inProgress ? 'En curso' : formatMinutes(first?.duration)}`
-              : '—';
+              ? `${first?.start || 'â€”'} Â· ${first?.inProgress ? 'En curso' : formatMinutes(first?.duration)}`
+              : 'â€”';
             return { type, label: labelByType[type], icon: iconByType[type], text: detail };
           }),
-          { type: 'logout', label: labelByType.logout, icon: iconByType.logout, text: lastLogout?.start || '—' }
+          { type: 'logout', label: labelByType.logout, icon: iconByType.logout, text: lastLogout?.start || 'â€”' }
         ];
         const multiRows = grouped.filter((row) => row.count > 1 && ['bano', 'descanso', 'supervisor'].includes(row.type));
         const summaryRowsByType = ['trabajo', 'bano', 'descanso', 'supervisor'].map((type) => {
@@ -2167,8 +2167,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <div style={{ fontWeight: 700, marginBottom: 8 }}>Registro de actividad</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', border: '1px solid rgba(15,23,42,0.08)', borderRadius: 12, background: '#fff', marginBottom: 12 }}>
               {[
-                { label: 'Ingreso', value: firstLogin?.start || '—', icon: iconByType.login },
-                { label: 'Cierre', value: lastLogout?.start || '—', icon: iconByType.logout },
+                { label: 'Ingreso', value: firstLogin?.start || 'â€”', icon: iconByType.login },
+                { label: 'Cierre', value: lastLogout?.start || 'â€”', icon: iconByType.logout },
                 { label: 'Jornada total', value: formatSeconds(totalJornadaSeconds), icon: '?' }
               ].map((item, idx, arr) => (
                 <div
@@ -2193,8 +2193,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               {summaryRowsByType.map((row) => (
                 <div key={`summary-${row.type}`} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 140px', gap: 0, padding: '10px 12px', borderBottom: '1px solid rgba(148,163,184,0.2)' }}>
                   <div style={{ fontWeight: 600 }}>{row.label}</div>
-                  <div>{row.count || '—'}</div>
-                  <div>{row.count ? formatSeconds(row.totalSeconds) : '—'}</div>
+                  <div>{row.count || 'â€”'}</div>
+                  <div>{row.count ? formatSeconds(row.totalSeconds) : 'â€”'}</div>
                 </div>
               ))}
             </div>
@@ -2214,7 +2214,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <div key={`detail-${idx}`} style={{ display: 'grid', gridTemplateColumns: '90px 1fr 120px', gap: 10, padding: '6px 4px', borderBottom: '1px solid rgba(148,163,184,0.2)' }}>
                       <div>{evt.start}</div>
                       <div>{label}</div>
-                      <div>{durationLabel || '—'}</div>
+                      <div>{durationLabel || 'â€”'}</div>
                     </div>
                   );
                 }) : <div style={{ color: 'var(--muted)' }}>Sin eventos.</div>}
@@ -2273,9 +2273,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               subtitle="Medición diaria por vendedor"
               action={(
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Button variant="ghost" onClick={() => setSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - 1))}>‹</Button>
+                  <Button variant="ghost" onClick={() => setSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - 1))}>â€¹</Button>
                   <div style={{ padding: '8px 16px', borderRadius: 12, border: '1px solid rgba(15,23,42,0.12)', background: '#fff', fontWeight: 600 }}>{formatDateLabel(selectedDate)}</div>
-                  <Button variant="ghost" onClick={() => setSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 1))}>›</Button>
+                  <Button variant="ghost" onClick={() => setSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 1))}>â€º</Button>
                 </div>
               )}
             >
@@ -2318,7 +2318,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             <div className="person">
                               <SellerAvatar nombre={row.nombre} apellido={row.apellido} />
                               <div>
-                                <strong>{`${row.nombre || ''} ${row.apellido || ''}`.trim() || '—'}</strong>
+                                <strong>{`${row.nombre || ''} ${row.apellido || ''}`.trim() || 'â€”'}</strong>
                               </div>
                             </div>
                           </td>
@@ -2392,7 +2392,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             <div className="person">
                               <SellerAvatar nombre={row.nombre} apellido={row.apellido} />
                               <div>
-                                <strong>{`${row.nombre || ''} ${row.apellido || ''}`.trim() || '—'}</strong>
+                                <strong>{`${row.nombre || ''} ${row.apellido || ''}`.trim() || 'â€”'}</strong>
                               </div>
                             </div>
                           </td>
@@ -2433,7 +2433,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, marginBottom: 16 }}>
                 <div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Log de Jornada Laboral</div>
-                  <div style={{ color: '#64748b', fontSize: 13 }}>Seguimiento de tiempos y estados · {formatDateLabel(selectedDate)}</div>
+                  <div style={{ color: '#64748b', fontSize: 13 }}>Seguimiento de tiempos y estados Â· {formatDateLabel(selectedDate)}</div>
                 </div>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#dbeafe', color: '#1e40af', padding: '8px 16px', borderRadius: 999, fontSize: 12, fontWeight: 700 }}>
                   <span style={{ width: 8, height: 8, borderRadius: 999, background: '#3b82f6', display: 'inline-block' }}></span>
@@ -2537,14 +2537,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   ) : null}
                   {filteredJornadaAgents.map((agent) => {
                     const isFinished = agent.currentState === 'fin';
-                    const isLongPause = (agent.currentState === 'baño' && agent.times.baño > 900)
+                    const isLongPause = (agent.currentState === 'bano' && agent.times.bano > 900)
                       || (agent.currentState === 'descanso' && agent.times.descanso > 1800);
                     const totalBase = agent.times.total || Math.max(agent.times.productivo, agent.times.disponible) || 28800;
                     const totalWorked = agent.times.disponible;
                     const progress = totalBase ? Math.min((totalWorked / totalBase) * 100, 100) : 0;
                     const labelDisponible = formatDurationFromSeconds(agent.times.disponible);
                     const labelDescanso = agent.labels?.descansos || formatDurationFromSeconds(agent.times.descanso);
-                    const labelBanos = agent.labels?.banos || formatDurationFromSeconds(agent.times.baño);
+                    const labelBanos = agent.labels?.banos || formatDurationFromSeconds(agent.times.bano);
                     const labelCapacitacion = agent.labels?.supervisor || formatDurationFromSeconds(agent.times.capacitacion);
                     const labelProductivo = agent.labels?.productivo || formatDurationFromSeconds(agent.times.productivo);
                     const labelTotal = agent.labels?.total || (agent.times.total ? formatDurationFromSeconds(agent.times.total) : '--');
@@ -2572,7 +2572,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             <div>
                               <div style={{ fontWeight: 700, fontSize: 15 }}>{agent.name}</div>
                               <div style={{ fontSize: 12, color: '#94a3b8' }}>
-                                Inicio: {agent.loginTime}{agent.logoutTime ? ` · Fin: ${agent.logoutTime}` : ''}
+                                Inicio: {agent.loginTime}{agent.logoutTime ? ` Â· Fin: ${agent.logoutTime}` : ''}
                               </div>
                             </div>
                           </div>
@@ -2660,9 +2660,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                               </div>
                             </div>
                           ) : null}
-                          {agent.times.baño > 0 ? (
+                          {agent.times.bano > 0 ? (
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                              <div style={{ width: 80, fontSize: 12, color: '#64748b' }}>Baños</div>
+                              <div style={{ width: 80, fontSize: 12, color: '#64748b' }}>Banos</div>
                               <div style={{ flex: 1, height: 28, background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
                                 <div style={{ width: '100%', height: '100%', background: '#eab308', display: 'flex', alignItems: 'center', padding: '0 10px', color: '#422006', fontSize: 12, fontWeight: 700 }}>
                                   {labelBanos}
@@ -2812,7 +2812,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         <h3 style={{ margin: 0 }}>{detailAgent.name}</h3>
                         <Tag variant={statusVariant(detailStatus)}>{detailStatus}</Tag>
                         <span style={{ color: 'var(--muted)', fontSize: '0.86rem' }}>
-                          Login {detailAgent?.login || '—'} · {detailAgent?.workTime || '—'}
+                          Login {detailAgent?.login || 'â€”'} Â· {detailAgent?.workTime || 'â€”'}
                         </span>
                       </div>
                       <div style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>{activeDetail?.shift}</div>
@@ -2918,7 +2918,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                 <tr key={`row-${item.day}`}>
                                   <td>{item.day}</td>
                                   <td>{item.value}%</td>
-                                  <td>{item.value < 10 ? '? Conversión baja' : '—'}</td>
+                                  <td>{item.value < 10 ? '? Conversión baja' : 'â€”'}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -3114,7 +3114,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return `${h}h ${String(m).padStart(2, '0')}m`;
       };
       const formatHoraLocal = (value) => {
-        if (!value) return '—';
+        if (!value) return 'â€”';
         const parsed = new Date(value);
         if (Number.isNaN(parsed.getTime())) return value;
         return parsed.toLocaleTimeString('es-UY', {
@@ -3159,7 +3159,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 <span style={{ fontSize: 18 }}>??</span>
                 <div>
                   <p style={{ fontSize: 13, fontWeight: 700, color: '#333', margin: 0 }}>Tenés un alta de cliente pendiente</p>
-                  <p style={{ fontSize: 12, color: '#666', margin: 0 }}>{clientePendiente.nombre} {clientePendiente.apellido} — guardado el {new Date(clientePendiente.timestamp).toLocaleString('es-UY', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                  <p style={{ fontSize: 12, color: '#666', margin: 0 }}>{clientePendiente.nombre} {clientePendiente.apellido} â€” guardado el {new Date(clientePendiente.timestamp).toLocaleString('es-UY', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
@@ -3220,7 +3220,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       setJornadaFecha(d.toLocaleDateString('en-CA'));
                     }}
                   >
-                    ‹
+                    â€¹
                   </button>
                   <span>{jornadaFechaLabel}</span>
                   <button
@@ -3233,7 +3233,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       if (next <= todayYmd) setJornadaFecha(next);
                     }}
                   >
-                    ›
+                    â€º
                   </button>
                 </div>
               )}
@@ -3242,7 +3242,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Inicio</div>
-                    <div style={{ fontWeight: 700 }}>{miJornada?.login_time || '—'}</div>
+                    <div style={{ fontWeight: 700 }}>{miJornada?.login_time || 'â€”'}</div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fin</div>
@@ -3255,22 +3255,22 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Estado</div>
                     <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: jornadaEstadoStyle.bg, color: jornadaEstadoStyle.text, border: `1px solid ${jornadaEstadoStyle.border}` }}>
-                      {miJornada?.estado_actual || '—'}
+                      {miJornada?.estado_actual || 'â€”'}
                     </span>
                   </div>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 999, background: 'rgba(16,185,129,0.15)', color: '#047857', fontSize: 12, fontWeight: 700 }}>
-                    Disponible · {fmtSeg(miJornada?.disponibleSeg)}
+                    Disponible Â· {fmtSeg(miJornada?.disponibleSeg)}
                   </span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 999, background: 'rgba(245,158,11,0.2)', color: '#b45309', fontSize: 12, fontWeight: 700 }}>
-                    Descansos · {fmtSeg(miJornada?.descansosSeg)}
+                    Descansos Â· {fmtSeg(miJornada?.descansosSeg)}
                   </span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 999, background: 'rgba(59,130,246,0.2)', color: '#1d4ed8', fontSize: 12, fontWeight: 700 }}>
-                    Baños · {fmtSeg(miJornada?.banosSeg)}
+                    Baños Â· {fmtSeg(miJornada?.banosSeg)}
                   </span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 999, background: 'rgba(148,163,184,0.2)', color: '#475569', fontSize: 12, fontWeight: 700 }}>
-                    Total · {fmtSeg(miJornada?.totalJornadaSeg)}
+                    Total Â· {fmtSeg(miJornada?.totalJornadaSeg)}
                   </span>
                 </div>
               </div>
@@ -4026,7 +4026,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 <span style={{ fontSize: 18 }}>??</span>
                 <div>
                   <p style={{ fontSize: 13, fontWeight: 700, color: '#333', margin: 0 }}>Tenés un alta de cliente pendiente</p>
-                  <p style={{ fontSize: 12, color: '#666', margin: 0 }}>{clientePendiente.nombre} {clientePendiente.apellido} — guardado el {new Date(clientePendiente.timestamp).toLocaleString('es-UY', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                  <p style={{ fontSize: 12, color: '#666', margin: 0 }}>{clientePendiente.nombre} {clientePendiente.apellido} â€” guardado el {new Date(clientePendiente.timestamp).toLocaleString('es-UY', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
@@ -4280,10 +4280,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                 timeZone: 'America/Montevideo',
                                 day: '2-digit', month: '2-digit', year: 'numeric'
                               })
-                              : '—'}
+                              : 'â€”'}
                           </td>
                           <td>
-                            {contact.origen_dato || contact.origen || contact.source || contact.origenDato || contact.origin || '—'}
+                            {contact.origen_dato || contact.origen || contact.source || contact.origenDato || contact.origin || 'â€”'}
                           </td>
                           <td>
                             <div className="person">
@@ -4292,7 +4292,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             </div>
                           </td>
                           <td>{contact.city}</td>
-                          <td>{!isNuevo && contact.last ? contact.last : <span style={{ color: '#ccc' }}>—</span>}</td>
+                          <td>{!isNuevo && contact.last ? contact.last : <span style={{ color: '#ccc' }}>â€”</span>}</td>
                         </>
                       );
                     })()}
@@ -4587,7 +4587,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                   </div>
                                   <div style={{ fontSize: 12, color: '#64748b' }}>
                                     {item.telefono ? `Fijo: ${item.telefono}` : ''}
-                                    {item.telefono && item.celular ? ' · ' : ''}
+                                    {item.telefono && item.celular ? ' Â· ' : ''}
                                     {item.celular ? `Celular: ${item.celular}` : ''}
                                     {!item.telefono && !item.celular ? 'Sin teléfonos' : ''}
                                   </div>
@@ -4878,7 +4878,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
       const ahora = new Date();
       const fmtFechaHora = (iso) => {
-        if (!iso) return '—';
+        if (!iso) return 'â€”';
         try {
           return new Date(iso).toLocaleString('es-UY', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
         } catch { return iso; }
@@ -4921,7 +4921,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           : intentos === 2
                           ? { bg: 'rgba(245,166,35,0.15)', color: '#F5A623', label: `${intentos} intentos` }
                           : { bg: 'rgba(158,158,158,0.12)', color: '#9E9E9E', label: `${intentos} intentos` };
-                        const notaText = row.nota ? (row.nota.length > 40 ? row.nota.slice(0, 40) + '…' : row.nota) : null;
+                        const notaText = row.nota ? (row.nota.length > 40 ? row.nota.slice(0, 40) + 'â€¦' : row.nota) : null;
                         const tipoAgenda = row.tipo_agenda || row.estado_venta;
                         return (
                           <tr
@@ -4931,30 +4931,30 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           >
                             <td>
                               <div style={{ color: vencida ? '#E53E3E' : undefined, fontWeight: vencida ? 600 : undefined }}>
-                                {fechaDt ? fmtFechaHora(row.fecha_agenda) : '—'}
+                                {fechaDt ? fmtFechaHora(row.fecha_agenda) : 'â€”'}
                               </div>
                               {vencida && (
                                 <span style={{ display: 'inline-block', marginTop: 2, fontSize: 10, fontWeight: 700, background: '#E53E3E', color: '#fff', borderRadius: 4, padding: '1px 6px' }}>Vencida</span>
                               )}
                             </td>
-                            <td><strong>{[row.nombre, row.apellido].filter(Boolean).join(' ') || '—'}</strong></td>
-                            <td style={{ color: '#475569', fontSize: 12 }}>{row.origen_dato || row.origen || '—'}</td>
+                            <td><strong>{[row.nombre, row.apellido].filter(Boolean).join(' ') || 'â€”'}</strong></td>
+                            <td style={{ color: '#475569', fontSize: 12 }}>{row.origen_dato || row.origen || 'â€”'}</td>
                             <td style={{ color: '#475569', fontSize: 12, whiteSpace: 'nowrap' }}>
                               {row.created_at
                                 ? new Date(row.created_at).toLocaleDateString('es-UY', { timeZone: 'America/Montevideo', day: '2-digit', month: '2-digit', year: 'numeric' })
-                                : '—'}
+                                : 'â€”'}
                             </td>
                             <td>
                               {telefono
                                 ? <a href={`tel:${telefono.replace(/\s/g, '')}`} onClick={(e) => e.stopPropagation()} style={{ color: '#1A5C4A', fontWeight: 500 }}>{telefono}</a>
-                                : '—'}
+                                : 'â€”'}
                             </td>
                             <td>
                               <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 999, background: intentosMeta.bg, color: intentosMeta.color, fontSize: 12, fontWeight: 600 }}>
                                 {intentosMeta.label}
                               </span>
                             </td>
-                            <td style={{ color: notaText ? '#888' : '#ccc', fontSize: 13 }}>{notaText || '—'}</td>
+                            <td style={{ color: notaText ? '#888' : '#ccc', fontSize: 13 }}>{notaText || 'â€”'}</td>
                             <td>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                                 <span style={{
@@ -5178,7 +5178,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             disabled={agGuardando}
                             style={{ width: '100%', padding: 10, background: '#E53E3E', color: '#FFF', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: agGuardando ? 'not-allowed' : 'pointer', opacity: agGuardando ? 0.6 : 1 }}
                           >
-                            Finalizar — Marcar como rechazo
+                            Finalizar â€” Marcar como rechazo
                           </button>
                         </div>
                       )}
@@ -5319,26 +5319,26 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, []);
 
       const formatDateTime = (value) => {
-        if (!value) return '—';
+        if (!value) return 'â€”';
         const parsed = new Date(value);
-        if (Number.isNaN(parsed.getTime())) return '—';
+        if (Number.isNaN(parsed.getTime())) return 'â€”';
         return parsed.toLocaleString('es-UY', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
       };
 
       const formatPhone = (row) => {
         const raw = row?.telefono_display || row?.telefono || row?.celular || '';
-        if (!raw) return '—';
+        if (!raw) return 'â€”';
         return String(raw).replace(/[\s-]/g, '');
       };
       const formatSeller = (row) => row?.vendedor_nombre_completo
         || [row?.vendedor_nombre, row?.vendedor_apellido].filter(Boolean).join(' ').trim()
-        || '—';
-      const formatSupervisor = (row) => row?.supervisor_nombre_completo || '—';
+        || 'â€”';
+      const formatSupervisor = (row) => row?.supervisor_nombre_completo || 'â€”';
 
       const normalizeResultadoLabel = React.useCallback((value) => {
-        if (!value) return '—';
+        if (!value) return 'â€”';
         const raw = String(value).trim();
-        if (!raw) return '—';
+        if (!raw) return 'â€”';
         const key = raw.toLowerCase();
         const labelMap = {
           no_contesta: 'No contesta',
@@ -5353,7 +5353,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         };
         if (labelMap[key]) return labelMap[key];
         const clean = raw.replace(/_/g, ' ').trim();
-        if (!clean) return '—';
+        if (!clean) return 'â€”';
         return clean.charAt(0).toUpperCase() + clean.slice(1);
       }, []);
 
@@ -5732,7 +5732,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             <Tag variant={badge.variant}>{badge.label}</Tag>
                           </td>
                           <td title={correctedValue}>
-                            {correctedValue === '—' ? '—' : <Tag variant={resultadoVariant(correctedValueRaw)}>{correctedValue}</Tag>}
+                            {correctedValue === 'â€”' ? 'â€”' : <Tag variant={resultadoVariant(correctedValueRaw)}>{correctedValue}</Tag>}
                           </td>
                           <td title={supervisorValue}>
                             <div style={cellEllipsisStyle}>{supervisorValue}</div>
@@ -5781,12 +5781,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   ) : (
                     <>
                       <div className="list">
-                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>ID gestión</span><strong>{auditItem?.management_id || auditItem?.id || '—'}</strong></div>
+                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>ID gestión</span><strong>{auditItem?.management_id || auditItem?.id || 'â€”'}</strong></div>
                         <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Fecha/Hora</span><strong>{formatDateTime(auditItem?.fecha_gestion)}</strong></div>
                         <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Teléfono</span><strong>{formatPhone(auditItem)}</strong></div>
                         <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Vendedor</span><strong>{formatSeller(auditItem)}</strong></div>
-                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Cliente</span><strong>{auditItem?.cliente || '—'}</strong></div>
-                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Lote/Campaña</span><strong>{auditItem?.batch_nombre || auditItem?.batch_id || '—'}</strong></div>
+                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Cliente</span><strong>{auditItem?.cliente || 'â€”'}</strong></div>
+                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Lote/Campaña</span><strong>{auditItem?.batch_nombre || auditItem?.batch_id || 'â€”'}</strong></div>
                         <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Codificación original</span><strong>{normalizeResultadoLabel(auditItem?.resultado_original)}</strong></div>
                       </div>
 
@@ -5851,7 +5851,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       <div style={{ marginBottom: 12 }}>
                         <div style={{ fontWeight: 700, marginBottom: 6 }}>Original</div>
                         <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Fecha/Hora</span><strong>{formatDateTime(historyData?.management?.fecha_gestion)}</strong></div>
-                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Vendedor</span><strong>{historyData?.management?.vendedor_nombre_completo || '—'}</strong></div>
+                        <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Vendedor</span><strong>{historyData?.management?.vendedor_nombre_completo || 'â€”'}</strong></div>
                         <div className="mini-stat"><span style={{ color: 'var(--muted)' }}>Codificación</span><strong>{normalizeResultadoLabel(historyData?.management?.resultado_original)}</strong></div>
                       </div>
                       <div style={{ fontWeight: 700, marginBottom: 6 }}>Correcciones</div>
@@ -5866,7 +5866,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                                 <div>
                                   <div style={{ fontWeight: 700 }}>{normalizeResultadoLabel(audit.resultado_corregido)}</div>
-                                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>{audit.supervisor_nombre_completo || audit.corrected_by || '—'}</div>
+                                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>{audit.supervisor_nombre_completo || audit.corrected_by || 'â€”'}</div>
                                   {audit.motivo ? <div style={{ fontSize: 12, marginTop: 4 }}>{audit.motivo}</div> : null}
                                 </div>
                                 <div style={{ color: 'var(--muted)', fontSize: 12 }}>{formatDateTime(audit.corrected_at)}</div>
@@ -5920,7 +5920,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, []);
 
       const formatFechaVenta = (raw) => formatDate(raw);
-      const pickValue = (row, keys, fallback = '—') => {
+      const pickValue = (row, keys, fallback = 'â€”') => {
         for (const key of keys) {
           const value = row?.[key];
           if (value !== undefined && value !== null && String(value).trim() !== '') return value;
@@ -5930,7 +5930,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const renderDetailField = (label, value) => (
         <div style={{ display: 'grid', gap: 4 }}>
           <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
-          <div style={{ fontWeight: 600 }}>{value || '—'}</div>
+          <div style={{ fontWeight: 600 }}>{value || 'â€”'}</div>
         </div>
       );
       const todayKey = new Date().toLocaleDateString('en-CA');
@@ -6001,12 +6001,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           : { bg: 'rgba(148,163,184,0.2)', text: '#64748b', border: 'rgba(148,163,184,0.4)' };
                       const nombre = [row.nombre, row.apellido].filter(Boolean).join(' ')
                         || [row.contact_nombre, row.contact_apellido].filter(Boolean).join(' ')
-                        || '—';
-                      const telefono = row.celular || row.telefono || row.phone || '—';
+                        || 'â€”';
+                      const telefono = row.celular || row.telefono || row.phone || 'â€”';
                       const ubicacion = row.ubicacion
                         || [row.departamento, row.localidad].filter(Boolean).join(', ')
-                        || '—';
-                      const origenDato = (row.origen_dato && String(row.origen_dato).trim()) ? row.origen_dato : '—';
+                        || 'â€”';
+                      const origenDato = (row.origen_dato && String(row.origen_dato).trim()) ? row.origen_dato : 'â€”';
                       const relatedCount = getRelatedSales(row).length;
                       return (
                         <tr
@@ -6031,7 +6031,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             {relatedCount ? (
                               <span style={{ fontSize: 12, fontWeight: 700, color: '#0f766e' }}>+{relatedCount}</span>
                             ) : (
-                              <span style={{ color: '#aaa', fontSize: 12 }}>—</span>
+                              <span style={{ color: '#aaa', fontSize: 12 }}>â€”</span>
                             )}
                           </td>
                           <td>{formatFechaVenta(row.fecha_venta)}</td>
@@ -6059,7 +6059,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 <div className="lot-wizard-header">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div className="person-badge" style={{ width: 42, height: 42 }}>
-                      {initials([selectedSale.nombre, selectedSale.apellido].filter(Boolean).join(' ') || '—')}
+                      {initials([selectedSale.nombre, selectedSale.apellido].filter(Boolean).join(' ') || 'â€”')}
                     </div>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>Detalle de la venta</div>
@@ -6081,11 +6081,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         ].filter(Boolean).join(' ') || [
                           selectedSale.contact_nombre,
                           selectedSale.contact_apellido
-                        ].filter(Boolean).join(' ') || '—')}
+                        ].filter(Boolean).join(' ') || 'â€”')}
                         {renderDetailField('Documento', pickValue(selectedSale, ['documento', 'contact_documento', 'contacto_documento', 'dni', 'cedula']))}
                         {renderDetailField('Teléfono', pickValue(selectedSale, ['celular', 'telefono', 'phone']))}
                         {renderDetailField('Email', pickValue(selectedSale, ['email', 'correo']))}
-                        {renderDetailField('Ubicación', [selectedSale.departamento, selectedSale.localidad].filter(Boolean).join(', ') || '—')}
+                        {renderDetailField('Ubicación', [selectedSale.departamento, selectedSale.localidad].filter(Boolean).join(', ') || 'â€”')}
                       </div>
                     </div>
                     <div style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 12, padding: 12 }}>
@@ -6106,7 +6106,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                 : { bg: 'rgba(148,163,184,0.2)', text: '#64748b', border: 'rgba(148,163,184,0.4)' };
                             return (
                               <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: pill.bg, color: pill.text, border: `1px solid ${pill.border}` }}>
-                                {prodStatus || '—'}
+                                {prodStatus || 'â€”'}
                               </span>
                             );
                           }
@@ -6120,7 +6120,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           {getRelatedSales(selectedSale).map((item, index) => {
                             const nombre = [item?.nombre, item?.apellido].filter(Boolean).join(' ')
                               || [item?.contact_nombre, item?.contact_apellido].filter(Boolean).join(' ')
-                              || '—';
+                              || 'â€”';
                             return (
                               <div key={item?.id || item?.sale_id || index} style={{ borderRadius: 10, padding: 10, border: '1px solid rgba(15,23,42,0.08)', background: '#fff' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
@@ -6288,7 +6288,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <div className="status-ring" style={{ background: 'rgba(37,99,235,0.12)', color: '#2563eb' }}><User size={18} /></div>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700 }}>{contact.name}</div>
-              <div style={{ color: 'var(--muted)' }}>{contact.phone} · {contact.city}</div>
+              <div style={{ color: 'var(--muted)' }}>{contact.phone} Â· {contact.city}</div>
             </div>
             <a className="sales-call-btn" href={'tel:' + contact.phone.replace(/\s/g, '')} title="Llamar contacto">
               <PhoneCall size={15} />
@@ -6364,7 +6364,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   {(contact.history || []).slice(0, 8).map((item) => (
                     <div key={item.at + item.status + item.note} className="alert">
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 700 }}>{salesStatusMeta(item.status).label} <span style={{ color: 'var(--muted)', fontWeight: 500 }}>· {item.at}</span></div>
+                        <div style={{ fontWeight: 700 }}>{salesStatusMeta(item.status).label} <span style={{ color: 'var(--muted)', fontWeight: 500 }}>Â· {item.at}</span></div>
                         <div style={{ color: 'var(--muted)' }}>{item.note || '-'}</div>
                       </div>
                     </div>
@@ -6380,11 +6380,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <div key={sale.id} className="alert">
                       <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: 700 }}>
-                          {sale.clienteNombre} — {products.find((p) => p.id === sale.productoId)?.nombre || 'Producto'}
+                          {sale.clienteNombre} â€” {products.find((p) => p.id === sale.productoId)?.nombre || 'Producto'}
                         </div>
                         <div style={{ color: 'var(--muted)' }}>
-                          {sale.grupoFamiliar ? ('Familiar · ' + (sale.relacionConTitular || '-')) : 'Venta principal'}
-                          {' · '}
+                          {sale.grupoFamiliar ? ('Familiar Â· ' + (sale.relacionConTitular || '-')) : 'Venta principal'}
+                          {' Â· '}
                           {sale.cuota ? ('$ ' + Number(sale.cuota).toLocaleString('es-UY')) : 'Cuota pendiente'}
                         </div>
                       </div>
@@ -6852,7 +6852,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                 <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#E1F5EE', color: '#0F6E56', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>{initials}</div>
                                 <div>
                                   <div style={{ fontSize: 13, fontWeight: 600 }}>{nombre}</div>
-                                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>{total} contactos · {gestionados} gestionados</div>
+                                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>{total} contactos Â· {gestionados} gestionados</div>
                                 </div>
                               </div>
                               <div style={{ display: 'flex', gap: 6 }}>
@@ -6907,7 +6907,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     </div>
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 600 }}>{reassignModal.sellerName}</div>
-                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>{reassignModal.contactCount} contactos · {reassignModal.gestionados} gestionados</div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>{reassignModal.contactCount} contactos Â· {reassignModal.gestionados} gestionados</div>
                     </div>
                   </div>
 
@@ -6953,7 +6953,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         </div>
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 600 }}>{removeModal.sellerName}</div>
-                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{removeModal.contactCount} contactos · {removeModal.gestionados} gestionados</div>
+                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{removeModal.contactCount} contactos Â· {removeModal.gestionados} gestionados</div>
                         </div>
                       </div>
                       <div style={{ fontSize: 12, color: '#A32D2D', background: '#FCEBEB', border: '1px solid #F09595', borderRadius: 6, padding: '8px 10px', marginBottom: 16 }}>
@@ -6967,7 +6967,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     </>
                   ) : (
                     <>
-                      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>¿A quién reasignás los contactos?</div>
+                      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>Â¿A quién reasignás los contactos?</div>
                       <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>Los {removeModal.contactCount} contactos de <strong>{removeModal.sellerName}</strong> pasarán a:</div>
                       <select className="input" style={{ width: '100%', marginBottom: 16 }}
                         value={reassignTarget}
@@ -7391,7 +7391,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           const status = err?.status;
           const backendMessage = err?.details?.message || err?.details?.error || err?.message || '';
           const statusLabel = status ? ` (HTTP ${status})` : '';
-          const detailLabel = backendMessage ? ` · ${backendMessage}` : '';
+          const detailLabel = backendMessage ? ` Â· ${backendMessage}` : '';
           setSupportDetailError(`No se pudo cargar el detalle del cliente${statusLabel}${detailLabel}.`);
         }
       }, []);
@@ -7537,7 +7537,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             <div style={{ flex: 1 }}>
                               <div style={{ fontWeight: 700 }}>{client.nombre}</div>
                               <div style={{ color: 'var(--muted)', fontSize: '0.86rem', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                                <span>CI {client.documento} · {client.telefono} · {client.productoActualNombre}</span>
+                                <span>CI {client.documento} Â· {client.telefono} Â· {client.productoActualNombre}</span>
                                 {productStatusBadge(client.status || client.estado || client.estadoProducto)}
                               </div>
                             </div>
@@ -7570,7 +7570,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                 <div style={{ flex: 1 }}>
                                   <div style={{ fontWeight: 700 }}>{client.name || 'Cliente'}</div>
                               <div style={{ color: 'var(--muted)', fontSize: '0.86rem', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                                <span>CI {client.documento || '—'} · {client.phone || '—'} · {client.product || 'Sin producto'}</span>
+                                <span>CI {client.documento || 'â€”'} Â· {client.phone || 'â€”'} Â· {client.product || 'Sin producto'}</span>
                                 {productStatusBadge(client.status || client.estado || client.estadoProducto)}
                               </div>
                                 </div>
@@ -7606,14 +7606,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       <div style={{ borderRadius: 16, border: '1px solid rgba(148,163,184,0.25)', padding: 14, background: '#f8fafc' }}>
                         <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#64748b' }}>Información del cliente</div>
                         <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
-                          <div><strong>Nombre completo:</strong> {`${selectedClient.nombre || selectedClient.name || ''} ${selectedClient.apellido || ''}`.trim() || '—'}</div>
-                          <div><strong>Numero de documento:</strong> {selectedClient.documento || '—'}</div>
-                          <div><strong>Fecha de nacimiento:</strong> {formatDate(selectedClient.fechaNacimiento || selectedClient.fecha_nacimiento) || '—'}</div>
-                          <div><strong>Edad:</strong> {calcAge(selectedClient.fechaNacimiento || selectedClient.fecha_nacimiento) || '—'}</div>
-                          <div><strong>Telefono:</strong> {selectedClient.telefono || selectedClient.phone || '—'}</div>
-                          <div><strong>Celular:</strong> {selectedClient.celular || selectedClient.cellphone || '—'}</div>
-                          <div><strong>Dirección:</strong> {selectedClient.direccion || '—'}</div>
-                          <div><strong>Departamento:</strong> {selectedClient.departamento || '—'}</div>
+                          <div><strong>Nombre completo:</strong> {`${selectedClient.nombre || selectedClient.name || ''} ${selectedClient.apellido || ''}`.trim() || 'â€”'}</div>
+                          <div><strong>Numero de documento:</strong> {selectedClient.documento || 'â€”'}</div>
+                          <div><strong>Fecha de nacimiento:</strong> {formatDate(selectedClient.fechaNacimiento || selectedClient.fecha_nacimiento) || 'â€”'}</div>
+                          <div><strong>Edad:</strong> {calcAge(selectedClient.fechaNacimiento || selectedClient.fecha_nacimiento) || 'â€”'}</div>
+                          <div><strong>Telefono:</strong> {selectedClient.telefono || selectedClient.phone || 'â€”'}</div>
+                          <div><strong>Celular:</strong> {selectedClient.celular || selectedClient.cellphone || 'â€”'}</div>
+                          <div><strong>Dirección:</strong> {selectedClient.direccion || 'â€”'}</div>
+                          <div><strong>Departamento:</strong> {selectedClient.departamento || 'â€”'}</div>
                         </div>
                       </div>
 
@@ -7622,11 +7622,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
                           <div><strong>Fecha de alta:</strong> {(availableProducts[0]?.fechaAlta || selectedClient.fechaVenta)
                             ? formatDate(availableProducts[0]?.fechaAlta || selectedClient.fechaVenta)
-                            : (formatDateShort(selectedClient.createdAt) || '—')}</div>
-                          <div><strong>Estado:</strong> {String(availableProducts[0]?.estadoProducto || availableProducts[0]?.estado || '—')}</div>
-                          <div><strong>Nombre del producto:</strong> {String(availableProducts[0]?.productoNombre || availableProducts[0]?.nombreProducto || availableProducts[0]?.nombre_producto || selectedClient.productoActualNombre || selectedClient.product?.nombreProducto || selectedClient.product?.nombre || selectedClient.productoNombre || selectedClient.producto_nombre || selectedClient.product || '—')}</div>
-                          <div><strong>Precio:</strong> {availableProducts[0]?.precio ? `$ ${Number(String(availableProducts[0].precio).replace(/[^0-9.-]/g, '')).toLocaleString('es-UY')}` : (selectedClient.fee || '—')}</div>
-                          <div><strong>Carencia:</strong> {String(availableProducts[0]?.carenciaCuotas ?? availableProducts[0]?.carencia_cuotas ?? '—')}</div>
+                            : (formatDateShort(selectedClient.createdAt) || 'â€”')}</div>
+                          <div><strong>Estado:</strong> {String(availableProducts[0]?.estadoProducto || availableProducts[0]?.estado || 'â€”')}</div>
+                          <div><strong>Nombre del producto:</strong> {String(availableProducts[0]?.productoNombre || availableProducts[0]?.nombreProducto || availableProducts[0]?.nombre_producto || selectedClient.productoActualNombre || selectedClient.product?.nombreProducto || selectedClient.product?.nombre || selectedClient.productoNombre || selectedClient.producto_nombre || selectedClient.product || 'â€”')}</div>
+                          <div><strong>Precio:</strong> {availableProducts[0]?.precio ? `$ ${Number(String(availableProducts[0].precio).replace(/[^0-9.-]/g, '')).toLocaleString('es-UY')}` : (selectedClient.fee || 'â€”')}</div>
+                          <div><strong>Carencia:</strong> {String(availableProducts[0]?.carenciaCuotas ?? availableProducts[0]?.carencia_cuotas ?? 'â€”')}</div>
                         </div>
                       </div>
 
@@ -7642,7 +7642,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             <option value="">Seleccionar producto</option>
                             {availableProducts.map((product) => (
                               <option key={product.id} value={product.id}>
-                                {(product.productoNombre || product.nombreProducto || product.nombre_producto || product.nombre || 'Producto')} · Alta {product.fechaAlta ? formatDate(product.fechaAlta) : 's/f'}
+                                {(product.productoNombre || product.nombreProducto || product.nombre_producto || product.nombre || 'Producto')} Â· Alta {product.fechaAlta ? formatDate(product.fechaAlta) : 's/f'}
                               </option>
                             ))}
                           </select>
@@ -7700,7 +7700,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           </div>
 
                           <div style={{ marginTop: 10, display: 'grid', gap: 10 }}>
-                            <input className="input" placeholder="¿Dónde se encuentra el cuerpo actualmente? (hospital, domicilio, morgue)" value={manualDraft.cuerpoUbicacion} onChange={(event) => setManualDraft((prev) => ({ ...prev, cuerpoUbicacion: event.target.value }))} />
+                            <input className="input" placeholder="Â¿Dónde se encuentra el cuerpo actualmente? (hospital, domicilio, morgue)" value={manualDraft.cuerpoUbicacion} onChange={(event) => setManualDraft((prev) => ({ ...prev, cuerpoUbicacion: event.target.value }))} />
                             <div className="toolbar" style={{ flexWrap: 'wrap' }}>
                               <select className="input" style={{ width: 220 }} value={manualDraft.requiereTraslado} onChange={(event) => setManualDraft((prev) => ({ ...prev, requiereTraslado: event.target.value }))}>
                                 <option value="no">No requiere traslado</option>
@@ -7836,7 +7836,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               </div>
               {filtered.length ? (
                 <div className="toolbar" style={{ justifyContent: 'space-between', marginTop: 12 }}>
-                  <span className="pill">Página {safePage} de {totalPages} · {filtered.length} tickets</span>
+                  <span className="pill">Página {safePage} de {totalPages} Â· {filtered.length} tickets</span>
                   <div className="toolbar">
                     <Button variant="ghost" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1}>Anterior</Button>
                     <Button variant="ghost" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages}>Siguiente</Button>
@@ -7998,7 +7998,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const transcript = ticket.transcripcion
         ? ticket.transcripcion.split('\n').filter(Boolean)
         : [
-            'IA: Hola, gracias por llamar a Rednacrem. ¿En qué puedo ayudarte hoy?',
+            'IA: Hola, gracias por llamar a Rednacrem. Â¿En qué puedo ayudarte hoy?',
             'Cliente: Necesito revisar un movimiento de mi cuenta.',
             'IA: Perfecto, verifico tus datos y genero solicitud para seguimiento.',
             'Cliente: Gracias, quedo a la espera de confirmación.'
@@ -8010,7 +8010,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <Panel
               className="span-8"
               title={'Solicitud #' + String(ticket.numero || ticket.id).padStart(6, '0')}
-              subtitle={'Tipo: ' + supportRequestTypeLabel(ticket) + ' · Creado ' + (formatDateTimeShort(ticket.hora) || ticket.hora) + ' por ' + ticket.agente}
+              subtitle={'Tipo: ' + supportRequestTypeLabel(ticket) + ' Â· Creado ' + (formatDateTimeShort(ticket.hora) || ticket.hora) + ' por ' + ticket.agente}
               action={<div className="toolbar"><button type="button" className="button ghost" onClick={(event) => { event.stopPropagation(); onBack(); }}><ArrowDownRight size={16} />Volver</button></div>}
             >
               <div className="toolbar" style={{ marginBottom: 14 }}>
@@ -8045,14 +8045,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       <div style={{ fontWeight: 800, marginBottom: 8 }}>Cliente</div>
                       {clientDetailError ? <div style={{ color: '#be123c', fontWeight: 700 }}>{clientDetailError}</div> : null}
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>
-                        <div><strong>Nombre:</strong> {clientDetail?.name || `${clientDetail?.nombre || ''} ${clientDetail?.apellido || ''}`.trim() || ticket.cliente || '—'}</div>
-                        <div><strong>Documento:</strong> {clientDetail?.documento || '—'}</div>
-                        <div><strong>Teléfono:</strong> {clientDetail?.telefono || clientDetail?.phone || ticket.telefono || '—'}</div>
-                        <div><strong>Celular:</strong> {clientDetail?.celular || clientDetail?.cellphone || '—'}</div>
-                        <div><strong>Email:</strong> {clientDetail?.email || '—'}</div>
-                        <div><strong>Dirección:</strong> {clientDetail?.direccion || '—'}</div>
-                        <div><strong>Departamento:</strong> {clientDetail?.departamento || '—'}</div>
-                        <div><strong>País:</strong> {clientDetail?.pais || '—'}</div>
+                        <div><strong>Nombre:</strong> {clientDetail?.name || `${clientDetail?.nombre || ''} ${clientDetail?.apellido || ''}`.trim() || ticket.cliente || 'â€”'}</div>
+                        <div><strong>Documento:</strong> {clientDetail?.documento || 'â€”'}</div>
+                        <div><strong>Teléfono:</strong> {clientDetail?.telefono || clientDetail?.phone || ticket.telefono || 'â€”'}</div>
+                        <div><strong>Celular:</strong> {clientDetail?.celular || clientDetail?.cellphone || 'â€”'}</div>
+                        <div><strong>Email:</strong> {clientDetail?.email || 'â€”'}</div>
+                        <div><strong>Dirección:</strong> {clientDetail?.direccion || 'â€”'}</div>
+                        <div><strong>Departamento:</strong> {clientDetail?.departamento || 'â€”'}</div>
+                        <div><strong>País:</strong> {clientDetail?.pais || 'â€”'}</div>
                       </div>
                     </div>
                   </div>
@@ -8064,10 +8064,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 800, marginBottom: 8 }}>Producto</div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>
-                        <div><strong>Nombre:</strong> {clientDetail?.product?.nombreProducto || clientDetail?.product?.nombre_producto || clientDetail?.product?.nombre || ticket.productoNombre || '—'}</div>
-                        <div><strong>Estado:</strong> {clientDetail?.product?.estado || clientDetail?.product?.estadoProducto || '—'}</div>
-                        <div><strong>Fecha de alta:</strong> {formatDate(clientDetail?.product?.fechaAlta || clientDetail?.product?.fecha_alta || '') || '—'}</div>
-                        <div><strong>Precio:</strong> {clientDetail?.product?.precio ? `$ ${Number(String(clientDetail.product.precio).replace(/[^0-9.-]/g, '')).toLocaleString('es-UY')}` : '—'}</div>
+                        <div><strong>Nombre:</strong> {clientDetail?.product?.nombreProducto || clientDetail?.product?.nombre_producto || clientDetail?.product?.nombre || ticket.productoNombre || 'â€”'}</div>
+                        <div><strong>Estado:</strong> {clientDetail?.product?.estado || clientDetail?.product?.estadoProducto || 'â€”'}</div>
+                        <div><strong>Fecha de alta:</strong> {formatDate(clientDetail?.product?.fechaAlta || clientDetail?.product?.fecha_alta || '') || 'â€”'}</div>
+                        <div><strong>Precio:</strong> {clientDetail?.product?.precio ? `$ ${Number(String(clientDetail.product.precio).replace(/[^0-9.-]/g, '')).toLocaleString('es-UY')}` : 'â€”'}</div>
                       </div>
                     </div>
                   </div>
@@ -8088,10 +8088,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
                           {!editingServiceRequest ? (
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, marginTop: 6 }}>
-                              <div><strong>Nombre completo:</strong> {ticket.serviceRequest?.solicitanteNombre || '—'}</div>
-                              <div><strong>Documento de identidad:</strong> {ticket.serviceRequest?.solicitanteDocumento || '—'}</div>
-                              <div><strong>Teléfono de contacto:</strong> {ticket.serviceRequest?.solicitanteTelefono || '—'}</div>
-                              <div><strong>Relación con el fallecido:</strong> {ticket.serviceRequest?.solicitanteRelacion || '—'}</div>
+                              <div><strong>Nombre completo:</strong> {ticket.serviceRequest?.solicitanteNombre || 'â€”'}</div>
+                              <div><strong>Documento de identidad:</strong> {ticket.serviceRequest?.solicitanteDocumento || 'â€”'}</div>
+                              <div><strong>Teléfono de contacto:</strong> {ticket.serviceRequest?.solicitanteTelefono || 'â€”'}</div>
+                              <div><strong>Relación con el fallecido:</strong> {ticket.serviceRequest?.solicitanteRelacion || 'â€”'}</div>
                             </div>
                           ) : (
                             <>
@@ -8114,23 +8114,23 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           <div style={{ fontWeight: 800 }}>Datos del servicio</div>
                           {!editingServiceRequest ? (
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, marginTop: 6 }}>
-                              <div><strong>Ubicación del cuerpo:</strong> {ticket.serviceRequest?.cuerpoUbicacion || '—'}</div>
+                              <div><strong>Ubicación del cuerpo:</strong> {ticket.serviceRequest?.cuerpoUbicacion || 'â€”'}</div>
                               <div><strong>Traslado:</strong> {ticket.serviceRequest?.requiereTraslado ? 'Sí' : 'No'}</div>
                               {ticket.serviceRequest?.requiereTraslado ? (
                                 <>
-                                  <div><strong>Origen:</strong> {ticket.serviceRequest?.trasladoOrigen || '—'}</div>
-                                  <div><strong>Destino:</strong> {ticket.serviceRequest?.trasladoDestino || '—'}</div>
+                                  <div><strong>Origen:</strong> {ticket.serviceRequest?.trasladoOrigen || 'â€”'}</div>
+                                  <div><strong>Destino:</strong> {ticket.serviceRequest?.trasladoDestino || 'â€”'}</div>
                                 </>
                               ) : null}
-                              <div><strong>Tipo de servicio:</strong> {ticket.serviceRequest?.servicioTipo || '—'}</div>
-                              <div><strong>Lugar del velatorio:</strong> {ticket.serviceRequest?.velatorioLugar || '—'}</div>
-                              <div><strong>Fecha y hora estimada:</strong> {formatDateTimeShort(ticket.serviceRequest?.servicioFechaHora) || ticket.serviceRequest?.servicioFechaHora || '—'}</div>
-                              <div><strong>Crematorio seleccionado:</strong> {ticket.serviceRequest?.crematorio || '—'}</div>
+                              <div><strong>Tipo de servicio:</strong> {ticket.serviceRequest?.servicioTipo || 'â€”'}</div>
+                              <div><strong>Lugar del velatorio:</strong> {ticket.serviceRequest?.velatorioLugar || 'â€”'}</div>
+                              <div><strong>Fecha y hora estimada:</strong> {formatDateTimeShort(ticket.serviceRequest?.servicioFechaHora) || ticket.serviceRequest?.servicioFechaHora || 'â€”'}</div>
+                              <div><strong>Crematorio seleccionado:</strong> {ticket.serviceRequest?.crematorio || 'â€”'}</div>
                             </div>
                           ) : (
                             <>
                               <div style={{ marginTop: 8, display: 'grid', gap: 10 }}>
-                                <input className="input" placeholder="¿Dónde se encuentra el cuerpo actualmente?" value={serviceRequestDraft.cuerpoUbicacion} onChange={(event) => setServiceRequestDraft((prev) => ({ ...prev, cuerpoUbicacion: event.target.value }))} />
+                                <input className="input" placeholder="Â¿Dónde se encuentra el cuerpo actualmente?" value={serviceRequestDraft.cuerpoUbicacion} onChange={(event) => setServiceRequestDraft((prev) => ({ ...prev, cuerpoUbicacion: event.target.value }))} />
                                 <div className="toolbar" style={{ flexWrap: 'wrap' }}>
                                   <select className="input" style={{ width: 220 }} value={serviceRequestDraft.requiereTraslado ? 'si' : 'no'} onChange={(event) => setServiceRequestDraft((prev) => ({ ...prev, requiereTraslado: event.target.value === 'si' }))}>
                                     <option value="no">No requiere traslado</option>
@@ -8173,7 +8173,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <div className="status-ring" style={{ background: 'rgba(14,116,144,0.12)', color: '#0e7490' }}><FileText size={18} /></div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 800, marginBottom: 8 }}>Resumen</div>
-                      <div style={{ color: 'var(--muted)' }}>{ticket.resumen || '—'}</div>
+                      <div style={{ color: 'var(--muted)' }}>{ticket.resumen || 'â€”'}</div>
                     </div>
                   </div>
                 </div>
@@ -8189,7 +8189,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         <div style={{ fontWeight: 700 }}>
                           {item.autor}
                           <span style={{ color: 'var(--muted)', fontWeight: 500 }}>
-                            {' · '}
+                            {' Â· '}
                             {item.hora || formatDateTimeShort(item.createdAt) || ''}
                           </span>
                         </div>
@@ -8211,9 +8211,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     {ticket.cierreHistory.map((entry, idx) => (
                       <div key={(entry.at || '') + (entry.resultado || '') + idx} className="alert">
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8 }}>
-                          <div><strong>Fecha y hora:</strong> {formatDateTimeShort(entry.at) || entry.at || '—'}</div>
-                          <div><strong>Usuario:</strong> {entry.user || '—'}</div>
-                          <div><strong>Resultado:</strong> {entry.resultado || '—'}</div>
+                          <div><strong>Fecha y hora:</strong> {formatDateTimeShort(entry.at) || entry.at || 'â€”'}</div>
+                          <div><strong>Usuario:</strong> {entry.user || 'â€”'}</div>
+                          <div><strong>Resultado:</strong> {entry.resultado || 'â€”'}</div>
                         </div>
                       </div>
                     ))}
@@ -8352,7 +8352,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           const cierreEntry = {
             at: formatDateTimeShort(new Date().toISOString()) || new Date().toISOString(),
             user: 'Agente',
-            resultado: outcomeLabel || '—'
+            resultado: outcomeLabel || 'â€”'
           };
           const cierreHistory = Array.isArray(updated.cierreHistory)
             ? [cierreEntry, ...updated.cierreHistory]
@@ -8758,7 +8758,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           const backendMessage =
             err?.details?.message || err?.details?.error || err?.message || '';
           const statusLabel = status ? ` (HTTP ${status})` : '';
-          const detailLabel = backendMessage ? ` · ${backendMessage}` : '';
+          const detailLabel = backendMessage ? ` Â· ${backendMessage}` : '';
           setClientDetailError(`No se pudo cargar el detalle del cliente${statusLabel}${detailLabel}.`);
         }
       }, [clientRows]);
@@ -8804,7 +8804,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const handleDeleteClient = React.useCallback(async (clientId, clientName) => {
         if (!clientId) return;
         const label = clientName || 'este cliente';
-        const confirmed = window.confirm(`¿Seguro que querés eliminar a ${label}? Esta acción es definitiva.`);
+        const confirmed = window.confirm(`Â¿Seguro que querés eliminar a ${label}? Esta acción es definitiva.`);
         if (!confirmed) return;
         try {
           await deleteClient(clientId);
@@ -9313,7 +9313,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                 </span>
                               </div>
                               <div style={{ marginTop: 6, fontSize: 12, color: '#64748b' }}>
-                                {product.categoria || 'General'} · {formatCurrency(product.precio || 0)} {product.moneda || 'UYU'}
+                                {product.categoria || 'General'} Â· {formatCurrency(product.precio || 0)} {product.moneda || 'UYU'}
                               </div>
                               {product.descripcion ? (
                                 <div style={{ marginTop: 6, fontSize: 12, color: '#94a3b8' }}>{product.descripcion}</div>
@@ -10024,7 +10024,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           <option value="">Seleccionar producto...</option>
                           {productsCatalog.map((product) => (
                             <option key={product.id} value={product.id}>
-                              {product.nombre} · {formatCurrency(product.precio || 0)} {product.moneda || 'UYU'}
+                              {product.nombre} Â· {formatCurrency(product.precio || 0)} {product.moneda || 'UYU'}
                             </option>
                           ))}
                         </select>
@@ -10215,6 +10215,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           activo: true
         });
         const [users, setUsers] = React.useState(SUPERADMIN_USERS_SEED);
+        const [pauseModal, setPauseModal] = React.useState(null); // { id, nombre, email }
+        const [pauseLoading, setPauseLoading] = React.useState(false);
         const [showImportFlow, setShowImportFlow] = React.useState(false);
       const [importDraft, setImportDraft] = React.useState({ fileName: '', csvText: '' });
       const [preview, setPreview] = React.useState(null);
@@ -10278,9 +10280,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const progressPercent = row.progress_percent ?? row.progressPercent ?? row.pct_progress ?? null;
         return {
           id: row.id || row.job_id || row.jobId || row.batchId || row.batch_id || row.nombreArchivo || row.file_name,
-          fileName: row.file_name || row.nombreArchivo || row.archivo || '—',
+          fileName: row.file_name || row.nombreArchivo || row.archivo || 'â€”',
           importType: row.import_type || row.tipo || row.importType || '',
-          importTypeLabel: row.import_type_label || row.importTypeLabel || row.tipo_label || row.tipo || '—',
+          importTypeLabel: row.import_type_label || row.importTypeLabel || row.tipo_label || row.tipo || 'â€”',
           createdAt: row.created_at || row.fecha || '',
           totalRows,
           insertedRows,
@@ -10290,12 +10292,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           statusKey,
           statusLabel: IMPORT_STATUS_LABELS[statusKey] || row.estado || row.status || 'En cola',
           statusVariant: IMPORT_STATUS_VARIANTS[statusKey] || 'info',
-          createdBy: row.created_by_name || row.usuario || row.usuarioId || '—',
+          createdBy: row.created_by_name || row.usuario || row.usuarioId || 'â€”',
           errorMessage: row.error_message || row.error || row.mensaje_error || ''
         };
       };
       const formatImportDate = (value) => {
-        if (!value) return '—';
+        if (!value) return 'â€”';
         try {
           return new Date(value).toLocaleString('es-UY', {
             day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit'
@@ -10781,7 +10783,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               skipped_rows: 0,
               processed_rows: 0,
               status: 'queued',
-              created_by_name: result?.createdByName || '—'
+              created_by_name: result?.createdByName || 'â€”'
             });
             setImports((prev) => [optimisticRow, ...prev.filter((row) => row.id !== optimisticRow.id)]);
             setShowImportFlow(false);
@@ -10821,8 +10823,27 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         { title: 'Lotes activos', value: '6', change: 0.0, label: 'en gestión', trend: 'up', icon: Layers, bg: 'rgba(20,34,53,0.12)', color: '#1f2937' }
       ];
 
-      const toggleUserState = (email) => {
-        setUsers((prev) => prev.map((item) => item.email === email ? { ...item, estado: item.estado === 'Activo' ? 'Inactivo' : 'Activo' } : item));
+      const toggleUserState = async (userRow) => {
+        if (userRow.status === 'approved') {
+          // Abrir modal de confirmacion antes de pausar
+          setPauseModal({ id: userRow.id, nombre: `${userRow.nombre} ${userRow.apellido}`.trim(), email: userRow.email });
+        } else if (userRow.status === 'pausado') {
+          // Reactivar directo
+          try {
+            const res = await fetch(buildApiUrl(`/api/users/${userRow.id}/reactivar`, getApiBaseUrl()), {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(user?.accessToken) }
+            });
+            const data = await res.json();
+            if (!data.ok) throw new Error(data.message);
+            setUsers((prev) => prev.map((u) => u.id === userRow.id ? { ...u, status: 'approved', estado: 'Activo' } : u));
+          } catch (err) {
+            alert(err.message || 'No se pudo reactivar el usuario.');
+          }
+        } else {
+          // inactive - toggle simple local por ahora
+          setUsers((prev) => prev.map((u) => u.email === userRow.email ? { ...u, estado: u.estado === 'Activo' ? 'Inactivo' : 'Activo' } : u));
+        }
       };
 
       if (route === 'sa_importaciones') {
@@ -10980,9 +11001,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                     `fileName: ${row.fileName}`,
                                     `importType: ${row.importType || row.importTypeLabel}`,
                                     `endpoint: /imports`,
-                                    `batchId: ${row.id || '—'}`,
+                                    `batchId: ${row.id || 'â€”'}`,
                                     `status: ${row.statusKey}`,
-                                    `error: ${row.errorMessage || '—'}`
+                                    `error: ${row.errorMessage || 'â€”'}`
                                   ].join('\n');
                                   if (navigator?.clipboard?.writeText) {
                                     navigator.clipboard.writeText(payload);
@@ -11023,7 +11044,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   {!importsLoading && !imports.length ? <div style={{ padding: 16, color: 'var(--muted)' }}>No hay importaciones para los filtros aplicados.</div> : null}
                 </div>
                 <div className="toolbar" style={{ justifyContent: 'space-between', marginTop: 12 }}>
-                  <span className="pill">Página {importsMeta.page} de {importsMeta.totalPages} · {importsMeta.total} registros</span>
+                  <span className="pill">Página {importsMeta.page} de {importsMeta.totalPages} Â· {importsMeta.total} registros</span>
                   <div className="toolbar">
                     <Button variant="ghost" onClick={() => setImportsPage((p) => Math.max(1, p - 1))} disabled={importsMeta.page <= 1}>Anterior</Button>
                     <Button variant="ghost" onClick={() => setImportsPage((p) => Math.min(importsMeta.totalPages, p + 1))} disabled={importsMeta.page >= importsMeta.totalPages}>Siguiente</Button>
@@ -11059,7 +11080,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             <div style={{ marginTop: 10, padding: 10, border: '1px solid rgba(20,34,53,0.08)', borderRadius: 12, background: 'rgba(20,34,53,0.03)' }}>
                               <div style={{ fontWeight: 700 }}>Preview</div>
                               <div style={{ color: 'var(--muted)' }}>
-                                Total: {preview.summary.total} · Importables: {preview.summary.importados} · Rechazados: {preview.summary.rechazados}
+                                Total: {preview.summary.total} Â· Importables: {preview.summary.importados} Â· Rechazados: {preview.summary.rechazados}
                               </div>
                               {preview.skippedEmptyRows ? (
                                 <div style={{ marginTop: 6, color: '#64748b', fontSize: '0.85rem' }}>
@@ -11072,7 +11093,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                     Productos nuevos detectados: {preview.newProductsCount}
                                   </div>
                                   <div style={{ marginTop: 6, color: '#7c2d12', fontSize: '0.85rem' }}>
-                                    {preview.newProducts.slice(0, 6).join(', ')}{preview.newProducts.length > 6 ? '…' : ''}
+                                    {preview.newProducts.slice(0, 6).join(', ')}{preview.newProducts.length > 6 ? 'â€¦' : ''}
                                   </div>
                                   <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, fontSize: '0.85rem', color: '#7c2d12' }}>
                                     <input
@@ -11110,9 +11131,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       </div>
                       <div className="lot-step"><span className="lot-step-index">3</span><div><h4>Confirmar importación</h4><p>Se registrará en el historial con resultado final.</p></div></div>
                       <div style={{ marginTop: 8, padding: 10, borderRadius: 12, border: '1px solid rgba(20,34,53,0.08)', background: 'rgba(248,250,252,0.9)' }}>
-                        <div style={{ fontSize: 12, color: '#475569' }}><strong>Archivo:</strong> {importDraft.fileName || '—'}</div>
+                        <div style={{ fontSize: 12, color: '#475569' }}><strong>Archivo:</strong> {importDraft.fileName || 'â€”'}</div>
                         <div style={{ fontSize: 12, color: '#475569' }}>
-                          <strong>Tipo:</strong> {IMPORT_TYPES[importDraft.importType]?.label || '—'}
+                          <strong>Tipo:</strong> {IMPORT_TYPES[importDraft.importType]?.label || 'â€”'}
                         </div>
                         {isDevEnv ? (
                           <div style={{ fontSize: 11, color: '#94a3b8' }}>
@@ -11187,7 +11208,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                 <tr key={row.id || row.row_number}>
                                   <td>{row.row_number}</td>
                                   <td>{row.import_status}</td>
-                                  <td style={{ color: row.error_detail ? '#b45309' : 'var(--muted)' }}>{row.error_detail || '—'}</td>
+                                  <td style={{ color: row.error_detail ? '#b45309' : 'var(--muted)' }}>{row.error_detail || 'â€”'}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -11203,7 +11224,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 420 }}>
                       <div className="lot-wizard-header">
                         <div>
-                          <h3>¿Eliminar importación?</h3>
+                          <h3>Â¿Eliminar importación?</h3>
                           <p>Esta acción no se puede deshacer.</p>
                         </div>
                         <button className="icon-button" style={{ width: 36, height: 36 }} onClick={closeImportDeleteModal}><X size={16} color="#152235" /></button>
@@ -11295,11 +11316,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                               : diffData.noEncontrados
                             ).slice(0, 50).map((row, index) => (
                               <tr key={row.id || row.documento || index}>
-                                <td>{row.nombre || row.nombre_titular || '—'}</td>
-                                <td>{row.apellido || row.apellido_titular || '—'}</td>
-                                <td>{row.documento || row.cedula || '—'}</td>
-                                <td>{row.estado_csv || row.estadoCsv || '—'}</td>
-                                <td>{row.estado_bd || row.estadoBd || '—'}</td>
+                                <td>{row.nombre || row.nombre_titular || 'â€”'}</td>
+                                <td>{row.apellido || row.apellido_titular || 'â€”'}</td>
+                                <td>{row.documento || row.cedula || 'â€”'}</td>
+                                <td>{row.estado_csv || row.estadoCsv || 'â€”'}</td>
+                                <td>{row.estado_bd || row.estadoBd || 'â€”'}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -11319,11 +11340,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', marginBottom: 6 }}>Debug import</div>
                     <div style={{ fontSize: 11, color: '#64748b' }}>
                       <div>importType: {importDraft.importType}</div>
-                      <div>endpoint: {importDebug.endpoint || '—'}</div>
-                      <div>batchId: {importDebug.batchId || '—'}</div>
-                      <div>payload: {importDebug.payload ? JSON.stringify(importDebug.payload) : '—'}</div>
-                      <div>response: {importDebug.response ? JSON.stringify(importDebug.response) : '—'}</div>
-                      <div>error: {importDebug.error || '—'}</div>
+                      <div>endpoint: {importDebug.endpoint || 'â€”'}</div>
+                      <div>batchId: {importDebug.batchId || 'â€”'}</div>
+                      <div>payload: {importDebug.payload ? JSON.stringify(importDebug.payload) : 'â€”'}</div>
+                      <div>response: {importDebug.response ? JSON.stringify(importDebug.response) : 'â€”'}</div>
+                      <div>error: {importDebug.error || 'â€”'}</div>
                     </div>
                   </div>
                 ) : null}
@@ -11382,28 +11403,92 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return (
           <div className="view">
             <section className="content-grid">
-              <Panel className="span-12" title="Usuarios y roles" subtitle="Gestión de accesos y alcance" action={<Button icon={<Plus size={16} />}>Crear usuario</Button>}>
+              <Panel className="span-12" title="Usuarios y roles" subtitle="Gestion de accesos y alcance"
+                action={<Button icon={<Plus size={16} />}>Crear usuario</Button>}>
                 <div className="table-wrap">
                   <table>
-                    <thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Estado</th><th>Último acceso</th><th>Módulos / alcance</th><th>Acción</th></tr></thead>
+                    <thead>
+                      <tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Estado</th><th>Ultimo acceso</th><th>Modulos / alcance</th><th>Accion</th></tr>
+                    </thead>
                     <tbody>
-                      {users.map((userRow) => (
-                        <tr key={userRow.email}>
-                          <td><strong>{userRow.nombre}</strong></td>
-                          <td>{userRow.email}</td>
-                          <td>{userRow.rol}</td>
-                          <td><Tag variant={userRow.estado === 'Activo' ? 'success' : 'warning'}>{userRow.estado}</Tag></td>
-                          <td>{userRow.ultimoAcceso}</td>
-                          <td>{userRow.alcance}</td>
-                          <td><div className="toolbar"><Button variant="ghost" icon={<Edit3 size={15} />}>Editar</Button><Button variant="secondary" onClick={() => toggleUserState(userRow.email)}>{userRow.estado === 'Activo' ? 'Desactivar' : 'Activar'}</Button></div></td>
-                        </tr>
-                      ))}
+                      {users.map((userRow) => {
+                        const isPausado = userRow.status === 'pausado';
+                        const isInactive = userRow.estado === 'Inactivo' || userRow.status === 'inactive';
+                        return (
+                          <tr key={userRow.email}>
+                            <td><strong>{userRow.nombre}</strong></td>
+                            <td>{userRow.email}</td>
+                            <td>{userRow.rol}</td>
+                            <td>
+                              {isPausado
+                                ? <Tag variant="warning">Pausado</Tag>
+                                : <Tag variant={isInactive ? 'warning' : 'success'}>{isInactive ? 'Inactivo' : 'Activo'}</Tag>
+                              }
+                            </td>
+                            <td>{userRow.ultimoAcceso}</td>
+                            <td>{userRow.alcance}</td>
+                            <td>
+                              <div className="toolbar">
+                                <Button variant="ghost" icon={<Edit3 size={15} />}>Editar</Button>
+                                {isPausado ? (
+                                  <Button variant="secondary" onClick={() => toggleUserState(userRow)}>Reactivar</Button>
+                                ) : (
+                                  <Button variant="secondary" onClick={() => toggleUserState(userRow)}>
+                                    {isInactive ? 'Activar' : 'Pausar'}
+                                  </Button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
-                  {!users.length ? <div style={{ padding: 16, color: 'var(--muted)' }}>No hay usuarios registrados.</div> : null}
+                  {!users.length && <div style={{ padding: 16, color: 'var(--muted)' }}>No hay usuarios registrados.</div>}
                 </div>
               </Panel>
             </section>
+
+            {/* MODAL PAUSAR VENDEDOR */}
+            {pauseModal && (
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+                <div style={{ background: '#FFFFFF', borderRadius: 12, padding: 24, width: 400, border: '1px solid rgba(20,34,53,0.12)', boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}>
+                  <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>Pausar vendedor</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>
+                    Vas a pausar a <strong>{pauseModal.nombre}</strong>.
+                  </div>
+                  <div style={{ fontSize: 12, background: '#FAEEDA', color: '#884F0B', border: '1px solid #EF9F27', borderRadius: 8, padding: '10px 12px', marginBottom: 16 }}>
+                    El vendedor no podra ingresar al sistema ni recibira datos nuevos mientras este pausado.<br /><br />
+                    Sus contactos pendientes en los lotes activos deben ser reasignados desde la vista de <strong>Lotes</strong>.
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 20 }}>
+                    Cuando vuelva, podes reactivarlo desde esta misma vista.
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                    <Button variant="secondary" onClick={() => setPauseModal(null)}>Cancelar</Button>
+                    <Button onClick={async () => {
+                      setPauseLoading(true);
+                      try {
+                        const res = await fetch(buildApiUrl(`/api/users/${pauseModal.id}/pausar`, getApiBaseUrl()), {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(user?.accessToken) }
+                        });
+                        const data = await res.json();
+                        if (!data.ok) throw new Error(data.message);
+                        setUsers((prev) => prev.map((u) => u.id === pauseModal.id ? { ...u, status: 'pausado', estado: 'Pausado' } : u));
+                        setPauseModal(null);
+                      } catch (err) {
+                        alert(err.message || 'No se pudo pausar el usuario.');
+                      } finally {
+                        setPauseLoading(false);
+                      }
+                    }} disabled={pauseLoading}>
+                      {pauseLoading ? 'Pausando...' : 'Confirmar pausa'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         );
       }
@@ -11418,7 +11503,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <div key={item.at + item.tipo} className="alert">
                       <div className="status-ring" style={{ width: 36, height: 36, borderRadius: 12, background: 'rgba(15,118,110,0.12)', color: '#0f766e' }}><Activity size={16} /></div>
                       <div>
-                        <div style={{ fontWeight: 700 }}>{item.tipo} <span style={{ color: 'var(--muted)', fontWeight: 500 }}>· {item.at}</span></div>
+                        <div style={{ fontWeight: 700 }}>{item.tipo} <span style={{ color: 'var(--muted)', fontWeight: 500 }}>Â· {item.at}</span></div>
                         <div style={{ color: 'var(--muted)' }}>{item.detalle}</div>
                       </div>
                     </div>
@@ -11754,7 +11839,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           }
           const tipo = String(estado?.tipo || '').toUpperCase();
           const tipoMap = {
-            BAÑO: 'bano',
+            "BA\u00D1O": 'bano',
             BANO: 'bano',
             DESCANSO: 'descanso',
             SUPERVISOR: 'supervisor',
@@ -12234,7 +12319,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           const teamSinceLabel = formatTeamSinceDateLabel(user?.last_login_at || user?.created_at || user?.createdAt);
           const teamStatusMeta = resolveEstadoUsuario(estadoUsuario);
           const displayUserName = currentUser.name || 'Usuario';
-          const displayUserEmail = currentUser.email ? ` · ${currentUser.email}` : '';
+          const displayUserEmail = currentUser.email ? ` Â· ${currentUser.email}` : '';
 
           return (
             <div className="view">
@@ -12466,3 +12551,6 @@ createRoot(document.getElementById('root')).render(
   </React.StrictMode>
 );
   
+
+
+
