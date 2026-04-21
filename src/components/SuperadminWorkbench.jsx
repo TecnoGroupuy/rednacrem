@@ -1360,7 +1360,6 @@ export default function SuperadminWorkbench({
                     <th>Rol</th>
                     <th>Estado</th>
                     <th>Último acceso</th>
-                    <th>Días inactivo</th>
                     <th>Acción</th>
                   </tr>
                 </thead>
@@ -1376,7 +1375,6 @@ export default function SuperadminWorkbench({
                         </Tag>
                       </td>
                       <td>{formatDate(item.ultimoAcceso)}</td>
-                      <td>{daysWithoutAccess(item.ultimoAcceso)}</td>
                       <td>
                         <div className="toolbar">
                           <Button
