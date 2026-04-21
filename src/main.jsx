@@ -6439,7 +6439,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       return map[status] || map.sin_asignar;
     };
 
-    function SupervisorModule({ route, contacts, lots, onBulkAssignContacts, onCreateLot, onAssignLotSeller, onCloseLot, onReactivateError, onOpenRoute }) {
+    function SupervisorModule({ route, contacts, lots, accessToken, onBulkAssignContacts, onCreateLot, onAssignLotSeller, onCloseLot, onReactivateError, onOpenRoute }) {
       const [search, setSearch] = React.useState('');
       const [sourceFilter, setSourceFilter] = React.useState('todos');
       const [cityFilter, setCityFilter] = React.useState('todos');
@@ -6729,7 +6729,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         try {
           const res = await fetch(buildApiUrl(`/lead-batches/${selectedLot.id}/remove-seller`, getApiBaseUrl()), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(user?.accessToken) },
+            headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(accessToken) },
             body: JSON.stringify({ seller_id: reassignModal.sellerId, new_seller_id: reassignTarget })
           });
           const data = await res.json();
@@ -7040,7 +7040,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           try {
                             const res = await fetch(buildApiUrl(`/lead-batches/${selectedLot.id}/remove-seller`, getApiBaseUrl()), {
                               method: 'POST',
-                              headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(user?.accessToken) },
+                              headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(accessToken) },
                               body: JSON.stringify({
                                 seller_id: removeModal.sellerId,
                                 mode: removeMode,
@@ -7089,7 +7089,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       try {
                         const res = await fetch(buildApiUrl(`/lead-batches/${selectedLot.id}/add-seller`, getApiBaseUrl()), {
                           method: 'POST',
-                          headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(user?.accessToken) },
+                          headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(accessToken) },
                           body: JSON.stringify({ seller_id: addSellerTarget })
                         });
                         const data = await res.json();
@@ -12276,6 +12276,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               route={route}
               contacts={salesContacts}
               lots={supervisorLots}
+              accessToken={authUser?.accessToken || null}
               onBulkAssignContacts={bulkAssignSupervisorContacts}
               onCreateLot={createSupervisorLot}
               onAssignLotSeller={assignSupervisorLotSeller}
