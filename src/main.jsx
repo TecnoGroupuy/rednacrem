@@ -6586,7 +6586,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
       const lotSummaries = React.useMemo(() => lots.map((lot) => {
         const lotContacts = contacts.filter((contact) => contact.lotId === lot.id);
-        const totalReal = lot.total_contactos || lot.cantidad_contactos || lotContacts.length || 0;
+        const totalReal = lot.total_contactos || lot.cantidad_contactos || lot.count || lotContacts.length || 0;
         const closed = lotContacts.filter((contact) => !isCommercialContactActive(contact)).length;
         const progress = totalReal ? Math.round((closed / totalReal) * 100) : 0;
         const finalizable = isLotFinalizableFromContacts(lotContacts);
