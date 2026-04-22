@@ -8313,7 +8313,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           setTickets(data);
           setSelectedId(data[0]?.id || null);
           })
-          .catch(() => {
+          .catch((err) => {
+            if (err?.status === 401 || err?.status === 403) {
+              setError('No tenés permisos para acceder a Solicitudes de servicio o la sesión expiró.');
+              return;
+            }
             setError('No se pudieron cargar las solicitudes.');
           })
           .finally(() => {
@@ -8339,13 +8343,18 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
       React.useEffect(() => {
         if (view !== 'detalle' || !selectedId) return undefined;
-        const intervalId = setInterval(() => {
+        let intervalId = setInterval(() => {
           getTicketById(selectedId)
             .then((fresh) => {
               if (!fresh) return;
               setTickets((prev) => prev.map((ticket) => ticket.id === fresh.id ? fresh : ticket));
             })
-            .catch(() => {});
+            .catch((err) => {
+              if (err?.status === 401 || err?.status === 403) {
+                if (intervalId) clearInterval(intervalId);
+                setError('No tenés permisos para consultar este ticket o la sesión expiró.');
+              }
+            });
         }, 30000);
         return () => clearInterval(intervalId);
       }, [view, selectedId]);
@@ -11706,6 +11715,22 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setVendedorNewClientOpen(true);
       };
       const hasRealSuperadminAccess = hasRealRole({ rolReal, allowedRoles: ['superadministrador'] }) && esSuperadmin;
+      const canLoadProducts = ['superadministrador', 'supervisor', 'vendedor', 'atencion_cliente'].includes(role);
+      const canLoadCommercialData = ['superadministrador', 'supervisor', 'vendedor'].includes(role);
+      const resolveLogoUrl = React.useCallback((value) => {
+        const raw = String(value || '').trim();
+        if (!raw) return '';
+        if (/^https?:\/\//i.test(raw) || raw.startsWith('data:') || raw.startsWith('blob:')) return raw;
+        if (raw.startsWith('/api/')) {
+          return buildApiUrl(raw, getApiBaseUrl());
+        }
+        const apiBase = String(getApiBaseUrl() || '').trim().replace(/\/+$/, '');
+        const publicBase = apiBase.replace(/\/api$/i, '');
+        if (raw.startsWith('/')) {
+          return `${publicBase}${raw}`;
+        }
+        return raw;
+      }, []);
       const roleNavWithBadges = React.useMemo(
         () => ROLE_NAV.map((item) => {
           if (item.path !== 'soporte') return item;
@@ -11740,6 +11765,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, [moduleStates]);
 
       React.useEffect(() => {
+        if (!authUser?.id) return undefined;
+        if (!canLoadProducts) {
+          setProductsCatalog([]);
+          return undefined;
+        }
         let active = true;
         listProductsAsync()
           .then((items) => {
@@ -11751,29 +11781,36 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             setProductsCatalog([]);
           });
         return () => { active = false; };
-      }, []);
+      }, [authUser?.id, canLoadProducts]);
 
       React.useEffect(() => {
-        if (role !== 'atencion_cliente') return;
+        if (!authUser?.id || role !== 'atencion_cliente') return;
         let active = true;
+        let intervalId = null;
+        let pollingBlockedByAuth = false;
         const refreshSupportBadge = async () => {
+          if (pollingBlockedByAuth) return;
           try {
             const items = await listTicketsAsync();
             if (!active) return;
             const count = items.filter((ticket) => ticket.estado === 'nuevo').length;
             setSupportNewTickets(count);
-          } catch {
+          } catch (err) {
             if (!active) return;
             setSupportNewTickets(0);
+            if (err?.status === 401 || err?.status === 403) {
+              pollingBlockedByAuth = true;
+              if (intervalId) window.clearInterval(intervalId);
+            }
           }
         };
         refreshSupportBadge();
-        const intervalId = window.setInterval(refreshSupportBadge, 30000);
+        intervalId = window.setInterval(refreshSupportBadge, 30000);
         return () => {
           active = false;
-          window.clearInterval(intervalId);
+          if (intervalId) window.clearInterval(intervalId);
         };
-      }, [role]);
+      }, [authUser?.id, role]);
 
       React.useEffect(() => {
         if (!topbarRef.current) return;
@@ -11799,9 +11836,18 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
       React.useEffect(() => {
         if (activeOrg?.logo_url) {
-          setBrandLogo(activeOrg.logo_url);
+          setBrandLogo(resolveLogoUrl(activeOrg.logo_url));
         }
-      }, [activeOrg?.logo_url]);
+      }, [activeOrg?.logo_url, resolveLogoUrl]);
+
+      React.useEffect(() => {
+        try {
+          const stored = localStorage.getItem('rednacrem_logo');
+          if (stored && !brandLogo) {
+            setBrandLogo(resolveLogoUrl(stored));
+          }
+        } catch {}
+      }, [brandLogo, resolveLogoUrl]);
 
       React.useEffect(() => {
         try {
@@ -11820,8 +11866,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           try {
             const response = await api.get('/api/config');
             if (!active) return;
-            if (response?.logo_url) {
-              setBrandLogo(response.logo_url);
+            const logoUrl = response?.logo_url || response?.data?.logo_url || '';
+            if (logoUrl) {
+              setBrandLogo(resolveLogoUrl(logoUrl));
             }
           } catch {
             // no-op
@@ -11829,7 +11876,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         };
         fetchLogo();
         return () => { active = false; };
-      }, []);
+      }, [resolveLogoUrl]);
 
       const refreshContactsFromService = React.useCallback(async () => {
         const next = await listCommercialContactsAsync();
@@ -11915,8 +11962,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, []);
 
       React.useEffect(() => {
+        if (!authUser?.id) return undefined;
+        if (!canLoadCommercialData) {
+          setSalesContacts([]);
+          setSupervisorLots([]);
+          return undefined;
+        }
         Promise.all([refreshContactsFromService(), refreshLotsFromService()]).catch(() => {});
-      }, [refreshContactsFromService, refreshLotsFromService]);
+      }, [authUser?.id, canLoadCommercialData, refreshContactsFromService, refreshLotsFromService]);
 
       React.useEffect(() => {
         if (!authUser?.id) return;
@@ -12023,9 +12076,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       // Acción crítica: branding global solo con rol real superadmin.
       const saveBrandLogoSecure = React.useCallback((logoUrl) => {
         if (!hasRealSuperadminAccess) return;
-        setBrandLogo(logoUrl);
+        setBrandLogo(resolveLogoUrl(logoUrl));
         setActiveOrg((prev) => prev ? { ...prev, logo_url: logoUrl } : prev);
-      }, [hasRealSuperadminAccess]);
+      }, [hasRealSuperadminAccess, resolveLogoUrl]);
 
       const handleEstadoUsuario = (estadoId) => {
         const next = resolveEstadoUsuario(estadoId);
@@ -12543,9 +12596,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     />
                   )}
                 </>
-              )}
-              {effectiveRoleForUi !== 'vendedor' && (
-                <div className="searchbox"><Search size={18} color="#69788d" /><input placeholder="Buscar clientes, gestiones o servicios..." /><div className="pill">Demo</div></div>
               )}
             </div>
           </header>

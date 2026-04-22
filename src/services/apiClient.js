@@ -41,6 +41,14 @@ const readDevOverride = (key) => {
 };
 
 const isAbsoluteUrl = (path) => /^https?:\/\//i.test(String(path || ''));
+const ensureApiPrefix = (path, baseUrl) => {
+  const normalizedPath = String(path || '').trim();
+  if (!normalizedPath || isAbsoluteUrl(normalizedPath)) return normalizedPath;
+  if (normalizedPath.startsWith('/api/')) return normalizedPath;
+  const normalizedBase = normalizeBaseUrl(baseUrl);
+  if (normalizedBase.endsWith('/api')) return normalizedPath;
+  return `/api${normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`}`;
+};
 const normalizePath = (path) => {
   const raw = String(path || '').trim();
   if (!raw) return '/';
@@ -49,7 +57,7 @@ const normalizePath = (path) => {
 };
 
 export function buildApiUrl(path, baseUrl = DEFAULT_BASE_URL) {
-  const normalizedPath = normalizePath(path);
+  const normalizedPath = normalizePath(ensureApiPrefix(path, baseUrl));
   if (isAbsoluteUrl(normalizedPath)) return normalizedPath;
   return `${normalizeBaseUrl(baseUrl)}${normalizedPath}`;
 }

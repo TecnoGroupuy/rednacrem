@@ -1,4 +1,4 @@
-import { getApiClient, getApiBaseUrl, getAccessToken } from './apiClient.js';
+import { buildApiUrl, getApiClient, getApiBaseUrl, getAccessToken } from './apiClient.js';
 
 export async function listOrganizations() {
   const api = getApiClient();
@@ -20,7 +20,7 @@ export async function updateOrganization(id, payload) {
 
 export async function uploadOrganizationLogo(orgId, file) {
   const token = await getAccessToken();
-  const url = `${getApiBaseUrl()}/organizations/${orgId}/logo`;
+  const url = buildApiUrl(`/organizations/${orgId}/logo`, getApiBaseUrl());
 
   const response = await fetch(url, {
     method: 'POST',
