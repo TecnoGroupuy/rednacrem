@@ -190,8 +190,8 @@ const ROLE_NAV = [
       { path: 'campanas_redes', label: 'Campañas de redes', caption: 'Monitor de campañas', roles: ['superadministrador', 'director', 'supervisor'], icon: BarChart3 },
       { path: 'dashboard', label: 'Monitor', caption: 'Resumen principal', roles: ['director', 'supervisor', 'vendedor', 'operaciones'], icon: Activity },
       { path: 'contactos', label: 'Contacto', caption: 'Base comercial', roles: ['director', 'vendedor'], icon: Users },
-      { path: 'recupero', label: 'Recupero', caption: 'Cartera en baja', roles: ['vendedor'], icon: FileText },
-      { path: 'clientes', label: 'Clientes', caption: 'Cartera activa', roles: ['superadministrador', 'director', 'operaciones', 'supervisor'], icon: UserCheck },
+      { path: 'recupero', label: 'Recupero', caption: 'Cartera en baja', roles: ['vendedor', 'atencion_cliente'], icon: FileText },
+      { path: 'clientes', label: 'Clientes', caption: 'Cartera activa', roles: ['superadministrador', 'director', 'operaciones', 'supervisor', 'atencion_cliente'], icon: UserCheck },
       { path: 'clientes', label: 'Mis ventas', caption: 'Clientes que cerré', roles: ['vendedor'], icon: UserCheck },
       { path: 'base_general', label: 'Base general', caption: 'Carga y preparacion', roles: ['supervisor'], icon: Users },
       { path: 'lotes', label: 'Lotes', caption: 'Asignacion comercial', roles: ['supervisor'], icon: Layers },
@@ -6778,7 +6778,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 <div className="table-wrap">
                   <table>
                     <thead>
-                      <tr><th>Lote</th><th>Contactos</th><th>Estado</th><th>Vendedores</th><th>Creación</th><th>Progreso</th></tr>
+                    <tr><th>Lote</th><th>Contactos</th><th>Estado</th><th>Vendedores</th><th>Creación</th></tr>
                     </thead>
                     <tbody>
                       {lotSummaries.map((lot) => {
@@ -6799,14 +6799,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                               <span style={{ fontSize: 13 }}>{first}</span>
                               {extra > 0 && <span style={{ marginLeft: 6, fontSize: 11, background: 'rgba(20,34,53,0.08)', borderRadius: 10, padding: '1px 7px', color: 'var(--muted)' }}>+{extra}</span>}
                             </td>
-                            <td style={{ fontSize: 12 }}>{lot.createdAt}</td>
-                            <td>
-                              <div style={{ minWidth: 100 }}>
-                                <div className="progress"><span style={{ width: lot.progress + '%' }}></span></div>
-                                <div style={{ marginTop: 4, color: 'var(--muted)', fontSize: 11 }}>{lot.progress}%</div>
-                              </div>
-                            </td>
-                          </tr>
+                          <td style={{ fontSize: 12 }}>{lot.createdAt}</td>
+                        </tr>
                         );
                       })}
                     </tbody>
@@ -12311,7 +12305,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           );
         }
         if (route === 'recupero') {
-          if (role === 'vendedor') {
+          if (role === 'vendedor' || role === 'atencion_cliente') {
             return (
               <RecuperoContactsView
                 contacts={recuperoContacts}
