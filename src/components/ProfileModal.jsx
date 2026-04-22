@@ -65,16 +65,19 @@ export default function ProfileModal({ isOpen, onClose, user, onSave, roleMeta =
   const [success, setSuccess] = React.useState(false);
   const [shakeField, setShakeField] = React.useState('');
   const [saveError, setSaveError] = React.useState('');
+  const wasOpenRef = React.useRef(false);
 
   React.useEffect(() => {
-    if (!isOpen) return;
-    setForm(initialFormFromUser(user));
-    setTouched({});
-    setSaving(false);
-    setSuccess(false);
-    setShakeField('');
-    setSaveError('');
-  }, [isOpen, user]);
+    if (isOpen && !wasOpenRef.current) {
+      setForm(initialFormFromUser(user));
+      setTouched({});
+      setSaving(false);
+      setSuccess(false);
+      setShakeField('');
+      setSaveError('');
+    }
+    wasOpenRef.current = isOpen;
+  }, [isOpen, user?.id]);
 
   React.useEffect(() => {
     if (!isOpen) return undefined;
