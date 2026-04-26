@@ -4,10 +4,15 @@ import { Search, Filter, Upload, Plus, CheckCircle2, X, Edit3, Activity, Phone, 
 import ContactDetailModal from './ContactDetailModal.jsx';
 import { listImports, previewCsvText, createImportFromCsv, deleteImportById, IMPORT_TYPES } from '../services/importsService.js';
 import { getApiClient } from '../services/apiClient.js';
-import { uploadOrganizationLogo } from '../services/organizationsService.js';
+import {
+  uploadOrganizationLogo,
+  listOrganizationUsers,
+  assignUserToOrganization,
+  removeUserFromOrganization
+} from '../services/organizationsService.js';
 import { listNoCallEntries, listPhoneResultEntries, getNoCallStats, listDatosParaTrabajar } from '../services/leadsService.js';
 import { listProductsAsync, createProduct, updateProduct } from '../services/productsService.js';
-import { listUsersAsync, createUser, updateUser } from '../services/usersService.js';
+import { listUsersAsync, updateUser } from '../services/usersService.js';
 import { listRecentActivity, listActivityLog, logActivityEvent } from '../services/activityService.js';
 import { IMPORT_SAMPLE_CSV, NO_LLAMAR_SAMPLE_CSV, RESULTADOS_SAMPLE_CSV, DATOS_TRABAJAR_SAMPLE_CSV, downloadCsvFile, formatFileSize } from '../utils/importWizardHelpers.js';
 
@@ -74,8 +79,13 @@ export default function SuperadminWorkbench({
 
   const [products, setProducts] = React.useState([]);
   const [users, setUsers] = React.useState([]);
-  const [pauseModal, setPauseModal] = React.useState(null);
-  const [pauseLoading, setPauseLoading] = React.useState(false);
+  const [orgUsers, setOrgUsers] = React.useState([]);
+  const [allUsers, setAllUsers] = React.useState([]);
+  const [assignSearch, setAssignSearch] = React.useState('');
+  const [assignRole, setAssignRole] = React.useState('operaciones');
+  const [assignLoading, setAssignLoading] = React.useState(false);
+  const [assignError, setAssignError] = React.useState('');
+  const [showAssignPanel, setShowAssignPanel] = React.useState(false);
   const [noCallRows, setNoCallRows] = React.useState([]);
   const [noCallStats, setNoCallStats] = React.useState({ total: 0, celulares: 0, montevideo: 0, interior: 0 });
   const [noCallSearch, setNoCallSearch] = React.useState('');
@@ -314,6 +324,47 @@ export default function SuperadminWorkbench({
 
   const loadProducts = React.useCallback(async () => setProducts(await listProductsAsync()), []);
   const loadUsers = React.useCallback(async () => setUsers(await listUsersAsync()), []);
+  const loadOrgUsers = React.useCallback(async () => {
+    if (!activeOrgId) return;
+    try {
+      const items = await listOrganizationUsers(activeOrgId);
+      setOrgUsers(items);
+    } catch (err) {
+      console.error('Error cargando usuarios de org:', err);
+    }
+  }, [activeOrgId]);
+  const loadAllUsers = React.useCallback(async () => {
+    try {
+      const api = getApiClient();
+      const res = await api.get('/superadmin/users');
+      setAllUsers(res?.items || []);
+    } catch (err) {
+      console.error('Error cargando todos los usuarios:', err);
+    }
+  }, []);
+  const handleAssignUser = async (userId) => {
+    if (!activeOrgId) return;
+    setAssignLoading(true);
+    setAssignError('');
+    try {
+      await assignUserToOrganization(activeOrgId, userId, assignRole);
+      await loadOrgUsers();
+      setAssignSearch('');
+    } catch (err) {
+      setAssignError(err?.message || 'No se pudo asignar el usuario.');
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+  const handleRemoveFromOrg = async (userId) => {
+    if (!activeOrgId) return;
+    try {
+      await removeUserFromOrganization(activeOrgId, userId);
+      await loadOrgUsers();
+    } catch (err) {
+      console.error('Error desasociando usuario:', err);
+    }
+  };
   const loadSpecialBases = React.useCallback(async () => {
     const [noCall, results, stats] = await Promise.all([
       listNoCallEntries({ page: 1, pageSize: 20, search: '' }),
@@ -409,28 +460,18 @@ export default function SuperadminWorkbench({
     return ['todos', ...new Set(values)];
   }, [workDataRows]);
 
-  const splitFullName = (value) => {
-    const parts = String(value || '').trim().split(/\s+/).filter(Boolean);
-    return { firstName: parts[0] || '', lastName: parts.slice(1).join(' ') };
-  };
-
-  const buildSafeToggleUserFields = (item) => {
-    const { firstName, lastName } = splitFullName(item.nombre);
-    const apellidoSeguro = String(item.apellido || lastName || '').trim();
-    const nombreSeguro = String(item.nombrePropio || firstName || item.nombre || '').trim();
-
-    return {
-      nombre: nombreSeguro,
-      apellido: apellidoSeguro,
-      canToggle: Boolean(nombreSeguro && apellidoSeguro),
-    };
-  };
-
   React.useEffect(() => {
     if (!route.startsWith('sa_') && route !== 'dashboard_global') return;
     Promise.all([loadProducts(), loadUsers(), loadSpecialBases()]).catch(() => {});
     loadActivity();
   }, [route, loadProducts, loadUsers, loadSpecialBases, loadActivity]);
+
+  React.useEffect(() => {
+    if (route === 'sa_usuarios') {
+      loadOrgUsers();
+      loadAllUsers();
+    }
+  }, [route, activeOrgId, loadOrgUsers, loadAllUsers]);
 
   const loadNoCall = React.useCallback(async () => {
     setNoCallLoading(true);
@@ -630,12 +671,21 @@ export default function SuperadminWorkbench({
         logActivityEvent({ entidad: 'usuario', entidadId: updated.id, tipo: 'edicion', descripcion: 'Usuario actualizado: ' + updated.nombre, usuarioId: 'usr-001' });
         setUserFormSuccess('Usuario actualizado correctamente.');
       } else {
-        const created = await createUser(payload);
+        const api = getApiClient();
+        const url = activeOrgId
+          ? `/superadmin/users?organization_id=${activeOrgId}`
+          : '/superadmin/users';
+        const created = await api.post(url, payload);
         logActivityEvent({ entidad: 'usuario', entidadId: created.id, tipo: 'alta', descripcion: 'Usuario creado: ' + created.nombre, usuarioId: 'usr-001' });
-        setUserFormSuccess('Usuario creado correctamente.');
+        setUserFormSuccess(
+          activeOrgId
+            ? 'Usuario creado y asignado a la organización.'
+            : 'Usuario creado correctamente.'
+        );
       }
       setUserDraft(createUserDraft());
-      await loadUsers();
+      await loadOrgUsers();
+      await loadAllUsers();
       loadActivity();
     } catch (err) {
       const backendMessage =
@@ -1314,300 +1364,310 @@ export default function SuperadminWorkbench({
   }
 
   if (route === 'sa_usuarios') {
+    const orgUserIds = new Set(orgUsers.map(u => u.id));
+    const availableToAssign = allUsers.filter(u => {
+      if (orgUserIds.has(u.id)) return false;
+      if (!assignSearch.trim()) return true;
+      const term = assignSearch.toLowerCase();
+      return (
+        (u.nombre || '').toLowerCase().includes(term) ||
+        (u.apellido || '').toLowerCase().includes(term) ||
+        (u.email || '').toLowerCase().includes(term)
+      );
+    });
+
     return (
       <div className="view">
         <section className="content-grid">
           <Panel
-            className={showUserForm ? 'span-8' : 'span-12'}
+            className={showAssignPanel || showUserForm ? 'span-8' : 'span-12'}
             title="Usuarios y roles"
-            subtitle="Control de accesos"
+            subtitle={activeOrgId
+              ? `${orgUsers.length} usuarios en esta organización`
+              : 'Todos los usuarios del sistema'}
             action={
               <div className="toolbar">
-                {showUserForm ? (
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setShowUserForm(false);
-                    setUserDraft(createUserDraft());
-                    setUserFormError('');
-                    setUserFormSuccess('');
-                    setUserFormLoading(false);
-                  }}
-                >
-                    Ocultar formulario
+                {activeOrgId && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setShowAssignPanel(v => !v);
+                      setShowUserForm(false);
+                    }}
+                  >
+                    {showAssignPanel ? 'Cerrar panel' : 'Asignar existente'}
                   </Button>
-                ) : null}
+                )}
                 <Button
                   icon={<Plus size={16} />}
                   onClick={() => {
                     setUserDraft(createUserDraft());
                     setShowUserForm(true);
+                    setShowAssignPanel(false);
                     setUserFormError('');
                     setUserFormSuccess('');
                   }}
                 >
-                  Nuevo
+                  Nuevo usuario
                 </Button>
               </div>
             }
           >
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Nombre</th>
-                    <th>Email</th>
-                    <th>Rol</th>
-                    <th>Estado</th>
-                    <th>Último acceso</th>
-                    <th>Acción</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((item) => (
-                    <tr key={item.id}>
-                      <td><strong>{item.nombre}</strong></td>
-                      <td>{item.email}</td>
-                      <td>{roleMeta[item.rol]?.label || item.rol}</td>
-                      <td>
-                        <Tag variant={item.status === 'pausado' ? 'warning' : item.activo ? 'success' : 'danger'}>
-                          {item.status === 'pausado' ? 'Pausado' : item.activo ? 'Activo' : 'Bloqueado'}
-                        </Tag>
-                      </td>
-                      <td>{formatDate(item.ultimoAcceso)}</td>
-                      <td>
-                        <div className="toolbar">
+            {!activeOrgId && (
+              <div style={{
+                padding: '10px 14px',
+                background: 'rgba(245,158,11,0.08)',
+                border: '1px solid rgba(245,158,11,0.2)',
+                borderRadius: 10, marginBottom: 16,
+                fontSize: 13, color: '#b45309'
+              }}>
+                Seleccioná una organización desde el selector superior para ver sus usuarios.
+              </div>
+            )}
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Email</th>
+                  <th>Rol global</th>
+                  {activeOrgId && <th>Rol en org</th>}
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(activeOrgId ? orgUsers : allUsers).map(u => (
+                  <tr key={u.id}>
+                    <td>{u.nombre} {u.apellido}</td>
+                    <td style={{ fontSize: 12, color: 'var(--muted)' }}>{u.email}</td>
+                    <td><Tag>{u.role_key}</Tag></td>
+                    {activeOrgId && <td><Tag variant="outline">{u.role_in_org || '—'}</Tag></td>}
+                    <td>
+                      <Tag variant={u.status === 'approved' ? 'success' : 'warning'}>
+                        {u.status}
+                      </Tag>
+                    </td>
+                    <td>
+                      <div className="toolbar">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          icon={<Edit3 size={14} />}
+                          onClick={() => {
+                            setUserDraft({
+                              id: u.id,
+                              nombre: u.nombre || '',
+                              apellido: u.apellido || '',
+                              email: u.email || '',
+                              telefono: u.telefono || '',
+                              role: u.role_key || DEFAULT_USER_ROLE,
+                              status: u.status || DEFAULT_USER_STATUS,
+                              reason: DEFAULT_USER_REASON
+                            });
+                            setShowUserForm(true);
+                            setShowAssignPanel(false);
+                            setUserFormError('');
+                            setUserFormSuccess('');
+                          }}
+                        >
+                          Editar
+                        </Button>
+                        {activeOrgId && (
                           <Button
+                            size="sm"
                             variant="ghost"
-                            icon={<Edit3 size={15} />}
-                            onClick={() => {
-                              const { firstName, lastName } = splitFullName(item.nombre);
-                              setUserDraft(createUserDraft({
-                                id: item.id,
-                                nombre: firstName || item.nombre || '',
-                                apellido: lastName,
-                                email: item.email || '',
-                                telefono: item.telefono || '',
-                                role: item.rol || item.role || DEFAULT_USER_ROLE,
-                                status: item.status || DEFAULT_USER_STATUS,
-                                reason: DEFAULT_USER_REASON
-                              }));
-                              setShowUserForm(true);
-                              setUserFormError('');
-                              setUserFormSuccess('');
-                            }}
+                            icon={<X size={14} />}
+                            onClick={() => handleRemoveFromOrg(u.id)}
                           >
-                            Editar
+                            Quitar
                           </Button>
-                          {/* Botón Pausar — solo para vendedores activos */}
-                          {item.status === 'approved' && (item.rol === 'vendedor' || item.role === 'vendedor') && (
-                            <Button
-                              variant="secondary"
-                              onClick={() => setPauseModal({
-                                id: item.id,
-                                nombre: `${item.nombre || ''} ${item.apellido || ''}`.trim(),
-                                email: item.email,
-                                telefono: item.telefono,
-                                role: item.rol || item.role,
-                                safeFields: buildSafeToggleUserFields(item)
-                              })}
-                              disabled={false}
-                            >
-                              Pausar
-                            </Button>
-                          )}
-
-                          {/* Botón Reactivar — si está pausado */}
-                          {item.status === 'pausado' && (
-                            <Button
-                              variant="secondary"
-                              onClick={async () => {
-                                const safeFields = buildSafeToggleUserFields(item);
-                                if (!safeFields.canToggle) return;
-                                await updateUser(item.id, {
-                                  userId: item.id,
-                                  nombre: safeFields.nombre,
-                                  apellido: safeFields.apellido,
-                                  email: item.email || '',
-                                  telefono: item.telefono || '',
-                                  role: item.rol || item.role || DEFAULT_USER_ROLE,
-                                  status: 'approved',
-                                  reason: 'Reactivado desde vista de usuarios'
-                                });
-                                await loadUsers();
-                              }}
-                            >
-                              Reactivar
-                            </Button>
-                          )}
-
-                          {/* Botón Bloquear/Activar — comportamiento original para no-vendedores o bloqueados */}
-                          {item.status !== 'pausado' && (
-                            <Button
-                              variant="secondary"
-                              onClick={async () => {
-                                const safeFields = buildSafeToggleUserFields(item);
-                                if (!safeFields.canToggle) {
-                                  setUserFormError('Completá apellido desde Editar antes de cambiar el estado de este usuario.');
-                                  setUserFormSuccess('');
-                                  return;
-                                }
-                                const nextStatus = item.status === 'approved' ? 'blocked' : 'approved';
-                                await updateUser(item.id, {
-                                  userId: item.id,
-                                  nombre: safeFields.nombre,
-                                  apellido: safeFields.apellido,
-                                  email: item.email || '',
-                                  telefono: item.telefono || '',
-                                  role: item.rol || item.role || DEFAULT_USER_ROLE,
-                                  status: nextStatus,
-                                  reason: nextStatus === 'approved' ? 'Reactivado desde toggle rápido' : 'Bloqueado desde toggle rápido'
-                                });
-                                await loadUsers();
-                              }}
-                              disabled={!buildSafeToggleUserFields(item).canToggle}
-                              title={!buildSafeToggleUserFields(item).canToggle ? 'Completá apellido desde Editar antes de cambiar estado.' : undefined}
-                            >
-                              {item.activo ? 'Bloquear' : 'Activar'}
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {(activeOrgId ? orgUsers : allUsers).length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={activeOrgId ? 6 : 5}
+                      style={{ textAlign: 'center', color: 'var(--muted)', padding: 32 }}
+                    >
+                      {activeOrgId
+                        ? 'No hay usuarios asignados a esta organización.'
+                        : 'No hay usuarios registrados.'}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </Panel>
 
-          {showUserForm ? (
-            <Panel className="span-4" title={userDraft.id ? 'Editar usuario' : 'Crear usuario'} subtitle="Formulario">
+          {showAssignPanel && activeOrgId && (
+            <Panel className="span-4" title="Asignar usuario" subtitle="Usuarios existentes">
               <div className="list">
-                <input
-                  className="input"
-                  placeholder="Nombre"
-                  value={userDraft.nombre}
-                  onChange={(event) => setUserDraft((prev) => ({ ...prev, nombre: event.target.value }))}
-                />
-                <input
-                  className="input"
-                  placeholder="Apellido"
-                  value={userDraft.apellido}
-                  onChange={(event) => setUserDraft((prev) => ({ ...prev, apellido: event.target.value }))}
-                />
-                <input
-                  className="input"
-                  placeholder="Email / Usuario"
-                  value={userDraft.email}
-                  onChange={(event) => setUserDraft((prev) => ({ ...prev, email: event.target.value }))}
-                />
-                <input
-                  className="input"
-                  placeholder="Teléfono"
-                  value={userDraft.telefono}
-                  onChange={(event) => setUserDraft((prev) => ({ ...prev, telefono: event.target.value }))}
-                />
-                <select
-                  className="input"
-                  value={userDraft.role}
-                  onChange={(event) => setUserDraft((prev) => ({ ...prev, role: event.target.value }))}
-                >
-                  {USER_ROLE_OPTIONS.map((roleKey) => (
-                    <option key={roleKey} value={roleKey}>
-                      {roleMeta[roleKey]?.label || roleKey}
-                    </option>
+                <div>
+                  <label className="label">Rol en la organización</label>
+                  <select
+                    className="input"
+                    value={assignRole}
+                    onChange={e => setAssignRole(e.target.value)}
+                  >
+                    {USER_ROLE_OPTIONS
+                      .filter(r => r !== 'superadministrador')
+                      .map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Buscar</label>
+                  <input
+                    className="input"
+                    placeholder="Nombre, apellido o email..."
+                    value={assignSearch}
+                    onChange={e => setAssignSearch(e.target.value)}
+                  />
+                </div>
+                {assignError && (
+                  <div style={{ color: '#be123c', fontSize: 13 }}>{assignError}</div>
+                )}
+                <div style={{
+                  display: 'flex', flexDirection: 'column',
+                  gap: 6, maxHeight: 340, overflowY: 'auto'
+                }}>
+                  {availableToAssign.length === 0 && (
+                    <div style={{ color: 'var(--muted)', fontSize: 13, textAlign: 'center', padding: 16 }}>
+                      {assignSearch ? 'Sin resultados.' : 'Todos los usuarios ya están asignados.'}
+                    </div>
+                  )}
+                  {availableToAssign.map(u => (
+                    <div key={u.id} style={{
+                      display: 'flex', alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 12px', borderRadius: 10,
+                      border: '1px solid var(--line)', gap: 10
+                    }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{
+                          fontWeight: 600, fontSize: 13,
+                          whiteSpace: 'nowrap', overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          {u.nombre} {u.apellido}
+                        </div>
+                        <div style={{
+                          fontSize: 11, color: 'var(--muted)',
+                          overflow: 'hidden', textOverflow: 'ellipsis'
+                        }}>
+                          {u.email} · {u.role_key}
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        disabled={assignLoading}
+                        onClick={() => handleAssignUser(u.id)}
+                      >
+                        Asignar
+                      </Button>
+                    </div>
                   ))}
-                </select>
-                <select
-                  className="input"
-                  value={userDraft.status}
-                  onChange={(event) => setUserDraft((prev) => ({ ...prev, status: event.target.value }))}
-                >
-                  {USER_STATUS_OPTIONS.map((status) => (
-                    <option key={status.value} value={status.value}>{status.label}</option>
-                  ))}
-                </select>
-                <textarea
-                  className="input"
-                  rows={3}
-                  placeholder="Motivo / comentario (opcional)"
-                  value={userDraft.reason}
-                  onChange={(event) => setUserDraft((prev) => ({ ...prev, reason: event.target.value }))}
-                ></textarea>
-                <Button icon={<CheckCircle2 size={16} />} onClick={saveUser} disabled={userFormLoading}>
-                  {userFormLoading ? 'Procesando...' : (userDraft.id ? 'Guardar' : 'Crear')}
-                </Button>
-                {userFormError ? (
-                  <div style={{ marginTop: 8, color: '#be123c', fontSize: '0.85rem' }}>
-                    {userFormError}
-                  </div>
-                ) : null}
-                {userFormSuccess ? (
-                  <div style={{ marginTop: 8, color: '#15803d', fontSize: '0.85rem' }}>
-                    {userFormSuccess}
-                  </div>
-                ) : null}
+                </div>
               </div>
             </Panel>
-          ) : null}
-        </section>
+          )}
 
-        {/* MODAL PAUSAR VENDEDOR */}
-        {pauseModal && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-            <div style={{ background: '#FFFFFF', borderRadius: 12, padding: 24, width: 400, border: '1px solid rgba(20,34,53,0.12)', boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}>
-              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>Pausar vendedor</div>
-              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>
-                Vas a pausar a <strong>{pauseModal.nombre}</strong>.
-              </div>
-              <div style={{ fontSize: 12, background: '#FAEEDA', color: '#884F0B', border: '1px solid #EF9F27', borderRadius: 8, padding: '10px 12px', marginBottom: 16 }}>
-                ⚠️ El vendedor no podrá ingresar al sistema ni recibirá datos nuevos mientras esté pausado.<br /><br />
-                Sus contactos pendientes en los lotes activos deben ser reasignados desde la vista de <strong>Lotes</strong>.
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 20 }}>
-                Cuando vuelva, podés reactivarlo desde esta misma vista.
-              </div>
-              {!!userFormError && (
-                <div style={{ marginBottom: 12, color: '#be123c', fontSize: '0.85rem' }}>
-                  {userFormError}
+          {showUserForm && (
+            <Panel
+              className="span-4"
+              title={userDraft.id ? 'Editar usuario' : 'Crear usuario'}
+              subtitle={!userDraft.id && activeOrgId
+                ? 'Se asignará a esta organización'
+                : 'Formulario'}
+            >
+              <div className="list">
+                <div>
+                  <label className="label">Nombre *</label>
+                  <input
+                    className="input"
+                    value={userDraft.nombre}
+                    onChange={e => setUserDraft(p => ({ ...p, nombre: e.target.value }))}
+                  />
                 </div>
-              )}
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <Button variant="secondary" onClick={() => setPauseModal(null)}>Cancelar</Button>
-                <Button
-                  onClick={async () => {
-                    setPauseLoading(true);
-                    try {
-                      const safeFields = pauseModal.safeFields;
-                      const nombrePartes = (pauseModal.nombre || '').trim().split(' ');
-                      const nombreFinal = nombrePartes[0] || safeFields.nombre || 'Sin nombre';
-                      const apellidoFinal = nombrePartes.slice(1).join(' ') || safeFields.apellido || 'Sin apellido';
-                      await updateUser(pauseModal.id, {
-                        userId: pauseModal.id,
-                        nombre: nombreFinal,
-                        apellido: apellidoFinal,
-                        email: pauseModal.email || '',
-                        telefono: pauseModal.telefono || '',
-                        role: pauseModal.role || DEFAULT_USER_ROLE,
-                        status: 'pausado',
-                        reason: 'Pausado por ausencia temporal'
-                      });
-                      await loadUsers();
-                      setPauseModal(null);
-                    } catch (err) {
-                      setUserFormError(err.message || 'No se pudo pausar el usuario.');
-                    } finally {
-                      setPauseLoading(false);
-                    }
-                  }}
-                  disabled={pauseLoading}
-                >
-                  {pauseLoading ? 'Pausando...' : 'Confirmar pausa'}
-                </Button>
+                <div>
+                  <label className="label">Apellido *</label>
+                  <input
+                    className="input"
+                    value={userDraft.apellido}
+                    onChange={e => setUserDraft(p => ({ ...p, apellido: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="label">Email *</label>
+                  <input
+                    className="input"
+                    type="email"
+                    value={userDraft.email}
+                    onChange={e => setUserDraft(p => ({ ...p, email: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="label">Teléfono *</label>
+                  <input
+                    className="input"
+                    value={userDraft.telefono}
+                    onChange={e => setUserDraft(p => ({ ...p, telefono: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="label">Rol global</label>
+                  <select
+                    className="input"
+                    value={userDraft.role}
+                    onChange={e => setUserDraft(p => ({ ...p, role: e.target.value }))}
+                  >
+                    {USER_ROLE_OPTIONS.map(r => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Estado</label>
+                  <select
+                    className="input"
+                    value={userDraft.status}
+                    onChange={e => setUserDraft(p => ({ ...p, status: e.target.value }))}
+                  >
+                    {USER_STATUS_OPTIONS.map(s => (
+                      <option key={s.value} value={s.value}>{s.label}</option>
+                    ))}
+                  </select>
+                </div>
+                {userFormError && (
+                  <div style={{ color: '#be123c', fontSize: 13 }}>{userFormError}</div>
+                )}
+                {userFormSuccess && (
+                  <div style={{ color: '#15803d', fontSize: 13 }}>{userFormSuccess}</div>
+                )}
+                <div className="toolbar">
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setShowUserForm(false);
+                      setUserDraft(createUserDraft());
+                      setUserFormError('');
+                      setUserFormSuccess('');
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button onClick={saveUser} disabled={userFormLoading}>
+                    {userFormLoading
+                      ? 'Guardando...'
+                      : userDraft.id ? 'Guardar cambios' : 'Crear usuario'}
+                  </Button>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            </Panel>
+          )}
+        </section>
       </div>
     );
   }

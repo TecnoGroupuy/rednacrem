@@ -38,3 +38,23 @@ export async function uploadOrganizationLogo(orgId, file) {
 
   return response.json();
 }
+
+export async function listOrganizationUsers(orgId) {
+  const api = getApiClient();
+  const res = await api.get(`/organizations/${orgId}/users`);
+  return res?.items || [];
+}
+
+export async function assignUserToOrganization(orgId, userId, roleInOrg) {
+  const api = getApiClient();
+  const res = await api.post(`/organizations/${orgId}/users`, {
+    user_id: userId,
+    role_in_org: roleInOrg
+  });
+  return res?.item;
+}
+
+export async function removeUserFromOrganization(orgId, userId) {
+  const api = getApiClient();
+  return api.del(`/organizations/${orgId}/users/${userId}`);
+}

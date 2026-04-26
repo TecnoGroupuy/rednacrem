@@ -9,7 +9,15 @@ import {
   updateOrganization
 } from '../services/organizationsService.js';
 
-// Pantalla completa al iniciar sesiÛn
+const INITIALS_COLORS = [
+  { bg: '#E1F5EE', text: '#0F6E56' },
+  { bg: '#E6F1FB', text: '#185FA5' },
+  { bg: '#FAECE7', text: '#993C1D' },
+  { bg: '#FAEEDA', text: '#854F0B' },
+  { bg: '#EEEDFE', text: '#534AB7' },
+];
+
+// Pantalla completa al iniciar sesi√≥n
 export function OrganizationSelectorScreen({ onSelect }) {
   const [orgs, setOrgs] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -52,7 +60,7 @@ export function OrganizationSelectorScreen({ onSelect }) {
       const created = await createOrganization(formDraft);
       onSelect(created);
     } catch (err) {
-      setFormError(err?.message || 'No se pudo crear la organizaciÛn.');
+      setFormError(err?.message || 'No se pudo crear la organizaci√≥n.');
       setFormSaving(false);
     }
   };
@@ -69,24 +77,18 @@ export function OrganizationSelectorScreen({ onSelect }) {
 
         {/* Header */}
         <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: 64, height: 64, borderRadius: 20,
-            background: 'rgba(15,118,110,0.2)',
-            border: '1px solid rgba(15,118,110,0.4)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 16px'
-          }}>
-            <Building2 size={28} color="#0f766e" />
+          <div style={{ fontSize: 24, fontWeight: 500, letterSpacing: -0.5, color: '#f1f5f9', marginBottom: 14 }}>
+            tri<span style={{ color: '#1D9E75' }}>.</span>
           </div>
           <h1 style={{ color: '#f8fafc', fontWeight: 800, fontSize: 26, margin: '0 0 8px' }}>
-            Seleccionar organizaciÛn
+            Seleccionar organizaci√≥n
           </h1>
           <p style={{ color: '#94a3b8', margin: 0 }}>
-            ElegÌ con quÈ organizaciÛn vas a trabajar en esta sesiÛn.
+            Eleg√≠ con qu√© organizaci√≥n vas a trabajar en esta sesi√≥n.
           </p>
         </div>
 
-        {/* Searchbox + botÛn crear */}
+        {/* Searchbox + bot√≥n crear */}
         <div style={{ display: 'flex', gap: 10 }}>
           <div style={{
             flex: 1, display: 'flex', alignItems: 'center', gap: 10,
@@ -98,7 +100,7 @@ export function OrganizationSelectorScreen({ onSelect }) {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar organizaciÛn..."
+              placeholder="Buscar organizaci√≥n..."
               style={{
                 flex: 1, background: 'transparent', border: 'none',
                 outline: 'none', color: '#f1f5f9', fontSize: 14
@@ -127,7 +129,7 @@ export function OrganizationSelectorScreen({ onSelect }) {
             borderRadius: 16, padding: 20,
             display: 'flex', flexDirection: 'column', gap: 12
           }}>
-            <div style={{ color: '#f1f5f9', fontWeight: 700 }}>Nueva organizaciÛn</div>
+            <div style={{ color: '#f1f5f9', fontWeight: 700 }}>Nueva organizaci√≥n</div>
             <input
               autoFocus
               placeholder="Nombre *"
@@ -142,7 +144,7 @@ export function OrganizationSelectorScreen({ onSelect }) {
               }}
             />
             <input
-              placeholder="DescripciÛn (opcional)"
+              placeholder="Descripci√≥n (opcional)"
               value={formDraft.descripcion}
               onChange={(e) => setFormDraft((p) => ({ ...p, descripcion: e.target.value }))}
               style={{
@@ -201,26 +203,35 @@ export function OrganizationSelectorScreen({ onSelect }) {
         )}
 
         {/* Lista de organizaciones */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
           {loading && (
-            <div style={{ textAlign: 'center', color: '#64748b', padding: 40 }}>
+            <div style={{ gridColumn: '1 / -1', textAlign: 'center', color: '#64748b', padding: 40 }}>
               Cargando organizaciones...
             </div>
           )}
           {!loading && !error && !filtered.length && (
-            <div style={{ textAlign: 'center', color: '#64748b', padding: 40 }}>
-              {search ? 'Sin resultados para esa b˙squeda.' : 'No hay organizaciones creadas a˙n.'}
+            <div style={{ gridColumn: '1 / -1', textAlign: 'center', color: '#64748b', padding: 40 }}>
+              {search ? 'Sin resultados para esa b√∫squeda.' : 'No hay organizaciones creadas a√∫n.'}
             </div>
           )}
-          {filtered.map((org) => (
+          {filtered.map((org, idx) => {
+            const initials = String(org.nombre || 'OR')
+              .trim()
+              .split(/\s+/)
+              .map((part) => part.charAt(0))
+              .join('')
+              .slice(0, 2)
+              .toUpperCase();
+            const palette = INITIALS_COLORS[idx % INITIALS_COLORS.length];
+            return (
             <button
               key={org.id}
               onClick={() => onSelect(org)}
               style={{
-                display: 'flex', alignItems: 'center', gap: 14,
+                display: 'flex', alignItems: 'center', gap: 12,
                 background: 'rgba(255,255,255,0.04)',
                 border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: 14, padding: '14px 16px',
+                borderRadius: 14, padding: '14px',
                 cursor: org.activo === false ? 'not-allowed' : 'pointer',
                 textAlign: 'left', opacity: org.activo === false ? 0.45 : 1,
                 transition: 'background 140ms'
@@ -235,36 +246,65 @@ export function OrganizationSelectorScreen({ onSelect }) {
             >
               <div style={{
                 width: 44, height: 44, borderRadius: 12, flexShrink: 0,
-                background: 'rgba(15,118,110,0.18)',
-                border: '1px solid rgba(15,118,110,0.3)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                background: palette.bg,
+                color: palette.text,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontWeight: 800, fontSize: 13
               }}>
-                <Building2 size={20} color="#0f766e" />
+                {initials || 'OR'}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: '#f1f5f9', fontWeight: 700, fontSize: 15 }}>
-                  {org.nombre}
+                <div style={{ color: '#f1f5f9', fontWeight: 700, fontSize: 14, marginBottom: 2 }}>
+                  {org.nombre || 'Sin nombre'}
                 </div>
                 <div style={{ color: '#64748b', fontSize: 12, marginTop: 2 }}>
-                  {org.descripcion || 'Sin descripciÛn'}
-                  {org.total_usuarios != null
-                    ? ` ∑ ${org.total_usuarios} usuario${org.total_usuarios !== 1 ? 's' : ''}`
-                    : ''}
+                  {org.descripcion || 'Sin descripci√≥n'}
+                </div>
+                <div style={{ color: '#94a3b8', fontSize: 11, marginTop: 4 }}>
+                  {org.total_usuarios ?? 0} usuario{Number(org.total_usuarios || 0) === 1 ? '' : 's'}
                 </div>
               </div>
               {org.activo === false ? (
                 <span style={{
-                  fontSize: 11, fontWeight: 700, color: '#f59e0b',
+                  fontSize: 10, fontWeight: 700, color: '#f59e0b',
                   background: 'rgba(245,158,11,0.15)',
                   borderRadius: 999, padding: '2px 8px', flexShrink: 0
                 }}>
                   Inactiva
                 </span>
               ) : (
-                <ChevronRight size={16} color="#475569" style={{ flexShrink: 0 }} />
+                <span style={{
+                  fontSize: 10, fontWeight: 700, color: '#16a34a',
+                  background: 'rgba(34,197,94,0.15)',
+                  borderRadius: 999, padding: '2px 8px', flexShrink: 0
+                }}>
+                  Activa
+                </span>
               )}
             </button>
-          ))}
+            );
+          })}
+          {!loading && !error && (
+            <button
+              onClick={() => { setShowForm(true); setFormError(''); }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                minHeight: 72,
+                borderRadius: 14,
+                border: '1px dashed rgba(148,163,184,0.45)',
+                background: 'rgba(255,255,255,0.03)',
+                color: '#cbd5e1',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              <Plus size={16} />
+              Nueva organizaci√≥n
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -343,7 +383,7 @@ export function OrganizationSwitcherModal({ currentOrgId, onSelect, onClose }) {
       const created = await createOrganization(createDraft);
       onSelect(created);
     } catch (err) {
-      setCreateError(err?.message || 'No se pudo crear la organizaciÛn.');
+      setCreateError(err?.message || 'No se pudo crear la organizaci√≥n.');
       setCreateSaving(false);
     }
   };
@@ -384,10 +424,10 @@ export function OrganizationSwitcherModal({ currentOrgId, onSelect, onClose }) {
         }}>
           <div>
             <div style={{ color: '#f1f5f9', fontWeight: 700, fontSize: 15 }}>
-              Cambiar organizaciÛn
+              Cambiar organizaci√≥n
             </div>
             <div style={{ color: '#64748b', fontSize: 12, marginTop: 2 }}>
-              Seleccion· o edit· una organizaciÛn
+              Seleccion√° o edit√° una organizaci√≥n
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -440,7 +480,7 @@ export function OrganizationSwitcherModal({ currentOrgId, onSelect, onClose }) {
               }}
             />
             <input
-              placeholder="DescripciÛn (opcional)"
+              placeholder="Descripci√≥n (opcional)"
               value={createDraft.descripcion}
               onChange={(e) => setCreateDraft((p) => ({ ...p, descripcion: e.target.value }))}
               style={{
@@ -524,9 +564,17 @@ export function OrganizationSwitcherModal({ currentOrgId, onSelect, onClose }) {
             </div>
           )}
 
-          {filtered.map((org) => {
+          {filtered.map((org, idx) => {
             const isCurrent = org.id === currentOrgId;
             const isEditing = editingId === org.id;
+            const initials = String(org.nombre || 'OR')
+              .trim()
+              .split(/\s+/)
+              .map((part) => part.charAt(0))
+              .join('')
+              .slice(0, 2)
+              .toUpperCase();
+            const palette = INITIALS_COLORS[idx % INITIALS_COLORS.length];
 
             return (
               <div
@@ -547,14 +595,15 @@ export function OrganizationSwitcherModal({ currentOrgId, onSelect, onClose }) {
                     display: 'flex', alignItems: 'center',
                     gap: 12, padding: '12px 14px'
                   }}>
-                    {/* Õcono */}
+                    {/* √çcono */}
                     <div style={{
                       width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-                      background: 'rgba(15,118,110,0.15)',
-                      border: '1px solid rgba(15,118,110,0.25)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      background: palette.bg,
+                      color: palette.text,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontWeight: 800, fontSize: 12
                     }}>
-                      <Building2 size={16} color="#0f766e" />
+                      {initials || 'OR'}
                     </div>
 
                     {/* Info */}
@@ -619,7 +668,7 @@ export function OrganizationSwitcherModal({ currentOrgId, onSelect, onClose }) {
                     </div>
                   </div>
                 ) : (
-                  // Modo ediciÛn inline
+                  // Modo edici√≥n inline
                   <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <input
                       autoFocus
@@ -636,7 +685,7 @@ export function OrganizationSwitcherModal({ currentOrgId, onSelect, onClose }) {
                     <input
                       value={editDraft.descripcion}
                       onChange={(e) => setEditDraft((p) => ({ ...p, descripcion: e.target.value }))}
-                      placeholder="DescripciÛn (opcional)"
+                      placeholder="Descripci√≥n (opcional)"
                       style={{
                         background: 'rgba(255,255,255,0.08)',
                         border: '1px solid rgba(255,255,255,0.15)',
@@ -653,7 +702,7 @@ export function OrganizationSwitcherModal({ currentOrgId, onSelect, onClose }) {
                         checked={editDraft.activo}
                         onChange={(e) => setEditDraft((p) => ({ ...p, activo: e.target.checked }))}
                       />
-                      OrganizaciÛn activa
+                      Organizaci√≥n activa
                     </label>
                     {editError && (
                       <div style={{ color: '#f87171', fontSize: 12 }}>{editError}</div>
@@ -702,7 +751,7 @@ export function OrganizationTopbarChip({ org, onClick }) {
   return (
     <button
       onClick={onClick}
-      title="Cambiar organizaciÛn"
+      title="Cambiar organizaci√≥n"
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 7,
         padding: '6px 12px', borderRadius: 10,
