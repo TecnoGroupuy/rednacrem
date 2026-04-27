@@ -121,9 +121,16 @@ export function OrganizationSelectorScreen({ onSelect }) {
 
         {/* Header */}
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 24, fontWeight: 500, letterSpacing: -0.5, color: '#f1f5f9', marginBottom: 14 }}>
-            tri<span style={{ color: '#1D9E75' }}>.</span>
-          </div>
+          <img
+            src="https://rednacrem-assets.s3.us-east-1.amazonaws.com/home/TRI+sin+fondo.png"
+            alt="Tri"
+            style={{
+              height: 48,
+              width: 'auto',
+              objectFit: 'contain',
+              filter: 'drop-shadow(0 0 12px rgba(16,185,129,0.3))'
+            }}
+          />
           <h1 style={{ color: '#f8fafc', fontWeight: 800, fontSize: 26, margin: '0 0 8px' }}>
             Seleccionar organizacion
           </h1>
