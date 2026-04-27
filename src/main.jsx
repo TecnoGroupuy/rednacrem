@@ -11909,15 +11909,25 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           } catch {
             // no-op
           }
+          // Actualizar logo al org activa
+          if (activeOrg.logo_url) {
+            setBrandLogo(resolveLogoUrl(activeOrg.logo_url));
+            try { localStorage.setItem('rednacrem_logo', activeOrg.logo_url); } catch {}
+          } else {
+            setBrandLogo(null);
+            try { localStorage.removeItem('rednacrem_logo'); } catch {}
+          }
         } else {
           setActiveOrganizationId(null);
+          setBrandLogo(null);
           try {
             localStorage.removeItem(ACTIVE_ORG_STORAGE_KEY);
+            localStorage.removeItem('rednacrem_logo');
           } catch {
             // no-op
           }
         }
-      }, [activeOrg]);
+      }, [activeOrg, resolveLogoUrl]);
 
       const fetchEstadoActual = React.useCallback(async () => {
         setEstadoActualLoading(true);
