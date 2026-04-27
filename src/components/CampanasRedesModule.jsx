@@ -112,7 +112,7 @@ export default function CampanasRedesModule() {
     <div className="view">
       {/* Hero */}
       <section className="hero">
-        <div className="hero-panel">
+        <div className="hero-panel" style={{ width: '100%', display: 'block' }}>
           <div
             style={{
               display: 'flex',
@@ -193,7 +193,8 @@ export default function CampanasRedesModule() {
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
             gap: 12,
-            marginTop: 16
+            marginTop: 16,
+            width: '100%'
           }}>
             <MetricaTarjeta label="Total leads" value={m.total} color="#0f766e" icon={Users}
               sub={`${bloqueadoRate}% bloqueados`} />
