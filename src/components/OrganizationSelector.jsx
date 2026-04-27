@@ -19,7 +19,7 @@ const INITIALS_COLORS = [
 ];
 
 // Pantalla completa al iniciar sesion
-export function OrganizationSelectorScreen({ onSelect }) {
+export function OrganizationSelectorScreen({ onSelect, hideCreateButton, overrideOrgs }) {
   const [orgs, setOrgs] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
@@ -38,6 +38,11 @@ export function OrganizationSelectorScreen({ onSelect }) {
   const [createdOrg, setCreatedOrg] = React.useState(null);
 
   const load = React.useCallback(async () => {
+    if (overrideOrgs) {
+      setOrgs(overrideOrgs);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -48,7 +53,7 @@ export function OrganizationSelectorScreen({ onSelect }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [overrideOrgs]);
 
   React.useEffect(() => { load(); }, [load]);
 
@@ -140,31 +145,33 @@ export function OrganizationSelectorScreen({ onSelect }) {
         </div>
 
         {/* Boton crear */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button
-            onClick={() => {
-              if (showForm) {
-                resetForm();
-              } else {
-                setShowForm(true);
-                setWizardStep(1);
-                setFormError('');
-              }
-            }}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8,
-              padding: '10px 16px', borderRadius: 12,
-              background: '#0f766e', color: '#fff', border: 'none',
-              fontWeight: 600, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap'
-            }}
-          >
-            <Plus size={16} />
-            Nueva org
-          </button>
-        </div>
+        {!hideCreateButton && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              onClick={() => {
+                if (showForm) {
+                  resetForm();
+                } else {
+                  setShowForm(true);
+                  setWizardStep(1);
+                  setFormError('');
+                }
+              }}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                padding: '10px 16px', borderRadius: 12,
+                background: '#0f766e', color: '#fff', border: 'none',
+                fontWeight: 600, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap'
+              }}
+            >
+              <Plus size={16} />
+              Nueva org
+            </button>
+          </div>
+        )}
 
         {/* Formulario nueva org */}
-        {showForm && (
+        {!hideCreateButton && showForm && (
           <div style={{
             background: 'rgba(255,255,255,0.05)',
             border: '1px solid rgba(255,255,255,0.12)',

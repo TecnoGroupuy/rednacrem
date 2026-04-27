@@ -112,6 +112,7 @@ import AuthGate from './components/auth/AuthGate.jsx';
 import { downloadCsvFile } from './utils/importWizardHelpers.js';
 import { formatDate } from './utils/dateFormat.js';
 import { buildApiUrl, getApiClient, getApiBaseUrl, setActiveOrganizationId } from './services/apiClient.js';
+import { listMyOrganizations } from './services/organizationsService.js';
 import { io } from 'socket.io-client';
 import {
   createInitialModuleStates,
@@ -5115,6 +5116,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                 <div>
                                   <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Departamento</p>
                                   <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{drawerItem.departamento}</p>
+                                </div>
+                              )}
+                              {drawerItem.nota && (
+                                <div style={{ gridColumn: '1 / -1' }}>
+                                  <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Comentarios</p>
+                                  <p style={{ fontSize: 13, fontWeight: 500, margin: 0, color: '#475569' }}>{drawerItem.nota}</p>
                                 </div>
                               )}
                               {drawerItem.localidad && (
@@ -11662,6 +11669,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [route, setRoute] = React.useState('dashboard_global');
       const [isDesktop, setIsDesktop] = React.useState(window.innerWidth >= 1024);
       const [activeOrg, setActiveOrg] = React.useState(null);
+      const [myOrgs, setMyOrgs] = React.useState([]);
+      const [myOrgsLoading, setMyOrgsLoading] = React.useState(false);
       const [menuOpen, setMenuOpen] = React.useState(window.innerWidth >= 1024);
       const [estadoUsuario, setEstadoUsuario] = React.useState('disponible');
       const [pausaInicio, setPausaInicio] = React.useState('');
@@ -11798,6 +11807,29 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           if (intervalId) window.clearInterval(intervalId);
         };
       }, [authUser?.id, role]);
+
+      React.useEffect(() => {
+        if (!authUser?.id) return;
+        if (esSuperadmin) return;
+        let active = true;
+        setMyOrgsLoading(true);
+        listMyOrganizations()
+          .then((items) => {
+            if (!active) return;
+            setMyOrgs(items);
+            if (items.length === 1) {
+              setActiveOrganizationId(items[0].id);
+              setActiveOrg(items[0]);
+            }
+          })
+          .catch(() => {
+            if (!active) setMyOrgs([]);
+          })
+          .finally(() => {
+            if (active) setMyOrgsLoading(false);
+          });
+        return () => { active = false; };
+      }, [authUser?.id, esSuperadmin]);
 
       React.useEffect(() => {
         if (!topbarRef.current) return;
@@ -12466,6 +12498,19 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             setActiveOrg(org);
             setRoute('dashboard_global');
           }}
+        />
+      );
+    }
+
+    if (!esSuperadmin && !activeOrg && !myOrgsLoading && myOrgs.length > 1) {
+      return (
+        <OrganizationSelectorScreen
+          hideCreateButton
+          onSelect={(org) => {
+            setActiveOrganizationId(org.id);
+            setActiveOrg(org);
+          }}
+          overrideOrgs={myOrgs}
         />
       );
     }

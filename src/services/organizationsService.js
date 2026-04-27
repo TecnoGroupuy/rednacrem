@@ -58,3 +58,9 @@ export async function removeUserFromOrganization(orgId, userId) {
   const api = getApiClient();
   return api.del(`/organizations/${orgId}/users/${userId}`);
 }
+
+export async function listMyOrganizations() {
+  const api = getApiClient();
+  const res = await api.get('/me/organizations');
+  return res?.items || [];
+}
