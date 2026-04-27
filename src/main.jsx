@@ -95,8 +95,6 @@ import SupervisorLotWizard from './components/SupervisorLotWizard.jsx';
 import ContactDetailModal from './components/ContactDetailModal.jsx';
 import {
   OrganizationSelectorScreen,
-  OrganizationSwitcherModal,
-  OrganizationTopbarChip
 } from './components/OrganizationSelector.jsx';
 import SupervisorContractsModule from './components/SupervisorContractsModule.jsx';
 import SupervisorRegistrationRequestsModule from './components/SupervisorRegistrationRequestsModule.jsx';
@@ -11674,7 +11672,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           return null;
         }
       });
-      const [orgSwitcherOpen, setOrgSwitcherOpen] = React.useState(false);
       const [menuOpen, setMenuOpen] = React.useState(window.innerWidth >= 1024);
       const [estadoUsuario, setEstadoUsuario] = React.useState('disponible');
       const [pausaInicio, setPausaInicio] = React.useState('');
@@ -12503,14 +12500,20 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 <div className="brand-row">
                   <div
                     className="brand-logo-box"
-                    style={esSuperadmin && activeOrg ? { cursor: 'pointer' } : {}}
-                    onClick={esSuperadmin && activeOrg ? () => setOrgSwitcherOpen(true) : undefined}
-                    title={esSuperadmin && activeOrg ? `Organización: ${activeOrg.nombre} — clic para cambiar` : ''}
+                    onClick={esSuperadmin ? () => setActiveOrg(null) : undefined}
+                    style={esSuperadmin ? { cursor: 'pointer' } : {}}
+                    title={esSuperadmin ? 'Cambiar organización' : ''}
                   >
                     {brandLogo ? (
                       <img src={brandLogo} alt="Logo organización" className="brand-logo-image" />
                     ) : (
-                      <span style={{ fontFamily: 'var(--font-sans)', fontSize: 20, fontWeight: 500, letterSpacing: -0.5, color: '#f1f5f9' }}>
+                      <span style={{
+                        fontFamily: 'var(--font-sans)',
+                        fontSize: 20,
+                        fontWeight: 500,
+                        letterSpacing: '-0.5px',
+                        color: '#f1f5f9'
+                      }}>
                         tri<span style={{ color: '#1D9E75' }}>.</span>
                       </span>
                     )}
@@ -12585,25 +12588,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   </div>
                 ) : null}
               </div>
-              {esSuperadmin && activeOrg && (
-                <div style={{ position: 'relative' }}>
-                  <OrganizationTopbarChip
-                    org={activeOrg}
-                    onClick={() => setOrgSwitcherOpen(v => !v)}
-                  />
-                  {orgSwitcherOpen && (
-                    <OrganizationSwitcherModal
-                      currentOrgId={activeOrg.id}
-                      onSelect={(org) => {
-                        setActiveOrganizationId(org.id);
-                        setActiveOrg(org);
-                        setOrgSwitcherOpen(false);
-                      }}
-                      onClose={() => setOrgSwitcherOpen(false)}
-                    />
-                  )}
-                </div>
-              )}
             </div>
           </header>
           {inactivityWarning && estadoUsuario === 'disponible' && !mostrarPausa ? (
