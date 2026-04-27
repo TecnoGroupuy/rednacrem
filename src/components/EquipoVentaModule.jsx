@@ -7,6 +7,7 @@ const DEFAULT_DRAFT = {
   apellido: '',
   email: '',
   telefono: '',
+  password: '',
   role: 'vendedor',
   status: 'approved',
   reason: 'Alta desde modulo equipo de venta'
@@ -63,9 +64,17 @@ export default function EquipoVentaModule({
   };
 
   const saveVendedor = async () => {
-    const { nombre, apellido, email, telefono } = draft;
+    const { nombre, apellido, email, telefono, password } = draft;
     if (!nombre.trim() || !apellido.trim() || !email.trim() || !telefono.trim()) {
       setFormError('Nombre, apellido, email y telefono son obligatorios.');
+      return;
+    }
+    if (!editingId && !password.trim()) {
+      setFormError('La contrasena provisoria es obligatoria.');
+      return;
+    }
+    if (!editingId && password.trim().length < 8) {
+      setFormError('La contrasena debe tener al menos 8 caracteres.');
       return;
     }
     setFormLoading(true);
@@ -80,7 +89,12 @@ export default function EquipoVentaModule({
         const url = activeOrgId
           ? `/superadmin/users?organization_id=${activeOrgId}`
           : '/superadmin/users';
-        await api.post(url, draft);
+        const payload = { ...draft };
+        if (payload.password) {
+          payload.temporaryPassword = payload.password;
+        }
+        delete payload.password;
+        await api.post(url, payload);
         setFormSuccess('Vendedor creado y asignado a la organizacion.');
       }
       await loadVendedores();
@@ -238,6 +252,22 @@ export default function EquipoVentaModule({
                     onChange={e => setDraft(p => ({ ...p, telefono: e.target.value }))}
                   />
                 </div>
+                {!editingId && (
+                  <div>
+                    <label className="label">Contraseña provisoria *</label>
+                    <input
+                      className="input"
+                      type="password"
+                      placeholder="Minimo 8 caracteres"
+                      value={draft.password}
+                      onChange={e => setDraft(p => ({ ...p, password: e.target.value }))}
+                      autoComplete="new-password"
+                    />
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+                      El vendedor usara esta clave para su primer ingreso.
+                    </div>
+                  </div>
+                )}
                 <div>
                   <label className="label">Estado</label>
                   <select
