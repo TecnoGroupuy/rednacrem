@@ -1053,11 +1053,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       );
     }
 
-    function SupervisorDashboard() {
+    function SupervisorDashboard({ selectedDate: selectedDateProp, setSelectedDate: setSelectedDateProp } = {}) {
       const { user: authUser } = useAuth();
       const [detailAgent, setDetailAgent] = React.useState(null);
       const [detailTab, setDetailTab] = React.useState('actividad');
-      const [selectedDate, setSelectedDate] = React.useState(() => new Date());
+      const [selectedDateLocal, setSelectedDateLocal] = React.useState(() => new Date());
+      const selectedDate = selectedDateProp || selectedDateLocal;
+      const setSelectedDate = setSelectedDateProp || setSelectedDateLocal;
       const [activityExpanded, setActivityExpanded] = React.useState(false);
       const [teamSummary, setTeamSummary] = React.useState(null);
       const [teamLoading, setTeamLoading] = React.useState(false);
@@ -2268,20 +2270,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       };
       return (
         <div className="view">
-          <section className="content-grid">
-            <Panel
-              className="span-12"
-              action={(
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Button variant="ghost" onClick={() => setSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - 1))}>‹</Button>
-                  <div style={{ padding: '8px 16px', borderRadius: 12, border: '1px solid rgba(15,23,42,0.12)', background: '#fff', fontWeight: 600 }}>{formatDateLabel(selectedDate)}</div>
-                  <Button variant="ghost" onClick={() => setSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 1))}>›</Button>
-                </div>
-              )}
-            >
-              <div style={{ padding: 8, color: 'var(--muted)' }} />
-            </Panel>
-          </section>
           <section className="content-grid">
             <Panel
               className="span-12"
@@ -11671,6 +11659,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const role = rolEfectivo;
       const [route, setRoute] = React.useState('dashboard_global');
       const [isDesktop, setIsDesktop] = React.useState(window.innerWidth >= 1024);
+      const [monitorSelectedDate, setMonitorSelectedDate] = React.useState(() => new Date());
       const [activeOrg, setActiveOrg] = React.useState(null);
       const [myOrgs, setMyOrgs] = React.useState([]);
       const [myOrgsLoading, setMyOrgsLoading] = React.useState(false);
@@ -11706,6 +11695,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         () => Object.fromEntries(productsCatalog.map((product) => [product.id, product])),
         [productsCatalog]
       );
+      const formatMonitorDateLabel = React.useCallback((value) => {
+        try {
+          return value.toLocaleDateString('es-UY', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' });
+        } catch {
+          return '';
+        }
+      }, []);
       const handleOpenVendedorNewClient = (prefill = null, gestion_id = null, onSuccessCb = null, mode = 'nuevo_cliente') => {
         setVendedorNewClientDraft(prefill);
         setVendedorNewClientGestionId(gestion_id ?? null);
@@ -12337,7 +12333,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         }
         if (route === 'dashboard') {
           if (role === 'director') return <DirectorDashboard />;
-          if (role === 'supervisor') return <SupervisorDashboard />;
+          if (role === 'supervisor') return (
+            <SupervisorDashboard
+              selectedDate={monitorSelectedDate}
+              setSelectedDate={setMonitorSelectedDate}
+            />
+          );
           if (role === 'vendedor') return (
             <SalesDashboard
               contacts={salesContacts}
@@ -12609,6 +12610,25 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   </div>
                 ) : null}
               </div>
+              {role === 'supervisor' && route === 'dashboard' ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setMonitorSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - 1))}
+                  >
+                    ‹
+                  </Button>
+                  <div style={{ padding: '8px 16px', borderRadius: 12, border: '1px solid rgba(15,23,42,0.12)', background: '#fff', fontWeight: 600 }}>
+                    {formatMonitorDateLabel(monitorSelectedDate)}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setMonitorSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 1))}
+                  >
+                    ›
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </header>
           {inactivityWarning && estadoUsuario === 'disponible' && !mostrarPausa ? (
