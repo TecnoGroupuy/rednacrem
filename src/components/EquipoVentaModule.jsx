@@ -269,13 +269,23 @@ export default function EquipoVentaModule({
           </Panel>
 
           {selectedVendedor && (
+            <>
+            <div
+              onClick={() => setSelectedVendedor(null)}
+              style={{
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(0,0,0,0.3)',
+                zIndex: 99
+              }}
+            />
             <div style={{
               position: 'fixed',
               top: 0, right: 0, bottom: 0,
               width: 'min(420px, 100vw)',
-              background: 'var(--bg)',
+              background: 'var(--color-background-primary, #ffffff)',
               borderLeft: '1px solid var(--line)',
-              boxShadow: '-8px 0 32px rgba(0,0,0,0.12)',
+              boxShadow: '-8px 0 40px rgba(0,0,0,0.18)',
               zIndex: 100,
               display: 'flex', flexDirection: 'column',
               overflow: 'hidden'
@@ -358,6 +368,7 @@ export default function EquipoVentaModule({
                 </div>
               </div>
             </div>
+            </>
           )}
 
           {showForm && (
