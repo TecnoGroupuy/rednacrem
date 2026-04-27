@@ -11661,17 +11661,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const role = rolEfectivo;
       const [route, setRoute] = React.useState('dashboard_global');
       const [isDesktop, setIsDesktop] = React.useState(window.innerWidth >= 1024);
-      const [activeOrg, setActiveOrg] = React.useState(() => {
-        try {
-          const stored = localStorage.getItem(ACTIVE_ORG_STORAGE_KEY);
-          if (!stored) return null;
-          const parsed = JSON.parse(stored);
-          if (parsed && typeof parsed === 'object' && parsed.id) return parsed;
-          return null;
-        } catch {
-          return null;
-        }
-      });
+      const [activeOrg, setActiveOrg] = React.useState(null);
       const [menuOpen, setMenuOpen] = React.useState(window.innerWidth >= 1024);
       const [estadoUsuario, setEstadoUsuario] = React.useState('disponible');
       const [pausaInicio, setPausaInicio] = React.useState('');
@@ -11904,30 +11894,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       React.useEffect(() => {
         if (activeOrg && activeOrg.id) {
           setActiveOrganizationId(activeOrg.id);
-          try {
-            localStorage.setItem(ACTIVE_ORG_STORAGE_KEY, JSON.stringify(activeOrg));
-          } catch {
-            // no-op
-          }
-          // Actualizar logo al org activa
-          if (activeOrg.logo_url) {
-            setBrandLogo(resolveLogoUrl(activeOrg.logo_url));
-            try { localStorage.setItem('rednacrem_logo', activeOrg.logo_url); } catch {}
-          } else {
-            setBrandLogo(null);
-            try { localStorage.removeItem('rednacrem_logo'); } catch {}
-          }
         } else {
           setActiveOrganizationId(null);
-          setBrandLogo(null);
-          try {
-            localStorage.removeItem(ACTIVE_ORG_STORAGE_KEY);
-            localStorage.removeItem('rednacrem_logo');
-          } catch {
-            // no-op
-          }
         }
-      }, [activeOrg, resolveLogoUrl]);
+      }, [activeOrg]);
 
       const fetchEstadoActual = React.useCallback(async () => {
         setEstadoActualLoading(true);
