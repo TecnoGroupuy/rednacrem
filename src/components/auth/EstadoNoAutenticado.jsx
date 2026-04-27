@@ -150,30 +150,26 @@ export default function EstadoNoAutenticado() {
   return (
     <div className="login-screen-root">
       <div className="login-left-pane">
-        <div className="login-left-center fade-in-delay">
-          <img
-            src="https://rednacrem-assets.s3.amazonaws.com/home/TRI+logo.png"
-            alt="Tri"
-            style={{
-              maxWidth: 260,
-              maxHeight: 160,
-              objectFit: 'contain',
-              display: 'block'
-            }}
-          />
+        <div className="login-brand-center fade-in-delay">
+          <div className="login-brand-logo-wrap">
+            <img
+              src="https://rednacrem-assets.s3.amazonaws.com/home/TRI+logo.png"
+              alt="Tri"
+              className="login-brand-logo-img"
+            />
+          </div>
+          <p className="login-brand-tagline">Plataforma de gestion inteligente</p>
         </div>
-
         <div className="login-left-footer fade-in-delay-2">
-          <span>Desarrollado por Tecno Group</span>
-          <img
-            src="https://rednacrem-assets.s3.amazonaws.com/home/Amazon_Web_Services-Logo.wine.png"
-            alt="AWS"
-            style={{
-              height: 28,
-              objectFit: 'contain',
-              opacity: 0.85
-            }}
-          />
+          <div className="login-aws-badge">
+            <span>Powered by</span>
+            <img
+              src="https://rednacrem-assets.s3.amazonaws.com/home/Amazon_Web_Services-Logo.wine.png"
+              alt="AWS"
+              className="login-aws-logo"
+            />
+          </div>
+          <p className="login-copyright">Desarrollado por Tecno Group</p>
         </div>
         <div className="login-left-glow-a"></div>
         <div className="login-left-glow-b"></div>

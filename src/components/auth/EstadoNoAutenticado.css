@@ -475,3 +475,93 @@
     padding: 22px;
   }
 }
+
+.login-brand-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  z-index: 1;
+}
+
+.login-brand-logo-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 0 40px rgba(16, 185, 129, 0.35));
+  transition: transform 0.3s ease;
+}
+
+.login-brand-logo-wrap:hover {
+  transform: scale(1.04);
+}
+
+.login-brand-logo-img {
+  width: 280px;
+  height: auto;
+  object-fit: contain;
+  mix-blend-mode: luminosity;
+  filter: brightness(1.8) contrast(0.85);
+}
+
+.login-brand-tagline {
+  color: #94a3b8;
+  font-size: 1rem;
+  font-weight: 300;
+  letter-spacing: 0.06em;
+  text-align: center;
+}
+
+.login-left-footer {
+  position: absolute;
+  bottom: 28px;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  z-index: 1;
+}
+
+.login-aws-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 100px;
+  transition: all 0.3s ease;
+}
+
+.login-aws-badge:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-2px);
+}
+
+.login-aws-badge span {
+  color: #94a3b8;
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.login-aws-logo {
+  height: 22px;
+  width: auto;
+  object-fit: contain;
+  filter: brightness(1.5) grayscale(0.2);
+}
+
+.login-copyright {
+  color: #475569;
+  font-size: 0.75rem;
+  margin: 0;
+}
