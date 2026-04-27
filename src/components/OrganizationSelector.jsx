@@ -1,6 +1,6 @@
 ﻿import React from 'react';
 import {
-  Building2, Plus, ChevronRight, Search,
+  Building2, Plus,
   Edit3, CheckCircle2, X, ChevronDown
 } from 'lucide-react';
 import {
@@ -17,12 +17,11 @@ const INITIALS_COLORS = [
   { bg: '#EEEDFE', text: '#534AB7' },
 ];
 
-// Pantalla completa al iniciar sesiÃ³n
+// Pantalla completa al iniciar sesion
 export function OrganizationSelectorScreen({ onSelect }) {
   const [orgs, setOrgs] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
-  const [search, setSearch] = React.useState('');
   const [showForm, setShowForm] = React.useState(false);
   const [formDraft, setFormDraft] = React.useState({ nombre: '', descripcion: '' });
   const [formSaving, setFormSaving] = React.useState(false);
@@ -43,12 +42,6 @@ export function OrganizationSelectorScreen({ onSelect }) {
 
   React.useEffect(() => { load(); }, [load]);
 
-  const filtered = React.useMemo(() => {
-    const term = search.trim().toLowerCase();
-    if (!term) return orgs;
-    return orgs.filter((o) => o.nombre.toLowerCase().includes(term));
-  }, [orgs, search]);
-
   const handleCreate = async () => {
     if (!formDraft.nombre.trim()) {
       setFormError('El nombre es obligatorio.');
@@ -60,7 +53,7 @@ export function OrganizationSelectorScreen({ onSelect }) {
       const created = await createOrganization(formDraft);
       onSelect(created);
     } catch (err) {
-      setFormError(err?.message || 'No se pudo crear la organizaciÃ³n.');
+      setFormError(err?.message || 'No se pudo crear.');
       setFormSaving(false);
     }
   };
@@ -81,32 +74,15 @@ export function OrganizationSelectorScreen({ onSelect }) {
             tri<span style={{ color: '#1D9E75' }}>.</span>
           </div>
           <h1 style={{ color: '#f8fafc', fontWeight: 800, fontSize: 26, margin: '0 0 8px' }}>
-            Seleccionar organizaciÃ³n
+            Seleccionar organizacion
           </h1>
           <p style={{ color: '#94a3b8', margin: 0 }}>
-            ElegÃ­ con quÃ© organizaciÃ³n vas a trabajar en esta sesiÃ³n.
+            Elegi con que organizacion vas a trabajar.
           </p>
         </div>
 
-        {/* Searchbox + botÃ³n crear */}
-        <div style={{ display: 'flex', gap: 10 }}>
-          <div style={{
-            flex: 1, display: 'flex', alignItems: 'center', gap: 10,
-            background: 'rgba(255,255,255,0.06)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 12, padding: '10px 14px'
-          }}>
-            <Search size={16} color="#64748b" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar organizaciÃ³n..."
-              style={{
-                flex: 1, background: 'transparent', border: 'none',
-                outline: 'none', color: '#f1f5f9', fontSize: 14
-              }}
-            />
-          </div>
+        {/* Boton crear */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <button
             onClick={() => { setShowForm((v) => !v); setFormError(''); setFormDraft({ nombre: '', descripcion: '' }); }}
             style={{
@@ -129,7 +105,7 @@ export function OrganizationSelectorScreen({ onSelect }) {
             borderRadius: 16, padding: 20,
             display: 'flex', flexDirection: 'column', gap: 12
           }}>
-            <div style={{ color: '#f1f5f9', fontWeight: 700 }}>Nueva organizaciÃ³n</div>
+            <div style={{ color: '#f1f5f9', fontWeight: 700 }}>Nueva org</div>
             <input
               autoFocus
               placeholder="Nombre *"
@@ -144,7 +120,7 @@ export function OrganizationSelectorScreen({ onSelect }) {
               }}
             />
             <input
-              placeholder="DescripciÃ³n (opcional)"
+              placeholder="Descripcion (opcional)"
               value={formDraft.descripcion}
               onChange={(e) => setFormDraft((p) => ({ ...p, descripcion: e.target.value }))}
               style={{
@@ -209,12 +185,12 @@ export function OrganizationSelectorScreen({ onSelect }) {
               Cargando organizaciones...
             </div>
           )}
-          {!loading && !error && !filtered.length && (
+          {!loading && !error && !orgs.length && (
             <div style={{ gridColumn: '1 / -1', textAlign: 'center', color: '#64748b', padding: 40 }}>
-              {search ? 'Sin resultados para esa bÃºsqueda.' : 'No hay organizaciones creadas aÃºn.'}
+              Sin organizaciones aun.
             </div>
           )}
-          {filtered.map((org, idx) => {
+          {orgs.map((org, idx) => {
             const initials = String(org.nombre || 'OR')
               .trim()
               .split(/\s+/)
@@ -224,87 +200,66 @@ export function OrganizationSelectorScreen({ onSelect }) {
               .toUpperCase();
             const palette = INITIALS_COLORS[idx % INITIALS_COLORS.length];
             return (
-            <button
-              key={org.id}
-              onClick={() => onSelect(org)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: 14, padding: '14px',
-                cursor: org.activo === false ? 'not-allowed' : 'pointer',
-                textAlign: 'left', opacity: org.activo === false ? 0.45 : 1,
-                transition: 'background 140ms'
-              }}
-              disabled={org.activo === false}
-              onMouseEnter={(e) => {
-                if (org.activo !== false) e.currentTarget.style.background = 'rgba(15,118,110,0.14)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
-              }}
-            >
-              <div style={{
-                width: 44, height: 44, borderRadius: 12, flexShrink: 0,
-                background: palette.bg,
-                color: palette.text,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontWeight: 800, fontSize: 13
-              }}>
-                {initials || 'OR'}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: '#f1f5f9', fontWeight: 700, fontSize: 14, marginBottom: 2 }}>
-                  {org.nombre || 'Sin nombre'}
-                </div>
-                <div style={{ color: '#64748b', fontSize: 12, marginTop: 2 }}>
-                  {org.descripcion || 'Sin descripciÃ³n'}
-                </div>
-                <div style={{ color: '#94a3b8', fontSize: 11, marginTop: 4 }}>
-                  {org.total_usuarios ?? 0} usuario{Number(org.total_usuarios || 0) === 1 ? '' : 's'}
-                </div>
-              </div>
-              {org.activo === false ? (
-                <span style={{
-                  fontSize: 10, fontWeight: 700, color: '#f59e0b',
-                  background: 'rgba(245,158,11,0.15)',
-                  borderRadius: 999, padding: '2px 8px', flexShrink: 0
+              <button
+                key={org.id}
+                onClick={() => onSelect(org)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 14, padding: '14px',
+                  cursor: org.activo === false ? 'not-allowed' : 'pointer',
+                  textAlign: 'left', opacity: org.activo === false ? 0.45 : 1,
+                  transition: 'background 140ms'
+                }}
+                disabled={org.activo === false}
+                onMouseEnter={(e) => {
+                  if (org.activo !== false) e.currentTarget.style.background = 'rgba(15,118,110,0.14)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                }}
+              >
+                <div style={{
+                  width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+                  background: palette.bg,
+                  color: palette.text,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontWeight: 800, fontSize: 13
                 }}>
-                  Inactiva
-                </span>
-              ) : (
-                <span style={{
-                  fontSize: 10, fontWeight: 700, color: '#16a34a',
-                  background: 'rgba(34,197,94,0.15)',
-                  borderRadius: 999, padding: '2px 8px', flexShrink: 0
-                }}>
-                  Activa
-                </span>
-              )}
-            </button>
+                  {initials || 'OR'}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ color: '#f1f5f9', fontWeight: 700, fontSize: 14, marginBottom: 2 }}>
+                    {org.nombre || 'Sin nombre'}
+                  </div>
+                  <div style={{ color: '#64748b', fontSize: 12, marginTop: 2 }}>
+                    {org.descripcion || 'Sin descripcion'}
+                  </div>
+                  <div style={{ color: '#94a3b8', fontSize: 11, marginTop: 4 }}>
+                    {org.total_usuarios ?? 0} usuario{Number(org.total_usuarios || 0) === 1 ? '' : 's'}
+                  </div>
+                </div>
+                {org.activo === false ? (
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, color: '#f59e0b',
+                    background: 'rgba(245,158,11,0.15)',
+                    borderRadius: 999, padding: '2px 8px', flexShrink: 0
+                  }}>
+                    Inactiva
+                  </span>
+                ) : (
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, color: '#16a34a',
+                    background: 'rgba(34,197,94,0.15)',
+                    borderRadius: 999, padding: '2px 8px', flexShrink: 0
+                  }}>
+                    Activa
+                  </span>
+                )}
+              </button>
             );
           })}
-          {!loading && !error && (
-            <button
-              onClick={() => { setShowForm(true); setFormError(''); }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                minHeight: 72,
-                borderRadius: 14,
-                border: '1px dashed rgba(148,163,184,0.45)',
-                background: 'rgba(255,255,255,0.03)',
-                color: '#cbd5e1',
-                fontWeight: 700,
-                cursor: 'pointer'
-              }}
-            >
-              <Plus size={16} />
-              Nueva organizaciÃ³n
-            </button>
-          )}
         </div>
       </div>
     </div>
@@ -354,16 +309,8 @@ export function OrganizationSwitcherModal({ currentOrgId, onSelect, onClose }) {
 
   const filtered = React.useMemo(() => {
     const term = search.trim().toLowerCase();
-    return term ? orgs.filter(o => o.nombre.toLowerCase().includes(term)) : orgs;
+    return term ? orgs.filter((o) => o.nombre.toLowerCase().includes(term)) : orgs;
   }, [orgs, search]);
-
-  const INITIALS_COLORS = [
-    { bg: '#E1F5EE', text: '#0F6E56' },
-    { bg: '#E6F1FB', text: '#185FA5' },
-    { bg: '#FAECE7', text: '#993C1D' },
-    { bg: '#FAEEDA', text: '#854F0B' },
-    { bg: '#EEEDFE', text: '#534AB7' },
-  ];
 
   const handleCreate = async () => {
     if (!createDraft.nombre.trim()) {
@@ -409,7 +356,7 @@ export function OrganizationSwitcherModal({ currentOrgId, onSelect, onClose }) {
           Organizaciones
         </span>
         <button
-          onClick={() => { setShowCreateForm(v => !v); setCreateError(''); }}
+          onClick={() => { setShowCreateForm((v) => !v); setCreateError(''); }}
           style={{
             display: 'flex', alignItems: 'center', gap: 4,
             background: 'rgba(15,118,110,0.15)',
@@ -433,8 +380,8 @@ export function OrganizationSwitcherModal({ currentOrgId, onSelect, onClose }) {
             autoFocus
             placeholder="Nombre *"
             value={createDraft.nombre}
-            onChange={e => setCreateDraft(p => ({ ...p, nombre: e.target.value }))}
-            onKeyDown={e => { if (e.key === 'Enter') handleCreate(); }}
+            onChange={(e) => setCreateDraft((p) => ({ ...p, nombre: e.target.value }))}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); }}
             style={{
               background: 'rgba(255,255,255,0.06)',
               border: '1px solid rgba(255,255,255,0.12)',
@@ -443,9 +390,9 @@ export function OrganizationSwitcherModal({ currentOrgId, onSelect, onClose }) {
             }}
           />
           <input
-            placeholder="Descripción (opcional)"
+            placeholder="Descripcion (opcional)"
             value={createDraft.descripcion}
-            onChange={e => setCreateDraft(p => ({ ...p, descripcion: e.target.value }))}
+            onChange={(e) => setCreateDraft((p) => ({ ...p, descripcion: e.target.value }))}
             style={{
               background: 'rgba(255,255,255,0.06)',
               border: '1px solid rgba(255,255,255,0.12)',
@@ -477,7 +424,7 @@ export function OrganizationSwitcherModal({ currentOrgId, onSelect, onClose }) {
         <input
           placeholder="Buscar..."
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={(e) => setSearch(e.target.value)}
           style={{
             width: '100%', boxSizing: 'border-box',
             background: 'rgba(255,255,255,0.06)',
@@ -505,7 +452,7 @@ export function OrganizationSwitcherModal({ currentOrgId, onSelect, onClose }) {
         )}
         {!loading && !error && filtered.map((org, idx) => {
           const c = INITIALS_COLORS[idx % INITIALS_COLORS.length];
-          const initials = org.nombre.split(' ').slice(0, 2).map(w => w[0]?.toUpperCase()).join('');
+          const initials = org.nombre.split(' ').slice(0, 2).map((w) => w[0]?.toUpperCase()).join('');
           const isCurrent = org.id === currentOrgId;
           return (
             <button
@@ -520,8 +467,8 @@ export function OrganizationSwitcherModal({ currentOrgId, onSelect, onClose }) {
                 opacity: org.activo === false ? 0.4 : 1,
                 textAlign: 'left', marginBottom: 2
               }}
-              onMouseEnter={e => { if (org.activo !== false && !isCurrent) e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = isCurrent ? 'rgba(15,118,110,0.15)' : 'transparent'; }}
+              onMouseEnter={(e) => { if (org.activo !== false && !isCurrent) e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = isCurrent ? 'rgba(15,118,110,0.15)' : 'transparent'; }}
             >
               <div style={{
                 width: 32, height: 32, borderRadius: 8, flexShrink: 0,
@@ -560,7 +507,7 @@ export function OrganizationTopbarChip({ org, onClick }) {
   return (
     <button
       onClick={onClick}
-      title="Cambiar organizaciÃ³n"
+      title="Cambiar organizacion"
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 7,
         padding: '6px 12px', borderRadius: 10,
@@ -576,4 +523,3 @@ export function OrganizationTopbarChip({ org, onClick }) {
     </button>
   );
 }
-
