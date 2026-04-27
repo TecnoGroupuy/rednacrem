@@ -1,6 +1,6 @@
 ﻿import React from 'react';
 import {
-  BarChart3, TrendingUp, Users, XCircle,
+  TrendingUp, Users, XCircle,
   PhoneOff, AlertTriangle, RefreshCw, ChevronDown
 } from 'lucide-react';
 import { getApiClient } from '../services/apiClient.js';
@@ -113,20 +113,55 @@ export default function CampanasRedesModule() {
       {/* Hero */}
       <section className="hero">
         <div className="hero-panel">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-            <div>
-              <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                fontSize: 10, fontWeight: 700, letterSpacing: 1,
-                textTransform: 'uppercase', color: '#0f766e',
-                background: 'rgba(15,118,110,0.1)', borderRadius: 999,
-                padding: '4px 10px', marginBottom: 10
-              }}>
-                <BarChart3 size={11} />
-                Campanas de redes
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              width: '100%',
+              background: '#fff',
+              borderRadius: 14,
+              border: '1px solid rgba(15,23,42,0.1)',
+              padding: 10,
+              flexWrap: 'wrap'
+            }}
+          >
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+              <div style={{ display: 'flex', background: 'rgba(255,255,255,0.8)', borderRadius: 12, border: '1px solid rgba(15,23,42,0.08)', overflow: 'hidden' }}>
+                {PERIODOS.map((p) => (
+                  <button
+                    key={p.value}
+                    onClick={() => setPeriodo(p.value)}
+                    style={{
+                      padding: '8px 16px', border: 'none', cursor: 'pointer',
+                      fontSize: 13, fontWeight: 600,
+                      background: periodo === p.value ? '#0f766e' : 'transparent',
+                      color: periodo === p.value ? '#fff' : '#64748b',
+                      transition: 'all 140ms'
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                ))}
               </div>
-              <h1 className="hero-title">Monitor de campanas</h1>
-              <p className="hero-copy">Medicion en tiempo real de leads, conversiones y gestion por vendedor.</p>
+              <div style={{ position: 'relative' }}>
+                <select
+                  value={origen}
+                  onChange={(e) => setOrigen(e.target.value)}
+                  style={{
+                    padding: '8px 32px 8px 12px',
+                    borderRadius: 12, border: '1px solid rgba(15,23,42,0.12)',
+                    background: '#fff', fontSize: 13, fontWeight: 600,
+                    color: '#475569', cursor: 'pointer', appearance: 'none'
+                  }}
+                >
+                  {ORIGENES.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} color="#94a3b8" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+              </div>
             </div>
             <button
               onClick={load}
@@ -142,44 +177,6 @@ export default function CampanasRedesModule() {
               <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
               Actualizar
             </button>
-          </div>
-
-          {/* Filtros */}
-          <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', background: 'rgba(255,255,255,0.8)', borderRadius: 12, border: '1px solid rgba(15,23,42,0.08)', overflow: 'hidden' }}>
-              {PERIODOS.map((p) => (
-                <button
-                  key={p.value}
-                  onClick={() => setPeriodo(p.value)}
-                  style={{
-                    padding: '8px 16px', border: 'none', cursor: 'pointer',
-                    fontSize: 13, fontWeight: 600,
-                    background: periodo === p.value ? '#0f766e' : 'transparent',
-                    color: periodo === p.value ? '#fff' : '#64748b',
-                    transition: 'all 140ms'
-                  }}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-            <div style={{ position: 'relative' }}>
-              <select
-                value={origen}
-                onChange={(e) => setOrigen(e.target.value)}
-                style={{
-                  padding: '8px 32px 8px 12px',
-                  borderRadius: 12, border: '1px solid rgba(15,23,42,0.12)',
-                  background: '#fff', fontSize: 13, fontWeight: 600,
-                  color: '#475569', cursor: 'pointer', appearance: 'none'
-                }}
-              >
-                {ORIGENES.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-              <ChevronDown size={14} color="#94a3b8" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-            </div>
           </div>
         </div>
       </section>
@@ -472,3 +469,4 @@ export default function CampanasRedesModule() {
     </div>
   );
 }
+

@@ -7,7 +7,7 @@ import {
   Menu, X, Bell, Search, ChevronDown, Briefcase, Users, UserCheck, Building2, Phone,
   Activity, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, AlertTriangle,
   DollarSign, Target, Download, Layers, Eye, Calendar, PhoneCall, CreditCard, FileText,
-  Filter, Plus, CheckCircle2, Clock, Settings, Zap, BarChart3, Edit3, MoreHorizontal, Trash2,
+  Filter, Plus, CheckCircle2, Clock, Settings, Zap, BarChart3, Flame, Edit3, MoreHorizontal, Trash2,
   MessageSquare, Send, Headphones, Bot, User, Hash, Upload, LogOut, Coffee, Bath, PersonStanding,
   PauseCircle, XCircle,
   Info, Shield, ChevronRight
@@ -189,7 +189,7 @@ const ROLE_NAV = [
       { path: 'sa_logs_actividad', label: 'Logs y actividad', caption: 'Monitoreo e inactividad', roles: ['superadministrador'], icon: Zap },
       { path: 'sa_estado_modulos', label: 'Estado de módulos', caption: 'Visibilidad por rol', roles: ['superadministrador'], icon: Layers },
       { path: 'sa_configuracion', label: 'Configuración', caption: 'Identidad y parámetros', roles: ['superadministrador'], icon: Settings },
-      { path: 'campanas_redes', label: 'Campañas de redes', caption: 'Monitor de campañas', roles: ['superadministrador', 'director', 'supervisor'], icon: BarChart3 },
+      { path: 'campanas_redes', label: 'Datos calientes', caption: 'Datos en tiempo real', roles: ['superadministrador', 'director', 'supervisor'], icon: Flame },
       { path: 'dashboard', label: 'Monitor', caption: 'Resumen principal', roles: ['director', 'supervisor', 'vendedor', 'operaciones'], icon: Activity },
       { path: 'contactos', label: 'Contacto', caption: 'Base comercial', roles: ['director', 'vendedor'], icon: Users },
       { path: 'soporte', label: 'Atención al cliente', caption: 'Tickets y llamadas', roles: ['atencion_cliente'], icon: Headphones, badge: 12 },
@@ -206,7 +206,7 @@ const ROLE_NAV = [
       { path: 'pagos', label: 'Pagos', caption: 'Cobranza y convenios', roles: ['director', 'operaciones'], icon: CreditCard },
       { path: 'servicios', label: 'Servicios', caption: 'Circuito operativo', roles: ['director', 'operaciones'], icon: Briefcase, badge: 12 },
       { path: 'proveedores', label: 'Proveedores', caption: 'Red de soporte', roles: ['director', 'operaciones'], icon: Building2 },
-      { path: 'equipo', label: 'Equipo de venta', caption: 'Rendimiento comercial', roles: ['director', 'supervisor'], icon: Layers },
+      { path: 'equipo', label: 'Mi equipo', caption: 'Rendimiento comercial', roles: ['director', 'supervisor'], icon: Users },
       { path: 'reportes', label: 'Reportes', caption: 'Exportables', roles: ['director', 'supervisor'], icon: BarChart3 },
       { path: 'config', label: 'Configuración', caption: 'Parámetros del sistema', roles: ['director'], icon: Settings }
     ];
