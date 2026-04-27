@@ -125,7 +125,7 @@ export function OrganizationSelectorScreen({ onSelect }) {
             src="https://rednacrem-assets.s3.us-east-1.amazonaws.com/home/TRI+sin+fondo.png"
             alt="Tri"
             style={{
-              height: 48,
+              height: 130,
               width: 'auto',
               objectFit: 'contain',
               filter: 'drop-shadow(0 0 12px rgba(16,185,129,0.3))'
