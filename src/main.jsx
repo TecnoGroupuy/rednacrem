@@ -12079,6 +12079,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
       // Acción crítica: depende del rol real (no de rolEfectivo).
       const updateModuleVisibility = (targetRole, modulePath, estado) => {
+        console.log('[MODULE_VIS]', { hasRealSuperadminAccess, rolReal, esSuperadmin, targetRole, modulePath, estado });
         if (!hasRealSuperadminAccess) return;
         setModuleStates((prev) => setModuleState(prev, { role: targetRole, path: modulePath, estado }));
       };
