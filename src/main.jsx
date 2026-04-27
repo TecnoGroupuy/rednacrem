@@ -12586,10 +12586,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 ) : null}
               </div>
               {esSuperadmin && activeOrg && (
-                <>
+                <div style={{ position: 'relative' }}>
                   <OrganizationTopbarChip
                     org={activeOrg}
-                    onClick={() => setOrgSwitcherOpen(true)}
+                    onClick={() => setOrgSwitcherOpen(v => !v)}
                   />
                   {orgSwitcherOpen && (
                     <OrganizationSwitcherModal
@@ -12602,7 +12602,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       onClose={() => setOrgSwitcherOpen(false)}
                     />
                   )}
-                </>
+                </div>
               )}
             </div>
           </header>
