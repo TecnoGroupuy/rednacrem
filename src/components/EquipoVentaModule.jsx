@@ -111,37 +111,6 @@ export default function EquipoVentaModule({
 
   return (
     <div className="view">
-      <section className="hero">
-        <div className="hero-panel">
-          <Tag variant="info">Equipo de venta</Tag>
-          <h1 className="hero-title">Equipo de venta</h1>
-          <p className="hero-copy">Control del equipo activo y gestion de vendedores.</p>
-          <div style={{
-            marginTop: 20, padding: 18, borderRadius: 18,
-            border: '1px solid rgba(15,23,42,0.08)',
-            background: 'rgba(255,255,255,0.9)',
-            display: 'grid', gap: 12,
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))'
-          }}>
-            <div>
-              <div style={{ textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.1em', color: 'var(--muted)', marginBottom: 4 }}>Usuario activo</div>
-              <div style={{ fontWeight: 700 }}>{displayUserName}{displayUserEmail}</div>
-            </div>
-            <div>
-              <div style={{ textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.1em', color: 'var(--muted)', marginBottom: 4 }}>Desde</div>
-              <div style={{ fontWeight: 700 }}>{teamSinceLabel}</div>
-            </div>
-            <div>
-              <div style={{ textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.1em', color: 'var(--muted)', marginBottom: 4 }}>Estado</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 10, height: 10, borderRadius: '50%', background: teamStatusMeta.color, border: '1px solid rgba(15,23,42,0.15)' }}></span>
-                <strong>{teamStatusMeta.label}</strong>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {canManage && (
         <section className="content-grid">
           <Panel
