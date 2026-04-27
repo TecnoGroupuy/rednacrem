@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Loader2, Mail, Send, Terminal, UserPlus, Zap } from 'lucide-react';
+import { Loader2, Mail, Send, Terminal, UserPlus, Zap } from 'lucide-react';
 import { useAuth as useOidcAuth } from 'react-oidc-context';
 import { useAuth as useAppAuth } from '../../auth/AuthProvider.jsx';
 import { submitVendorRegistrationRequest } from '../../services/registrationService.js';
@@ -150,20 +150,31 @@ export default function EstadoNoAutenticado() {
   return (
     <div className="login-screen-root">
       <div className="login-left-pane">
-        <div className="login-left-copy fade-in-delay">
-          <h1>Bienvenido a <span>Rednacrem</span></h1>
-          <p>
-            Gestiona contactos, usuarios y seguimiento comercial en un solo lugar.
-            La plataforma integral para equipos de ventas modernos.
-          </p>
-          <div className="login-feature-list">
-            <div><Check size={14} />Gestion centralizada de contactos</div>
-            <div><Check size={14} />Seguimiento de oportunidades en tiempo real</div>
-            <div><Check size={14} />Reportes y analisis avanzados</div>
-          </div>
+        <div className="login-left-center fade-in-delay">
+          <img
+            src="https://rednacrem-assets.s3.amazonaws.com/home/TRI+logo.png"
+            alt="Tri"
+            style={{
+              maxWidth: 260,
+              maxHeight: 160,
+              objectFit: 'contain',
+              display: 'block'
+            }}
+          />
         </div>
 
-        <div className="login-left-footer fade-in-delay-2">Desarrollado por Tecno Group</div>
+        <div className="login-left-footer fade-in-delay-2">
+          <span>Desarrollado por Tecno Group</span>
+          <img
+            src="https://rednacrem-assets.s3.amazonaws.com/home/Amazon_Web_Services-Logo.wine.png"
+            alt="AWS"
+            style={{
+              height: 28,
+              objectFit: 'contain',
+              opacity: 0.85
+            }}
+          />
+        </div>
         <div className="login-left-glow-a"></div>
         <div className="login-left-glow-b"></div>
       </div>

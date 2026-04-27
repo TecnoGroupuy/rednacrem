@@ -121,10 +121,22 @@
 
 .login-left-footer {
   position: absolute;
-  left: 44px;
-  bottom: 34px;
-  color: rgba(148, 163, 184, 0.72);
-  font-size: 0.82rem;
+  bottom: 28px;
+  left: 32px;
+  right: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.login-left-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  width: 100%;
 }
 
 .login-right-pane {
