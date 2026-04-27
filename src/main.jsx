@@ -120,7 +120,9 @@ import {
   persistModuleStates,
   setModuleState,
   isModuleVisible,
-  ESTADO_MODULO_OPTIONS
+  ESTADO_MODULO_OPTIONS,
+  fetchModuleStatesFromApi,
+  saveModuleStateToApi
 } from './services/moduleVisibilityService.js';
 
 const ROLE_ICONS = {
@@ -11762,6 +11764,23 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, [moduleStates]);
 
       React.useEffect(() => {
+        if (!authUser?.id) return;
+        fetchModuleStatesFromApi().then((apiStates) => {
+          if (!apiStates) return;
+          setModuleStates((prev) => {
+            const merged = { ...prev };
+            Object.keys(apiStates).forEach((roleKey) => {
+              if (!merged[roleKey]) merged[roleKey] = {};
+              Object.keys(apiStates[roleKey]).forEach((path) => {
+                merged[roleKey][path] = apiStates[roleKey][path];
+              });
+            });
+            return merged;
+          });
+        });
+      }, [authUser?.id]);
+
+      React.useEffect(() => {
         if (!authUser?.id) return undefined;
         if (!canLoadProducts) {
           setProductsCatalog([]);
@@ -12079,9 +12098,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
       // Acción crítica: depende del rol real (no de rolEfectivo).
       const updateModuleVisibility = (targetRole, modulePath, estado) => {
-        console.log('[MODULE_VIS]', { hasRealSuperadminAccess, rolReal, esSuperadmin, targetRole, modulePath, estado });
         if (!hasRealSuperadminAccess) return;
         setModuleStates((prev) => setModuleState(prev, { role: targetRole, path: modulePath, estado }));
+        saveModuleStateToApi(targetRole, modulePath, estado);
       };
 
       // Acción crítica: branding global solo con rol real superadmin.

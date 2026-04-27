@@ -1,3 +1,5 @@
+import { getApiClient } from './apiClient.js';
+
 const STORAGE_KEY = 'rednacrem_module_states_v1';
 
 export const ESTADO_MODULO = Object.freeze({
@@ -81,3 +83,26 @@ export const getModuleState = (states, role, path) => normalizeEstado(states?.[r
 
 export const isModuleVisible = (states, role, path) => getModuleState(states, role, path) === ESTADO_MODULO.ACTIVO;
 
+export async function fetchModuleStatesFromApi() {
+  try {
+    const api = getApiClient();
+    const res = await api.get('/module-states');
+    return res?.states || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveModuleStateToApi(roleKey, modulePath, estado) {
+  try {
+    const api = getApiClient();
+    await api.put('/module-states', {
+      role_key: roleKey,
+      module_path: modulePath,
+      estado
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
