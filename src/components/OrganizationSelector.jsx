@@ -8,6 +8,7 @@ import {
   createOrganization,
   updateOrganization
 } from '../services/organizationsService.js';
+import { getApiClient } from '../services/apiClient.js';
 
 const INITIALS_COLORS = [
   { bg: '#E1F5EE', text: '#0F6E56' },
@@ -23,9 +24,18 @@ export function OrganizationSelectorScreen({ onSelect }) {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
   const [showForm, setShowForm] = React.useState(false);
-  const [formDraft, setFormDraft] = React.useState({ nombre: '', descripcion: '' });
+  const [wizardStep, setWizardStep] = React.useState(1);
+  const [formDraft, setFormDraft] = React.useState({
+    nombre: '', rut: '', email_admin: '', telefono: '', pais: 'UY'
+  });
+  const [adminDraft, setAdminDraft] = React.useState({
+    nombre: '', apellido: '', email: '', telefono: '',
+    role: 'supervisor', status: 'approved',
+    reason: 'Alta desde onboarding de nueva organizacion'
+  });
   const [formSaving, setFormSaving] = React.useState(false);
   const [formError, setFormError] = React.useState('');
+  const [createdOrg, setCreatedOrg] = React.useState(null);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -42,7 +52,7 @@ export function OrganizationSelectorScreen({ onSelect }) {
 
   React.useEffect(() => { load(); }, [load]);
 
-  const handleCreate = async () => {
+  const handleCreateOrg = async () => {
     if (!formDraft.nombre.trim()) {
       setFormError('El nombre es obligatorio.');
       return;
@@ -51,11 +61,52 @@ export function OrganizationSelectorScreen({ onSelect }) {
     setFormError('');
     try {
       const created = await createOrganization(formDraft);
-      onSelect(created);
+      setCreatedOrg(created);
+      setWizardStep(2);
     } catch (err) {
       setFormError(err?.message || 'No se pudo crear.');
+    } finally {
       setFormSaving(false);
     }
+  };
+
+  const handleCreateAdmin = async () => {
+    if (!adminDraft.nombre.trim() || !adminDraft.apellido.trim() ||
+        !adminDraft.email.trim() || !adminDraft.telefono.trim()) {
+      setFormError('Nombre, apellido, email y telefono son obligatorios.');
+      return;
+    }
+    setFormSaving(true);
+    setFormError('');
+    try {
+      const api = getApiClient();
+      await api.post(
+        `/superadmin/users?organization_id=${createdOrg.id}`,
+        adminDraft
+      );
+      onSelect(createdOrg);
+    } catch (err) {
+      setFormError(err?.message || 'No se pudo crear el usuario.');
+    } finally {
+      setFormSaving(false);
+    }
+  };
+
+  const handleSkipAdmin = () => {
+    onSelect(createdOrg);
+  };
+
+  const resetForm = () => {
+    setShowForm(false);
+    setWizardStep(1);
+    setFormDraft({ nombre: '', rut: '', email_admin: '', telefono: '', pais: 'UY' });
+    setAdminDraft({
+      nombre: '', apellido: '', email: '', telefono: '',
+      role: 'supervisor', status: 'approved',
+      reason: 'Alta desde onboarding de nueva organizacion'
+    });
+    setFormError('');
+    setCreatedOrg(null);
   };
 
   return (
@@ -84,7 +135,15 @@ export function OrganizationSelectorScreen({ onSelect }) {
         {/* Boton crear */}
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <button
-            onClick={() => { setShowForm((v) => !v); setFormError(''); setFormDraft({ nombre: '', descripcion: '' }); }}
+            onClick={() => {
+              if (showForm) {
+                resetForm();
+              } else {
+                setShowForm(true);
+                setWizardStep(1);
+                setFormError('');
+              }
+            }}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
               padding: '10px 16px', borderRadius: 12,
@@ -102,61 +161,258 @@ export function OrganizationSelectorScreen({ onSelect }) {
           <div style={{
             background: 'rgba(255,255,255,0.05)',
             border: '1px solid rgba(255,255,255,0.12)',
-            borderRadius: 16, padding: 20,
-            display: 'flex', flexDirection: 'column', gap: 12
+            borderRadius: 16, padding: 24,
+            display: 'flex', flexDirection: 'column', gap: 16
           }}>
-            <div style={{ color: '#f1f5f9', fontWeight: 700 }}>Nueva org</div>
-            <input
-              autoFocus
-              placeholder="Nombre *"
-              value={formDraft.nombre}
-              onChange={(e) => setFormDraft((p) => ({ ...p, nombre: e.target.value }))}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); }}
-              style={{
-                background: 'rgba(255,255,255,0.08)',
-                border: '1px solid rgba(255,255,255,0.15)',
-                borderRadius: 10, padding: '10px 12px',
-                color: '#f1f5f9', fontSize: 14, outline: 'none'
-              }}
-            />
-            <input
-              placeholder="Descripcion (opcional)"
-              value={formDraft.descripcion}
-              onChange={(e) => setFormDraft((p) => ({ ...p, descripcion: e.target.value }))}
-              style={{
-                background: 'rgba(255,255,255,0.08)',
-                border: '1px solid rgba(255,255,255,0.15)',
-                borderRadius: 10, padding: '10px 12px',
-                color: '#f1f5f9', fontSize: 14, outline: 'none'
-              }}
-            />
-            {formError && (
-              <div style={{ color: '#f87171', fontSize: 13 }}>{formError}</div>
-            )}
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => setShowForm(false)}
-                style={{
-                  padding: '8px 16px', borderRadius: 10,
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  background: 'transparent', color: '#94a3b8', cursor: 'pointer'
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleCreate}
-                disabled={formSaving}
-                style={{
-                  padding: '8px 16px', borderRadius: 10, border: 'none',
-                  background: '#0f766e', color: '#fff', fontWeight: 600,
-                  cursor: formSaving ? 'wait' : 'pointer',
-                  opacity: formSaving ? 0.7 : 1
-                }}
-              >
-                {formSaving ? 'Creando...' : 'Crear y entrar'}
-              </button>
+            {/* Indicador de pasos */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                fontSize: 12, color: wizardStep === 1 ? '#0f766e' : '#64748b'
+              }}>
+                <div style={{
+                  width: 22, height: 22, borderRadius: '50%',
+                  background: wizardStep === 1 ? '#0f766e' : '#1D9E75',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 11, fontWeight: 700, color: '#fff'
+                }}>1</div>
+                Datos de la empresa
+              </div>
+              <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                fontSize: 12, color: wizardStep === 2 ? '#0f766e' : '#64748b'
+              }}>
+                <div style={{
+                  width: 22, height: 22, borderRadius: '50%',
+                  background: wizardStep === 2 ? '#0f766e' : 'rgba(255,255,255,0.1)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 11, fontWeight: 700,
+                  color: wizardStep === 2 ? '#fff' : '#64748b'
+                }}>2</div>
+                Usuario administrador
+              </div>
             </div>
+
+            {/* PASO 1 — Datos de la empresa */}
+            {wizardStep === 1 && (
+              <>
+                <div style={{ color: '#f1f5f9', fontWeight: 600, fontSize: 15 }}>
+                  Nueva organizacion
+                </div>
+
+                <input
+                  autoFocus
+                  placeholder="Nombre *"
+                  value={formDraft.nombre}
+                  onChange={e => setFormDraft(p => ({ ...p, nombre: e.target.value }))}
+                  onKeyDown={e => { if (e.key === 'Enter') handleCreateOrg(); }}
+                  style={{
+                    background: 'rgba(255,255,255,0.08)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    borderRadius: 10, padding: '10px 12px',
+                    color: '#f1f5f9', fontSize: 14, outline: 'none', width: '100%',
+                    boxSizing: 'border-box'
+                  }}
+                />
+                <input
+                  placeholder="RUT (opcional)"
+                  value={formDraft.rut}
+                  onChange={e => setFormDraft(p => ({ ...p, rut: e.target.value }))}
+                  style={{
+                    background: 'rgba(255,255,255,0.08)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    borderRadius: 10, padding: '10px 12px',
+                    color: '#f1f5f9', fontSize: 14, outline: 'none', width: '100%',
+                    boxSizing: 'border-box'
+                  }}
+                />
+                <input
+                  placeholder="Email de contacto (opcional)"
+                  type="email"
+                  value={formDraft.email_admin}
+                  onChange={e => setFormDraft(p => ({ ...p, email_admin: e.target.value }))}
+                  style={{
+                    background: 'rgba(255,255,255,0.08)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    borderRadius: 10, padding: '10px 12px',
+                    color: '#f1f5f9', fontSize: 14, outline: 'none', width: '100%',
+                    boxSizing: 'border-box'
+                  }}
+                />
+                <input
+                  placeholder="Telefono (opcional)"
+                  value={formDraft.telefono}
+                  onChange={e => setFormDraft(p => ({ ...p, telefono: e.target.value }))}
+                  style={{
+                    background: 'rgba(255,255,255,0.08)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    borderRadius: 10, padding: '10px 12px',
+                    color: '#f1f5f9', fontSize: 14, outline: 'none', width: '100%',
+                    boxSizing: 'border-box'
+                  }}
+                />
+                <select
+                  value={formDraft.pais}
+                  onChange={e => setFormDraft(p => ({ ...p, pais: e.target.value }))}
+                  style={{
+                    background: 'rgba(255,255,255,0.08)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    borderRadius: 10, padding: '10px 12px',
+                    color: '#f1f5f9', fontSize: 14, outline: 'none', width: '100%',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  <option value="UY">Uruguay</option>
+                  <option value="AR">Argentina</option>
+                  <option value="CL">Chile</option>
+                  <option value="BR">Brasil</option>
+                  <option value="MX">Mexico</option>
+                  <option value="CO">Colombia</option>
+                  <option value="PE">Peru</option>
+                </select>
+
+                {formError && (
+                  <div style={{ color: '#f87171', fontSize: 13 }}>{formError}</div>
+                )}
+
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={resetForm}
+                    style={{
+                      padding: '8px 16px', borderRadius: 10,
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      background: 'transparent', color: '#94a3b8', cursor: 'pointer',
+                      fontSize: 13
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleCreateOrg}
+                    disabled={formSaving}
+                    style={{
+                      padding: '8px 16px', borderRadius: 10, border: 'none',
+                      background: '#0f766e', color: '#fff', fontWeight: 600,
+                      cursor: formSaving ? 'wait' : 'pointer',
+                      opacity: formSaving ? 0.7 : 1, fontSize: 13
+                    }}
+                  >
+                    {formSaving ? 'Creando...' : 'Siguiente →'}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* PASO 2 — Usuario administrador */}
+            {wizardStep === 2 && (
+              <>
+                <div style={{ color: '#f1f5f9', fontWeight: 600, fontSize: 15 }}>
+                  Usuario administrador
+                  <span style={{ fontSize: 12, color: '#64748b', fontWeight: 400, marginLeft: 8 }}>
+                    para {createdOrg?.nombre}
+                  </span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <input
+                    autoFocus
+                    placeholder="Nombre *"
+                    value={adminDraft.nombre}
+                    onChange={e => setAdminDraft(p => ({ ...p, nombre: e.target.value }))}
+                    style={{
+                      background: 'rgba(255,255,255,0.08)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      borderRadius: 10, padding: '10px 12px',
+                      color: '#f1f5f9', fontSize: 14, outline: 'none',
+                      width: '100%', boxSizing: 'border-box'
+                    }}
+                  />
+                  <input
+                    placeholder="Apellido *"
+                    value={adminDraft.apellido}
+                    onChange={e => setAdminDraft(p => ({ ...p, apellido: e.target.value }))}
+                    style={{
+                      background: 'rgba(255,255,255,0.08)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      borderRadius: 10, padding: '10px 12px',
+                      color: '#f1f5f9', fontSize: 14, outline: 'none',
+                      width: '100%', boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+                <input
+                  placeholder="Email *"
+                  type="email"
+                  value={adminDraft.email}
+                  onChange={e => setAdminDraft(p => ({ ...p, email: e.target.value }))}
+                  style={{
+                    background: 'rgba(255,255,255,0.08)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    borderRadius: 10, padding: '10px 12px',
+                    color: '#f1f5f9', fontSize: 14, outline: 'none', width: '100%',
+                    boxSizing: 'border-box'
+                  }}
+                />
+                <input
+                  placeholder="Telefono *"
+                  value={adminDraft.telefono}
+                  onChange={e => setAdminDraft(p => ({ ...p, telefono: e.target.value }))}
+                  style={{
+                    background: 'rgba(255,255,255,0.08)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    borderRadius: 10, padding: '10px 12px',
+                    color: '#f1f5f9', fontSize: 14, outline: 'none', width: '100%',
+                    boxSizing: 'border-box'
+                  }}
+                />
+                <select
+                  value={adminDraft.role}
+                  onChange={e => setAdminDraft(p => ({ ...p, role: e.target.value }))}
+                  style={{
+                    background: 'rgba(255,255,255,0.08)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    borderRadius: 10, padding: '10px 12px',
+                    color: '#f1f5f9', fontSize: 14, outline: 'none', width: '100%',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  <option value="supervisor">Supervisor</option>
+                  <option value="director">Director</option>
+                  <option value="operaciones">Operaciones</option>
+                </select>
+
+                {formError && (
+                  <div style={{ color: '#f87171', fontSize: 13 }}>{formError}</div>
+                )}
+
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={handleSkipAdmin}
+                    style={{
+                      padding: '8px 16px', borderRadius: 10,
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      background: 'transparent', color: '#94a3b8', cursor: 'pointer',
+                      fontSize: 13
+                    }}
+                  >
+                    Saltar por ahora
+                  </button>
+                  <button
+                    onClick={handleCreateAdmin}
+                    disabled={formSaving}
+                    style={{
+                      padding: '8px 16px', borderRadius: 10, border: 'none',
+                      background: '#0f766e', color: '#fff', fontWeight: 600,
+                      cursor: formSaving ? 'wait' : 'pointer',
+                      opacity: formSaving ? 0.7 : 1, fontSize: 13
+                    }}
+                  >
+                    {formSaving ? 'Creando usuario...' : 'Crear y entrar'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
