@@ -2288,8 +2288,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <thead>
                       <tr>
                         <th>Vendedor</th>
-                        <th>Asignados</th>
-                        <th>Gestiones del día</th>
                         <th>Ventas</th>
                         <th>Seguimientos</th>
                         <th>Rellamadas</th>
@@ -2298,6 +2296,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         <th>Datos err.</th>
                         <th>Contacto</th>
                         <th>Efectividad</th>
+                        <th>Asignados</th>
+                        <th>Gestiones del día</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2310,10 +2310,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                 <strong>{`${row.nombre || ''} ${row.apellido || ''}`.trim() || '—'}</strong>
                               </div>
                             </div>
-                          </td>
-                          <td>{row.asignados}</td>
-                          <td style={{ minWidth: 130 }}>
-                            <SellerMiniBar value={row.gestiones} max={sellerMaxGestiones} />
                           </td>
                           <td>
                             <SellerBadge value={row.ventas} styleFn={sellerVentasStyle} />
@@ -2330,6 +2326,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           </td>
                           <td>
                             <SellerBadge value={row.efectividad} styleFn={sellerPercentStyle} suffix="%" />
+                          </td>
+                          <td>{row.asignados}</td>
+                          <td style={{ minWidth: 130 }}>
+                            <SellerMiniBar value={row.gestiones} max={sellerMaxGestiones} />
                           </td>
                         </tr>
                       ))}
@@ -2362,8 +2362,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <thead>
                       <tr>
                         <th>Vendedor</th>
-                        <th>Asignados</th>
-                        <th>Gestiones del día</th>
                         <th>Ventas</th>
                         <th>Seguimientos</th>
                         <th>Rellamadas</th>
@@ -2372,6 +2370,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         <th>Datos err.</th>
                         <th>Contacto</th>
                         <th>Efectividad</th>
+                        <th>Asignados</th>
+                        <th>Gestiones del día</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2384,10 +2384,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                 <strong>{`${row.nombre || ''} ${row.apellido || ''}`.trim() || '—'}</strong>
                               </div>
                             </div>
-                          </td>
-                          <td>{row.asignados}</td>
-                          <td style={{ minWidth: 130 }}>
-                            <SellerMiniBar value={row.gestiones} max={sellerRecuperoMaxGestiones} />
                           </td>
                           <td>
                             <SellerBadge value={row.ventas} styleFn={sellerVentasStyle} />
@@ -2404,6 +2400,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           </td>
                           <td>
                             <SellerBadge value={row.efectividad} styleFn={sellerPercentStyle} suffix="%" />
+                          </td>
+                          <td>{row.asignados}</td>
+                          <td style={{ minWidth: 130 }}>
+                            <SellerMiniBar value={row.gestiones} max={sellerRecuperoMaxGestiones} />
                           </td>
                         </tr>
                       ))}
