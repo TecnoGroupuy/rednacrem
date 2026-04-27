@@ -40,8 +40,8 @@ export default function EquipoVentaModule({
     setLoading(true);
     try {
       const api = getApiClient();
-      const res = await api.get('/superadmin/users');
-      const items = (res?.items || []).filter(u => u.role_key === 'vendedor');
+      const res = await api.get('/org/users');
+      const items = res?.items || [];
       setVendedores(items);
     } catch (err) {
       console.error('Error cargando vendedores:', err);
