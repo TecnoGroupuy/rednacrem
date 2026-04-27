@@ -153,7 +153,7 @@ export default function EstadoNoAutenticado() {
         <div className="login-brand-center fade-in-delay">
           <div className="login-brand-logo-wrap">
             <img
-              src="https://rednacrem-assets.s3.amazonaws.com/home/TRI+logo.png"
+              src="https://rednacrem-assets.s3.us-east-1.amazonaws.com/home/TRI+sin+fondo.png"
               alt="Tri"
               className="login-brand-logo-img"
             />
