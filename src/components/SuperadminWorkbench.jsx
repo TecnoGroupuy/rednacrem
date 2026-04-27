@@ -86,6 +86,8 @@ export default function SuperadminWorkbench({
   const [assignLoading, setAssignLoading] = React.useState(false);
   const [assignError, setAssignError] = React.useState('');
   const [showAssignPanel, setShowAssignPanel] = React.useState(false);
+  const [globalStats, setGlobalStats] = React.useState(null);
+  const [statsLoading, setStatsLoading] = React.useState(false);
   const [noCallRows, setNoCallRows] = React.useState([]);
   const [noCallStats, setNoCallStats] = React.useState({ total: 0, celulares: 0, montevideo: 0, interior: 0 });
   const [noCallSearch, setNoCallSearch] = React.useState('');
@@ -342,6 +344,18 @@ export default function SuperadminWorkbench({
       console.error('Error cargando todos los usuarios:', err);
     }
   }, []);
+  const loadGlobalStats = React.useCallback(async () => {
+    setStatsLoading(true);
+    try {
+      const api = getApiClient();
+      const res = await api.get('/superadmin/stats');
+      setGlobalStats(res);
+    } catch (err) {
+      console.error('Error cargando stats:', err);
+    } finally {
+      setStatsLoading(false);
+    }
+  }, []);
   const handleAssignUser = async (userId) => {
     if (!activeOrgId) return;
     setAssignLoading(true);
@@ -472,6 +486,10 @@ export default function SuperadminWorkbench({
       loadAllUsers();
     }
   }, [route, activeOrgId, loadOrgUsers, loadAllUsers]);
+
+  React.useEffect(() => {
+    loadGlobalStats();
+  }, [loadGlobalStats, activeOrgId]);
 
   const loadNoCall = React.useCallback(async () => {
     setNoCallLoading(true);
@@ -753,12 +771,42 @@ export default function SuperadminWorkbench({
   }, { day: 0, month: 0, year: 0 });
 
   const globalMetrics = [
-    { title: 'Ventas del día', value: '26', change: 8.1, label: 'últimas 24h', trend: 'up', icon: Activity, bg: 'rgba(22,163,74,0.12)', color: '#15803d' },
-    { title: 'Tickets abiertos', value: '17', change: -4.0, label: 'mesa de ayuda', trend: 'up', icon: Activity, bg: 'rgba(37,99,235,0.12)', color: '#2563eb' },
-    { title: 'Solicitudes en curso', value: '12', change: 2.2, label: 'operaciones', trend: 'up', icon: Activity, bg: 'rgba(217,119,6,0.12)', color: '#d97706' },
-    { title: 'Lotes activos', value: '6', change: 0.0, label: 'supervisión', trend: 'up', icon: Activity, bg: 'rgba(20,34,53,0.12)', color: '#1f2937' },
-    { title: 'Usuarios activos', value: String(activeUsers), change: 4.4, label: 'actividad reciente', trend: 'up', icon: Activity, bg: 'rgba(15,118,110,0.12)', color: '#0f766e' },
-    { title: 'Importaciones hoy', value: String(imports.slice(0, 4).length), change: 0, label: 'últimos archivos', trend: 'up', icon: Activity, bg: 'rgba(124,58,237,0.12)', color: '#7c3aed' }
+    {
+      title: 'Ventas del dia',
+      value: statsLoading ? '...' : String(globalStats?.ventas_hoy ?? 0),
+      change: 8.1, label: 'ultimas 24h', trend: 'up',
+      icon: Activity, bg: 'rgba(22,163,74,0.12)', color: '#15803d'
+    },
+    {
+      title: 'Tickets abiertos',
+      value: statsLoading ? '...' : String(globalStats?.tickets_abiertos ?? 0),
+      change: -4.0, label: 'mesa de ayuda', trend: 'up',
+      icon: Activity, bg: 'rgba(37,99,235,0.12)', color: '#2563eb'
+    },
+    {
+      title: 'Solicitudes en curso',
+      value: statsLoading ? '...' : String(globalStats?.solicitudes_en_curso ?? 0),
+      change: 2.2, label: 'operaciones', trend: 'up',
+      icon: Activity, bg: 'rgba(217,119,6,0.12)', color: '#d97706'
+    },
+    {
+      title: 'Lotes activos',
+      value: statsLoading ? '...' : String(globalStats?.lotes_activos ?? 0),
+      change: 0.0, label: 'supervision', trend: 'up',
+      icon: Activity, bg: 'rgba(20,34,53,0.12)', color: '#1f2937'
+    },
+    {
+      title: 'Usuarios activos',
+      value: statsLoading ? '...' : String(globalStats?.usuarios_activos ?? 0),
+      change: 4.4, label: 'actividad reciente', trend: 'up',
+      icon: Activity, bg: 'rgba(15,118,110,0.12)', color: '#0f766e'
+    },
+    {
+      title: 'Importaciones hoy',
+      value: statsLoading ? '...' : String(globalStats?.importaciones_hoy ?? 0),
+      change: 0, label: 'ultimos archivos', trend: 'up',
+      icon: Activity, bg: 'rgba(124,58,237,0.12)', color: '#7c3aed'
+    }
   ];
 
   const moduleRows = React.useMemo(() => {
