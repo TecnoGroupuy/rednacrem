@@ -178,37 +178,38 @@ export default function CampanasRedesModule() {
               Actualizar
             </button>
           </div>
+
+          {error && (
+            <div style={{
+              background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)',
+              borderRadius: 12, padding: 12, color: '#dc2626', fontSize: 13, marginTop: 12
+            }}>
+              {error}
+            </div>
+          )}
+
+          {/* Metricas principales */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+            gap: 12,
+            marginTop: 16
+          }}>
+            <MetricaTarjeta label="Total leads" value={m.total} color="#0f766e" icon={Users}
+              sub={`${bloqueadoRate}% bloqueados`} />
+            <MetricaTarjeta label="Nuevos" value={m.nuevos} color="#2563eb" icon={TrendingUp}
+              sub="Listos para gestionar" />
+            <MetricaTarjeta label="Convertidos" value={m.convertidos} color="#15803d" icon={TrendingUp}
+              sub={`${conversionRate}% conversion`} />
+            <MetricaTarjeta label="No contesta" value={m.no_contesta} color="#d97706" icon={PhoneOff} />
+            <MetricaTarjeta label="Rechazados" value={m.rechazados} color="#dc2626" icon={XCircle} />
+            <MetricaTarjeta label="Bloqueados" value={m.bloqueados} color="#6b7280" icon={AlertTriangle}
+              sub="Duplicados + ya clientes" />
+          </div>
         </div>
       </section>
 
       <div style={{ padding: '0 24px 24px' }}>
-        {error && (
-          <div style={{
-            background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)',
-            borderRadius: 12, padding: 12, color: '#dc2626', fontSize: 13, marginBottom: 20
-          }}>
-            {error}
-          </div>
-        )}
-
-        {/* Metricas principales */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-          gap: 12, marginBottom: 24
-        }}>
-          <MetricaTarjeta label="Total leads" value={m.total} color="#0f766e" icon={Users}
-            sub={`${bloqueadoRate}% bloqueados`} />
-          <MetricaTarjeta label="Nuevos" value={m.nuevos} color="#2563eb" icon={TrendingUp}
-            sub="Listos para gestionar" />
-          <MetricaTarjeta label="Convertidos" value={m.convertidos} color="#15803d" icon={TrendingUp}
-            sub={`${conversionRate}% conversion`} />
-          <MetricaTarjeta label="No contesta" value={m.no_contesta} color="#d97706" icon={PhoneOff} />
-          <MetricaTarjeta label="Rechazados" value={m.rechazados} color="#dc2626" icon={XCircle} />
-          <MetricaTarjeta label="Bloqueados" value={m.bloqueados} color="#6b7280" icon={AlertTriangle}
-            sub="Duplicados + ya clientes" />
-        </div>
-
         {/* Tabla por dia */}
         <div style={{
           background: '#fff', borderRadius: 16,
