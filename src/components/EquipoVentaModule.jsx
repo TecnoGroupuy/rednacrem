@@ -165,8 +165,20 @@ export default function EquipoVentaModule({
                       <td style={{ fontSize: 12, color: 'var(--muted)' }}>{v.email}</td>
                       <td style={{ fontSize: 12 }}>{v.telefono || '—'}</td>
                       <td>
-                        <Tag variant={v.status === 'approved' ? 'success' : 'warning'}>
-                          {v.status}
+                        <Tag variant={
+                          v.status === 'approved' ? 'success' :
+                          v.status === 'pausado' ? 'warning' :
+                          v.status === 'blocked' ? 'danger' :
+                          v.status === 'inactive' ? 'default' :
+                          'warning'
+                        }>
+                          {v.status === 'approved' ? 'Activo' :
+                           v.status === 'pausado' ? 'Baja' :
+                           v.status === 'blocked' ? 'Bloqueado' :
+                           v.status === 'inactive' ? 'Inactivo' :
+                           v.status === 'pending' ? 'Pendiente' :
+                           v.status === 'rejected' ? 'Rechazado' :
+                           v.status}
                         </Tag>
                       </td>
                       <td>
@@ -233,9 +245,10 @@ export default function EquipoVentaModule({
                     value={draft.status}
                     onChange={e => setDraft(p => ({ ...p, status: e.target.value }))}
                   >
-                    <option value="approved">Aprobado</option>
+                    <option value="approved">Activo</option>
                     <option value="inactive">Inactivo</option>
                     <option value="blocked">Bloqueado</option>
+                    <option value="pausado">Baja</option>
                   </select>
                 </div>
                 {formError && (
