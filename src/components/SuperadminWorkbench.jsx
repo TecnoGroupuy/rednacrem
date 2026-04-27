@@ -87,6 +87,12 @@ export default function SuperadminWorkbench({
   const [assignError, setAssignError] = React.useState('');
   const [showAssignPanel, setShowAssignPanel] = React.useState(false);
   const [globalStats, setGlobalStats] = React.useState(null);
+  const [dashboardStats, setDashboardStats] = React.useState({
+    importaciones: 0,
+    noLlamar: 0,
+    resultados: 0,
+    usuariosActivos: 0
+  });
   const [statsLoading, setStatsLoading] = React.useState(false);
   const [noCallRows, setNoCallRows] = React.useState([]);
   const [noCallStats, setNoCallStats] = React.useState({ total: 0, celulares: 0, montevideo: 0, interior: 0 });
@@ -356,6 +362,37 @@ export default function SuperadminWorkbench({
       setStatsLoading(false);
     }
   }, []);
+  const loadDashboardStats = React.useCallback(async () => {
+    try {
+      const api = getApiClient();
+      const [importsRes, noLlamarRes, resultadosRes] = await Promise.allSettled([
+        api.get('/imports?page=1&pageSize=5'),
+        api.get('/no-llamar/stats'),
+        api.get('/phone-results?page=1&pageSize=1')
+      ]);
+
+      const importaciones = importsRes.status === 'fulfilled'
+        ? (importsRes.value?.total || 0)
+        : 0;
+
+      const noLlamar = noLlamarRes.status === 'fulfilled'
+        ? (noLlamarRes.value?.total || noLlamarRes.value?.data?.total || 0)
+        : 0;
+
+      const resultados = resultadosRes.status === 'fulfilled'
+        ? (resultadosRes.value?.total || 0)
+        : 0;
+
+      setDashboardStats({
+        importaciones,
+        noLlamar,
+        resultados,
+        usuariosActivos: 0
+      });
+    } catch (err) {
+      console.error('Error cargando dashboard stats:', err);
+    }
+  }, []);
   const handleAssignUser = async (userId) => {
     if (!activeOrgId) return;
     setAssignLoading(true);
@@ -490,6 +527,10 @@ export default function SuperadminWorkbench({
   React.useEffect(() => {
     loadGlobalStats();
   }, [loadGlobalStats, activeOrgId]);
+
+  React.useEffect(() => {
+    loadDashboardStats();
+  }, [loadDashboardStats, activeOrgId]);
 
   const loadNoCall = React.useCallback(async () => {
     setNoCallLoading(true);
@@ -1769,7 +1810,7 @@ export default function SuperadminWorkbench({
     return <div className="view"><section className="content-grid"><Panel className="span-8" title="Configuración general" subtitle="Parámetros globales"><div className="mini-stats"><div className="mini-stat"><span>Tipos de solicitud</span><strong>Atención al cliente</strong></div><div className="mini-stat"><span>Estados comerciales</span><strong>Ventas y seguimiento</strong></div><div className="mini-stat"><span>Parámetros generales</span><strong>Categorías y estados</strong></div></div></Panel><Panel className="span-4" title="Identidad visual" subtitle="Cambio de logo"><div className="list"><div style={{ borderRadius: 16, border: '1px solid var(--line)', minHeight: 100, display: 'grid', placeItems: 'center', background: 'rgba(20,34,53,0.03)' }}>{logoDraft ? <img src={logoDraft} alt="Logo" style={{ maxWidth: '100%', maxHeight: 80, objectFit: 'contain' }} /> : <strong>Sin logo personalizado</strong>}</div><input className="input" type="file" accept="image/*" onChange={onLogoFile} />{logoError ? <div style={{ color: '#be123c', fontWeight: 700 }}>{logoError}</div> : null}{logoSaved ? <div style={{ color: '#15803d', fontWeight: 700 }}>{logoSaved}</div> : null}<Button icon={<CheckCircle2 size={16} />} onClick={saveLogo} disabled={logoSaving}>{logoSaving ? 'Guardando...' : 'Guardar logo'}</Button></div></Panel></section></div>;
   }
 
-  return <div className="view"><section className="metrics-grid">{globalMetrics.map((item) => <MetricCard key={item.title} item={item} />)}</section><section className="content-grid"><Panel className="span-7" title="Vista general del sistema" subtitle="Control rápido de módulos críticos"><div className="mini-stats"><div className="mini-stat"><span>Importaciones recientes</span><strong>{imports.slice(0, 5).length}</strong></div><div className="mini-stat"><span>Base No llamar activa</span><strong>{noCallMeta.total || noCallRows.length}</strong></div><div className="mini-stat"><span>Resultados telefónicos cargados</span><strong>{phoneResultsRows.length}</strong></div><div className="mini-stat"><span>Usuarios con actividad reciente</span><strong>{activeUsers}</strong></div></div><div className="toolbar" style={{ marginTop: 14 }}><Button icon={<Upload size={16} />} onClick={() => onOpenRoute('sa_importaciones')}>Ir a Importaciones</Button><Button variant="secondary" icon={<Phone size={16} />} onClick={() => onOpenRoute('sa_no_llamar')}>Base No llamar</Button><Button variant="secondary" icon={<PhoneCall size={16} />} onClick={() => onOpenRoute('sa_resultados')}>Resultados</Button></div></Panel><Panel className="span-5" title="Actividad reciente" subtitle="Monitoreo transversal">{listRecentActivity(6).map((item) => <div key={item.id} className="status-item"><div className="status-ring" style={{ background: 'rgba(37,99,235,0.12)', color: '#2563eb' }}><Activity size={16} /></div><div style={{ flex: 1 }}><div style={{ fontWeight: 700 }}>{item.tipo}</div><div style={{ color: 'var(--muted)' }}>{item.detalle}</div></div><span style={{ color: 'var(--muted)', fontSize: '0.84rem' }}>{item.at}</span></div>)}</Panel></section></div>;
+  return <div className="view"><section className="metrics-grid">{globalMetrics.map((item) => <MetricCard key={item.title} item={item} />)}</section><section className="content-grid"><Panel className="span-7" title="Vista general del sistema" subtitle="Control rápido de módulos críticos"><div className="mini-stats"><div className="mini-stat"><span>Importaciones recientes</span><strong>{dashboardStats.importaciones}</strong></div><div className="mini-stat"><span>Base No llamar activa</span><strong>{dashboardStats.noLlamar}</strong></div><div className="mini-stat"><span>Resultados telefónicos cargados</span><strong>{dashboardStats.resultados}</strong></div><div className="mini-stat"><span>Usuarios con actividad reciente</span><strong>{globalStats?.usuarios_activos ?? 0}</strong></div></div><div className="toolbar" style={{ marginTop: 14 }}><Button icon={<Upload size={16} />} onClick={() => onOpenRoute('sa_importaciones')}>Ir a Importaciones</Button><Button variant="secondary" icon={<Phone size={16} />} onClick={() => onOpenRoute('sa_no_llamar')}>Base No llamar</Button><Button variant="secondary" icon={<PhoneCall size={16} />} onClick={() => onOpenRoute('sa_resultados')}>Resultados</Button></div></Panel><Panel className="span-5" title="Actividad reciente" subtitle="Monitoreo transversal">{listRecentActivity(6).map((item) => <div key={item.id} className="status-item"><div className="status-ring" style={{ background: 'rgba(37,99,235,0.12)', color: '#2563eb' }}><Activity size={16} /></div><div style={{ flex: 1 }}><div style={{ fontWeight: 700 }}>{item.tipo}</div><div style={{ color: 'var(--muted)' }}>{item.detalle}</div></div><span style={{ color: 'var(--muted)', fontSize: '0.84rem' }}>{item.at}</span></div>)}</Panel></section></div>;
 }
 
 
