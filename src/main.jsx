@@ -6458,7 +6458,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [showImport, setShowImport] = React.useState(false);
       const [importFile, setImportFile] = React.useState('');
       const [lotNameDraft, setLotNameDraft] = React.useState('');
-      const [selectedLotId, setSelectedLotId] = React.useState(lots[0]?.id || '');
+      const [selectedLotId, setSelectedLotId] = React.useState(null);
       const [lotSellerDraft, setLotSellerDraft] = React.useState('');
       const [reassignModal, setReassignModal] = React.useState(null); // { sellerId, sellerName, contactCount }
       const [reassignTarget, setReassignTarget] = React.useState('');
@@ -6624,7 +6624,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         [lotSummaries]
       );
 
-      const selectedLot = lotSummaries.find((lot) => lot.id === selectedLotId) || lotSummaries[0] || null;
+      const selectedLot = selectedLotId
+        ? (lotSummaries.find((lot) => lot.id === selectedLotId) || null)
+        : null;
 
       const sellerSummary = React.useMemo(() => sellers.map((seller) => {
         const sellerLabel = typeof seller === 'string'
@@ -6931,31 +6933,32 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               </Panel>
 
               {/* PANEL DERECHO */}
-              <Panel
-                className="span-5"
-                title="Detalle de lote"
-                subtitle={selectedLot ? selectedLot.name : 'Seleccioná un lote'}
-                action={selectedLot ? (
-                  <button
-                    onClick={() => setSelectedLotId(null)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      color: 'var(--muted)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      padding: 4,
-                      borderRadius: 6
-                    }}
-                    title="Cerrar detalle"
-                  >
-                    <X size={16} />
-                  </button>
-                ) : null}
-              >
-                {selectedLot ? (
-                  <div className="list">
+              <Panel className="span-5" title="Detalle de lote" subtitle={selectedLot ? selectedLot.name : 'Seleccioná un lote'}>
+                <div style={{ position: 'relative' }}>
+                  {selectedLot ? (
+                    <button
+                      onClick={() => setSelectedLotId(null)}
+                      style={{
+                        position: 'absolute',
+                        top: 2,
+                        right: 2,
+                        background: 'rgba(20,34,53,0.04)',
+                        border: '1px solid rgba(20,34,53,0.12)',
+                        cursor: 'pointer',
+                        color: 'var(--muted)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: 6,
+                        borderRadius: 8
+                      }}
+                      title="Cerrar detalle"
+                    >
+                      <X size={16} />
+                    </button>
+                  ) : null}
+
+                  {selectedLot ? (
+                    <div className="list">
 
                     {/* RESUMEN COMPACTO */}
                     <div style={{ background: 'rgba(20,34,53,0.03)', border: '1px solid rgba(20,34,53,0.08)', borderRadius: 10, padding: '12px 14px', marginBottom: 4 }}>
@@ -7027,8 +7030,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       <Button variant="secondary" icon={<CheckCircle2 size={16} />} onClick={closeLot}>Cerrar lote</Button>
                     </div>
 
-                  </div>
-                ) : <div style={{ color: 'var(--muted)' }}>No hay lote seleccionado.</div>}
+                    </div>
+                  ) : <div style={{ color: 'var(--muted)' }}>No hay lote seleccionado.</div>}
+                </div>
               </Panel>
             </section>
 
