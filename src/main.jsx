@@ -3415,6 +3415,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           });
           params.set('tipo', isRecupero ? 'recupero' : 'captacion');
           if (searchDebounced) params.set('search', searchDebounced);
+          if (filtroOrigen) params.set('origen_dato', filtroOrigen);
           const contactosData = await api.get(`/leads/assigned?${params}`);
           if (contactosData?.success || contactosData?.ok) {
             const items = contactosData?.data?.contactos || [];
@@ -3429,7 +3430,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         } catch (err) {
           console.error('[refresh] error silencioso:', err);
         }
-      }, [page, tabActivo, searchDebounced]); // eslint-disable-line react-hooks/exhaustive-deps
+      }, [page, tabActivo, searchDebounced, filtroOrigen]); // eslint-disable-line react-hooks/exhaustive-deps
 
       const cargarContactos = React.useCallback(async () => {
         setLoadingContacts(true);
@@ -3441,6 +3442,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           });
           params.set('tipo', isRecupero ? 'recupero' : 'captacion');
           if (searchDebounced) params.set('search', searchDebounced);
+          if (filtroOrigen) params.set('origen_dato', filtroOrigen);
           const d = await api.get(`/leads/assigned?${params}`);
           console.log('[assigned] params:', params.toString(), 'resp:', d);
           if (d?.success || d?.ok) {
@@ -3457,7 +3459,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         } finally {
           setLoadingContacts(false);
         }
-      }, [contacts, page, tabActivo, searchDebounced]); // eslint-disable-line react-hooks/exhaustive-deps
+      }, [contacts, page, tabActivo, searchDebounced, filtroOrigen]); // eslint-disable-line react-hooks/exhaustive-deps
 
       const [drawerContact, setDrawerContact] = React.useState(null);
       const drawerOpen = Boolean(drawerContact);
@@ -3548,10 +3550,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const filteredContacts = React.useMemo(() => {
         return localContacts.filter((contact) => {
           if (filtroEstado && (contact.estado_venta || contact.status || '') !== filtroEstado) return false;
-          if (filtroOrigen) {
-            const origen = (contact.origen_dato || contact.origen || '').toLowerCase();
-            if (!origen.includes(filtroOrigen.toLowerCase())) return false;
-          }
           if (filtroUbicacion) {
             const ubicacion = (contact.departamento || contact.city || contact.localidad || '').toLowerCase();
             if (!ubicacion.includes(filtroUbicacion.toLowerCase())) return false;
@@ -3564,7 +3562,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           }
           return true;
         });
-      }, [localContacts, filtroEstado, filtroOrigen, filtroUbicacion, filtroFechaDesde, filtroFechaHasta]);
+      }, [localContacts, filtroEstado, filtroUbicacion, filtroFechaDesde, filtroFechaHasta]);
       const visibleContacts = React.useMemo(
         () => filteredContacts.filter((contact) => (isRecupero ? true : contact.estado_venta !== 'dato_erroneo')),
         [filteredContacts, isRecupero]
@@ -4196,7 +4194,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
             <select
               value={filtroOrigen}
-              onChange={(e) => setFiltroOrigen(e.target.value)}
+              onChange={(e) => { setFiltroOrigen(e.target.value); setPage(1); }}
               style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12, color: '#475569' }}
             >
               <option value="">Todos los orígenes</option>
