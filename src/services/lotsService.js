@@ -31,7 +31,8 @@ export const listLotsAsync = async () => {
       vendedores: item.vendedores || [],
       count: item.cantidad_contactos || 0,
       createdAt: (item.created_at || '').slice(0, 10),
-      status: item.estado || 'sin_asignar'
+      status: item.estado || 'sin_asignar',
+      tipo: item.tipo || null
     }));
   }
   await delay(140);
