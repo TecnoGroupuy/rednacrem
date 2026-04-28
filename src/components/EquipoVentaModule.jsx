@@ -107,15 +107,12 @@ export default function EquipoVentaModule({
         await api.put(`/superadmin/users/${editingId}`, draft);
         setFormSuccess('Vendedor actualizado correctamente.');
       } else {
-        const url = activeOrgId
-          ? `/superadmin/users?organization_id=${activeOrgId}`
-          : '/superadmin/users';
         const payload = { ...draft };
         if (payload.password) {
           payload.temporaryPassword = payload.password;
         }
         delete payload.password;
-        await api.post(url, payload);
+        await api.post('/org/users', payload);
         setFormSuccess('Vendedor creado y asignado a la organizacion.');
       }
       await loadVendedores();
