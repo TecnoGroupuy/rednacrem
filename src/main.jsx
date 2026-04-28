@@ -1053,7 +1053,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       );
     }
 
-    function SupervisorDashboard({ selectedDate: selectedDateProp, setSelectedDate: setSelectedDateProp } = {}) {
+    function SupervisorDashboard({ selectedDate: selectedDateProp, setSelectedDate: setSelectedDateProp, activeOrgId } = {}) {
       const { user: authUser } = useAuth();
       const [detailAgent, setDetailAgent] = React.useState(null);
       const [detailTab, setDetailTab] = React.useState('actividad');
@@ -1391,6 +1391,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, []);
 
       React.useEffect(() => {
+        if (!activeOrgId) return undefined;
         let active = true;
         const api = getApiClient();
         const dateStr = formatDateYmd(selectedDate);
@@ -1414,10 +1415,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             setTeamLoading(false);
           });
         return () => { active = false; };
-      }, [formatDateYmd, selectedDate, normalizeTeamPayload]);
+      }, [activeOrgId, formatDateYmd, selectedDate, normalizeTeamPayload]);
 
       const fetchMarketSummary = React.useCallback(() => {
         let active = true;
+        if (!activeOrgId) return () => { active = false; };
         const api = getApiClient();
         const dateStr = formatDateYmd(selectedDate);
         const requestId = makeRequestId('mercado');
@@ -1450,10 +1452,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             setMarketWidget((prev) => ({ ...prev, status: 'error', error: err?.message || 'No pudimos cargar Mercado abierto', requestId }));
           });
         return () => { active = false; };
-      }, [formatDateYmd, makeRequestId, normalizeWidgetResponse, selectedDate]);
+      }, [activeOrgId, formatDateYmd, makeRequestId, normalizeWidgetResponse, selectedDate]);
 
       const fetchRecuperoSummary = React.useCallback(() => {
         let active = true;
+        if (!activeOrgId) return () => { active = false; };
         const api = getApiClient();
         const dateStr = formatDateYmd(selectedDate);
         const requestId = makeRequestId('recupero');
@@ -1486,7 +1489,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             setRecuperoWidget((prev) => ({ ...prev, status: 'error', error: err?.message || 'No pudimos cargar Recupero', requestId }));
           });
         return () => { active = false; };
-      }, [formatDateYmd, makeRequestId, normalizeWidgetResponse, selectedDate]);
+      }, [activeOrgId, formatDateYmd, makeRequestId, normalizeWidgetResponse, selectedDate]);
 
       React.useEffect(() => {
         const cleanup = fetchMarketSummary();
@@ -1869,6 +1872,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return 'Estado';
       };
       React.useEffect(() => {
+        if (!activeOrgId) return undefined;
         let active = true;
         const api = getApiClient();
         const dateStr = formatDateYmd(selectedDate);
@@ -1890,7 +1894,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             setJornadaLoading(false);
           });
         return () => { active = false; };
-      }, [formatDateYmd, jornadaTimezone, mapJornadaItem, selectedDate]);
+      }, [activeOrgId, formatDateYmd, jornadaTimezone, mapJornadaItem, selectedDate]);
 
       React.useEffect(() => {
         if (!teamConfig) return () => {};
@@ -1907,6 +1911,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           fetchRecuperoSummary();
         };
         const refreshJornadaReport = () => {
+          if (!activeOrgId) return;
           const dateStr = formatDateYmd(selectedDate);
           api.get(`/api/reportes/jornada-diaria?fecha=${dateStr}&timezone=${encodeURIComponent(jornadaTimezone)}`)
             .then((response) => {
@@ -3006,7 +3011,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
     const isSalesActiveContact = (contact) => isCommercialContactActive(contact);
 
-    function SalesDashboard({ contacts, salesRecords, onGoRoute, onVentaCerrada }) {
+    function SalesDashboard({ contacts, salesRecords, onGoRoute, onVentaCerrada, activeOrgId }) {
       const [assignedData, setAssignedData] = React.useState({ contactos: [], total: 0 });
       const [stats, setStats] = React.useState(null);
       const [agendaHoy, setAgendaHoy] = React.useState([]);
@@ -3065,6 +3070,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         }
       }, []);
       React.useEffect(() => {
+        if (!activeOrgId) return;
         const cargarJornada = async () => {
           try {
             const api = getApiClient();
@@ -3091,7 +3097,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           }
         };
         cargarJornada();
-      }, [jornadaFecha]);
+      }, [activeOrgId, jornadaFecha]);
       const contactosAsignados = assignedData.total;
       const gestionados = stats?.tocados || 0;
       const ventasCerradas = stats?.ventas || 0;
@@ -12337,6 +12343,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <SupervisorDashboard
               selectedDate={monitorSelectedDate}
               setSelectedDate={setMonitorSelectedDate}
+              activeOrgId={activeOrg?.id}
             />
           );
           if (role === 'vendedor') return (
@@ -12345,6 +12352,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               salesRecords={salesRecords}
               onGoRoute={setRoute}
               onVentaCerrada={(contactData, gestion_id = null) => handleOpenVendedorNewClient(contactData, gestion_id)}
+              activeOrgId={activeOrg?.id}
             />
           );
           return <OperationsDashboard />;
