@@ -6470,6 +6470,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [addSellerOpen, setAddSellerOpen] = React.useState(false);
       const [addSellerTarget, setAddSellerTarget] = React.useState('');
       const [addSellerError, setAddSellerError] = React.useState('');
+      const [showExternalLotModal, setShowExternalLotModal] = React.useState(false);
+      const [externalLotName, setExternalLotName] = React.useState('');
+      const [externalLotTipo, setExternalLotTipo] = React.useState('captacion');
+      const [externalLotSeller, setExternalLotSeller] = React.useState('');
+      const [externalLotLoading, setExternalLotLoading] = React.useState(false);
+      const [externalLotError, setExternalLotError] = React.useState('');
+      const [externalLotCreated, setExternalLotCreated] = React.useState(null);
       const [showLotWizard, setShowLotWizard] = React.useState(false);
       const [wizardLotName, setWizardLotName] = React.useState('');
       const [wizardDeadline, setWizardDeadline] = React.useState('');
@@ -6743,6 +6750,34 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setLotNameDraft('');
       };
 
+      const createExternalLot = async () => {
+        if (!externalLotName.trim()) {
+          setExternalLotError('El nombre del lote es obligatorio.');
+          return;
+        }
+        setExternalLotLoading(true);
+        setExternalLotError('');
+        try {
+          const created = await onCreateLot({
+            name: externalLotName.trim(),
+            status: 'activo',
+            tipo: externalLotTipo
+          });
+          if (externalLotSeller) {
+            await onAssignLotSeller(created.id, externalLotSeller, 'asignado');
+          }
+          setExternalLotCreated({
+            id: created.id,
+            name: externalLotName.trim(),
+            tipo: externalLotTipo
+          });
+        } catch (err) {
+          setExternalLotError(err?.message || 'No se pudo crear el lote.');
+        } finally {
+          setExternalLotLoading(false);
+        }
+      };
+
       const assignSellerToLot = async () => {
         if (!selectedLot || !lotSellerDraft) return;
         await onAssignLotSeller(selectedLot.id, lotSellerDraft, selectedLot.status);
@@ -6807,7 +6842,24 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
               {/* TABLA IZQUIERDA */}
               <Panel className="span-7" title="Gestión de lotes" subtitle="Crea, asigna y controla el avance por lote"
-                action={<Button icon={<Plus size={16} />} onClick={() => onOpenRoute('lotes_crear')}>Crear lote</Button>}>
+                action={(
+                  <div className="toolbar">
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setShowExternalLotModal(true);
+                        setExternalLotName('');
+                        setExternalLotTipo('captacion');
+                        setExternalLotSeller('');
+                        setExternalLotError('');
+                        setExternalLotCreated(null);
+                      }}
+                    >
+                      + Lote externo
+                    </Button>
+                    <Button icon={<Plus size={16} />} onClick={() => onOpenRoute('lotes_crear')}>Crear lote</Button>
+                  </div>
+                )}>
                 <div className="table-wrap">
                   <table>
                     <thead>
@@ -7248,6 +7300,139 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* MODAL: LOTE EXTERNO */}
+            {showExternalLotModal && (
+              <>
+                <div
+                  onClick={() => setShowExternalLotModal(false)}
+                  style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(0,0,0,0.3)',
+                    zIndex: 99
+                  }}
+                />
+                <div style={{
+                  position: 'fixed',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  background: 'var(--color-background-primary, #ffffff)',
+                  borderRadius: 16,
+                  padding: 32,
+                  width: 'min(480px, 90vw)',
+                  boxShadow: '0 8px 40px rgba(0,0,0,0.18)',
+                  zIndex: 100,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 20
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 16 }}>Crear lote externo</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                        Para fuentes externas como n8n, webhooks, etc.
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowExternalLotModal(false)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  {!externalLotCreated ? (
+                    <>
+                      <div>
+                        <label className="label">Nombre del lote *</label>
+                        <input
+                          className="input"
+                          placeholder="Ej: Guia telefonica desde n8n"
+                          value={externalLotName}
+                          onChange={(e) => setExternalLotName(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="label">Tipo</label>
+                        <select
+                          className="input"
+                          value={externalLotTipo}
+                          onChange={(e) => setExternalLotTipo(e.target.value)}
+                        >
+                          <option value="captacion">Captación</option>
+                          <option value="recupero">Recupero</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="label">Vendedor asignado (opcional)</label>
+                        <select
+                          className="input"
+                          value={externalLotSeller}
+                          onChange={(e) => setExternalLotSeller(e.target.value)}
+                        >
+                          <option value="">Sin asignar</option>
+                          {sellers.map((s) => (
+                            <option key={s.id} value={s.label || `${s.nombre || ''} ${s.apellido || ''}`.trim()}>
+                              {s.label || `${s.nombre || ''} ${s.apellido || ''}`.trim()}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      {externalLotError && (
+                        <div style={{ color: '#be123c', fontSize: 13 }}>{externalLotError}</div>
+                      )}
+                      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                        <Button variant="ghost" onClick={() => setShowExternalLotModal(false)}>
+                          Cancelar
+                        </Button>
+                        <Button onClick={createExternalLot} disabled={externalLotLoading}>
+                          {externalLotLoading ? 'Creando...' : 'Crear lote'}
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{
+                        background: 'rgba(15,118,110,0.06)',
+                        borderRadius: 12,
+                        padding: 20,
+                        border: '1px solid rgba(15,118,110,0.2)'
+                      }}>
+                        <div style={{ fontWeight: 600, marginBottom: 12, color: '#0f766e' }}>
+                          ✓ Lote creado correctamente
+                        </div>
+                        <div style={{ fontSize: 13, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <div>
+                            <span style={{ color: 'var(--muted)' }}>Nombre: </span>
+                            <strong>{externalLotCreated.name}</strong>
+                          </div>
+                          <div>
+                            <span style={{ color: 'var(--muted)' }}>Tipo: </span>
+                            <strong>{externalLotCreated.tipo}</strong>
+                          </div>
+                          <div style={{ marginTop: 8, padding: '12px 16px', background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--line)' }}>
+                            <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6, fontWeight: 600 }}>
+                              CONFIGURACIÓN PARA N8N
+                            </div>
+                            <div style={{ fontFamily: 'monospace', fontSize: 12 }}>
+                              batch_name: <strong>"{externalLotCreated.name}"</strong>
+                            </div>
+                            <div style={{ fontFamily: 'monospace', fontSize: 12, marginTop: 4 }}>
+                              organization_id: <strong>"{activeOrg?.id || ''}"</strong>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <Button onClick={() => setShowExternalLotModal(false)}>
+                        Cerrar
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </>
             )}
           </div>
         );
