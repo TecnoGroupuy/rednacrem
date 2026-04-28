@@ -6473,7 +6473,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [showExternalLotModal, setShowExternalLotModal] = React.useState(false);
       const [externalLotName, setExternalLotName] = React.useState('');
       const [externalLotTipo, setExternalLotTipo] = React.useState('captacion');
-      const [externalLotSeller, setExternalLotSeller] = React.useState('');
+      const [externalLotSellers, setExternalLotSellers] = React.useState([]);
       const [externalLotLoading, setExternalLotLoading] = React.useState(false);
       const [externalLotError, setExternalLotError] = React.useState('');
       const [externalLotCreated, setExternalLotCreated] = React.useState(null);
@@ -6755,6 +6755,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           setExternalLotError('El nombre del lote es obligatorio.');
           return;
         }
+        if (externalLotSellers.length === 0) {
+          setExternalLotError('Seleccioná al menos un vendedor.');
+          return;
+        }
         setExternalLotLoading(true);
         setExternalLotError('');
         try {
@@ -6763,8 +6767,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             status: 'activo',
             tipo: externalLotTipo
           });
-          if (externalLotSeller) {
-            await onAssignLotSeller(created.id, externalLotSeller, 'asignado');
+          for (const sellerId of externalLotSellers) {
+            const sellerObj = sellers.find((s) => String(s.id) === String(sellerId));
+            const sellerName = sellerObj?.label || `${sellerObj?.nombre || ''} ${sellerObj?.apellido || ''}`.trim() || '';
+            if (!sellerName) continue;
+            await onAssignLotSeller(created.id, sellerName, 'asignado');
           }
           setExternalLotCreated({
             id: created.id,
@@ -6850,7 +6857,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         setShowExternalLotModal(true);
                         setExternalLotName('');
                         setExternalLotTipo('captacion');
-                        setExternalLotSeller('');
+                        setExternalLotSellers([]);
                         setExternalLotError('');
                         setExternalLotCreated(null);
                       }}
@@ -7364,22 +7371,63 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         >
                           <option value="captacion">Captación</option>
                           <option value="recupero">Recupero</option>
+                          <option value="guia_telefonica">Guía telefónica</option>
+                          <option value="guia_procesada">Guía procesada</option>
                         </select>
                       </div>
                       <div>
-                        <label className="label">Vendedor asignado (opcional)</label>
-                        <select
-                          className="input"
-                          value={externalLotSeller}
-                          onChange={(e) => setExternalLotSeller(e.target.value)}
-                        >
-                          <option value="">Sin asignar</option>
-                          {sellers.map((s) => (
-                            <option key={s.id} value={s.label || `${s.nombre || ''} ${s.apellido || ''}`.trim()}>
-                              {s.label || `${s.nombre || ''} ${s.apellido || ''}`.trim()}
-                            </option>
-                          ))}
-                        </select>
+                        <label className="label">Vendedores *</label>
+                        <div style={{
+                          border: '1px solid var(--line)',
+                          borderRadius: 8,
+                          overflow: 'hidden',
+                          maxHeight: 160,
+                          overflowY: 'auto'
+                        }}>
+                          {sellers.map((s) => {
+                            const selected = externalLotSellers.includes(s.id);
+                            return (
+                              <div
+                                key={s.id}
+                                onClick={() => setExternalLotSellers((prev) =>
+                                  selected
+                                    ? prev.filter((id) => id !== s.id)
+                                    : [...prev, s.id]
+                                )}
+                                style={{
+                                  padding: '8px 12px',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 10,
+                                  background: selected ? 'rgba(15,118,110,0.08)' : 'transparent',
+                                  borderBottom: '1px solid var(--line)',
+                                  fontSize: 13
+                                }}
+                              >
+                                <div style={{
+                                  width: 16,
+                                  height: 16,
+                                  borderRadius: 4,
+                                  border: `2px solid ${selected ? '#0f766e' : 'var(--line)'}`,
+                                  background: selected ? '#0f766e' : 'transparent',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0
+                                }}>
+                                  {selected && <span style={{ color: '#fff', fontSize: 10, fontWeight: 700 }}>✓</span>}
+                                </div>
+                                {s.label || `${s.nombre || ''} ${s.apellido || ''}`.trim()}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {externalLotSellers.length === 0 && (
+                          <div style={{ fontSize: 11, color: '#be123c', marginTop: 4 }}>
+                            Seleccioná al menos un vendedor.
+                          </div>
+                        )}
                       </div>
                       {externalLotError && (
                         <div style={{ color: '#be123c', fontSize: 13 }}>{externalLotError}</div>
