@@ -3517,6 +3517,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, [searchTerm]);
 
       React.useEffect(() => {
+        setPage(1);
+      }, [filtroOrigen]);
+
+      React.useEffect(() => {
         if (vendedorNewClientOpen || drawerOpen) return;
         cargarContactos();
       }, [page, tabActivo, searchDebounced, vendedorNewClientOpen, drawerOpen]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -4194,7 +4198,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
             <select
               value={filtroOrigen}
-              onChange={(e) => { setFiltroOrigen(e.target.value); setPage(1); }}
+              onChange={(e) => setFiltroOrigen(e.target.value)}
               style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12, color: '#475569' }}
             >
               <option value="">Todos los orígenes</option>
