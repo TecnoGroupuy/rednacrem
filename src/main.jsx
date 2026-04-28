@@ -3516,14 +3516,19 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return () => clearTimeout(handler);
       }, [searchTerm]);
 
-      React.useEffect(() => {
-        setPage(1);
-      }, [filtroOrigen]);
+      const prevFiltroOrigenRef = React.useRef(filtroOrigen);
 
       React.useEffect(() => {
         if (vendedorNewClientOpen || drawerOpen) return;
+        // If the origin filter just changed and we're not on page 1, reset first.
+        if (prevFiltroOrigenRef.current !== filtroOrigen && page !== 1) {
+          prevFiltroOrigenRef.current = filtroOrigen;
+          setPage(1);
+          return;
+        }
+        prevFiltroOrigenRef.current = filtroOrigen;
         cargarContactos();
-      }, [page, tabActivo, searchDebounced, vendedorNewClientOpen, drawerOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+      }, [cargarContactos, vendedorNewClientOpen, drawerOpen, filtroOrigen, page]);
 
       const prevModalOpen = React.useRef(false);
       const prevDrawerOpen = React.useRef(false);
