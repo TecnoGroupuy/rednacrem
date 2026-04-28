@@ -6602,6 +6602,28 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return { ...lot, contacts: lotContacts, count: totalReal, progress, finalizable };
       }), [lots, contacts]);
 
+      const lotesActivos = React.useMemo(() =>
+        lotSummaries
+          .filter((l) => !['finalizado', 'cancelado'].includes(String(l.estado || l.status || '').toLowerCase()))
+          .sort((a, b) => {
+            const da = new Date(a.created_at || a.createdAt || 0).getTime();
+            const db = new Date(b.created_at || b.createdAt || 0).getTime();
+            return db - da;
+          }),
+        [lotSummaries]
+      );
+
+      const lotesFinalizados = React.useMemo(() =>
+        lotSummaries
+          .filter((l) => ['finalizado', 'cancelado'].includes(String(l.estado || l.status || '').toLowerCase()))
+          .sort((a, b) => {
+            const da = new Date(a.created_at || a.createdAt || 0).getTime();
+            const db = new Date(b.created_at || b.createdAt || 0).getTime();
+            return db - da;
+          }),
+        [lotSummaries]
+      );
+
       const selectedLot = lotSummaries.find((lot) => lot.id === selectedLotId) || lotSummaries[0] || null;
 
       const sellerSummary = React.useMemo(() => sellers.map((seller) => {
@@ -6790,26 +6812,117 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <tr><th>Lote</th><th>Contactos</th><th>Estado</th><th>Vendedores</th><th>Creación</th></tr>
                     </thead>
                     <tbody>
-                      {lotSummaries.map((lot) => {
+                      {lotesActivos.length > 0 && (
+                        <tr>
+                          <td colSpan={5} style={{
+                            padding: '8px 12px 4px',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: 'var(--muted)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.08em',
+                            background: 'rgba(15,118,110,0.04)',
+                            borderBottom: '1px solid var(--line)'
+                          }}>
+                            Activos ({lotesActivos.length})
+                          </td>
+                        </tr>
+                      )}
+
+                      {lotesActivos.map((lot) => {
                         const vendNames = lot.vendedores || [];
                         const first = vendNames[0] ? `${vendNames[0].nombre || ''} ${vendNames[0].apellido || ''}`.trim() : (lot.seller || '-');
                         const extra = vendNames.length > 1 ? vendNames.length - 1 : 0;
+                        const estadoVal = lot.estado || lot.status;
                         return (
                           <tr key={lot.id} className="support-row"
                             onClick={() => setSelectedLotId(lot.id)}
                             style={{ cursor: 'pointer', background: selectedLot?.id === lot.id ? 'rgba(15,118,110,0.08)' : 'transparent' }}>
                             <td>
-                              <strong style={{ fontSize: 13 }}>{lot.name}</strong>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <strong style={{ fontSize: 13 }}>{lot.name || lot.nombre}</strong>
+                                {lot.tipo && (
+                                  <span style={{
+                                    fontSize: 10, fontWeight: 700,
+                                    padding: '1px 6px', borderRadius: 999,
+                                    background: String(lot.tipo).toLowerCase() === 'recupero'
+                                      ? 'rgba(37,99,235,0.1)'
+                                      : 'rgba(15,118,110,0.1)',
+                                    color: String(lot.tipo).toLowerCase() === 'recupero' ? '#2563eb' : '#0f766e',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.05em'
+                                  }}>
+                                    {lot.tipo}
+                                  </span>
+                                )}
+                              </div>
                               <div style={{ color: 'var(--muted)', fontSize: 11, marginTop: 2, fontFamily: 'monospace' }}>{lot.id}</div>
                             </td>
                             <td>{lot.count}</td>
-                            <td><Tag variant={lotStatusMeta(lot.status).variant}>{lotStatusMeta(lot.status).label}</Tag></td>
+                            <td><Tag variant={lotStatusMeta(estadoVal).variant}>{lotStatusMeta(estadoVal).label}</Tag></td>
                             <td>
                               <span style={{ fontSize: 13 }}>{first}</span>
                               {extra > 0 && <span style={{ marginLeft: 6, fontSize: 11, background: 'rgba(20,34,53,0.08)', borderRadius: 10, padding: '1px 7px', color: 'var(--muted)' }}>+{extra}</span>}
                             </td>
                           <td style={{ fontSize: 12 }}>{lot.createdAt}</td>
                         </tr>
+                        );
+                      })}
+
+                      {lotesFinalizados.length > 0 && (
+                        <tr>
+                          <td colSpan={5} style={{
+                            padding: '8px 12px 4px',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: 'var(--muted)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.08em',
+                            background: 'rgba(20,34,53,0.04)',
+                            borderBottom: '1px solid var(--line)'
+                          }}>
+                            Finalizados ({lotesFinalizados.length})
+                          </td>
+                        </tr>
+                      )}
+
+                      {lotesFinalizados.map((lot) => {
+                        const vendNames = lot.vendedores || [];
+                        const first = vendNames[0] ? `${vendNames[0].nombre || ''} ${vendNames[0].apellido || ''}`.trim() : (lot.seller || '-');
+                        const extra = vendNames.length > 1 ? vendNames.length - 1 : 0;
+                        const estadoVal = lot.estado || lot.status;
+                        return (
+                          <tr key={lot.id} className="support-row"
+                            onClick={() => setSelectedLotId(lot.id)}
+                            style={{ cursor: 'pointer', background: selectedLot?.id === lot.id ? 'rgba(15,118,110,0.08)' : 'transparent', opacity: 0.6 }}>
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <strong style={{ fontSize: 13 }}>{lot.name || lot.nombre}</strong>
+                                {lot.tipo && (
+                                  <span style={{
+                                    fontSize: 10, fontWeight: 700,
+                                    padding: '1px 6px', borderRadius: 999,
+                                    background: String(lot.tipo).toLowerCase() === 'recupero'
+                                      ? 'rgba(37,99,235,0.1)'
+                                      : 'rgba(15,118,110,0.1)',
+                                    color: String(lot.tipo).toLowerCase() === 'recupero' ? '#2563eb' : '#0f766e',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.05em'
+                                  }}>
+                                    {lot.tipo}
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{ color: 'var(--muted)', fontSize: 11, marginTop: 2, fontFamily: 'monospace' }}>{lot.id}</div>
+                            </td>
+                            <td>{lot.count}</td>
+                            <td><Tag variant={lotStatusMeta(estadoVal).variant}>{lotStatusMeta(estadoVal).label}</Tag></td>
+                            <td>
+                              <span style={{ fontSize: 13 }}>{first}</span>
+                              {extra > 0 && <span style={{ marginLeft: 6, fontSize: 11, background: 'rgba(20,34,53,0.08)', borderRadius: 10, padding: '1px 7px', color: 'var(--muted)' }}>+{extra}</span>}
+                            </td>
+                            <td style={{ fontSize: 12 }}>{lot.createdAt || (lot.created_at ? String(lot.created_at).slice(0, 10) : '')}</td>
+                          </tr>
                         );
                       })}
                     </tbody>
