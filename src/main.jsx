@@ -12528,11 +12528,19 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <aside className={'sidebar ' + (menuOpen ? 'open' : 'closed')}>
               <div className="sidebar-brand">
                 <div className="brand-row">
+                  {/*
+                    Org switch entry point:
+                    - Superadmin: always allowed
+                    - Other roles: allowed only if the user belongs to multiple orgs (myOrgs > 1)
+                  */}
+                  {(() => {
+                    const canSwitchOrg = esSuperadmin || (!esSuperadmin && myOrgs.length > 1);
+                    return (
                   <div
                     className="brand-logo-box"
-                    onClick={esSuperadmin ? () => setActiveOrg(null) : undefined}
-                    style={esSuperadmin ? { cursor: 'pointer' } : {}}
-                    title={esSuperadmin ? 'Cambiar organización' : ''}
+                    onClick={canSwitchOrg ? () => setActiveOrg(null) : undefined}
+                    style={canSwitchOrg ? { cursor: 'pointer' } : {}}
+                    title={canSwitchOrg ? 'Cambiar organización' : ''}
                   >
                     {brandLogo ? (
                       <img src={brandLogo} alt="Logo organización" className="brand-logo-image" />
@@ -12548,6 +12556,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       </span>
                     )}
                   </div>
+                    );
+                  })()}
                   {!isDesktop ? <button className="icon-button" onClick={() => setMenuOpen(false)} style={{ width: 40, height: 40, borderRadius: 14, background: 'rgba(255,255,255,0.08)', boxShadow: 'none', marginLeft: 'auto' }}><X size={18} color="white" /></button> : null}
                 </div>
               </div>
