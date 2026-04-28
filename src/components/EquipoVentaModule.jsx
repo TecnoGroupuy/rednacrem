@@ -90,14 +90,6 @@ export default function EquipoVentaModule({
       setFormError('Nombre, apellido, email y telefono son obligatorios.');
       return;
     }
-    if (!editingId && !password.trim()) {
-      setFormError('La contrasena provisoria es obligatoria.');
-      return;
-    }
-    if (!editingId && password.trim().length < 8) {
-      setFormError('La contrasena debe tener al menos 8 caracteres.');
-      return;
-    }
     setFormLoading(true);
     setFormError('');
     setFormSuccess('');
@@ -414,13 +406,13 @@ export default function EquipoVentaModule({
                     <input
                       className="input"
                       type="password"
-                      placeholder="Minimo 8 caracteres"
+                      placeholder="Dejar vacio para usar contrasena default"
                       value={draft.password}
                       onChange={(e) => setDraft((p) => ({ ...p, password: e.target.value }))}
                       autoComplete="new-password"
                     />
                     <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
-                      El vendedor usara esta clave para su primer ingreso.
+                      Si no ingresa contrasena se usara: Rednacrem@2026
                     </div>
                   </div>
                 )}
