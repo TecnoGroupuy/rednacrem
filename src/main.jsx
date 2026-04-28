@@ -6931,7 +6931,29 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               </Panel>
 
               {/* PANEL DERECHO */}
-              <Panel className="span-5" title="Detalle de lote" subtitle={selectedLot ? selectedLot.name : 'Seleccioná un lote'}>
+              <Panel
+                className="span-5"
+                title="Detalle de lote"
+                subtitle={selectedLot ? selectedLot.name : 'Seleccioná un lote'}
+                action={selectedLot ? (
+                  <button
+                    onClick={() => setSelectedLotId(null)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: 'var(--muted)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: 4,
+                      borderRadius: 6
+                    }}
+                    title="Cerrar detalle"
+                  >
+                    <X size={16} />
+                  </button>
+                ) : null}
+              >
                 {selectedLot ? (
                   <div className="list">
 
