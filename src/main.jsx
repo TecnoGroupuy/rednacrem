@@ -10942,15 +10942,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     ? result.data
                     : [];
           const nextRows = items.map(formatImportRow);
-          setImports((prev) => {
-            const prevActive = prev.filter((row) => isActiveImportStatus(row.statusKey));
-            const nextIds = new Set(nextRows.map((row) => String(row.id)));
-            const merged = [
-              ...prevActive.filter((row) => !nextIds.has(String(row.id))),
-              ...nextRows
-            ];
-            return merged;
-          });
+          setImports(nextRows);
           setImportsMeta({
             page: result?.data?.page || result.page || 1,
             pageSize: result?.data?.pageSize || result.pageSize || 8,
