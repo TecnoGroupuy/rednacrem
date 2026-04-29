@@ -47,6 +47,7 @@ const fetchJson = async (path, { method = 'GET', token, body } = {}) => {
 
 const emptySegmentDraft = () => ({
   nombre: '',
+  importJobId: '',
   departamentos: [],
   localidades: [],
   edadDesde: '',
@@ -76,6 +77,7 @@ const summarizeSegment = (segment) => {
 const hasAnyFilter = (segment) => {
   return [
     segment.nombre,
+    segment.importJobId,
     segment.departamentos?.length,
     segment.localidades?.length,
     segment.edadDesde,
@@ -87,6 +89,169 @@ const hasAnyFilter = (segment) => {
     segment.diasSinGestion,
     segment.telefonosTipo
   ].some(Boolean);
+};
+
+const CheckboxMultiSelect = ({
+  options,
+  value,
+  onChange,
+  placeholder = 'Seleccionar...',
+  disabled = false
+}) => {
+  const [open, setOpen] = React.useState(false);
+  const [search, setSearch] = React.useState('');
+  const wrapRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (!wrapRef.current) return;
+      if (!wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    window.addEventListener('mousedown', handler);
+    return () => window.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const selectedSet = React.useMemo(() => new Set(value || []), [value]);
+  const filtered = React.useMemo(() => {
+    const term = String(search || '').trim().toLowerCase();
+    if (!term) return options || [];
+    return (options || []).filter((opt) => String(opt.label || '').toLowerCase().includes(term));
+  }, [options, search]);
+
+  const summary = (value && value.length)
+    ? `${value.length} seleccionado${value.length !== 1 ? 's' : ''}`
+    : placeholder;
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative' }}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          width: '100%',
+          height: 38,
+          padding: '0 12px',
+          borderRadius: 8,
+          border: '1px solid #E0E0E0',
+          background: disabled ? '#f3f4f6' : '#FFFFFF',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 10,
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          fontSize: 13,
+          color: (value && value.length) ? '#111827' : '#6b7280'
+        }}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {summary}
+        </span>
+        <span style={{ color: '#9ca3af', fontWeight: 700 }}>{open ? '˄' : '˅'}</span>
+      </button>
+
+      {open && !disabled ? (
+        <div style={{
+          position: 'absolute',
+          top: 'calc(100% + 6px)',
+          left: 0,
+          right: 0,
+          background: '#fff',
+          border: '1px solid #E5E7EB',
+          borderRadius: 10,
+          boxShadow: '0 12px 32px rgba(0,0,0,0.12)',
+          zIndex: 50,
+          overflow: 'hidden'
+        }}>
+          <div style={{ padding: 10, borderBottom: '1px solid #F1F5F9' }}>
+            <input
+              className="input"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Filtrar..."
+              style={{ height: 34, fontSize: 13 }}
+            />
+          </div>
+          <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+            {filtered.length === 0 ? (
+              <div style={{ padding: 12, color: '#6b7280', fontSize: 13 }}>Sin resultados.</div>
+            ) : filtered.map((opt) => {
+              const checked = selectedSet.has(opt.value);
+              return (
+                <div
+                  key={String(opt.value)}
+                  onClick={() => {
+                    const next = checked
+                      ? (value || []).filter((v) => v !== opt.value)
+                      : [...(value || []), opt.value];
+                    onChange(next);
+                  }}
+                  style={{
+                    padding: '8px 12px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    borderBottom: '1px solid #F8FAFC',
+                    background: checked ? 'rgba(15,118,110,0.08)' : 'transparent'
+                  }}
+                >
+                  <div style={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: 4,
+                    border: `2px solid ${checked ? '#0f766e' : '#E5E7EB'}`,
+                    background: checked ? '#0f766e' : 'transparent',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}>
+                    {checked ? <span style={{ color: '#fff', fontSize: 10, fontWeight: 700 }}>✓</span> : null}
+                  </div>
+                  <span style={{ fontSize: 13, color: '#111827' }}>{opt.label}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ padding: 10, display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+            <button
+              type="button"
+              onClick={() => onChange([])}
+              style={{
+                border: '1px solid #E5E7EB',
+                background: 'transparent',
+                borderRadius: 8,
+                padding: '6px 10px',
+                fontSize: 12,
+                cursor: 'pointer',
+                color: '#475569'
+              }}
+            >
+              Limpiar
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              style={{
+                border: 'none',
+                background: '#0f766e',
+                borderRadius: 8,
+                padding: '6px 10px',
+                fontSize: 12,
+                cursor: 'pointer',
+                color: '#fff',
+                fontWeight: 700
+              }}
+            >
+              Listo
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
 };
 
 export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }) {
@@ -104,6 +269,7 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
   const [departments, setDepartments] = React.useState([]);
   const [localities, setLocalities] = React.useState([]);
   const [areaCodes, setAreaCodes] = React.useState([]);
+  const [importJobs, setImportJobs] = React.useState([]);
 
   const [draft, setDraft] = React.useState({
     nombre: '',
@@ -142,11 +308,12 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
       try {
         const today = new Date();
         const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-        const [sellersResponse, sourcesResponse, departmentsResponse, areaResponse] = await Promise.all([
+        const [sellersResponse, sourcesResponse, departmentsResponse, areaResponse, importJobsResponse] = await Promise.all([
           fetchJson('/api/supervisor/agents', { token }),
           fetchJson('/lead-sources', { token }).catch((error) => (error.status === 404 ? [] : Promise.reject(error))),
           fetchJson('/departamentos', { token }).catch((error) => (error.status === 404 ? [] : Promise.reject(error))),
-          fetchJson('/area-codes', { token }).catch((error) => (error.status === 404 ? [] : Promise.reject(error)))
+          fetchJson('/area-codes', { token }).catch((error) => (error.status === 404 ? [] : Promise.reject(error))),
+          fetchJson('/datos-para-trabajar/import-jobs', { token }).catch((error) => (error.status === 404 ? [] : Promise.reject(error)))
         ]);
         const sellersList = sellersResponse?.agents
           || sellersResponse?.items
@@ -168,6 +335,8 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
         setLeadSources(Array.isArray(sourcesList) ? sourcesList : []);
         setDepartments(Array.isArray(departmentsList) ? departmentsList : []);
         setAreaCodes(Array.isArray(areaList) ? areaList : []);
+        const jobsList = importJobsResponse?.items || importJobsResponse?.data || importJobsResponse || [];
+        setImportJobs(Array.isArray(jobsList) ? jobsList : []);
       } catch (error) {
         setToast(error.message || 'No se pudieron cargar los filtros.');
       }
@@ -207,6 +376,7 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
         if (segmentDraft.fuentes?.length) params.set('origen_dato', segmentDraft.fuentes.join(','));
         if (segmentDraft.telefonosTipo) params.set('telefono_tipo', segmentDraft.telefonosTipo);
         if (segmentDraft.diasSinGestion) params.set('dias_sin_gestion', segmentDraft.diasSinGestion);
+        if (segmentDraft.importJobId) params.set('import_job_id', segmentDraft.importJobId);
         const qs = params.toString();
         const response = await fetchJson(`/datos-para-trabajar/preview${qs ? '?' + qs : ''}`, { token });
         setSegmentPreviewTotal(response?.data?.total ?? response?.total ?? response?.count ?? 0);
@@ -257,6 +427,7 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
         if (seg.filtros.fuentes?.length) params.set('origen_dato', seg.filtros.fuentes.join(','));
         if (seg.filtros.telefonosTipo) params.set('telefono_tipo', seg.filtros.telefonosTipo);
         if (seg.filtros.diasSinGestion) params.set('dias_sin_gestion', seg.filtros.diasSinGestion);
+        if (seg.filtros.importJobId) params.set('import_job_id', seg.filtros.importJobId);
         params.set('limite', String(previewPageSize));
         params.set('pagina', String(page));
         const response = await fetchJson(`/datos-para-trabajar/list?${params.toString()}`, { token });
@@ -434,6 +605,7 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
         if (seg.filtros.fuentes?.length) params.set('origen_dato', seg.filtros.fuentes.join(','));
         if (seg.filtros.telefonosTipo) params.set('telefono_tipo', seg.filtros.telefonosTipo);
         if (seg.filtros.diasSinGestion) params.set('dias_sin_gestion', seg.filtros.diasSinGestion);
+        if (seg.filtros.importJobId) params.set('import_job_id', seg.filtros.importJobId);
         params.set('limite', String(seg.total));
         const segRes = await fetchJson(`/datos-para-trabajar/list?${params.toString()}`, { token });
         const items = segRes?.data?.contactos || segRes?.data?.items || segRes?.items || [];
@@ -820,21 +992,36 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
 
       <div>
         <label style={labelStyle}>
-          Departamento
+          Importación
         </label>
         <select
           className="input"
-          multiple
-          value={segmentDraft.departamentos}
-          onChange={(event) => setSegmentDraft((prev) => ({ ...prev, departamentos: Array.from(event.target.selectedOptions).map((opt) => opt.value) }))}
-          style={{ width: '100%', padding: '8px 12px', fontSize: '13px', border: '1px solid #E0E0E0', borderRadius: 8, background: '#FFFFFF', boxSizing: 'border-box', minHeight: 38 }}
+          value={segmentDraft.importJobId}
+          onChange={(event) => setSegmentDraft((prev) => ({ ...prev, importJobId: event.target.value }))}
+          style={{ width: '100%', padding: '8px 12px', fontSize: '13px', border: '1px solid #E0E0E0', borderRadius: 8, background: '#FFFFFF', boxSizing: 'border-box', height: 38 }}
         >
-          {departments.map((dept) => (
-            <option key={getOptionValue(dept) || getOptionLabel(dept)} value={getOptionValue(dept)}>
-              {getOptionLabel(dept)}
+          <option value="">Todas</option>
+          {importJobs.map((job) => (
+            <option key={String(job.id)} value={String(job.id)}>
+              {String(job.file_name || 'Importación')} · {String(job.created_at || '').slice(0, 10)}
             </option>
           ))}
         </select>
+      </div>
+
+      <div>
+        <label style={labelStyle}>
+          Departamento
+        </label>
+        <CheckboxMultiSelect
+          options={departments.map((dept) => ({
+            value: getOptionValue(dept),
+            label: getOptionLabel(dept)
+          }))}
+          value={segmentDraft.departamentos}
+          onChange={(next) => setSegmentDraft((prev) => ({ ...prev, departamentos: next }))}
+          placeholder="Seleccionar departamentos..."
+        />
       </div>
 
       {segmentDraft.departamentos.length > 0 ? (
@@ -842,19 +1029,15 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
           <label style={labelStyle}>
             Localidad
           </label>
-          <select
-            className="input"
-            multiple
+          <CheckboxMultiSelect
+            options={localities.map((loc) => ({
+              value: getOptionValue(loc),
+              label: getOptionLabel(loc)
+            }))}
             value={segmentDraft.localidades}
-            onChange={(event) => setSegmentDraft((prev) => ({ ...prev, localidades: Array.from(event.target.selectedOptions).map((opt) => opt.value) }))}
-            style={{ width: '100%', padding: '8px 12px', fontSize: '13px', border: '1px solid #E0E0E0', borderRadius: 8, background: '#FFFFFF', boxSizing: 'border-box', minHeight: 38 }}
-          >
-            {localities.map((loc) => (
-              <option key={getOptionValue(loc) || getOptionLabel(loc)} value={getOptionValue(loc)}>
-                {getOptionLabel(loc)}
-              </option>
-            ))}
-          </select>
+            onChange={(next) => setSegmentDraft((prev) => ({ ...prev, localidades: next }))}
+            placeholder="Seleccionar localidades..."
+          />
         </div>
       ) : null}
 
@@ -891,19 +1074,15 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
         <label style={labelStyle}>
           Origen del dato
         </label>
-        <select
-          className="input"
-          multiple
+        <CheckboxMultiSelect
+          options={leadSources.map((source) => ({
+            value: getOptionValue(source),
+            label: getOptionLabel(source)
+          }))}
           value={segmentDraft.fuentes}
-          onChange={(event) => setSegmentDraft((prev) => ({ ...prev, fuentes: Array.from(event.target.selectedOptions).map((opt) => opt.value) }))}
-          style={{ width: '100%', padding: '8px 12px', fontSize: '13px', border: '1px solid #E0E0E0', borderRadius: 8, background: '#FFFFFF', boxSizing: 'border-box', minHeight: 38 }}
-        >
-          {leadSources.map((source) => (
-            <option key={getOptionValue(source) || getOptionLabel(source)} value={getOptionValue(source)}>
-              {getOptionLabel(source)}
-            </option>
-          ))}
-        </select>
+          onChange={(next) => setSegmentDraft((prev) => ({ ...prev, fuentes: next }))}
+          placeholder="Seleccionar origenes..."
+        />
       </div>
 
       <div>
@@ -1567,5 +1746,3 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
     </div>
   );
 }
-
-
