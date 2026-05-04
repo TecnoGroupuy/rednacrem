@@ -6762,17 +6762,19 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setExternalLotLoading(true);
         setExternalLotError('');
         try {
+          const sellerIds = externalLotSellers
+            .map((seller) => {
+              if (seller && typeof seller === 'object') return seller.id || seller.userId || seller.value;
+              return seller;
+            })
+            .filter(Boolean);
+
           const created = await onCreateLot({
             name: externalLotName.trim(),
             status: 'activo',
-            tipo: externalLotTipo
+            tipo: externalLotTipo,
+            sellerIds
           });
-          for (const sellerId of externalLotSellers) {
-            const sellerObj = sellers.find((s) => String(s.id) === String(sellerId));
-            const sellerName = sellerObj?.label || `${sellerObj?.nombre || ''} ${sellerObj?.apellido || ''}`.trim() || '';
-            if (!sellerName) continue;
-            await onAssignLotSeller(created.id, sellerName, 'asignado');
-          }
           setExternalLotCreated({
             id: created.id,
             name: externalLotName.trim(),
@@ -12435,8 +12437,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setSalesRecords((prev) => addFamilySale(prev, contact, payload));
       };
 
-      const createSupervisorLot = async ({ name, status = 'sin_asignar' }) => {
-        const created = await createLot({ nombre: name, estado: status });
+      const createSupervisorLot = async ({ name, status = 'sin_asignar', tipo = null, sellerIds = [] }) => {
+        const created = await createLot({ nombre: name, estado: status, tipo, sellerIds });
         await refreshLotsFromService();
         return created;
       };

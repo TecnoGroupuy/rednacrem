@@ -39,10 +39,13 @@ export const listLotsAsync = async () => {
   return listLots();
 };
 
-export const createLot = async ({ nombre, asignadoA = '', estado = 'sin_asignar' }) => {
+export const createLot = async ({ nombre, asignadoA = '', estado = 'sin_asignar', tipo = null, sellerIds = [] }) => {
   if (hasApiConfigured()) {
     maybeThrow(!nombre, 'El nombre del lote es obligatorio.');
-    const response = await api.post('/lead-batches', { nombre, estado, asignadoA });
+    const payload = { nombre, estado, asignadoA };
+    if (tipo) payload.tipo = tipo;
+    if (Array.isArray(sellerIds) && sellerIds.length) payload.sellerIds = sellerIds;
+    const response = await api.post('/lead-batches', payload);
     const item = response?.item || {};
     return {
       id: String(item.id || ''),
