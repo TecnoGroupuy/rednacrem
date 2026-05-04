@@ -65,6 +65,11 @@ export default function CampanasRedesModule() {
   const [data, setData] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
+  const [leads, setLeads] = React.useState([]);
+  const [leadsLoading, setLeadsLoading] = React.useState(false);
+  const [leadsTotal, setLeadsTotal] = React.useState(0);
+  const [leadsPage, setLeadsPage] = React.useState(1);
+  const LEADS_LIMIT = 50;
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -87,6 +92,7 @@ export default function CampanasRedesModule() {
   React.useEffect(() => { load(); }, [load]);
 
   const metricas = data?.metricas || {};
+  const porDia = data?.por_dia || [];
   const porVendedor = data?.por_vendedor || [];
 
   const total = safeNumber(metricas.total) ?? 0;
@@ -98,6 +104,33 @@ export default function CampanasRedesModule() {
     safeNumber(data?.sin_asignar_total) ??
     safeNumber(data?.unassigned_total) ??
     0;
+
+  const loadLeads = React.useCallback(async (page = 1) => {
+    setLeadsLoading(true);
+    try {
+      const api = getApiClient();
+      const params = new URLSearchParams();
+      if (origen && origen !== 'todos') params.set('origen_dato', origen);
+      params.set('page', String(page));
+      params.set('limit', String(LEADS_LIMIT));
+      const res = await api.get(`/campanas/leads?${params.toString()}`);
+      setLeads(res?.items || []);
+      setLeadsTotal(safeNumber(res?.total) ?? 0);
+      setLeadsPage(page);
+    } catch (err) {
+      console.error('Error cargando leads:', err);
+    } finally {
+      setLeadsLoading(false);
+    }
+  }, [origen]);
+
+  React.useEffect(() => { loadLeads(1); }, [loadLeads]);
+
+  const periodoLabel = periodo === 'dia'
+    ? 'Hoy'
+    : periodo === 'semana'
+      ? 'Últimos 7 días'
+      : 'Este mes';
 
   return (
     <div className="view">
@@ -340,6 +373,263 @@ export default function CampanasRedesModule() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+
+          <div style={{ height: 0.5, background: 'var(--color-border-tertiary, rgba(15,23,42,0.12))', margin: '18px 0' }} />
+
+          <div style={{
+            border: '0.5px solid var(--color-border-tertiary, rgba(15,23,42,0.12))',
+            borderRadius: 18,
+            background: 'var(--panel, rgba(255,255,255,0.76))',
+            overflow: 'hidden'
+          }}>
+            <div style={{ padding: '14px 16px', borderBottom: '0.5px solid var(--color-border-tertiary, rgba(15,23,42,0.12))' }}>
+              <div style={{ fontWeight: 800, fontSize: 14 }}>Ingresos por día</div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-tertiary, #94a3b8)', marginTop: 2 }}>{periodoLabel}</div>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 620 }}>
+                <thead>
+                  <tr style={{ background: 'rgba(15,23,42,0.02)' }}>
+                    {['Fecha', 'Total', 'Bloqueados', 'Convertidos'].map((h) => (
+                      <th
+                        key={h}
+                        style={{
+                          padding: '10px 14px',
+                          textAlign: h === 'Fecha' ? 'left' : 'right',
+                          color: 'var(--color-text-tertiary, #94a3b8)',
+                          fontWeight: 800,
+                          fontSize: 11,
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.8,
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={4} style={{ padding: 16, color: 'var(--color-text-secondary, #64748b)' }}>Cargando...</td>
+                    </tr>
+                  ) : !porDia.length ? (
+                    <tr>
+                      <td colSpan={4} style={{ padding: 16, color: 'var(--color-text-secondary, #64748b)' }}>Sin datos para el período seleccionado</td>
+                    </tr>
+                  ) : (
+                    porDia.map((row, i) => (
+                      <tr key={row.fecha || i} style={{ borderTop: '0.5px solid var(--color-border-tertiary, rgba(15,23,42,0.10))' }}>
+                        <td style={{ padding: '10px 14px', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                          {row.fecha
+                            ? new Date(row.fecha).toLocaleDateString('es-UY', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Montevideo' })
+                            : '—'}
+                        </td>
+                        <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 900 }}>
+                          {safeNumber(row.total) ?? 0}
+                        </td>
+                        <td style={{ padding: '10px 14px', textAlign: 'right', color: 'var(--color-text-secondary, #64748b)', fontWeight: 800 }}>
+                          {safeNumber(row.bloqueados) ?? 0}
+                        </td>
+                        <td style={{ padding: '10px 14px', textAlign: 'right', color: 'var(--success, #15803d)', fontWeight: 900 }}>
+                          {safeNumber(row.convertidos) ?? 0}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div style={{ height: 0.5, background: 'var(--color-border-tertiary, rgba(15,23,42,0.12))', margin: '18px 0' }} />
+
+          <div style={{
+            border: '0.5px solid var(--color-border-tertiary, rgba(15,23,42,0.12))',
+            borderRadius: 18,
+            background: 'var(--panel, rgba(255,255,255,0.76))',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              padding: '14px 16px',
+              borderBottom: '0.5px solid var(--color-border-tertiary, rgba(15,23,42,0.12))',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              flexWrap: 'wrap'
+            }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 14 }}>Detalle de leads</div>
+                <div style={{ fontSize: 12, color: 'var(--color-text-tertiary, #94a3b8)', marginTop: 2 }}>
+                  {leadsTotal} leads totales
+                </div>
+              </div>
+
+              {leadsTotal > LEADS_LIMIT && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ color: 'var(--color-text-secondary, #64748b)', fontSize: 12, fontWeight: 700 }}>
+                    Página {leadsPage} de {Math.max(1, Math.ceil(leadsTotal / LEADS_LIMIT))}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={() => loadLeads(leadsPage - 1)}
+                      disabled={leadsPage === 1 || leadsLoading}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: 12,
+                        border: '1px solid var(--color-border-tertiary, rgba(15,23,42,0.12))',
+                        background: 'transparent',
+                        fontSize: 13,
+                        fontWeight: 800,
+                        opacity: leadsPage === 1 || leadsLoading ? 0.5 : 1
+                      }}
+                    >
+                      Anterior
+                    </button>
+                    <button
+                      onClick={() => loadLeads(leadsPage + 1)}
+                      disabled={leadsPage >= Math.ceil(leadsTotal / LEADS_LIMIT) || leadsLoading}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: 12,
+                        border: '1px solid var(--color-border-tertiary, rgba(15,23,42,0.12))',
+                        background: 'transparent',
+                        fontSize: 13,
+                        fontWeight: 800,
+                        opacity: leadsPage >= Math.ceil(leadsTotal / LEADS_LIMIT) || leadsLoading ? 0.5 : 1
+                      }}
+                    >
+                      Siguiente
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 980 }}>
+                <thead>
+                  <tr style={{ background: 'rgba(15,23,42,0.02)' }}>
+                    {['Nombre', 'Teléfono', 'Email', 'Origen', 'Estado', 'Motivo', 'Gestión', 'Intentos', 'Último intento', 'Vendedor', 'Ingreso'].map((h) => (
+                      <th
+                        key={h}
+                        style={{
+                          padding: '10px 12px',
+                          textAlign: 'left',
+                          color: 'var(--color-text-tertiary, #94a3b8)',
+                          fontWeight: 800,
+                          fontSize: 11,
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.8,
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {leadsLoading ? (
+                    <tr>
+                      <td colSpan={11} style={{ padding: 16, color: 'var(--color-text-secondary, #64748b)' }}>Cargando leads...</td>
+                    </tr>
+                  ) : !leads.length ? (
+                    <tr>
+                      <td colSpan={11} style={{ padding: 16, color: 'var(--color-text-secondary, #64748b)' }}>Sin leads</td>
+                    </tr>
+                  ) : (
+                    leads.map((lead, idx) => {
+                      const estado = String(lead.estado || '').toLowerCase();
+                      const gestion = String(lead.estado_venta || '').toLowerCase();
+                      const estadoColor = estado.includes('convert')
+                        ? 'var(--success, #15803d)'
+                        : estado.includes('rechaz')
+                          ? '#A32D2D'
+                          : estado.includes('no contesta')
+                            ? '#854F0B'
+                            : 'var(--color-text-secondary, #64748b)';
+                      const gestionColor = gestion.includes('sin')
+                        ? 'var(--color-text-secondary, #64748b)'
+                        : gestion.includes('seguim') || gestion.includes('rellam')
+                          ? '#854F0B'
+                          : gestion.includes('venta') || gestion.includes('convert')
+                            ? 'var(--success, #15803d)'
+                            : 'var(--color-text-secondary, #64748b)';
+
+                      return (
+                        <tr key={lead.id || idx} style={{ borderTop: '0.5px solid var(--color-border-tertiary, rgba(15,23,42,0.10))' }}>
+                          <td style={{ padding: '10px 12px', fontWeight: 800, maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {lead.nombre || '—'} {lead.apellido || ''}
+                          </td>
+                          <td style={{ padding: '10px 12px', color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' }}>
+                            {lead.telefono || '—'}
+                          </td>
+                          <td style={{ padding: '10px 12px', color: 'var(--color-text-secondary, #64748b)', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {lead.email || '—'}
+                          </td>
+                          <td style={{ padding: '10px 12px', color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' }}>
+                            {lead.origen_dato || '—'}
+                          </td>
+                          <td style={{ padding: '10px 12px' }}>
+                            <span style={{
+                              background: 'rgba(15,23,42,0.04)',
+                              color: estadoColor,
+                              borderRadius: 999,
+                              padding: '2px 8px',
+                              fontSize: 11,
+                              fontWeight: 900,
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {lead.estado || '—'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
+                            {lead.motivo_bloqueo === 'duplicado'
+                              ? <span style={{ background: 'rgba(133,79,11,0.12)', color: '#854F0B', borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 900 }}>Duplicado</span>
+                              : lead.motivo_bloqueo === 'cliente_existente'
+                                ? <span style={{ background: 'rgba(163,45,45,0.12)', color: '#A32D2D', borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 900 }}>Cliente</span>
+                                : <span style={{ color: 'var(--color-text-tertiary, #94a3b8)' }}>—</span>}
+                          </td>
+                          <td style={{ padding: '10px 12px' }}>
+                            <span style={{
+                              background: 'rgba(15,23,42,0.04)',
+                              color: gestionColor,
+                              borderRadius: 999,
+                              padding: '2px 8px',
+                              fontSize: 11,
+                              fontWeight: 900,
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {lead.estado_venta || '—'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--color-text-secondary, #64748b)', fontWeight: 800 }}>
+                            {lead.intentos ?? '—'}
+                          </td>
+                          <td style={{ padding: '10px 12px', color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' }}>
+                            {lead.last_gestion_at
+                              ? new Date(lead.last_gestion_at).toLocaleDateString('es-UY', { timeZone: 'America/Montevideo' })
+                              : '—'}
+                          </td>
+                          <td style={{ padding: '10px 12px', color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' }}>
+                            {lead.assigned_to_name || '—'}
+                          </td>
+                          <td style={{ padding: '10px 12px', color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' }}>
+                            {lead.created_at
+                              ? new Date(lead.created_at).toLocaleString('es-UY', { timeZone: 'America/Montevideo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                              : '—'}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
