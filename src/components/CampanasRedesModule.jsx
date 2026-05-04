@@ -2,6 +2,43 @@ import React from 'react';
 import { RefreshCw, ChevronDown } from 'lucide-react';
 import { getApiClient } from '../services/apiClient.js';
 
+function formatOrigenLabel(origen) {
+  const str = String(origen || '').trim();
+  if (!str) return '—';
+  const lower = str.toLowerCase();
+  const explicit = {
+    facebook: 'Facebook',
+    instagram: 'Instagram'
+  };
+  if (explicit[lower]) return explicit[lower];
+  return lower.charAt(0).toUpperCase() + lower.slice(1);
+}
+
+function normalizeOrigenesResponse(res) {
+  if (!res) return [];
+  const raw = Array.isArray(res)
+    ? res
+    : Array.isArray(res?.items)
+      ? res.items
+      : Array.isArray(res?.origenes)
+        ? res.origenes
+        : Array.isArray(res?.data)
+          ? res.data
+          : [];
+
+  return raw
+    .map((item) => {
+      if (!item) return null;
+      if (typeof item === 'string') return item.trim();
+      if (typeof item?.value === 'string') return item.value.trim();
+      if (typeof item?.origen === 'string') return item.origen.trim();
+      if (typeof item?.origen_dato === 'string') return item.origen_dato.trim();
+      if (typeof item?.key === 'string') return item.key.trim();
+      return null;
+    })
+    .filter(Boolean);
+}
+
 const PERIODOS = [
   { value: 'mes', label: 'Este mes' },
   { value: 'semana', label: 'Últimos 7 días' },
@@ -62,6 +99,14 @@ function MetricCard({ label, value, valueColor, subtitle }) {
 export default function CampanasRedesModule() {
   const [periodo, setPeriodo] = React.useState('mes');
   const [origen, setOrigen] = React.useState('facebook');
+  const [origenes, setOrigenes] = React.useState(() => {
+    const fallback = ['facebook', 'instagram', 'referido'];
+    return [
+      { value: 'todos', label: 'Todos los orígenes' },
+      ...fallback.map((value) => ({ value, label: formatOrigenLabel(value) }))
+    ];
+  });
+  const [origenesLoading, setOrigenesLoading] = React.useState(false);
   const [data, setData] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
@@ -90,6 +135,34 @@ export default function CampanasRedesModule() {
     }
   }, [periodo, origen]);
 
+  const loadOrigenes = React.useCallback(async () => {
+    setOrigenesLoading(true);
+    try {
+      const api = getApiClient();
+      const res = await api.get('/campanas/origenes');
+      const values = normalizeOrigenesResponse(res);
+      const uniqueValues = Array.from(new Set(values.map((v) => String(v).toLowerCase())));
+      const nextOptions = [
+        { value: 'todos', label: 'Todos los orígenes' },
+        ...uniqueValues.map((value) => ({ value, label: formatOrigenLabel(value) }))
+      ];
+
+      setOrigenes(nextOptions);
+      setOrigen((prev) => {
+        const prevLower = String(prev || '').toLowerCase();
+        const hasPrev = nextOptions.some((o) => o.value === prevLower);
+        if (hasPrev) return prevLower;
+        if (uniqueValues.includes('facebook')) return 'facebook';
+        return uniqueValues[0] || 'todos';
+      });
+    } catch (err) {
+      console.error('Error cargando orígenes:', err);
+    } finally {
+      setOrigenesLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => { loadOrigenes(); }, [loadOrigenes]);
   React.useEffect(() => { load(); }, [load]);
 
   const metricas = data?.metricas || {};
@@ -170,6 +243,7 @@ export default function CampanasRedesModule() {
                 <select
                   value={origen}
                   onChange={(e) => setOrigen(e.target.value)}
+                  disabled={origenesLoading}
                   style={{
                     appearance: 'none',
                     padding: '8px 36px 8px 12px',
@@ -178,10 +252,11 @@ export default function CampanasRedesModule() {
                     background: 'transparent',
                     fontSize: 13,
                     fontWeight: 700,
-                    color: 'var(--color-text-primary, #0f172a)'
+                    color: 'var(--color-text-primary, #0f172a)',
+                    opacity: origenesLoading ? 0.6 : 1
                   }}
                 >
-                  {ORIGENES.map((o) => (
+                  {origenes.map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.label}
                     </option>
