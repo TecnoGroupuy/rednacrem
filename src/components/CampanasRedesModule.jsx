@@ -65,6 +65,7 @@ export default function CampanasRedesModule() {
   const [data, setData] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
+  const [dailyOpen, setDailyOpen] = React.useState(false);
   const [leads, setLeads] = React.useState([]);
   const [leadsLoading, setLeadsLoading] = React.useState(false);
   const [leadsTotal, setLeadsTotal] = React.useState(0);
@@ -384,10 +385,31 @@ export default function CampanasRedesModule() {
             background: 'var(--panel, rgba(255,255,255,0.76))',
             overflow: 'hidden'
           }}>
-            <div style={{ padding: '14px 16px', borderBottom: '0.5px solid var(--color-border-tertiary, rgba(15,23,42,0.12))' }}>
-              <div style={{ fontWeight: 800, fontSize: 14 }}>Ingresos por día</div>
-              <div style={{ fontSize: 12, color: 'var(--color-text-tertiary, #94a3b8)', marginTop: 2 }}>{periodoLabel}</div>
-            </div>
+            <button
+              type="button"
+              onClick={() => setDailyOpen((p) => !p)}
+              style={{
+                width: '100%',
+                border: 0,
+                background: 'transparent',
+                padding: '14px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+                textAlign: 'left',
+                borderBottom: dailyOpen ? '0.5px solid var(--color-border-tertiary, rgba(15,23,42,0.12))' : 'none'
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 14 }}>Ingresos por día</div>
+                <div style={{ fontSize: 12, color: 'var(--color-text-tertiary, #94a3b8)', marginTop: 2 }}>{periodoLabel}</div>
+              </div>
+              <div style={{ transform: dailyOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 140ms ease' }}>
+                <ChevronDown size={18} color="var(--color-text-secondary, #64748b)" />
+              </div>
+            </button>
+            {dailyOpen && (
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 620 }}>
                 <thead>
@@ -443,6 +465,7 @@ export default function CampanasRedesModule() {
                 </tbody>
               </table>
             </div>
+            )}
           </div>
 
           <div style={{ height: 0.5, background: 'var(--color-border-tertiary, rgba(15,23,42,0.12))', margin: '18px 0' }} />
