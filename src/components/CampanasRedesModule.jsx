@@ -188,8 +188,8 @@ export default function CampanasRedesModule() {
       params.set('page', String(page));
       params.set('limit', String(LEADS_LIMIT));
       const res = await api.get(`/campanas/leads?${params.toString()}`);
-      setLeads(res?.items || []);
-      setLeadsTotal(safeNumber(res?.total) ?? 0);
+      setLeads(res?.items ?? res?.data?.items ?? []);
+      setLeadsTotal(safeNumber(res?.total ?? res?.data?.total) ?? 0);
       setLeadsPage(page);
     } catch (err) {
       console.error('Error cargando leads:', err);
