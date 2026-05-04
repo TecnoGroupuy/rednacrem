@@ -101,7 +101,7 @@ export default function CampanasRedesModule() {
 
   return (
     <div className="view">
-      <section className="hero">
+      <section className="hero" style={{ gridTemplateColumns: '1fr' }}>
         <div className="hero-panel" style={{ width: '100%', display: 'block' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <div>
@@ -208,136 +208,139 @@ export default function CampanasRedesModule() {
           <div>
             <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 10 }}>Vendedores</div>
 
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '2fr 1fr 1fr 1fr',
-              gap: 10,
-              padding: '0 2px',
-              marginBottom: 8
-            }}>
-              {['Vendedor', 'Total leads', 'Sin gestión', 'Convertidos'].map((h) => (
-                <div key={h} style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-tertiary, #94a3b8)' }}>
-                  {h}
-                </div>
-              ))}
-            </div>
-
-            {loading ? (
-              <div style={{ padding: 14, color: 'var(--color-text-secondary, #64748b)' }}>Cargando...</div>
-            ) : !porVendedor.length ? (
-              <div style={{ padding: 14, color: 'var(--color-text-secondary, #64748b)' }}>Sin datos para el período seleccionado</div>
-            ) : (
-              <div style={{ display: 'grid', gap: 10 }}>
-                {porVendedor.map((v, idx) => {
-                  const vendorTotal = safeNumber(v.total) ?? 0;
-                  const vendorSinGestion = safeNumber(v.sin_gestion) ?? null;
-                  const vendorConvertidos = safeNumber(v.convertidos) ?? 0;
-                  const vendorConvPercent = vendorTotal > 0 ? (vendorConvertidos / vendorTotal) * 100 : 0;
-                  const badgeBg = vendorConvPercent >= 5 ? 'rgba(21,128,61,0.10)' : 'rgba(133,79,11,0.12)';
-                  const badgeColor = vendorConvPercent >= 5 ? 'var(--success, #15803d)' : '#854F0B';
-
-                  return (
-                    <div
-                      key={v.id || `${v.nombre || ''}-${v.apellido || ''}-${idx}`}
-                      style={{
-                        border: '0.5px solid var(--color-border-tertiary, rgba(15,23,42,0.12))',
-                        borderRadius: 18,
-                        padding: '14px 16px',
-                        display: 'grid',
-                        gridTemplateColumns: '2fr 1fr 1fr 1fr',
-                        gap: 10,
-                        alignItems: 'center',
-                        background: 'var(--panel, rgba(255,255,255,0.76))'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                        <div style={{
-                          width: 38,
-                          height: 38,
-                          borderRadius: 999,
-                          background: '#CECBF6',
-                          color: '#3C3489',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontWeight: 900,
-                          fontSize: 14,
-                          flexShrink: 0
-                        }}>
-                          {getInitials(v.nombre, v.apellido)}
-                        </div>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{
-                            fontWeight: 800,
-                            fontSize: 14,
-                            color: 'var(--color-text-primary, #0f172a)',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                          }}>
-                            {[v.nombre, v.apellido].filter(Boolean).join(' ') || '—'}
-                          </div>
-                          <div style={{ fontSize: 12, color: 'var(--color-text-tertiary, #94a3b8)', marginTop: 2 }}>
-                            {v.rol || 'Vendedor'}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div style={{ textAlign: 'left' }}>
-                        <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--color-text-primary, #0f172a)' }}>
-                          {vendorTotal}
-                        </div>
-                        <div style={{ fontSize: 11, color: 'var(--color-text-tertiary, #94a3b8)', fontWeight: 700 }}>
-                          asignados
-                        </div>
-                      </div>
-
-                      <div style={{ fontSize: 18, fontWeight: 900, color: '#854F0B' }}>
-                        {vendorSinGestion === null ? '—' : vendorSinGestion}
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                        <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--success, #15803d)' }}>
-                          {vendorConvertidos}
-                        </div>
-                        <div style={{
-                          padding: '2px 8px',
-                          borderRadius: 999,
-                          background: badgeBg,
-                          color: badgeColor,
-                          fontSize: 12,
-                          fontWeight: 900,
-                          whiteSpace: 'nowrap'
-                        }}>
-                          {formatPercent(vendorConvPercent)}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-
-                <div style={{
-                  border: '0.5px dashed var(--color-border-tertiary, rgba(15,23,42,0.18))',
-                  borderRadius: 18,
-                  padding: '14px 16px',
-                  display: 'grid',
-                  gridTemplateColumns: '2fr 1fr 1fr 1fr',
-                  gap: 10,
-                  alignItems: 'center',
-                  background: 'transparent'
-                }}>
-                  <div style={{ fontWeight: 800, color: 'var(--color-text-primary, #0f172a)' }}>
-                    Sin asignar
+            <div style={{ overflowX: 'auto' }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '2fr 1fr 1fr 1fr',
+                gap: 10,
+                padding: '0 2px',
+                marginBottom: 8,
+                minWidth: 640
+              }}>
+                {['Vendedor', 'Total leads', 'Sin gestión', 'Convertidos'].map((h) => (
+                  <div key={h} style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-tertiary, #94a3b8)' }}>
+                    {h}
                   </div>
-                  <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--color-text-primary, #0f172a)' }}>
-                    {sinAsignarTotal}
-                    <div style={{ fontSize: 11, color: 'var(--color-text-tertiary, #94a3b8)', fontWeight: 700 }}>asignados</div>
-                  </div>
-                  <div style={{ fontSize: 18, fontWeight: 900, color: '#854F0B' }}>—</div>
-                  <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--success, #15803d)' }}>—</div>
-                </div>
+                ))}
               </div>
-            )}
+
+              {loading ? (
+                <div style={{ padding: 14, color: 'var(--color-text-secondary, #64748b)' }}>Cargando...</div>
+              ) : !porVendedor.length ? (
+                <div style={{ padding: 14, color: 'var(--color-text-secondary, #64748b)' }}>Sin datos para el período seleccionado</div>
+              ) : (
+                <div style={{ display: 'grid', gap: 10, minWidth: 640 }}>
+                  {porVendedor.map((v, idx) => {
+                    const vendorTotal = safeNumber(v.total) ?? 0;
+                    const vendorSinGestion = safeNumber(v.sin_gestion) ?? null;
+                    const vendorConvertidos = safeNumber(v.convertidos) ?? 0;
+                    const vendorConvPercent = vendorTotal > 0 ? (vendorConvertidos / vendorTotal) * 100 : 0;
+                    const badgeBg = vendorConvPercent >= 5 ? 'rgba(21,128,61,0.10)' : 'rgba(133,79,11,0.12)';
+                    const badgeColor = vendorConvPercent >= 5 ? 'var(--success, #15803d)' : '#854F0B';
+
+                    return (
+                      <div
+                        key={v.id || `${v.nombre || ''}-${v.apellido || ''}-${idx}`}
+                        style={{
+                          border: '0.5px solid var(--color-border-tertiary, rgba(15,23,42,0.12))',
+                          borderRadius: 18,
+                          padding: '14px 16px',
+                          display: 'grid',
+                          gridTemplateColumns: '2fr 1fr 1fr 1fr',
+                          gap: 10,
+                          alignItems: 'center',
+                          background: 'var(--panel, rgba(255,255,255,0.76))'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                          <div style={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: 999,
+                            background: '#CECBF6',
+                            color: '#3C3489',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 900,
+                            fontSize: 14,
+                            flexShrink: 0
+                          }}>
+                            {getInitials(v.nombre, v.apellido)}
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{
+                              fontWeight: 800,
+                              fontSize: 14,
+                              color: 'var(--color-text-primary, #0f172a)',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }}>
+                              {[v.nombre, v.apellido].filter(Boolean).join(' ') || '—'}
+                            </div>
+                            <div style={{ fontSize: 12, color: 'var(--color-text-tertiary, #94a3b8)', marginTop: 2 }}>
+                              {v.rol || 'Vendedor'}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ textAlign: 'left' }}>
+                          <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--color-text-primary, #0f172a)' }}>
+                            {vendorTotal}
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--color-text-tertiary, #94a3b8)', fontWeight: 700 }}>
+                            asignados
+                          </div>
+                        </div>
+
+                        <div style={{ fontSize: 18, fontWeight: 900, color: '#854F0B' }}>
+                          {vendorSinGestion === null ? '—' : vendorSinGestion}
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                          <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--success, #15803d)' }}>
+                            {vendorConvertidos}
+                          </div>
+                          <div style={{
+                            padding: '2px 8px',
+                            borderRadius: 999,
+                            background: badgeBg,
+                            color: badgeColor,
+                            fontSize: 12,
+                            fontWeight: 900,
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {formatPercent(vendorConvPercent)}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  <div style={{
+                    border: '0.5px dashed var(--color-border-tertiary, rgba(15,23,42,0.18))',
+                    borderRadius: 18,
+                    padding: '14px 16px',
+                    display: 'grid',
+                    gridTemplateColumns: '2fr 1fr 1fr 1fr',
+                    gap: 10,
+                    alignItems: 'center',
+                    background: 'transparent'
+                  }}>
+                    <div style={{ fontWeight: 800, color: 'var(--color-text-primary, #0f172a)' }}>
+                      Sin asignar
+                    </div>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--color-text-primary, #0f172a)' }}>
+                      {sinAsignarTotal}
+                      <div style={{ fontSize: 11, color: 'var(--color-text-tertiary, #94a3b8)', fontWeight: 700 }}>asignados</div>
+                    </div>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: '#854F0B' }}>—</div>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--success, #15803d)' }}>—</div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </section>
