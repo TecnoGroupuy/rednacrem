@@ -112,7 +112,7 @@ import { useRolEfectivo } from './hooks/useRolEfectivo.js';
 import AuthGate from './components/auth/AuthGate.jsx';
 import { downloadCsvFile } from './utils/importWizardHelpers.js';
 import { formatDate } from './utils/dateFormat.js';
-import { buildApiUrl, getApiClient, getApiBaseUrl, setActiveOrganizationId } from './services/apiClient.js';
+import { buildApiUrl, getActiveOrganizationId, getApiClient, getApiBaseUrl, setActiveOrganizationId } from './services/apiClient.js';
 import { listMyOrganizations } from './services/organizationsService.js';
 import { io } from 'socket.io-client';
 import {
@@ -3024,6 +3024,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [clientePendiente, setClientePendiente] = React.useState(null);
       const [showBannerPendiente, setShowBannerPendiente] = React.useState(false);
       React.useEffect(() => {
+        if (!activeOrgId) {
+          setLoadingDash(false);
+          return;
+        }
         const cargar = async () => {
           setLoadingDash(true);
           try {
@@ -3068,7 +3072,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         } catch {
           localStorage.removeItem('cliente_pendiente_alta');
         }
-      }, []);
+      }, [activeOrgId]);
       React.useEffect(() => {
         if (!activeOrgId) return;
         const cargarJornada = async () => {
@@ -12646,6 +12650,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const api = getApiClient();
         const agendaCheckInterval = window.setInterval(async () => {
           try {
+            if (!getActiveOrganizationId()) return;
             const res = await api.get('/agenda');
             const items = res?.data?.items || res?.data?.data?.items || [];
             const now = new Date();
