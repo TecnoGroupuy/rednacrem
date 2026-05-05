@@ -200,7 +200,8 @@ export default function CampanasRedesModule() {
       const api = getApiClient();
       const params = new URLSearchParams();
       const originValue = String(origen || '').trim();
-      if (originValue && originValue.toLowerCase() !== 'todos') params.set('origen_dato', originValue);
+      if (originValue && originValue.toLowerCase() !== 'todos') params.set('origen_dato', originValue.toLowerCase());
+      params.set('periodo', String(periodo || ''));
       params.set('page', String(page));
       params.set('limit', String(LEADS_LIMIT));
       const res = await api.get(`/campanas/leads?${params.toString()}`);
@@ -212,7 +213,7 @@ export default function CampanasRedesModule() {
     } finally {
       setLeadsLoading(false);
     }
-  }, [origen]);
+  }, [origen, periodo]);
 
   React.useEffect(() => { loadLeads(1); }, [loadLeads]);
 
