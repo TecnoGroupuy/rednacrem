@@ -577,11 +577,37 @@ export default function CampanasRedesModule() {
               gap: 12,
               flexWrap: 'wrap'
             }}>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: 14 }}>Detalle de leads</div>
-                <div style={{ fontSize: 12, color: 'var(--color-text-tertiary, #94a3b8)', marginTop: 2 }}>
-                  {leadsTotal} leads totales
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 14 }}>Detalle de leads</div>
+                  <div style={{ fontSize: 12, color: 'var(--color-text-tertiary, #94a3b8)', marginTop: 2 }}>
+                    {leadsTotal} leads totales
+                  </div>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await Promise.all([load(), loadLeads(1)]);
+                  }}
+                  disabled={loading || leadsLoading}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: 12,
+                    border: '1px solid var(--color-border-tertiary, rgba(15,23,42,0.12))',
+                    background: 'transparent',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    fontSize: 13,
+                    fontWeight: 800,
+                    opacity: loading || leadsLoading ? 0.6 : 1
+                  }}
+                  title="Actualizar"
+                >
+                  <RefreshCw size={16} />
+                  Actualizar
+                </button>
               </div>
 
               {leadsTotal > LEADS_LIMIT && (
