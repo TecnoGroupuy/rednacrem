@@ -12165,6 +12165,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           setProductsCatalog([]);
           return undefined;
         }
+        if (!activeOrg?.id) {
+          setProductsCatalog([]);
+          return undefined;
+        }
         let active = true;
         listProductsAsync()
           .then((items) => {
@@ -12176,7 +12180,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             setProductsCatalog([]);
           });
         return () => { active = false; };
-      }, [authUser?.id, canLoadProducts]);
+      }, [authUser?.id, canLoadProducts, activeOrg?.id]);
 
       React.useEffect(() => {
         if (!authUser?.id || role !== 'atencion_cliente') return;
@@ -12376,8 +12380,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           setSupervisorLots([]);
           return undefined;
         }
+        if (!activeOrg?.id) {
+          setSalesContacts([]);
+          setSupervisorLots([]);
+          return undefined;
+        }
         Promise.all([refreshContactsFromService(), refreshLotsFromService()]).catch(() => {});
-      }, [authUser?.id, canLoadCommercialData, refreshContactsFromService, refreshLotsFromService]);
+      }, [authUser?.id, canLoadCommercialData, activeOrg?.id, refreshContactsFromService, refreshLotsFromService]);
 
       React.useEffect(() => {
         if (!authUser?.id) return;
