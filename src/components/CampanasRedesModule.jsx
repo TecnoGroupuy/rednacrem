@@ -98,9 +98,9 @@ function MetricCard({ label, value, valueColor, subtitle }) {
 
 export default function CampanasRedesModule() {
   const [periodo, setPeriodo] = React.useState('mes');
-  const [origen, setOrigen] = React.useState('facebook');
+  const [origen, setOrigen] = React.useState('Facebook');
   const [origenes, setOrigenes] = React.useState(() => {
-    const fallback = ['facebook', 'instagram', 'referido'];
+    const fallback = ['Facebook', 'Instagram', 'Referido'];
     return [
       { value: 'todos', label: 'Todos los orígenes' },
       ...fallback.map((value) => ({ value, label: formatOrigenLabel(value) }))
@@ -124,7 +124,8 @@ export default function CampanasRedesModule() {
       const api = getApiClient();
       const params = new URLSearchParams();
       if (periodo) params.set('periodo', periodo);
-      if (origen && origen !== 'todos') params.set('origen_dato', origen);
+      const originValue = String(origen || '').trim();
+      if (originValue && originValue.toLowerCase() !== 'todos') params.set('origen_dato', originValue);
       const qs = params.toString();
       const res = await api.get(`/campanas/stats${qs ? `?${qs}` : ''}`);
       setData(res);
@@ -141,7 +142,16 @@ export default function CampanasRedesModule() {
       const api = getApiClient();
       const res = await api.get('/campanas/origenes');
       const values = normalizeOrigenesResponse(res);
-      const uniqueValues = Array.from(new Set(values.map((v) => String(v).toLowerCase())));
+      const seenLower = new Set();
+      const uniqueValues = [];
+      for (const raw of values) {
+        const cleaned = String(raw || '').trim();
+        if (!cleaned) continue;
+        const lower = cleaned.toLowerCase();
+        if (seenLower.has(lower)) continue;
+        seenLower.add(lower);
+        uniqueValues.push(cleaned);
+      }
       const nextOptions = [
         { value: 'todos', label: 'Todos los orígenes' },
         ...uniqueValues.map((value) => ({ value, label: formatOrigenLabel(value) }))
@@ -150,10 +160,15 @@ export default function CampanasRedesModule() {
       setOrigenes(nextOptions);
       setOrigen((prev) => {
         const prevLower = String(prev || '').toLowerCase();
-        const hasPrev = nextOptions.some((o) => o.value === prevLower);
-        if (hasPrev) return prevLower;
-        if (uniqueValues.includes('facebook')) return 'facebook';
-        return uniqueValues[0] || 'todos';
+        const normalizedOptions = nextOptions.map((o) => ({ value: o.value, lower: String(o.value || '').toLowerCase() }));
+        const hasPrev = normalizedOptions.some((o) => o.lower === prevLower);
+        if (hasPrev) return normalizedOptions.find((o) => o.lower === prevLower)?.value || prev;
+
+        const facebookOption = normalizedOptions.find((o) => o.lower === 'facebook');
+        if (facebookOption) return facebookOption.value;
+
+        const firstOrigin = normalizedOptions.find((o) => o.lower !== 'todos');
+        return firstOrigin?.value || 'todos';
       });
     } catch (err) {
       console.error('Error cargando orígenes:', err);
@@ -184,7 +199,8 @@ export default function CampanasRedesModule() {
     try {
       const api = getApiClient();
       const params = new URLSearchParams();
-      if (origen && origen !== 'todos') params.set('origen_dato', origen);
+      const originValue = String(origen || '').trim();
+      if (originValue && originValue.toLowerCase() !== 'todos') params.set('origen_dato', originValue);
       params.set('page', String(page));
       params.set('limit', String(LEADS_LIMIT));
       const res = await api.get(`/campanas/leads?${params.toString()}`);
