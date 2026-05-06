@@ -262,22 +262,6 @@ export default function SuperadminWorkbench({
     return ['clientes', 'datos_para_trabajar', 'no_llamar'].includes(typeKey);
   }, [resolveImportId, resolveImportStatusLabel, resolveImportTypeKey]);
 
-  const canProcessImport = React.useCallback((row = {}) => {
-    const id = resolveImportId(row);
-    if (!id) return false;
-    const statusLabel = String(resolveImportStatusLabel(row) || '').toLowerCase();
-    if (statusLabel !== 'validada') return false;
-    const typeKey = resolveImportTypeKey(row);
-    return typeKey === 'clientes';
-  }, [resolveImportId, resolveImportStatusLabel, resolveImportTypeKey]);
-
-  const handleProcessImport = React.useCallback(async (batchId) => {
-    if (!batchId) return;
-    const api = getApiClient();
-    await api.post(`/imports/clients/${batchId}/process`, {});
-    await loadImports();
-  }, [loadImports]);
-
   const openImportDeleteModal = React.useCallback((row) => {
     if (!row) return;
     const id = resolveImportId(row);
@@ -345,6 +329,22 @@ export default function SuperadminWorkbench({
       setImportsLoading(false);
     }
   }, [importsPage, importsSearch, importsType]);
+
+  const canProcessImport = React.useCallback((row = {}) => {
+    const id = resolveImportId(row);
+    if (!id) return false;
+    const statusLabel = String(resolveImportStatusLabel(row) || '').toLowerCase();
+    if (statusLabel !== 'validada') return false;
+    const typeKey = resolveImportTypeKey(row);
+    return typeKey === 'clientes';
+  }, [resolveImportId, resolveImportStatusLabel, resolveImportTypeKey]);
+
+  const handleProcessImport = React.useCallback(async (batchId) => {
+    if (!batchId) return;
+    const api = getApiClient();
+    await api.post(`/imports/clients/${batchId}/process`, {});
+    await loadImports();
+  }, [loadImports]);
 
   const loadProducts = React.useCallback(async () => setProducts(await listProductsAsync()), []);
   const loadUsers = React.useCallback(async () => setUsers(await listUsersAsync()), []);
