@@ -5388,8 +5388,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
       const loadSellers = React.useCallback(async () => {
         try {
-          const response = activeOrg?.id
-            ? await api.get(`/api/supervisor/agents?organization_id=${encodeURIComponent(activeOrg.id)}`)
+          const orgId = getActiveOrganizationId();
+          const response = orgId
+            ? await api.get(`/api/supervisor/agents?organization_id=${encodeURIComponent(orgId)}`)
             : await api.get('/api/supervisor/agents');
           const itemsList = response?.agents
             || response?.items
@@ -5408,7 +5409,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         } catch {
           setSellers([]);
         }
-      }, [activeOrg?.id, api]);
+      }, [api]);
 
       const loadCatalogo = React.useCallback(async () => {
         setCatalogoLoading(true);
@@ -5483,10 +5484,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, [api, buildQuery, hasFilters, page, queryFilters]);
 
       React.useEffect(() => {
-        if (!activeOrg?.id) return;
+        if (!getActiveOrganizationId()) return;
         loadCatalogo();
         loadSellers();
-      }, [activeOrg?.id, loadCatalogo, loadSellers]);
+      }, [loadCatalogo, loadSellers]);
 
       React.useEffect(() => {
         loadCodificaciones();
@@ -6484,7 +6485,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       return map[status] || map.sin_asignar;
     };
 
-    function SupervisorModule({ route, contacts, lots, accessToken, onBulkAssignContacts, onCreateLot, onAssignLotSeller, onCloseLot, onReactivateError, onOpenRoute }) {
+    function SupervisorModule({ route, contacts, lots, accessToken, activeOrgId, onBulkAssignContacts, onCreateLot, onAssignLotSeller, onCloseLot, onReactivateError, onOpenRoute }) {
       const [search, setSearch] = React.useState('');
       const [sourceFilter, setSourceFilter] = React.useState('todos');
       const [cityFilter, setCityFilter] = React.useState('todos');
@@ -6570,11 +6571,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, [workDataPage, workDataPageSize, workDataSearch, workDataTab]);
 
       React.useEffect(() => {
-        if (!activeOrg?.id) return;
+        if (!activeOrgId) return;
         if (route === 'base_general') {
           loadWorkData();
         }
-      }, [activeOrg?.id, route, loadWorkData]);
+      }, [activeOrgId, route, loadWorkData]);
 
       React.useEffect(() => {
         if (route !== 'base_general') return;
@@ -6605,9 +6606,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
       const [apiSellers, setApiSellers] = React.useState([]);
       React.useEffect(() => {
-        if (!activeOrg?.id) return;
+        if (!activeOrgId) return;
         listSellersAsync().then(setApiSellers).catch(() => {});
-      }, [activeOrg?.id]);
+      }, [activeOrgId]);
       const sellers = apiSellers;
 
       const activeBase = React.useMemo(
@@ -12820,6 +12821,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               contacts={salesContacts}
               lots={supervisorLots}
               accessToken={authUser?.accessToken || null}
+              activeOrgId={activeOrg?.id}
               onBulkAssignContacts={bulkAssignSupervisorContacts}
               onCreateLot={createSupervisorLot}
               onAssignLotSeller={assignSupervisorLotSeller}
