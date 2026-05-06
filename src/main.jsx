@@ -6570,10 +6570,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, [workDataPage, workDataPageSize, workDataSearch, workDataTab]);
 
       React.useEffect(() => {
+        if (!activeOrg?.id) return;
         if (route === 'base_general') {
           loadWorkData();
         }
-      }, [route, loadWorkData]);
+      }, [activeOrg?.id, route, loadWorkData]);
 
       React.useEffect(() => {
         if (route !== 'base_general') return;
@@ -6604,8 +6605,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
       const [apiSellers, setApiSellers] = React.useState([]);
       React.useEffect(() => {
+        if (!activeOrg?.id) return;
         listSellersAsync().then(setApiSellers).catch(() => {});
-      }, []);
+      }, [activeOrg?.id]);
       const sellers = apiSellers;
 
       const activeBase = React.useMemo(
