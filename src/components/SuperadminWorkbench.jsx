@@ -262,6 +262,22 @@ export default function SuperadminWorkbench({
     return ['clientes', 'datos_para_trabajar', 'no_llamar'].includes(typeKey);
   }, [resolveImportId, resolveImportStatusLabel, resolveImportTypeKey]);
 
+  const canProcessImport = React.useCallback((row = {}) => {
+    const id = resolveImportId(row);
+    if (!id) return false;
+    const statusLabel = String(resolveImportStatusLabel(row) || '').toLowerCase();
+    if (statusLabel !== 'validada') return false;
+    const typeKey = resolveImportTypeKey(row);
+    return typeKey === 'clientes';
+  }, [resolveImportId, resolveImportStatusLabel, resolveImportTypeKey]);
+
+  const handleProcessImport = React.useCallback(async (batchId) => {
+    if (!batchId) return;
+    const api = getApiClient();
+    await api.post(`/imports/clients/${batchId}/process`, {});
+    await loadImports();
+  }, [loadImports]);
+
   const openImportDeleteModal = React.useCallback((row) => {
     if (!row) return;
     const id = resolveImportId(row);
@@ -941,27 +957,50 @@ export default function SuperadminWorkbench({
                     <td><Tag variant={row.estado === 'Completada' ? 'success' : row.estado === 'Fallida' ? 'danger' : 'warning'}>{row.estado}</Tag></td>
                     <td>{row.usuario}</td>
                     <td style={{ textAlign: 'right' }}>
-                      {canDeleteImport(row) ? (
-                        <button
-                          type="button"
-                          onClick={() => openImportDeleteModal(row)}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            padding: '6px 12px',
-                            borderRadius: 999,
-                            border: '1px solid rgba(248,113,113,0.4)',
-                            background: 'rgba(248,113,113,0.15)',
-                            color: '#b91c1c',
-                            fontWeight: 600,
-                            cursor: 'pointer'
-                          }}
-                        >
-                          <Trash2 size={14} />
-                          Eliminar
-                        </button>
-                      ) : null}
+                      <div style={{ display: 'inline-flex', gap: 10, alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                        {canProcessImport(row) ? (
+                          <button
+                            type="button"
+                            onClick={() => handleProcessImport(resolveImportId(row))}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              padding: '6px 12px',
+                              borderRadius: 999,
+                              border: '1px solid rgba(15,118,110,0.35)',
+                              background: 'rgba(15,118,110,0.10)',
+                              color: '#0f766e',
+                              fontWeight: 700,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Confirmar importación
+                          </button>
+                        ) : null}
+
+                        {canDeleteImport(row) ? (
+                          <button
+                            type="button"
+                            onClick={() => openImportDeleteModal(row)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              padding: '6px 12px',
+                              borderRadius: 999,
+                              border: '1px solid rgba(248,113,113,0.4)',
+                              background: 'rgba(248,113,113,0.15)',
+                              color: '#b91c1c',
+                              fontWeight: 600,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <Trash2 size={14} />
+                            Eliminar
+                          </button>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))}</tbody>
