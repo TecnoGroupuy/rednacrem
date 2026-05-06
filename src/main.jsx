@@ -7510,7 +7510,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                               batch_name: <strong>"{externalLotCreated.name}"</strong>
                             </div>
                             <div style={{ fontFamily: 'monospace', fontSize: 12, marginTop: 4 }}>
-                              organization_id: <strong>"{(typeof activeOrg !== 'undefined' && activeOrg?.id) ? activeOrg.id : ''}"</strong>
+                              organization_id: <strong>"{activeOrgId || ''}"</strong>
                             </div>
                           </div>
                         </div>
