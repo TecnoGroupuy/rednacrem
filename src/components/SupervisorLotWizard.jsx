@@ -18,9 +18,17 @@ const buildAuthHeaders = (token) => {
   return headers;
 };
 
-const fetchJson = async (path, { method = 'GET', token, body } = {}) => {
+const fetchJson = async (path, { method = 'GET', token, body, organizationId } = {}) => {
   const baseUrl = getApiBaseUrl();
-  const url = buildApiUrl(path, baseUrl);
+  const url = (() => {
+    const rawUrl = buildApiUrl(path, baseUrl);
+    if (!organizationId) return rawUrl;
+    const u = new URL(rawUrl);
+    if (!u.searchParams.has('organization_id')) {
+      u.searchParams.set('organization_id', organizationId);
+    }
+    return u.toString();
+  })();
   const headers = {
     ...(body ? { 'Content-Type': 'application/json' } : {}),
     ...buildAuthHeaders(token)
@@ -254,7 +262,7 @@ const CheckboxMultiSelect = ({
   );
 };
 
-export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }) {
+export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated, activeOrgId }) {
   const { user } = useAuth();
   const token = user?.accessToken || null;
   const [step, setStep] = React.useState(1);
@@ -304,16 +312,17 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
   const [createdLotId, setCreatedLotId] = React.useState(null);
 
   React.useEffect(() => {
+    if (!activeOrgId) return;
     const loadOptions = async () => {
       try {
         const today = new Date();
         const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
         const [sellersResponse, sourcesResponse, departmentsResponse, areaResponse, importJobsResponse] = await Promise.all([
-          fetchJson('/api/supervisor/agents', { token }),
-          fetchJson('/lead-sources', { token }).catch((error) => (error.status === 404 ? [] : Promise.reject(error))),
-          fetchJson('/departamentos', { token }).catch((error) => (error.status === 404 ? [] : Promise.reject(error))),
-          fetchJson('/area-codes', { token }).catch((error) => (error.status === 404 ? [] : Promise.reject(error))),
-          fetchJson('/datos-para-trabajar/import-jobs', { token }).catch((error) => (error.status === 404 ? [] : Promise.reject(error)))
+          fetchJson('/api/supervisor/agents', { token, organizationId: activeOrgId }),
+          fetchJson('/lead-sources', { token, organizationId: activeOrgId }).catch((error) => (error.status === 404 ? [] : Promise.reject(error))),
+          fetchJson('/departamentos', { token, organizationId: activeOrgId }).catch((error) => (error.status === 404 ? [] : Promise.reject(error))),
+          fetchJson('/area-codes', { token, organizationId: activeOrgId }).catch((error) => (error.status === 404 ? [] : Promise.reject(error))),
+          fetchJson('/datos-para-trabajar/import-jobs', { token, organizationId: activeOrgId }).catch((error) => (error.status === 404 ? [] : Promise.reject(error)))
         ]);
         const sellersList = sellersResponse?.agents
           || sellersResponse?.items
@@ -342,9 +351,10 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
       }
     };
     loadOptions();
-  }, [token]);
+  }, [activeOrgId, token]);
 
   React.useEffect(() => {
+    if (!activeOrgId) return;
     if (!segmentDraft.departamentos.length) {
       setLocalities([]);
       return;
@@ -353,7 +363,7 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
       try {
         const params = new URLSearchParams();
         params.set('departamentos', segmentDraft.departamentos.join(','));
-        const response = await fetchJson(`/localidades?${params.toString()}`, { token }).catch((error) => (error.status === 404 ? [] : Promise.reject(error)));
+        const response = await fetchJson(`/localidades?${params.toString()}`, { token, organizationId: activeOrgId }).catch((error) => (error.status === 404 ? [] : Promise.reject(error)));
         const localitiesList = response?.data || response?.items || response || [];
         setLocalities(Array.isArray(localitiesList) ? localitiesList : []);
       } catch (error) {
@@ -361,9 +371,10 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
       }
     };
     loadLocalities();
-  }, [segmentDraft.departamentos, token]);
+  }, [activeOrgId, segmentDraft.departamentos, token]);
 
   React.useEffect(() => {
+    if (!activeOrgId) return;
     const handler = window.setTimeout(async () => {
       setSegmentPreviewLoading(true);
       try {
@@ -378,7 +389,7 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
         if (segmentDraft.diasSinGestion) params.set('dias_sin_gestion', segmentDraft.diasSinGestion);
         if (segmentDraft.importJobId) params.set('import_job_id', segmentDraft.importJobId);
         const qs = params.toString();
-        const response = await fetchJson(`/datos-para-trabajar/preview${qs ? '?' + qs : ''}`, { token });
+        const response = await fetchJson(`/datos-para-trabajar/preview${qs ? '?' + qs : ''}`, { token, organizationId: activeOrgId });
         setSegmentPreviewTotal(response?.data?.total ?? response?.total ?? response?.count ?? 0);
       } catch (error) {
         setSegmentPreviewTotal(0);
@@ -388,13 +399,14 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
       }
     }, 500);
     return () => window.clearTimeout(handler);
-  }, [segmentDraft, token]);
+  }, [activeOrgId, segmentDraft, token]);
 
   React.useEffect(() => {
     setCantidadAgregar(segmentPreviewTotal);
   }, [segmentPreviewTotal]);
 
   React.useEffect(() => {
+    if (!activeOrgId) return;
     if (!segments.length) {
       setLotPreviewTotal(0);
       return;
@@ -402,14 +414,14 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
     const handler = window.setTimeout(async () => {
       try {
         const filtros = encodeURIComponent(JSON.stringify({ segmentos: segments.map((s) => s.filtros) }));
-        const response = await fetchJson(`/datos-para-trabajar/preview?filtros=${filtros}`, { token });
+        const response = await fetchJson(`/datos-para-trabajar/preview?filtros=${filtros}`, { token, organizationId: activeOrgId });
         setLotPreviewTotal(response?.data?.total ?? response?.total ?? response?.count ?? segments.reduce((acc, s) => acc + s.total, 0));
       } catch {
         setLotPreviewTotal(segments.reduce((acc, s) => acc + s.total, 0));
       }
     }, 400);
     return () => window.clearTimeout(handler);
-  }, [segments, token]);
+  }, [activeOrgId, segments, token]);
 
   const loadPaso3Page = React.useCallback(async (page) => {
     if (!segments.length) return;
@@ -430,7 +442,7 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
         if (seg.filtros.importJobId) params.set('import_job_id', seg.filtros.importJobId);
         params.set('limite', String(previewPageSize));
         params.set('pagina', String(page));
-        const response = await fetchJson(`/datos-para-trabajar/list?${params.toString()}`, { token });
+        const response = await fetchJson(`/datos-para-trabajar/list?${params.toString()}`, { token, organizationId: activeOrgId });
         const items = response?.data?.contactos || response?.data?.items || response?.items || [];
         for (const item of items) {
           if (!seen.has(item.id)) {
@@ -446,7 +458,7 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
     } finally {
       setLoading(false);
     }
-  }, [segments, token, previewPageSize]);
+  }, [activeOrgId, segments, token, previewPageSize]);
 
   React.useEffect(() => {
     if (step !== 3) return;
@@ -540,11 +552,13 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
   };
 
   const handleSaveDraft = async () => {
+    if (!activeOrgId) return;
     setLoading(true);
     try {
       await fetchJson('/lead-batches', {
         method: 'POST',
         token,
+        organizationId: activeOrgId,
         body: {
           nombre: draft.nombre.trim(),
           sellerIds: selectedSellers.map((seller) => seller.id),
@@ -569,11 +583,13 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
   };
 
   const handleActivateLot = async () => {
+    if (!activeOrgId) return;
     setLoading(true);
     try {
       const created = await fetchJson('/lead-batches', {
         method: 'POST',
         token,
+        organizationId: activeOrgId,
         body: {
           nombre: draft.nombre.trim(),
           sellerIds: selectedSellers.map((seller) => seller.id),
@@ -607,7 +623,7 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
         if (seg.filtros.diasSinGestion) params.set('dias_sin_gestion', seg.filtros.diasSinGestion);
         if (seg.filtros.importJobId) params.set('import_job_id', seg.filtros.importJobId);
         params.set('limite', String(seg.total));
-        const segRes = await fetchJson(`/datos-para-trabajar/list?${params.toString()}`, { token });
+        const segRes = await fetchJson(`/datos-para-trabajar/list?${params.toString()}`, { token, organizationId: activeOrgId });
         const items = segRes?.data?.contactos || segRes?.data?.items || segRes?.items || [];
         for (const item of items) {
           if (!seen.has(item.id)) {
@@ -621,6 +637,7 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
       const response = await fetchJson('/lead-batches/assign', {
         method: 'POST',
         token,
+        organizationId: activeOrgId,
         body: {
           batchId: lotId,
           contactIds: allContactIds
@@ -646,6 +663,7 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
   };
 
   const handleContinueWithoutRejected = async () => {
+    if (!activeOrgId) return;
     const filtered = Array.from(selectedIds).filter((id) => !rejectedIds.includes(id));
     setShowRejected(false);
     setRejectedIds([]);
@@ -655,6 +673,7 @@ export default function SupervisorLotWizard({ Panel, Button, onExit, onCreated }
       await fetchJson('/lead-batches/assign', {
         method: 'POST',
         token,
+        organizationId: activeOrgId,
         body: {
           batchId: createdLotId,
           contactIds: filtered

@@ -12836,6 +12836,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             <SupervisorLotWizard
               Panel={Panel}
               Button={Button}
+              activeOrgId={activeOrg?.id}
               onExit={() => setRoute('lotes')}
               onCreated={async () => {
                 await refreshLotsFromService();
