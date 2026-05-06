@@ -3400,7 +3400,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const loadStats = React.useCallback(async () => {
         try {
           const hoy = getTodayYmdLocal();
-          const statsUrl = `/leads/daily-stats?fecha=${hoy}&tipo=${isRecupero ? 'recupero' : 'captacion'}`;
+          const statsUrl = `/leads/daily-stats?fecha=${hoy}`;
           const d = await api.get(statsUrl);
           console.log('[daily-stats]:', d);
           console.log('[daily-stats] respuesta completa:', JSON.stringify(d.data));
@@ -3417,7 +3417,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             limit: String(LIMIT),
             tab: tabActivo
           });
-          params.set('tipo', isRecupero ? 'recupero' : 'captacion');
           if (searchDebounced) params.set('search', searchDebounced);
           if (filtroOrigen) params.set('origen_dato', filtroOrigen);
           const contactosData = await api.get(`/leads/assigned?${params}`);
@@ -3428,7 +3427,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             setTotalContactos(contactosData?.data?.total || 0);
           }
 
-          const statsUrl = `/leads/daily-stats?fecha=${hoy}&tipo=${isRecupero ? 'recupero' : 'captacion'}`;
+          const statsUrl = `/leads/daily-stats?fecha=${hoy}`;
           const statsData = await api.get(statsUrl);
           if (statsData?.success || statsData?.ok) setStats(statsData.data);
         } catch (err) {
@@ -3444,7 +3443,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             limit: String(LIMIT),
             tab: tabActivo
           });
-          params.set('tipo', isRecupero ? 'recupero' : 'captacion');
           if (searchDebounced) params.set('search', searchDebounced);
           if (filtroOrigen) params.set('origen_dato', filtroOrigen);
           const d = await api.get(`/leads/assigned?${params}`);
@@ -3752,7 +3750,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setNextLoading(true);
         setNextMessage('');
         try {
-          const nextUrl = `/leads/next?tipo=${isRecupero ? 'recupero' : 'captacion'}`;
+          const nextUrl = `/leads/next`;
           const res = await api.get(nextUrl);
           if (res?.data) {
             openDrawer(res.data);
