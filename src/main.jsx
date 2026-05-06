@@ -5281,7 +5281,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [loading, setLoading] = React.useState(false);
       const [error, setError] = React.useState('');
       const [searchPhone, setSearchPhone] = React.useState('');
-      const [sellerId, setSellerId] = React.useState('');
+      const [selectedSellerIds, setSelectedSellerIds] = React.useState([]);
       const [resultadoOriginal, setResultadoOriginal] = React.useState('');
       const [resultadoCorregido, setResultadoCorregido] = React.useState('');
       const [estadoAuditoria, setEstadoAuditoria] = React.useState('');
@@ -5317,7 +5317,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
       const hasFilters = React.useMemo(() => (
         Boolean(queryFilters?.search_phone)
-        || Boolean(queryFilters?.seller_id)
+        || (Array.isArray(queryFilters?.seller_ids) ? queryFilters.seller_ids.length > 0 : Boolean(queryFilters?.seller_id))
         || Boolean(queryFilters?.resultado)
         || Boolean(queryFilters?.resultado_corregido)
         || Boolean(queryFilters?.estado)
@@ -5426,7 +5426,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const buildQuery = React.useCallback((filters) => {
         const params = new URLSearchParams();
         if (filters.search_phone) params.set('search_phone', filters.search_phone);
-        if (filters.seller_id) params.set('seller_id', filters.seller_id);
+        if (Array.isArray(filters.seller_ids) && filters.seller_ids.length) {
+          filters.seller_ids.forEach((id) => {
+            if (id) params.append('seller_id', id);
+          });
+        } else if (filters.seller_id) {
+          params.set('seller_id', filters.seller_id);
+        }
         if (filters.from) params.set('from', filters.from);
         if (filters.to) params.set('to', filters.to);
         if (filters.resultado) params.set('resultado', filters.resultado);
@@ -5532,7 +5538,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setPage(1);
         setQueryFilters({
           search_phone: normalizePhone(searchPhone),
-          seller_id: sellerId,
+          seller_ids: selectedSellerIds,
           resultado: resultadoOriginal,
           resultado_corregido: resultadoCorregido,
           estado: estadoAuditoria,
@@ -5543,7 +5549,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
       const handleLimpiar = () => {
         setSearchPhone('');
-        setSellerId('');
+        setSelectedSellerIds([]);
         setResultadoOriginal('');
         setResultadoCorregido('');
         setEstadoAuditoria('');
@@ -5662,12 +5668,35 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 </div>
                 {showFilters ? (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-                    <select className="input" style={{ minWidth: 200 }} value={sellerId} onChange={(event) => setSellerId(event.target.value)}>
-                      <option value="">Vendedor</option>
+                    <div
+                      className="sellers-multiselect"
+                      style={{
+                        border: '1px solid #ccc',
+                        borderRadius: 6,
+                        maxHeight: 180,
+                        overflowY: 'auto',
+                        padding: 8,
+                        minWidth: 220
+                      }}
+                    >
+                      {sellers.length === 0 && <div style={{ color: '#999' }}>Sin vendedores disponibles</div>}
                       {sellers.map((seller) => (
-                        <option key={seller.id} value={seller.id}>{seller.label}</option>
+                        <label key={seller.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={selectedSellerIds.includes(seller.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedSellerIds((prev) => [...prev, seller.id]);
+                              } else {
+                                setSelectedSellerIds((prev) => prev.filter((id) => id !== seller.id));
+                              }
+                            }}
+                          />
+                          {seller.label}
+                        </label>
                       ))}
-                    </select>
+                    </div>
                     <select className="input" style={{ minWidth: 180 }} value={resultadoOriginal} onChange={(event) => setResultadoOriginal(event.target.value)}>
                       <option value="">Codificación original</option>
                       {catalogo.map((item) => (
