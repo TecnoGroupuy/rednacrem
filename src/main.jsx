@@ -5388,7 +5388,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
       const loadSellers = React.useCallback(async () => {
         try {
-          const response = await api.get('/api/supervisor/agents');
+          const response = activeOrg?.id
+            ? await api.get(`/api/supervisor/agents?organization_id=${encodeURIComponent(activeOrg.id)}`)
+            : await api.get('/api/supervisor/agents');
           const itemsList = response?.agents
             || response?.items
             || response?.data?.agents
@@ -5406,7 +5408,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         } catch {
           setSellers([]);
         }
-      }, [api]);
+      }, [activeOrg?.id, api]);
 
       const loadCatalogo = React.useCallback(async () => {
         setCatalogoLoading(true);
@@ -5481,9 +5483,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, [api, buildQuery, hasFilters, page, queryFilters]);
 
       React.useEffect(() => {
-        loadSellers();
+        if (!activeOrg?.id) return;
         loadCatalogo();
-      }, [loadCatalogo, loadSellers]);
+        loadSellers();
+      }, [activeOrg?.id, loadCatalogo, loadSellers]);
 
       React.useEffect(() => {
         loadCodificaciones();
