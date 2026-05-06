@@ -10699,12 +10699,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const IMPORT_STATUS_LABELS = {
         queued: 'En cola',
         processing: 'Procesando',
+        validated: 'Validada',
         completed: 'Completada',
         failed: 'Fallida'
       };
       const IMPORT_STATUS_VARIANTS = {
         queued: 'info',
         processing: 'warning',
+        validated: 'warning',
         completed: 'success',
         failed: 'danger'
       };
@@ -10712,6 +10714,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const normalizeImportStatus = (raw) => {
         const key = String(raw || '').toLowerCase();
         if (IMPORT_STATUS_LABELS[key]) return key;
+        if (key.includes('valid')) return 'validated';
         if (key.includes('process')) return 'processing';
         if (key.includes('queue')) return 'queued';
         if (key.includes('fail') || key.includes('error')) return 'failed';
@@ -10888,6 +10891,15 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const typeKey = resolveImportTypeKey(row);
         return ['clientes', 'datos_para_trabajar', 'no_llamar'].includes(typeKey);
       }, [resolveImportId, resolveImportStatusLabel, resolveImportTypeKey]);
+
+      const canProcessImport = React.useCallback((row = {}) => row.statusKey === 'validated', []);
+
+      const handleProcessImport = React.useCallback(async (batchId) => {
+        if (!batchId) return;
+        const api = getApiClient();
+        await api.post(`/imports/clients/${batchId}/process`, {});
+        await loadImports();
+      }, [loadImports]);
 
       const openImportDeleteModal = React.useCallback((row) => {
         if (!row) return;
@@ -11454,27 +11466,50 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             </div>
                           </td>
                           <td style={{ textAlign: 'right' }}>
-                            {canDeleteImport(row) ? (
-                              <button
-                                type="button"
-                                onClick={() => openImportDeleteModal(row)}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 6,
-                                  padding: '6px 12px',
-                                  borderRadius: 999,
-                                  border: '1px solid rgba(248,113,113,0.4)',
-                                  background: 'rgba(248,113,113,0.15)',
-                                  color: '#b91c1c',
-                                  fontWeight: 600,
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                <Trash2 size={14} />
-                                Eliminar
-                              </button>
-                            ) : null}
+                            <div style={{ display: 'inline-flex', gap: 10, alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                              {canProcessImport(row) ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleProcessImport(row.id)}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    padding: '6px 12px',
+                                    borderRadius: 999,
+                                    border: '1px solid rgba(15,118,110,0.35)',
+                                    background: 'rgba(15,118,110,0.10)',
+                                    color: '#0f766e',
+                                    fontWeight: 700,
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Confirmar importación
+                                </button>
+                              ) : null}
+
+                              {canDeleteImport(row) ? (
+                                <button
+                                  type="button"
+                                  onClick={() => openImportDeleteModal(row)}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    padding: '6px 12px',
+                                    borderRadius: 999,
+                                    border: '1px solid rgba(248,113,113,0.4)',
+                                    background: 'rgba(248,113,113,0.15)',
+                                    color: '#b91c1c',
+                                    fontWeight: 600,
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  <Trash2 size={14} />
+                                  Eliminar
+                                </button>
+                              ) : null}
+                            </div>
                           </td>
                         </tr>
                       ))}
