@@ -7143,9 +7143,15 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 2 }}>{selectedLot.name}</div>
                       <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace', marginBottom: 10 }}>{selectedLot.id}</div>
                       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-                        <span style={{ fontSize: 13 }}>?? <strong>{selectedLot.count}</strong> contactos</span>
+                        <span style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <Users size={14} />
+                          <strong>{selectedLot.count}</strong> contactos
+                        </span>
                         <Tag variant={lotStatusMeta(selectedLot.status).variant}>{lotStatusMeta(selectedLot.status).label}</Tag>
-                        <span style={{ fontSize: 12, color: 'var(--muted)' }}>?? {formatDate(selectedLot.createdAt)}</span>
+                        <span style={{ fontSize: 12, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <Calendar size={14} />
+                          {formatDate(selectedLot.createdAt)}
+                        </span>
                       </div>
                     </div>
 
