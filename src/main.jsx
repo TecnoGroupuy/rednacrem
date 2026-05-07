@@ -4411,7 +4411,27 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                 <p style={{ fontSize: 11, color: '#888', margin: 0 }}>Fijo</p>
                                 <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>{dc.telefono || dc.phone}</p>
                               </div>
-                              <a href={`tel:${(dc.telefono || dc.phone).replace(/\s/g, '')}`} style={{ background: '#1A5C4A', color: '#FFF', borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>?? Llamar</a>
+                              <a
+                                href={`tel:${(dc.telefono || dc.phone).replace(/\s/g, '')}`}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 8,
+                                  background: 'linear-gradient(135deg, #0F6E56 0%, #1A5C4A 100%)',
+                                  color: '#FFF',
+                                  borderRadius: 999,
+                                  padding: '10px 16px',
+                                  fontSize: 13,
+                                  fontWeight: 700,
+                                  textDecoration: 'none',
+                                  boxShadow: '0 10px 24px rgba(15, 118, 110, 0.22)',
+                                  border: '1px solid rgba(15, 118, 110, 0.35)'
+                                }}
+                                aria-label="Llamar teléfono fijo"
+                              >
+                                <Phone size={16} />
+                                Llamar
+                              </a>
                             </div>
                           )}
                           {(dc.celular || pickCellular(dc)) ? (
@@ -4420,7 +4440,27 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                 <p style={{ fontSize: 11, color: '#888', margin: 0 }}>Celular</p>
                                 <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>{dc.celular || pickCellular(dc)}</p>
                               </div>
-                              <a href={`tel:${(dc.celular || pickCellular(dc)).replace(/\s/g, '')}`} style={{ background: '#1A5C4A', color: '#FFF', borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>?? Llamar</a>
+                              <a
+                                href={`tel:${(dc.celular || pickCellular(dc)).replace(/\s/g, '')}`}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 8,
+                                  background: 'linear-gradient(135deg, #0F6E56 0%, #1A5C4A 100%)',
+                                  color: '#FFF',
+                                  borderRadius: 999,
+                                  padding: '10px 16px',
+                                  fontSize: 13,
+                                  fontWeight: 700,
+                                  textDecoration: 'none',
+                                  boxShadow: '0 10px 24px rgba(15, 118, 110, 0.22)',
+                                  border: '1px solid rgba(15, 118, 110, 0.35)'
+                                }}
+                                aria-label="Llamar celular"
+                              >
+                                <Phone size={16} />
+                                Llamar
+                              </a>
                             </div>
                           ) : (
                             <div>
@@ -5080,7 +5120,27 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                 <p style={{ fontSize: 11, color: '#888', margin: 0 }}>Fijo</p>
                                 <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>{drawerItem.telefono}</p>
                               </div>
-                              <a href={`tel:${drawerItem.telefono.replace(/\s/g, '')}`} style={{ background: '#1A5C4A', color: '#FFF', borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>Llamar</a>
+                              <a
+                                href={`tel:${drawerItem.telefono.replace(/\s/g, '')}`}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 8,
+                                  background: 'linear-gradient(135deg, #0F6E56 0%, #1A5C4A 100%)',
+                                  color: '#FFF',
+                                  borderRadius: 999,
+                                  padding: '10px 16px',
+                                  fontSize: 13,
+                                  fontWeight: 700,
+                                  textDecoration: 'none',
+                                  boxShadow: '0 10px 24px rgba(15, 118, 110, 0.22)',
+                                  border: '1px solid rgba(15, 118, 110, 0.35)'
+                                }}
+                                aria-label="Llamar teléfono fijo"
+                              >
+                                <Phone size={16} />
+                                Llamar
+                              </a>
                             </div>
                           )}
                           {drawerItem.celular && (
@@ -5089,7 +5149,27 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                 <p style={{ fontSize: 11, color: '#888', margin: 0 }}>Celular</p>
                                 <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>{drawerItem.celular}</p>
                               </div>
-                              <a href={`tel:${drawerItem.celular.replace(/\s/g, '')}`} style={{ background: '#1A5C4A', color: '#FFF', borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>Llamar</a>
+                              <a
+                                href={`tel:${drawerItem.celular.replace(/\s/g, '')}`}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 8,
+                                  background: 'linear-gradient(135deg, #0F6E56 0%, #1A5C4A 100%)',
+                                  color: '#FFF',
+                                  borderRadius: 999,
+                                  padding: '10px 16px',
+                                  fontSize: 13,
+                                  fontWeight: 700,
+                                  textDecoration: 'none',
+                                  boxShadow: '0 10px 24px rgba(15, 118, 110, 0.22)',
+                                  border: '1px solid rgba(15, 118, 110, 0.35)'
+                                }}
+                                aria-label="Llamar celular"
+                              >
+                                <Phone size={16} />
+                                Llamar
+                              </a>
                             </div>
                           )}
                           {!drawerItem.telefono && !drawerItem.celular && (
