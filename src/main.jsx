@@ -7577,18 +7577,34 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         <table>
                           <thead>
                             <tr>
-                              <th style={{ width: 48 }} />
+                              <th style={{ width: 48 }}>
+                                <input
+                                  type="checkbox"
+                                  title="Seleccionar todos en esta página"
+                                  checked={addDataRows.length > 0 && addDataRows.every((r) => addDataSelected.includes(r.id))}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      const newIds = addDataRows.map((r) => r.id).filter((id) => !addDataSelected.includes(id));
+                                      setAddDataSelected((prev) => [...prev, ...newIds]);
+                                    } else {
+                                      const pageIds = new Set(addDataRows.map((r) => r.id));
+                                      setAddDataSelected((prev) => prev.filter((id) => !pageIds.has(id)));
+                                    }
+                                  }}
+                                />
+                              </th>
                               <th>Nombre</th>
                               <th>Teléfono</th>
                               <th>Origen</th>
                               <th>Departamento</th>
+                              <th>Fecha solicitud</th>
                             </tr>
                           </thead>
                           <tbody>
                             {addDataRows.length ? addDataRows.map((row) => {
                               const checked = addDataSelected.includes(row.id);
                               const fullName = `${row.nombre || ''} ${row.apellido || ''}`.trim() || '—';
-                              const phone = row.telefono || row.celular || '—';
+                              const phone = row.telefono || row.celular || row.phone || row.tel || row.numero || row.telefono_celular || '—';
                               return (
                                 <tr key={row.id}>
                                   <td>
@@ -7605,13 +7621,20 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                     />
                                   </td>
                                   <td><strong>{fullName}</strong></td>
-                                  <td>{phone}</td>
+                                  <td style={{ color: phone === '—' ? 'var(--muted)' : 'inherit', fontSize: phone === '—' ? 12 : 'inherit' }}>
+                                    {phone}
+                                  </td>
                                   <td>{row.origen_dato || '—'}</td>
                                   <td>{row.departamento || '—'}</td>
+                                  <td style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                                    {row.fecha_solicitud || row.created_at
+                                      ? new Date(row.fecha_solicitud || row.created_at).toLocaleDateString('es-UY', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                                      : '—'}
+                                  </td>
                                 </tr>
                               );
                             }) : (
-                              <tr><td colSpan={5} style={{ color: 'var(--muted)', padding: 16 }}>Sin resultados.</td></tr>
+                              <tr><td colSpan={6} style={{ color: 'var(--muted)', padding: 16 }}>Sin resultados.</td></tr>
                             )}
                           </tbody>
                         </table>
