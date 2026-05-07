@@ -505,7 +505,7 @@ export const listNoCallEntries = async ({ page = 1, pageSize = 20, search = '', 
   return { items, page, pageSize, total, totalPages };
 };
 
-export const listDatosParaTrabajar = async ({ page = 1, pageSize = 20, search = '', estado, departamento, origen_dato } = {}) => {
+export const listDatosParaTrabajar = async ({ page = 1, pageSize = 20, search = '', estado, departamento, origen_dato, excludeBatchId } = {}) => {
   if (hasApiConfigured()) {
     const params = new URLSearchParams({
       page: String(page || 1),
@@ -520,6 +520,9 @@ export const listDatosParaTrabajar = async ({ page = 1, pageSize = 20, search = 
     }
     if (origen_dato) {
       params.set('origen_dato', String(origen_dato));
+    }
+    if (excludeBatchId) {
+      params.set('excludeBatchId', String(excludeBatchId));
     }
     const response = await api.get(`/datos-para-trabajar?${params.toString()}`);
     return response;

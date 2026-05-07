@@ -6585,6 +6585,16 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [addSellerOpen, setAddSellerOpen] = React.useState(false);
       const [addSellerTarget, setAddSellerTarget] = React.useState('');
       const [addSellerError, setAddSellerError] = React.useState('');
+      const [addDataToLotOpen, setAddDataToLotOpen] = React.useState(false);
+      const [addDataWizardStep, setAddDataWizardStep] = React.useState(1);
+      const [addDataSelected, setAddDataSelected] = React.useState([]); // contact ids seleccionados
+      const [addDataLoading, setAddDataLoading] = React.useState(false);
+      const [addDataError, setAddDataError] = React.useState('');
+      const [addDataSuccess, setAddDataSuccess] = React.useState(null); // { added, distribution }
+      const [addDataRows, setAddDataRows] = React.useState([]);
+      const [addDataPage, setAddDataPage] = React.useState(1);
+      const [addDataTotalPages, setAddDataTotalPages] = React.useState(1);
+      const [addDataSearch, setAddDataSearch] = React.useState('');
       const [showExternalLotModal, setShowExternalLotModal] = React.useState(false);
       const [externalLotName, setExternalLotName] = React.useState('');
       const [externalLotTipo, setExternalLotTipo] = React.useState('captacion');
@@ -6792,6 +6802,18 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setSelectedIds((prev) => prev.includes(id) ? prev.filter((current) => current !== id) : [...prev, id]);
       };
 
+      const resetAddDataWizard = React.useCallback(() => {
+        setAddDataWizardStep(1);
+        setAddDataSelected([]);
+        setAddDataLoading(false);
+        setAddDataError('');
+        setAddDataSuccess(null);
+        setAddDataRows([]);
+        setAddDataPage(1);
+        setAddDataTotalPages(1);
+        setAddDataSearch('');
+      }, []);
+
       const resetWizard = () => {
         setWizardLotName('');
         setWizardDeadline('');
@@ -6903,6 +6925,52 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           setExternalLotLoading(false);
         }
       };
+
+      const normalizeWorkDataContact = React.useCallback((raw) => ({
+        id: String(raw?.id || raw?.contact_id || raw?.contactId || raw?.contacto_id || ''),
+        nombre: raw?.nombre || raw?.name || raw?.first_name || '',
+        apellido: raw?.apellido || raw?.last_name || '',
+        telefono: raw?.telefono || raw?.phone || raw?.telefono_principal || '',
+        celular: raw?.celular || raw?.mobile || raw?.telefono_secundario || '',
+        origen_dato: raw?.origen_dato || raw?.source || '',
+        departamento: raw?.departamento || raw?.city || raw?.localidad || '',
+        ingreso: raw?.ingreso || raw?.created_at || raw?.fecha_ingreso || ''
+      }), []);
+
+      const loadAddDataContacts = React.useCallback(async () => {
+        if (!selectedLot?.id) return;
+        setAddDataLoading(true);
+        setAddDataError('');
+        try {
+          const result = await listDatosParaTrabajar({
+            page: addDataPage,
+            pageSize: 12,
+            search: addDataSearch,
+            estado: 'nuevo',
+            excludeBatchId: selectedLot.id
+          });
+          const rows = (result?.items || []).map(normalizeWorkDataContact);
+          const alreadyInLot = new Set(
+            contacts
+              .filter((c) => String(c.lotId) === String(selectedLot.id))
+              .map((c) => String(c.id))
+          );
+          const filtered = rows.filter((row) => row.id && !alreadyInLot.has(String(row.id)));
+          setAddDataRows(filtered);
+          setAddDataTotalPages(result?.totalPages || 1);
+        } catch (err) {
+          setAddDataRows([]);
+          setAddDataTotalPages(1);
+          setAddDataError(err?.message || 'No se pudo cargar la base de datos.');
+        } finally {
+          setAddDataLoading(false);
+        }
+      }, [addDataPage, addDataSearch, contacts, normalizeWorkDataContact, selectedLot?.id]);
+
+      React.useEffect(() => {
+        if (!addDataToLotOpen) return;
+        loadAddDataContacts();
+      }, [addDataToLotOpen, loadAddDataContacts]);
 
       const assignSellerToLot = async () => {
         if (!selectedLot || !lotSellerDraft) return;
@@ -7159,10 +7227,16 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <div style={{ marginTop: 8 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                         <span style={{ fontWeight: 600, fontSize: 13 }}>Vendedores asignados</span>
-                        <button
-                          onClick={() => setAddSellerOpen(true)}
-                          style={{ fontSize: 11, fontWeight: 500, color: '#0F6E56', background: '#E1F5EE', border: '1px solid #5DCAA5', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
-                        >+ Agregar vendedor</button>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <button
+                            onClick={() => { setAddDataToLotOpen(true); resetAddDataWizard(); }}
+                            style={{ fontSize: 11, fontWeight: 500, color: '#185FA5', background: '#E6F1FB', border: '1px solid #85B7EB', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
+                          >+ Agregar datos</button>
+                          <button
+                            onClick={() => setAddSellerOpen(true)}
+                            style={{ fontSize: 11, fontWeight: 500, color: '#0F6E56', background: '#E1F5EE', border: '1px solid #5DCAA5', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
+                          >+ Agregar vendedor</button>
+                        </div>
                       </div>
 
                       {(selectedLot.vendedores?.length ? selectedLot.vendedores : []).map((v) => {
@@ -7430,6 +7504,216 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       }
                     }} disabled={reassignLoading}>Agregar</Button>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* MODAL: AGREGAR DATOS */}
+            {addDataToLotOpen && selectedLot && (
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+                <div style={{ background: '#FFFFFF', borderRadius: 12, padding: 24, width: 920, maxWidth: '92vw', border: '1px solid rgba(20,34,53,0.12)', boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 2 }}>Agregar datos al lote</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                        Lote: <strong>{selectedLot.name}</strong>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setAddDataToLotOpen(false); resetAddDataWizard(); }}
+                      style={{ background: 'rgba(20,34,53,0.04)', border: '1px solid rgba(20,34,53,0.12)', cursor: 'pointer', color: 'var(--muted)', display: 'flex', alignItems: 'center', padding: 6, borderRadius: 8 }}
+                      title="Cerrar"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+                    {[1, 2].map((stepIdx) => {
+                      const active = addDataWizardStep === stepIdx;
+                      return (
+                        <div
+                          key={stepIdx}
+                          style={{
+                            padding: '6px 10px',
+                            borderRadius: 999,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            border: active ? '1px solid rgba(15,118,110,0.35)' : '1px solid rgba(20,34,53,0.10)',
+                            background: active ? 'rgba(15,118,110,0.10)' : 'rgba(20,34,53,0.03)',
+                            color: active ? '#0F6E56' : '#64748b'
+                          }}
+                        >
+                          Paso {stepIdx}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {addDataWizardStep === 1 ? (
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+                        <div className="searchbox" style={{ width: 360, maxWidth: '100%' }}>
+                          <Search size={16} color="#69788d" />
+                          <input
+                            placeholder="Buscar en datos para trabajar..."
+                            value={addDataSearch}
+                            onChange={(event) => { setAddDataPage(1); setAddDataSearch(event.target.value); }}
+                          />
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <Button variant="secondary" onClick={loadAddDataContacts} disabled={addDataLoading}>Actualizar</Button>
+                          <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                            Seleccionados: <strong>{addDataSelected.length}</strong>
+                          </span>
+                        </div>
+                      </div>
+
+                      {addDataError ? <div style={{ color: '#be123c', fontWeight: 700, marginBottom: 10 }}>{addDataError}</div> : null}
+                      {addDataLoading ? <div style={{ color: 'var(--muted)', marginBottom: 10 }}>Cargando datos...</div> : null}
+
+                      <div className="table-wrap" style={{ maxHeight: 360, overflow: 'auto', borderRadius: 10, border: '1px solid rgba(20,34,53,0.10)' }}>
+                        <table>
+                          <thead>
+                            <tr>
+                              <th style={{ width: 48 }} />
+                              <th>Nombre</th>
+                              <th>Teléfono</th>
+                              <th>Origen</th>
+                              <th>Departamento</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {addDataRows.length ? addDataRows.map((row) => {
+                              const checked = addDataSelected.includes(row.id);
+                              const fullName = `${row.nombre || ''} ${row.apellido || ''}`.trim() || '—';
+                              const phone = row.telefono || row.celular || '—';
+                              return (
+                                <tr key={row.id}>
+                                  <td>
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setAddDataSelected((prev) => [...prev, row.id]);
+                                        } else {
+                                          setAddDataSelected((prev) => prev.filter((id) => id !== row.id));
+                                        }
+                                      }}
+                                    />
+                                  </td>
+                                  <td><strong>{fullName}</strong></td>
+                                  <td>{phone}</td>
+                                  <td>{row.origen_dato || '—'}</td>
+                                  <td>{row.departamento || '—'}</td>
+                                </tr>
+                              );
+                            }) : (
+                              <tr><td colSpan={5} style={{ color: 'var(--muted)', padding: 16 }}>Sin resultados.</td></tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, gap: 10, flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <Button
+                            variant="ghost"
+                            onClick={() => setAddDataPage((p) => Math.max(1, p - 1))}
+                            disabled={addDataPage <= 1 || addDataLoading}
+                          >
+                            Anterior
+                          </Button>
+                          <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                            Página <strong>{addDataPage}</strong> de <strong>{addDataTotalPages}</strong>
+                          </span>
+                          <Button
+                            variant="ghost"
+                            onClick={() => setAddDataPage((p) => Math.min(addDataTotalPages, p + 1))}
+                            disabled={addDataPage >= addDataTotalPages || addDataLoading}
+                          >
+                            Siguiente
+                          </Button>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <Button variant="secondary" onClick={() => { setAddDataToLotOpen(false); resetAddDataWizard(); }}>Cancelar</Button>
+                          <Button onClick={() => setAddDataWizardStep(2)} disabled={addDataSelected.length === 0}>Siguiente</Button>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ background: 'rgba(20,34,53,0.03)', border: '1px solid rgba(20,34,53,0.08)', borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Confirmación</div>
+                        <div style={{ fontSize: 13 }}>
+                          Vas a agregar <strong>{addDataSelected.length}</strong> contactos al lote <strong>"{selectedLot.name}"</strong>.
+                        </div>
+                        <div style={{ fontSize: 13, marginTop: 6 }}>
+                          Se distribuirán equitativamente entre <strong>{selectedLot.vendedores?.length || 0}</strong> vendedores.
+                        </div>
+                      </div>
+
+                      {addDataSuccess ? (
+                        <div style={{ background: 'rgba(15,118,110,0.06)', border: '1px solid rgba(15,118,110,0.2)', borderRadius: 10, padding: '12px 14px', color: '#0f766e', fontWeight: 700, marginBottom: 12 }}>
+                          Se agregaron {addDataSuccess.added ?? addDataSelected.length} contactos.
+                          {addDataSuccess.distribution?.length ? (
+                            <div style={{ fontWeight: 600, fontSize: 12, color: '#0f766e', marginTop: 6 }}>
+                              Distribución: {addDataSuccess.distribution.map((d) => `${d.seller || d.vendedor || d.sellerName || 'Vendedor'}: ${d.count ?? d.cantidad ?? 0}`).join(' · ')}
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
+
+                      {addDataError ? <div style={{ color: '#be123c', fontWeight: 700, marginBottom: 10 }}>{addDataError}</div> : null}
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, gap: 10, flexWrap: 'wrap' }}>
+                        <Button variant="ghost" onClick={() => { setAddDataWizardStep(1); setAddDataError(''); setAddDataSuccess(null); }} disabled={addDataLoading}>Volver</Button>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          {addDataSuccess ? (
+                            <Button
+                              onClick={() => {
+                                setAddDataToLotOpen(false);
+                                resetAddDataWizard();
+                                window.location.reload();
+                              }}
+                            >
+                              Cerrar
+                            </Button>
+                          ) : (
+                            <Button
+                              onClick={async () => {
+                                if (!activeOrgId) return;
+                                setAddDataLoading(true);
+                                setAddDataError('');
+                                try {
+                                  const url = buildApiUrl(`/lead-batches/${selectedLot.id}/add-contacts?organization_id=${encodeURIComponent(activeOrgId)}`, getApiBaseUrl());
+                                  const res = await fetch(url, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(accessToken) },
+                                    body: JSON.stringify({ contactIds: addDataSelected })
+                                  });
+                                  const data = await res.json().catch(() => ({}));
+                                  if (!res.ok || data?.ok === false) throw new Error(data?.message || 'No se pudo agregar contactos.');
+                                  const added = data?.added ?? data?.data?.added ?? data?.data?.count ?? addDataSelected.length;
+                                  const distribution = data?.distribution ?? data?.data?.distribution ?? data?.data?.distribucion ?? null;
+                                  setAddDataSuccess({ added, distribution });
+                                } catch (err) {
+                                  setAddDataError(err?.message || 'No se pudo agregar contactos.');
+                                } finally {
+                                  setAddDataLoading(false);
+                                }
+                              }}
+                              disabled={addDataLoading}
+                            >
+                              {addDataLoading ? 'Agregando...' : 'Confirmar'}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}
