@@ -6594,7 +6594,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [addDataRows, setAddDataRows] = React.useState([]);
       const [addDataPage, setAddDataPage] = React.useState(1);
       const [addDataTotalPages, setAddDataTotalPages] = React.useState(1);
+      const [addDataTotal, setAddDataTotal] = React.useState(0);
       const [addDataSearch, setAddDataSearch] = React.useState('');
+      const [addDataSelectingAll, setAddDataSelectingAll] = React.useState(false);
       const [showExternalLotModal, setShowExternalLotModal] = React.useState(false);
       const [externalLotName, setExternalLotName] = React.useState('');
       const [externalLotTipo, setExternalLotTipo] = React.useState('captacion');
@@ -6811,7 +6813,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setAddDataRows([]);
         setAddDataPage(1);
         setAddDataTotalPages(1);
+        setAddDataTotal(0);
         setAddDataSearch('');
+        setAddDataSelectingAll(false);
       }, []);
 
       const resetWizard = () => {
@@ -6949,7 +6953,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             estado: 'nuevo',
             excludeBatchId: selectedLot.id
           });
-          const rows = (result?.items || []).map(normalizeWorkDataContact);
+          const totalRaw = result?.total ?? result?.data?.total ?? 0;
+          setAddDataTotal(Number(totalRaw) || 0);
+          const rows = (result?.items || result?.data?.items || []).map(normalizeWorkDataContact);
           const alreadyInLot = new Set(
             contacts
               .filter((c) => String(c.lotId) === String(selectedLot.id))
@@ -6957,15 +6963,60 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           );
           const filtered = rows.filter((row) => row.id && !alreadyInLot.has(String(row.id)));
           setAddDataRows(filtered);
-          setAddDataTotalPages(result?.totalPages || 1);
+          setAddDataTotalPages(result?.totalPages || result?.data?.totalPages || 1);
         } catch (err) {
           setAddDataRows([]);
           setAddDataTotalPages(1);
+          setAddDataTotal(0);
           setAddDataError(err?.message || 'No se pudo cargar la base de datos.');
         } finally {
           setAddDataLoading(false);
         }
       }, [addDataPage, addDataSearch, contacts, normalizeWorkDataContact, selectedLot?.id]);
+
+      const handleSelectAllAddDataGlobal = React.useCallback(async () => {
+        if (!selectedLot?.id) return;
+        if (addDataSelectingAll) return;
+        setAddDataSelectingAll(true);
+        setAddDataError('');
+        try {
+          const alreadyInLot = new Set(
+            contacts
+              .filter((c) => String(c.lotId) === String(selectedLot.id))
+              .map((c) => String(c.id))
+          );
+          const pageSize = 200;
+          const collected = new Set(addDataSelected.map((id) => String(id)));
+          let page = 1;
+          // paginar hasta que no vengan items
+          while (true) {
+            const result = await listDatosParaTrabajar({
+              page,
+              pageSize,
+              search: addDataSearch,
+              estado: 'nuevo',
+              excludeBatchId: selectedLot.id
+            });
+            const items = result?.items || result?.data?.items || [];
+            if (!Array.isArray(items) || items.length === 0) break;
+            items.forEach((raw) => {
+              const id = String(raw?.id || raw?.contact_id || raw?.contactId || raw?.contacto_id || '');
+              if (!id) return;
+              if (alreadyInLot.has(id)) return;
+              collected.add(id);
+            });
+            const totalPages = Number(result?.totalPages ?? result?.data?.totalPages ?? 0);
+            if (totalPages && page >= totalPages) break;
+            page += 1;
+            if (page > 500) break;
+          }
+          setAddDataSelected([...collected]);
+        } catch (err) {
+          setAddDataError(err?.message || 'No se pudo seleccionar todos los resultados.');
+        } finally {
+          setAddDataSelectingAll(false);
+        }
+      }, [addDataSearch, addDataSelected, addDataSelectingAll, contacts, selectedLot?.id]);
 
       React.useEffect(() => {
         if (!addDataToLotOpen) return;
@@ -7564,8 +7615,24 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         </div>
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                           <Button variant="secondary" onClick={loadAddDataContacts} disabled={addDataLoading}>Actualizar</Button>
+                          <Button
+                            variant="ghost"
+                            onClick={handleSelectAllAddDataGlobal}
+                            disabled={addDataLoading || addDataSelectingAll || addDataRows.length === 0}
+                            title="Seleccionar todos los resultados del filtro (todas las páginas)"
+                          >
+                            {addDataSelectingAll ? 'Seleccionando...' : 'Seleccionar todos'}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            onClick={() => setAddDataSelected([])}
+                            disabled={addDataLoading || addDataSelectingAll || addDataSelected.length === 0}
+                            title="Limpiar selección"
+                          >
+                            Limpiar
+                          </Button>
                           <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-                            Seleccionados: <strong>{addDataSelected.length}</strong>
+                            Seleccionados: <strong>{addDataSelected.length}</strong>{addDataTotal ? ` / ${addDataTotal}` : ''}
                           </span>
                         </div>
                       </div>
