@@ -1088,7 +1088,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       }, []);
 
       const TIPO_LABELS = React.useMemo(() => ({
-        captacion: 'Mercado abierto',
+        captacion: 'Gestión de datos',
         recupero: 'Recupero',
         solicitud_tarjeta: 'Solicitud de tarjetas'
       }), []);
