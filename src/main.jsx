@@ -1053,6 +1053,231 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       );
     }
 
+    function DetailTable({ tipo, rows }) {
+      const hoy = getTodayYmdLocal();
+      const antiguedad = (fecha) => {
+        if (!fecha) return '—';
+        const base = String(fecha).includes('T') ? String(fecha).split('T')[0] : String(fecha);
+        const dias = Math.floor((new Date(hoy) - new Date(base)) / 86400000);
+        if (dias === 0) return { label: 'Hoy', bg: '#EAF3DE', color: '#3B6D11' };
+        if (dias < 0) return { label: 'Vencido', bg: '#FAECE7', color: '#993C1D' };
+        if (dias <= 2) return { label: `${dias} día${dias > 1 ? 's' : ''}`, bg: '#FAEEDA', color: '#854F0B' };
+        return { label: `${dias} días`, bg: '#FAECE7', color: '#993C1D' };
+      };
+
+      const cols = {
+        seguimiento: ['Contacto', 'Fecha agendada', 'Antigüedad'],
+        rellamar: ['Contacto', 'Próxima acción', 'Antigüedad'],
+        no_contesta: ['Contacto', 'Intentos', 'Último intento'],
+        ventas: ['Contacto', 'Fecha'],
+        rechazos: ['Contacto', 'Fecha']
+      };
+
+      return (
+        <div style={{ border: '0.5px solid var(--color-border-tertiary)', borderRadius: 8, overflow: 'hidden' }}>
+          <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: 'var(--color-background-secondary)' }}>
+                {(cols[tipo] || []).map((col) => (
+                  <th key={col} style={{ textAlign: 'left', padding: '8px 12px', color: 'var(--color-text-secondary)', fontWeight: 500 }}>{col}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(rows || []).map((row, i) => {
+                const ag = antiguedad(row.proxima_accion || row.fecha_gestion);
+                return (
+                  <tr key={i} style={{ borderTop: '0.5px solid var(--color-border-tertiary)' }}>
+                    <td style={{ padding: '8px 12px', color: 'var(--color-text-primary)' }}>{row.contacto_nombre || '—'}</td>
+                    {tipo === 'no_contesta' ? (
+                      <>
+                        <td style={{ padding: '8px 12px' }}>
+                          <span style={{ background: row.total_intentos >= 4 ? '#FAECE7' : '#FAEEDA', color: row.total_intentos >= 4 ? '#993C1D' : '#854F0B', fontSize: 11, padding: '2px 8px', borderRadius: 6 }}>
+                            {row.total_intentos} intento{row.total_intentos !== 1 ? 's' : ''}
+                          </span>
+                        </td>
+                        <td style={{ padding: '8px 12px', color: 'var(--color-text-secondary)' }}>
+                          {row.fecha_gestion ? new Date(row.fecha_gestion).toLocaleDateString('es-UY', { timeZone: 'America/Montevideo', day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'}
+                        </td>
+                      </>
+                    ) : (tipo === 'ventas' || tipo === 'rechazos') ? (
+                      <td style={{ padding: '8px 12px', color: 'var(--color-text-secondary)' }}>
+                        {row.fecha_gestion ? new Date(row.fecha_gestion).toLocaleDateString('es-UY', { timeZone: 'America/Montevideo', day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'}
+                      </td>
+                    ) : (
+                      <>
+                        <td style={{ padding: '8px 12px', color: 'var(--color-text-secondary)' }}>
+                          {(row.proxima_accion || row.fecha_gestion)
+                            ? new Date(row.proxima_accion || row.fecha_gestion).toLocaleDateString('es-UY', { timeZone: 'America/Montevideo', day: '2-digit', month: '2-digit', year: 'numeric' })
+                            : '—'}
+                        </td>
+                        <td style={{ padding: '8px 12px' }}>
+                          {typeof ag === 'object' ? (
+                            <span style={{ background: ag.bg, color: ag.color, fontSize: 11, padding: '2px 8px', borderRadius: 6 }}>{ag.label}</span>
+                          ) : ag}
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+
+    function SellerDetailPanel({ agent, onClose }) {
+      const [view, setView] = React.useState('resumen');
+      const [data, setData] = React.useState(null);
+      const [loading, setLoading] = React.useState(true);
+      const [fechaDesde, setFechaDesde] = React.useState('');
+      const [fechaHasta, setFechaHasta] = React.useState(getTodayYmdLocal());
+
+      const fetchDetail = React.useCallback(async () => {
+        if (!agent?.id) return;
+        setLoading(true);
+        try {
+          const api = getApiClient();
+          const params = new URLSearchParams({ seller_id: String(agent.id) });
+          if (fechaDesde) params.set('fecha_desde', fechaDesde);
+          if (fechaHasta) params.set('fecha_hasta', fechaHasta);
+          const response = await api.get(`/api/supervisor/seller-detail?${params.toString()}`);
+          const payload = response?.data ?? response;
+          const result = payload?.data ?? payload;
+          if (!fechaDesde && result?.fecha_desde) setFechaDesde(result.fecha_desde);
+          setData(result || null);
+        } finally {
+          setLoading(false);
+        }
+      }, [agent?.id, fechaDesde, fechaHasta]);
+
+      React.useEffect(() => { fetchDetail(); }, [agent?.id]);
+
+      const handleFechaChange = () => fetchDetail();
+
+      const initials = `${agent?.nombre?.[0] || ''}${agent?.apellido?.[0] || ''}`.toUpperCase();
+      const nombre = `${agent?.nombre || ''} ${agent?.apellido || ''}`.trim();
+
+      if (view.startsWith('detalle:')) {
+        const tipo = view.split(':')[1];
+        const LABELS = {
+          seguimiento: 'Seguimientos',
+          rellamar: 'Rellamar',
+          no_contesta: 'No contesta',
+          ventas: 'Ventas',
+          rechazos: 'Rechazos'
+        };
+        const rows = data?.detalle?.[tipo] || [];
+
+        return (
+          <div style={{ padding: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+              <button
+                onClick={() => setView('resumen')}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: 'var(--color-text-secondary)', fontSize: 13 }}
+              >
+                ← Volver al resumen
+              </button>
+              <span style={{ color: 'var(--color-text-secondary)' }}>·</span>
+              <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-primary)' }}>
+                {nombre} — {LABELS[tipo] || tipo} ({rows.length})
+              </span>
+            </div>
+            <DetailTable tipo={tipo} rows={rows} />
+          </div>
+        );
+      }
+
+      return (
+        <div style={{ padding: '1.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)', fontSize: 18 }}>×</button>
+              <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#E1F5EE', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 500, fontSize: 13, color: '#0F6E56' }}>{initials}</div>
+              <div>
+                <p style={{ fontWeight: 500, fontSize: 15, margin: 0, color: 'var(--color-text-primary)' }}>{nombre || '—'}</p>
+                <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', margin: 0 }}>Vendedor · Activo</p>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input
+                type="date"
+                value={fechaDesde}
+                onChange={(e) => setFechaDesde(e.target.value)}
+                style={{ fontSize: 12, padding: '5px 8px', borderRadius: 6, border: '0.5px solid var(--color-border-tertiary)', background: 'var(--color-background-secondary)', color: 'var(--color-text-primary)' }}
+              />
+              <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>—</span>
+              <input
+                type="date"
+                value={fechaHasta}
+                onChange={(e) => setFechaHasta(e.target.value)}
+                style={{ fontSize: 12, padding: '5px 8px', borderRadius: 6, border: '0.5px solid var(--color-border-tertiary)', background: 'var(--color-background-secondary)', color: 'var(--color-text-primary)' }}
+              />
+              <button
+                onClick={handleFechaChange}
+                style={{ fontSize: 12, padding: '5px 10px', borderRadius: 6, border: '0.5px solid var(--color-border-tertiary)', cursor: 'pointer', background: 'var(--color-background-secondary)', color: 'var(--color-text-primary)' }}
+              >
+                Aplicar
+              </button>
+            </div>
+          </div>
+
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-secondary)', fontSize: 13 }}>Cargando...</div>
+          ) : (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 10, marginBottom: 20 }}>
+                {[
+                  { label: 'Ventas', key: 'ventas', color: '#0F6E56' },
+                  { label: 'Rechazos', key: 'rechazos', color: '#A32D2D' },
+                  { label: 'Seguimientos', key: 'seguimientos', color: 'var(--color-text-primary)' },
+                  { label: 'Rellamar', key: 'rellamar', color: 'var(--color-text-primary)' },
+                  { label: 'No contesta', key: 'no_contesta', color: 'var(--color-text-primary)' }
+                ].map(({ label, key, color }) => (
+                  <div key={key} style={{ background: 'var(--color-background-secondary)', borderRadius: 8, padding: 12 }}>
+                    <p style={{ fontSize: 11, color: 'var(--color-text-secondary)', margin: '0 0 4px' }}>{label}</p>
+                    <p style={{ fontSize: 22, fontWeight: 500, color, margin: 0 }}>{data?.resumen?.[key] ?? 0}</p>
+                  </div>
+                ))}
+              </div>
+
+              {[
+                { tipo: 'seguimiento', label: 'Seguimientos pendientes', icon: 'ti-clock' },
+                { tipo: 'rellamar', label: 'Rellamar pendientes', icon: 'ti-phone-call' },
+                { tipo: 'no_contesta', label: 'No contesta — intentos por contacto', icon: 'ti-phone-off' },
+                { tipo: 'ventas', label: 'Ventas', icon: 'ti-rosette' },
+                { tipo: 'rechazos', label: 'Rechazos', icon: 'ti-x' }
+              ].map(({ tipo, label, icon }) => {
+                const rows = data?.detalle?.[tipo] || [];
+                const preview = rows.slice(0, 3);
+                if (rows.length === 0) return null;
+                return (
+                  <div key={tipo} style={{ background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: 12, padding: '1.25rem', marginBottom: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                      <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-primary)', margin: 0 }}>
+                        <i className={`ti ${icon}`} aria-hidden="true" style={{ fontSize: 15, verticalAlign: -2, marginRight: 6 }} />
+                        {label}
+                      </p>
+                      {rows.length > 3 ? (
+                        <button
+                          onClick={() => setView(`detalle:${tipo}`)}
+                          style={{ fontSize: 12, color: '#185FA5', background: '#E6F1FB', border: '1px solid #85B7EB', borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}
+                        >
+                          Ver todos ({rows.length})
+                        </button>
+                      ) : null}
+                    </div>
+                    <DetailTable tipo={tipo} rows={preview} />
+                  </div>
+                );
+              })}
+            </>
+          )}
+        </div>
+      );
+    }
+
     function SupervisorDashboard({ selectedDate: selectedDateProp, setSelectedDate: setSelectedDateProp, activeOrgId } = {}) {
       const { user: authUser } = useAuth();
       const [detailAgent, setDetailAgent] = React.useState(null);
@@ -1595,8 +1820,10 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         );
         const nombre = item.nombre || item.name || '';
         const apellido = item.apellido || '';
+        const seller_id = item.seller_id || item.id || item.user_id || null;
         return {
           id: item.id || item.seller_id || item.user_id || `${nombre}-${apellido}` || item.email || item.name || item.nombre,
+          seller_id,
           nombre,
           apellido,
           asignados: Number(item.asignados ?? 0),
@@ -2255,7 +2482,17 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           </thead>
                           <tbody>
                             {rows.map((row, idx) => (
-                              <tr key={row.id || `${tipo}-${row.nombre}-${row.apellido}-${idx}`}>
+                              <tr
+                                key={row.id || `${tipo}-${row.nombre}-${row.apellido}-${idx}`}
+                                onClick={() => setDetailAgent({
+                                  id: row.seller_id,
+                                  nombre: row.nombre,
+                                  apellido: row.apellido
+                                })}
+                                style={{ cursor: 'pointer' }}
+                                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-background-secondary)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.background = ''; }}
+                              >
                                 <td>
                                   <div className="person">
                                     <SellerAvatar nombre={row.nombre} apellido={row.apellido} />
@@ -2667,6 +2904,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           {detailAgent ? (
             <div className="lot-wizard-overlay" onClick={() => setDetailAgent(null)}>
               <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 980 }}>
+                <SellerDetailPanel
+                  agent={detailAgent}
+                  onClose={() => setDetailAgent(null)}
+                />
+                {false && (
+                  <>
                 <div className="lot-wizard-header">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div className="person-badge" style={{ width: 44, height: 44 }}>{initials(detailAgent.name)}</div>
@@ -2835,6 +3078,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         </table>
                       </div>
                     </div>
+                  </>
+                )}
                   </>
                 )}
               </div>
