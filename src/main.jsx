@@ -6574,6 +6574,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [importFile, setImportFile] = React.useState('');
       const [lotNameDraft, setLotNameDraft] = React.useState('');
       const [selectedLotId, setSelectedLotId] = React.useState(null);
+      const [selectedLotOverride, setSelectedLotOverride] = React.useState(null);
       const [lotSellerDraft, setLotSellerDraft] = React.useState('');
       const [reassignModal, setReassignModal] = React.useState(null); // { sellerId, sellerName, contactCount }
       const [reassignTarget, setReassignTarget] = React.useState('');
@@ -6760,9 +6761,41 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         [lotSummaries]
       );
 
+      React.useEffect(() => {
+        setSelectedLotOverride(null);
+      }, [selectedLotId]);
+
       const selectedLot = selectedLotId
-        ? (lotSummaries.find((lot) => lot.id === selectedLotId) || null)
+        ? ((
+          selectedLotOverride && String(selectedLotOverride.id) === String(selectedLotId)
+            ? selectedLotOverride
+            : (lotSummaries.find((lot) => String(lot.id) === String(selectedLotId)) || null)
+        ))
         : null;
+
+      const applyDistributionToLot = React.useCallback((lot, distribution = [], { ensureSeller } = {}) => {
+        if (!lot) return lot;
+        const distList = Array.isArray(distribution) ? distribution : [];
+        if (!distList.length) return lot;
+
+        const hasSeller = ensureSeller?.id && (lot.vendedores || []).some((v) => String(v.id) === String(ensureSeller.id));
+        const nextVendedores = (lot.vendedores || [])
+          .concat(!hasSeller && ensureSeller?.id ? [{
+            id: ensureSeller.id,
+            nombre: ensureSeller.nombre || '',
+            apellido: ensureSeller.apellido || '',
+            total_contactos: 0,
+            gestionados: 0
+          }] : [])
+          .map((v) => {
+            const match = distList.find((d) => String(d.seller_id ?? d.sellerId ?? d.vendedor_id ?? d.vendedorId) === String(v.id));
+            if (!match) return v;
+            const cantidad = Number(match.cantidad ?? match.count ?? match.total ?? 0);
+            return Number.isFinite(cantidad) ? { ...v, total_contactos: cantidad } : v;
+          });
+
+        return { ...lot, vendedores: nextVendedores };
+      }, []);
 
       const sellerSummary = React.useMemo(() => sellers.map((seller) => {
         const sellerLabel = typeof seller === 'string'
@@ -7547,7 +7580,20 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         const data = await res.json();
                         if (!data.ok) throw new Error(data.message || 'Error al agregar vendedor');
                         setAddSellerOpen(false); setAddSellerTarget(''); setAddSellerError('');
-                        window.location.reload();
+                        if (data.distribution?.length) {
+                          const picked = sellers.find((s) => String(s.id) === String(addSellerTarget));
+                          const label = picked?.label || '';
+                          const parts = String(label).trim().split(/\s+/).filter(Boolean);
+                          const ensureSeller = {
+                            id: addSellerTarget,
+                            nombre: parts[0] || '',
+                            apellido: parts.slice(1).join(' ')
+                          };
+                          setSelectedLotOverride((prev) => {
+                            const base = prev && selectedLot && String(prev.id) === String(selectedLot.id) ? prev : selectedLot;
+                            return applyDistributionToLot(base, data.distribution, { ensureSeller });
+                          });
+                        }
                       } catch (err) {
                         setAddSellerError(err.message || 'No se pudo agregar el vendedor.');
                       } finally {
@@ -7766,7 +7812,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                               onClick={() => {
                                 setAddDataToLotOpen(false);
                                 resetAddDataWizard();
-                                window.location.reload();
                               }}
                             >
                               Cerrar
@@ -7789,6 +7834,12 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                   const added = data?.added ?? data?.data?.added ?? data?.data?.count ?? addDataSelected.length;
                                   const distribution = data?.distribution ?? data?.data?.distribution ?? data?.data?.distribucion ?? null;
                                   setAddDataSuccess({ added, distribution });
+                                  if (distribution?.length) {
+                                    setSelectedLotOverride((prev) => {
+                                      const base = prev && selectedLot && String(prev.id) === String(selectedLot.id) ? prev : selectedLot;
+                                      return applyDistributionToLot(base, distribution);
+                                    });
+                                  }
                                 } catch (err) {
                                   setAddDataError(err?.message || 'No se pudo agregar contactos.');
                                 } finally {
