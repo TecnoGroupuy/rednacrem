@@ -4279,12 +4279,15 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                         <>
                           <td><SalesStatusBadge status={statusValue} small /></td>
                           <td style={{ color: '#64748b', fontSize: 12, whiteSpace: 'nowrap' }}>
-                            {contact.created_at
-                              ? new Date(contact.created_at).toLocaleDateString('es-UY', {
-                                timeZone: 'America/Montevideo',
-                                day: '2-digit', month: '2-digit', year: 'numeric'
-                              })
-                              : '—'}
+                            {(() => {
+                              const fecha = contact.fecha_lead || contact.created_at;
+                              return fecha
+                                ? new Date(fecha).toLocaleDateString('es-UY', {
+                                  timeZone: 'America/Montevideo',
+                                  day: '2-digit', month: '2-digit', year: 'numeric'
+                                })
+                                : '—';
+                            })()}
                           </td>
                           <td>
                             {contact.origen_dato || contact.origen || contact.source || contact.origenDato || contact.origin || '—'}
