@@ -1064,10 +1064,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [teamSummary, setTeamSummary] = React.useState(null);
       const [teamLoading, setTeamLoading] = React.useState(false);
       const [teamError, setTeamError] = React.useState('');
-      const [marketWidget, setMarketWidget] = React.useState({ status: 'idle', data: [], error: '', requestId: '' });
-      const [recuperoWidget, setRecuperoWidget] = React.useState({ status: 'idle', data: [], error: '', requestId: '' });
-      const marketRequestIdRef = React.useRef('');
-      const recuperoRequestIdRef = React.useRef('');
+      const [summaryWidgets, setSummaryWidgets] = React.useState({});
+      const [summaryRequestId, setSummaryRequestId] = React.useState('');
+      const summaryRequestIdRef = React.useRef('');
       const [detailLoading, setDetailLoading] = React.useState(false);
       const [detailError, setDetailError] = React.useState('');
       const [teamConfig, setTeamConfig] = React.useState(null);
@@ -1087,6 +1086,17 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const day = String(value.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
       }, []);
+
+      const TIPO_LABELS = React.useMemo(() => ({
+        captacion: 'Mercado abierto',
+        recupero: 'Recupero',
+        solicitud_tarjeta: 'Solicitud de tarjetas'
+      }), []);
+      const TIPO_EMPTY_TEXT = React.useMemo(() => ({
+        captacion: 'No hay vendedores con lote asignado',
+        recupero: 'No hay vendedores con lote de recupero',
+        solicitud_tarjeta: 'No hay vendedores con solicitudes asignadas'
+      }), []);
       const parsePercent = React.useCallback((value) => {
         if (value === null || value === undefined) return 0;
         const numeric = Number(String(value).replace('%', '').trim());
@@ -1417,89 +1427,57 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return () => { active = false; };
       }, [activeOrgId, formatDateYmd, selectedDate, normalizeTeamPayload]);
 
-      const fetchMarketSummary = React.useCallback(() => {
+      const fetchAllSummary = React.useCallback(() => {
         let active = true;
         if (!activeOrgId) return () => { active = false; };
         const api = getApiClient();
         const dateStr = formatDateYmd(selectedDate);
-        const requestId = makeRequestId('mercado');
-        marketRequestIdRef.current = requestId;
-        setMarketWidget((prev) => ({ ...prev, status: 'loading', error: '', requestId }));
-        api.get(`/api/supervisor/sellers-summary?fecha=${dateStr}&tipo=captacion`)
+        const requestId = makeRequestId('all');
+        summaryRequestIdRef.current = requestId;
+        setSummaryRequestId(requestId);
+
+        setSummaryWidgets((prev) => {
+          const next = { ...prev };
+          Object.keys(next).forEach((k) => { next[k] = { ...next[k], status: 'loading' }; });
+          return next;
+        });
+
+        api.get(`/api/supervisor/sellers-summary?fecha=${dateStr}&tipo=all`)
           .then((response) => {
             if (!active) return;
-            if (marketRequestIdRef.current !== requestId) return;
-            if (response?.fecha && response.fecha !== dateStr) return;
-            if (response?.data?.fecha && response.data.fecha !== dateStr) return;
-            const { status, items, message } = normalizeWidgetResponse(response);
-            if (status === 'success' || status === 'partial') {
-              setMarketWidget({ status, data: Array.isArray(items) ? items : [], error: '', requestId });
-              return;
-            }
-            if (status === 'empty') {
-              setMarketWidget({ status, data: [], error: '', requestId });
-              return;
-            }
-            if (status === 'error') {
-              setMarketWidget((prev) => ({ ...prev, status: 'error', error: message || 'No pudimos cargar Mercado abierto', requestId }));
-              return;
-            }
-            setMarketWidget((prev) => ({ ...prev, status: 'error', error: 'Respuesta inválida de Mercado abierto', requestId }));
+            if (summaryRequestIdRef.current !== requestId) return;
+
+            const tiposData = response?.data?.data || response?.data || response?.items || [];
+            const widgetsByTipo = {};
+            (Array.isArray(tiposData) ? tiposData : []).forEach((bucket) => {
+              const tipo = bucket?.tipo || bucket?.key || bucket?.name || 'default';
+              const items = bucket?.items ?? bucket?.data ?? bucket?.rows ?? [];
+              widgetsByTipo[tipo] = {
+                status: Array.isArray(items) && items.length > 0 ? 'success' : 'empty',
+                data: Array.isArray(items) ? items : [],
+                error: ''
+              };
+            });
+            setSummaryWidgets(widgetsByTipo);
           })
           .catch((err) => {
             if (!active) return;
-            if (marketRequestIdRef.current !== requestId) return;
-            setMarketWidget((prev) => ({ ...prev, status: 'error', error: err?.message || 'No pudimos cargar Mercado abierto', requestId }));
+            setSummaryWidgets((prev) => {
+              const next = { ...prev };
+              Object.keys(next).forEach((k) => {
+                next[k] = { ...next[k], status: 'error', error: err?.message || 'Error al cargar' };
+              });
+              return next;
+            });
           });
-        return () => { active = false; };
-      }, [activeOrgId, formatDateYmd, makeRequestId, normalizeWidgetResponse, selectedDate]);
 
-      const fetchRecuperoSummary = React.useCallback(() => {
-        let active = true;
-        if (!activeOrgId) return () => { active = false; };
-        const api = getApiClient();
-        const dateStr = formatDateYmd(selectedDate);
-        const requestId = makeRequestId('recupero');
-        recuperoRequestIdRef.current = requestId;
-        setRecuperoWidget((prev) => ({ ...prev, status: 'loading', error: '', requestId }));
-        api.get(`/api/supervisor/sellers-summary?fecha=${dateStr}&tipo=recupero`)
-          .then((response) => {
-            if (!active) return;
-            if (recuperoRequestIdRef.current !== requestId) return;
-            if (response?.fecha && response.fecha !== dateStr) return;
-            if (response?.data?.fecha && response.data.fecha !== dateStr) return;
-            const { status, items, message } = normalizeWidgetResponse(response);
-            if (status === 'success' || status === 'partial') {
-              setRecuperoWidget({ status, data: Array.isArray(items) ? items : [], error: '', requestId });
-              return;
-            }
-            if (status === 'empty') {
-              setRecuperoWidget({ status, data: [], error: '', requestId });
-              return;
-            }
-            if (status === 'error') {
-              setRecuperoWidget((prev) => ({ ...prev, status: 'error', error: message || 'No pudimos cargar Recupero', requestId }));
-              return;
-            }
-            setRecuperoWidget((prev) => ({ ...prev, status: 'error', error: 'Respuesta inválida de Recupero', requestId }));
-          })
-          .catch((err) => {
-            if (!active) return;
-            if (recuperoRequestIdRef.current !== requestId) return;
-            setRecuperoWidget((prev) => ({ ...prev, status: 'error', error: err?.message || 'No pudimos cargar Recupero', requestId }));
-          });
         return () => { active = false; };
-      }, [activeOrgId, formatDateYmd, makeRequestId, normalizeWidgetResponse, selectedDate]);
+      }, [activeOrgId, formatDateYmd, makeRequestId, selectedDate]);
 
       React.useEffect(() => {
-        const cleanup = fetchMarketSummary();
+        const cleanup = fetchAllSummary();
         return () => { if (typeof cleanup === 'function') cleanup(); };
-      }, [fetchMarketSummary]);
-
-      React.useEffect(() => {
-        const cleanup = fetchRecuperoSummary();
-        return () => { if (typeof cleanup === 'function') cleanup(); };
-      }, [fetchRecuperoSummary]);
+      }, [fetchAllSummary]);
 
       React.useEffect(() => {
         if (!detailAgent?.id) return () => {};
@@ -1605,84 +1583,34 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         if (value <= 12) return { bg: 'rgba(234,179,8,0.18)', color: '#854d0e', dot: '#eab308' };
         return { bg: 'rgba(239,68,68,0.18)', color: '#991b1b', dot: '#ef4444' };
       };
-      const sellerSummary = React.useMemo(() => {
-        if (!Array.isArray(marketWidget.data) || !marketWidget.data.length) return [];
-        return marketWidget.data.map((item) => {
-          const ventas = Number(item.ventas ?? 0);
-          const seguimientos = Number(item.seguimientos ?? 0);
-          const rellamadas = Number(item.rellamadas ?? 0);
-          const no_contesta = Number(item.no_contesta ?? 0);
-          const rechazos = Number(item.rechazos ?? 0);
-          const datos_erroneos = Number(item.datos_erroneos ?? 0);
-          const total_gestionado = Number(
-            item.total_gestionado ?? item.gestionados ?? item.gestiones ?? (ventas + seguimientos + rellamadas + no_contesta + rechazos + datos_erroneos)
-          );
-          const nombre = item.nombre || item.name || '';
-          const apellido = item.apellido || '';
-          return {
-            id: item.id || item.seller_id || item.user_id || `${nombre}-${apellido}` || item.email || item.name || item.nombre,
-            nombre,
-            apellido,
-            asignados: Number(item.asignados ?? 0),
-            gestiones: total_gestionado,
-            ventas,
-            seguimientos,
-            rellamadas,
-            no_contesta,
-            rechazos,
-            datos_erroneos,
-            contacto: Number(item.contacto ?? 0) || 0,
-            efectividad: Number(item.efectividad ?? 0) || 0
-          };
-        });
-      }, [marketWidget.data]);
-      const sellerMaxGestiones = React.useMemo(() => {
-        if (!sellerSummary.length) return 0;
-        return Math.max(...sellerSummary.map((row) => Number(row.gestiones || 0)));
-      }, [sellerSummary]);
-      const sellerRecuperoSummary = React.useMemo(() => {
-        if (!Array.isArray(recuperoWidget.data) || !recuperoWidget.data.length) return [];
-        return recuperoWidget.data
-          .map((item) => {
-            const ventas = Number(item.ventas ?? 0);
-            const seguimientos = Number(item.seguimientos ?? 0);
-            const rellamadas = Number(item.rellamadas ?? 0);
-            const no_contesta = Number(item.no_contesta ?? 0);
-            const rechazos = Number(item.rechazos ?? 0);
-            const datos_erroneos = Number(item.datos_erroneos ?? 0);
-            const total_gestionado = Number(
-              item.total_gestionado ?? item.gestionados ?? item.gestiones ?? (ventas + seguimientos + rellamadas + no_contesta + rechazos + datos_erroneos)
-            );
-            const nombre = item.nombre || item.name || '';
-            const apellido = item.apellido || '';
-            return {
-              id: item.id || item.seller_id || item.user_id || `${nombre}-${apellido}` || item.email || item.name || item.nombre,
-              nombre,
-              apellido,
-              asignados: Number(item.asignados ?? 0),
-              gestiones: total_gestionado,
-              ventas,
-              seguimientos,
-              rellamadas,
-              no_contesta,
-              rechazos,
-              datos_erroneos,
-              contacto: Number(item.contacto ?? 0) || 0,
-              efectividad: Number(item.efectividad ?? 0) || 0
-            };
-          })
-          .filter((row) => Number(row.asignados || 0) > 0);
-      }, [recuperoWidget.data]);
-      const sellerRecuperoMaxGestiones = React.useMemo(() => {
-        if (!sellerRecuperoSummary.length) return 0;
-        return Math.max(...sellerRecuperoSummary.map((row) => Number(row.gestiones || 0)));
-      }, [sellerRecuperoSummary]);
-      const sellerTotalGestiones = React.useMemo(() => (
-        sellerSummary.reduce((acc, row) => acc + Number(row.gestiones || 0), 0)
-      ), [sellerSummary]);
-      const sellerRecuperoTotalGestiones = React.useMemo(() => (
-        sellerRecuperoSummary.reduce((acc, row) => acc + Number(row.gestiones || 0), 0)
-      ), [sellerRecuperoSummary]);
+      const normalizeSummaryRow = React.useCallback((item = {}) => {
+        const ventas = Number(item.ventas ?? 0);
+        const seguimientos = Number(item.seguimientos ?? 0);
+        const rellamadas = Number(item.rellamadas ?? 0);
+        const no_contesta = Number(item.no_contesta ?? 0);
+        const rechazos = Number(item.rechazos ?? 0);
+        const datos_erroneos = Number(item.datos_erroneos ?? 0);
+        const total_gestionado = Number(
+          item.total_gestionado ?? item.gestionados ?? item.gestiones ?? (ventas + seguimientos + rellamadas + no_contesta + rechazos + datos_erroneos)
+        );
+        const nombre = item.nombre || item.name || '';
+        const apellido = item.apellido || '';
+        return {
+          id: item.id || item.seller_id || item.user_id || `${nombre}-${apellido}` || item.email || item.name || item.nombre,
+          nombre,
+          apellido,
+          asignados: Number(item.asignados ?? 0),
+          gestiones: total_gestionado,
+          ventas,
+          seguimientos,
+          rellamadas,
+          no_contesta,
+          rechazos,
+          datos_erroneos,
+          contacto: Number(item.contacto ?? 0) || 0,
+          efectividad: Number(item.efectividad ?? 0) || 0
+        };
+      }, []);
       const SellerBadge = ({ value, styleFn, suffix = '' }) => {
         const c = styleFn(value);
         return (
@@ -1907,8 +1835,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         });
         const api = getApiClient();
         const refreshSellerSummary = () => {
-          fetchMarketSummary();
-          fetchRecuperoSummary();
+          fetchAllSummary();
         };
         const refreshJornadaReport = () => {
           if (!activeOrgId) return;
@@ -1971,7 +1898,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return () => {
           socket.disconnect();
         };
-      }, [authUser?.accessToken, detailAgent?.id, fetchMarketSummary, fetchRecuperoSummary, formatDateYmd, jornadaTimezone, mapJornadaItem, selectedDate, socketBase, shouldApplyTeamUpdate, normalizeTeamPayload, mergeTeamAgents]);
+      }, [authUser?.accessToken, detailAgent?.id, fetchAllSummary, formatDateYmd, jornadaTimezone, mapJornadaItem, selectedDate, socketBase, shouldApplyTeamUpdate, normalizeTeamPayload, mergeTeamAgents]);
       const activeDetail = normalizeDetail(detailData, detailWeek, null);
       const renderTimeline = (detail) => {
         const rawEvents = Array.isArray(detail?.activityRaw) ? detail.activityRaw : [];
@@ -2276,151 +2203,93 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       return (
         <div className="view">
           <section className="content-grid">
-            <Panel
-              className="span-12"
-              title="Contactos"
-            >
-              <WidgetContainer
-                status={marketWidget.status}
-                dataLength={sellerSummary.length}
-                errorText="No pudimos cargar Mercado abierto"
-                emptyText="No hay vendedores con lote asignado"
-                partialText="Algunos datos no están disponibles"
-                onRetry={fetchMarketSummary}
-              >
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Vendedor</th>
-                        <th>Ventas</th>
-                        <th>Seguimientos</th>
-                        <th>Rellamadas</th>
-                        <th>No contesta</th>
-                        <th>Rechazos</th>
-                        <th>Datos err.</th>
-                        <th>Contacto</th>
-                        <th>Efectividad</th>
-                        <th>Asignados</th>
-                        <th>Gestiones del día</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sellerSummary.map((row, idx) => (
-                        <tr key={row.id || `${row.nombre}-${row.apellido}-${idx}`}>
-                          <td>
-                            <div className="person">
-                              <SellerAvatar nombre={row.nombre} apellido={row.apellido} />
-                              <div>
-                                <strong>{`${row.nombre || ''} ${row.apellido || ''}`.trim() || '—'}</strong>
-                              </div>
-                            </div>
-                          </td>
-                          <td>
-                            <SellerBadge value={row.ventas} styleFn={sellerVentasStyle} />
-                          </td>
-                          <td>{row.seguimientos}</td>
-                          <td>{row.rellamadas}</td>
-                          <td>{row.no_contesta}</td>
-                          <td>
-                            <SellerBadge value={row.rechazos} styleFn={sellerRechazosStyle} />
-                          </td>
-                          <td>{row.datos_erroneos}</td>
-                          <td>
-                            <SellerBadge value={row.contacto} styleFn={sellerPercentStyle} suffix="%" />
-                          </td>
-                          <td>
-                            <SellerBadge value={row.efectividad} styleFn={sellerPercentStyle} suffix="%" />
-                          </td>
-                          <td>{row.asignados}</td>
-                          <td style={{ minWidth: 130 }}>
-                            <SellerMiniBar value={row.gestiones} max={sellerMaxGestiones} />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div style={{ marginTop: 10, fontSize: 12, color: '#94a3b8', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-                  <span>{sellerSummary.length} vendedores</span>
-                  <span>Total gestiones: {sellerTotalGestiones}</span>
-                </div>
-              </WidgetContainer>
-            </Panel>
-          </section>
-          <section className="content-grid">
-            <Panel
-              className="span-12"
-              title="Recupero"
-              subtitle="Gestión de recupero"
-            >
-              <WidgetContainer
-                status={recuperoWidget.status}
-                dataLength={sellerRecuperoSummary.length}
-                errorText="No pudimos cargar Recupero"
-                emptyText="No hay vendedores con lote de recupero"
-                partialText="Algunos datos no están disponibles"
-                onRetry={fetchRecuperoSummary}
-              >
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Vendedor</th>
-                        <th>Ventas</th>
-                        <th>Seguimientos</th>
-                        <th>Rellamadas</th>
-                        <th>No contesta</th>
-                        <th>Rechazos</th>
-                        <th>Datos err.</th>
-                        <th>Contacto</th>
-                        <th>Efectividad</th>
-                        <th>Asignados</th>
-                        <th>Gestiones del día</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sellerRecuperoSummary.map((row, idx) => (
-                        <tr key={`recupero-${row.id || `${row.nombre}-${row.apellido}-${idx}`}`}>
-                          <td>
-                            <div className="person">
-                              <SellerAvatar nombre={row.nombre} apellido={row.apellido} />
-                              <div>
-                                <strong>{`${row.nombre || ''} ${row.apellido || ''}`.trim() || '—'}</strong>
-                              </div>
-                            </div>
-                          </td>
-                          <td>
-                            <SellerBadge value={row.ventas} styleFn={sellerVentasStyle} />
-                          </td>
-                          <td>{row.seguimientos}</td>
-                          <td>{row.rellamadas}</td>
-                          <td>{row.no_contesta}</td>
-                          <td>
-                            <SellerBadge value={row.rechazos} styleFn={sellerRechazosStyle} />
-                          </td>
-                          <td>{row.datos_erroneos}</td>
-                          <td>
-                            <SellerBadge value={row.contacto} styleFn={sellerPercentStyle} suffix="%" />
-                          </td>
-                          <td>
-                            <SellerBadge value={row.efectividad} styleFn={sellerPercentStyle} suffix="%" />
-                          </td>
-                          <td>{row.asignados}</td>
-                          <td style={{ minWidth: 130 }}>
-                            <SellerMiniBar value={row.gestiones} max={sellerRecuperoMaxGestiones} />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div style={{ marginTop: 10, fontSize: 12, color: '#94a3b8', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-                  <span>{sellerRecuperoSummary.length} vendedores</span>
-                  <span>Total gestiones: {sellerRecuperoTotalGestiones}</span>
-                </div>
-              </WidgetContainer>
-            </Panel>
+            {Object.keys(summaryWidgets || {}).length === 0 ? (
+              <Panel className="span-12" title="Resumen">
+                <WidgetContainer
+                  status="loading"
+                  dataLength={0}
+                  errorText="No pudimos cargar el resumen"
+                  emptyText="No hay datos"
+                  partialText="Algunos datos no están disponibles"
+                  onRetry={fetchAllSummary}
+                />
+              </Panel>
+            ) : (
+              Object.entries(summaryWidgets).map(([tipo, widget]) => {
+                const label = TIPO_LABELS[tipo] || tipo;
+                const rows = (widget?.data || []).map(normalizeSummaryRow);
+                const maxGestiones = Math.max(...rows.map((r) => r.gestiones || 0), 1);
+                const totalGestiones = rows.reduce((acc, r) => acc + (r.gestiones || 0), 0);
+
+                return (
+                  <Panel
+                    key={tipo}
+                    className="span-12"
+                    title={label}
+                    subtitle="Gestiones por vendedor"
+                  >
+                    <WidgetContainer
+                      status={widget?.status}
+                      dataLength={rows.length}
+                      errorText={`No pudimos cargar ${label}`}
+                      emptyText={TIPO_EMPTY_TEXT[tipo] || 'No hay datos'}
+                      partialText="Algunos datos no están disponibles"
+                      onRetry={fetchAllSummary}
+                    >
+                      <div className="table-wrap">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Vendedor</th>
+                              <th>Ventas</th>
+                              <th>Seguimientos</th>
+                              <th>Rellamadas</th>
+                              <th>No contesta</th>
+                              <th>Rechazos</th>
+                              <th>Datos err.</th>
+                              <th>Contacto</th>
+                              <th>Efectividad</th>
+                              <th>Asignados</th>
+                              <th>Gestiones del día</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows.map((row, idx) => (
+                              <tr key={row.id || `${tipo}-${row.nombre}-${row.apellido}-${idx}`}>
+                                <td>
+                                  <div className="person">
+                                    <SellerAvatar nombre={row.nombre} apellido={row.apellido} />
+                                    <div>
+                                      <strong>{`${row.nombre || ''} ${row.apellido || ''}`.trim() || '—'}</strong>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td><SellerBadge value={row.ventas} styleFn={sellerVentasStyle} /></td>
+                                <td>{row.seguimientos}</td>
+                                <td>{row.rellamadas}</td>
+                                <td>{row.no_contesta}</td>
+                                <td><SellerBadge value={row.rechazos} styleFn={sellerRechazosStyle} /></td>
+                                <td>{row.datos_erroneos}</td>
+                                <td><SellerBadge value={row.contacto} styleFn={sellerPercentStyle} suffix="%" /></td>
+                                <td><SellerBadge value={row.efectividad} styleFn={sellerPercentStyle} suffix="%" /></td>
+                                <td>{row.asignados}</td>
+                                <td style={{ minWidth: 130 }}>
+                                  <SellerMiniBar value={row.gestiones} max={maxGestiones} />
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div style={{ marginTop: 10, fontSize: 12, color: '#94a3b8', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                        <span>{rows.length} vendedores</span>
+                        <span>Total gestiones: {totalGestiones}</span>
+                      </div>
+                    </WidgetContainer>
+                  </Panel>
+                );
+              })
+            )}
           </section>
           <section className="content-grid">
             <Panel className="span-12">
