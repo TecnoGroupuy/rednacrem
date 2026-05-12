@@ -1129,32 +1129,35 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
     function SellerDetailPanel({ agent, onClose }) {
       const [view, setView] = React.useState('resumen');
-      const [data, setData] = React.useState(null);
-      const [loading, setLoading] = React.useState(true);
       const [fechaDesde, setFechaDesde] = React.useState('');
       const [fechaHasta, setFechaHasta] = React.useState(getTodayYmdLocal());
+      const [data, setData] = React.useState(null);
+      const [loading, setLoading] = React.useState(true);
 
-      const fetchDetail = React.useCallback(async () => {
+      const fetchDetail = React.useCallback(async (desde, hasta) => {
         if (!agent?.id) return;
         setLoading(true);
         try {
           const api = getApiClient();
           const params = new URLSearchParams({ seller_id: String(agent.id) });
-          if (fechaDesde) params.set('fecha_desde', fechaDesde);
-          if (fechaHasta) params.set('fecha_hasta', fechaHasta);
+          if (desde) params.set('fecha_desde', desde);
+          if (hasta) params.set('fecha_hasta', hasta);
           const response = await api.get(`/api/supervisor/seller-detail?${params.toString()}`);
           const payload = response?.data ?? response;
           const result = payload?.data ?? payload;
-          if (!fechaDesde && result?.fecha_desde) setFechaDesde(result.fecha_desde);
+          if (result?.fecha_desde) setFechaDesde(result.fecha_desde);
+          if (result?.fecha_hasta) setFechaHasta(result.fecha_hasta);
           setData(result || null);
         } finally {
           setLoading(false);
         }
-      }, [agent?.id, fechaDesde, fechaHasta]);
+      }, [agent?.id]);
 
-      React.useEffect(() => { fetchDetail(); }, [agent?.id]);
+      React.useEffect(() => {
+        fetchDetail(null, getTodayYmdLocal());
+      }, [agent?.id]);
 
-      const handleFechaChange = () => fetchDetail();
+      const handleAplicar = () => fetchDetail(fechaDesde, fechaHasta);
 
       const initials = `${agent?.nombre?.[0] || ''}${agent?.apellido?.[0] || ''}`.toUpperCase();
       const nombre = `${agent?.nombre || ''} ${agent?.apellido || ''}`.trim();
@@ -1215,7 +1218,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                 style={{ fontSize: 12, padding: '5px 8px', borderRadius: 6, border: '0.5px solid var(--color-border-tertiary)', background: 'var(--color-background-secondary)', color: 'var(--color-text-primary)' }}
               />
               <button
-                onClick={handleFechaChange}
+                onClick={handleAplicar}
                 style={{ fontSize: 12, padding: '5px 10px', borderRadius: 6, border: '0.5px solid var(--color-border-tertiary)', cursor: 'pointer', background: 'var(--color-background-secondary)', color: 'var(--color-text-primary)' }}
               >
                 Aplicar
@@ -2482,11 +2485,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           </thead>
                           <tbody>
                             {rows.map((row, idx) => (
-                              <tr
+                                <tr
                                 key={row.id || `${tipo}-${row.nombre}-${row.apellido}-${idx}`}
                                 onClick={() => setDetailAgent({
-                                  id: row.seller_id,
-                                  nombre: row.nombre,
+                                  id: row.id,
+                                  nombre: row.name || row.nombre,
                                   apellido: row.apellido
                                 })}
                                 style={{ cursor: 'pointer' }}
