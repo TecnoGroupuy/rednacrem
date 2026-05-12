@@ -1812,7 +1812,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         return { bg: 'rgba(239,68,68,0.18)', color: '#991b1b', dot: '#ef4444' };
       };
       const normalizeSummaryRow = React.useCallback((item = {}) => {
-        const ventas = Number(item.ventas ?? 0);
+        const gestiones_venta = Number(item.gestiones_venta ?? item.ventas ?? 0);
+        const ventas = Number(item.ventas ?? gestiones_venta ?? 0);
         const seguimientos = Number(item.seguimientos ?? 0);
         const rellamadas = Number(item.rellamadas ?? 0);
         const no_contesta = Number(item.no_contesta ?? 0);
@@ -1832,6 +1833,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           asignados: Number(item.asignados ?? 0),
           gestiones: total_gestionado,
           ventas,
+          gestiones_venta,
           seguimientos,
           rellamadas,
           no_contesta,
@@ -2504,7 +2506,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                     </div>
                                   </div>
                                 </td>
-                                <td><SellerBadge value={row.ventas} styleFn={sellerVentasStyle} /></td>
+                                <td><SellerBadge value={row.gestiones_venta} styleFn={sellerVentasStyle} /></td>
                                 <td>{row.seguimientos}</td>
                                 <td>{row.rellamadas}</td>
                                 <td>{row.no_contesta}</td>
