@@ -1,5 +1,5 @@
 ﻿import React from 'react';
-import { Plus, Edit3, X, Loader2, ChevronRight, TrendingUp, Phone, ShoppingBag } from 'lucide-react';
+import { Plus, Edit3, X, Loader2, ChevronRight, TrendingUp, Phone, ShoppingBag, UserX } from 'lucide-react';
 import { getApiClient } from '../services/apiClient.js';
 
 const DEFAULT_DRAFT = {
@@ -36,6 +36,11 @@ export default function EquipoVentaModule({
   const [agentStats, setAgentStats] = React.useState([]);
   const [statsLoading, setStatsLoading] = React.useState(false);
   const [selectedVendedor, setSelectedVendedor] = React.useState(null);
+  const [desactivarModal, setDesactivarModal] = React.useState(null); // { id, nombre }
+  const [desactivarStep, setDesactivarStep] = React.useState('analisis'); // 'analisis' | 'confirmar'
+  const [desactivarData, setDesactivarData] = React.useState(null);
+  const [desactivarLoading, setDesactivarLoading] = React.useState(false);
+  const [desactivarError, setDesactivarError] = React.useState('');
 
   const canManage = ['supervisor', 'director', 'superadministrador'].includes(userRole);
 
@@ -343,7 +348,7 @@ export default function EquipoVentaModule({
                   ))}
                 </div>
 
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, flexDirection: 'column' }}>
                   <Button
                     variant="ghost"
                     icon={<Edit3 size={14} />}
@@ -353,6 +358,35 @@ export default function EquipoVentaModule({
                     }}
                   >
                     Editar vendedor
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    icon={<UserX size={14} />}
+                    onClick={async () => {
+                      const v = selectedVendedor;
+                      setDesactivarModal({
+                        id: v.id,
+                        nombre: `${v.nombre || ''} ${v.apellido || ''}`.trim()
+                      });
+                      setDesactivarStep('analisis');
+                      setDesactivarLoading(true);
+                      setDesactivarError('');
+                      try {
+                        const api = getApiClient();
+                        const params = new URLSearchParams({ seller_id: String(v.id) });
+                        if (activeOrgId) params.set('organization_id', String(activeOrgId));
+                        const res = await api.get(`/api/supervisor/seller-detail?${params.toString()}`);
+                        const payload = res?.data ?? res;
+                        setDesactivarData(payload?.data ?? payload);
+                      } catch (err) {
+                        setDesactivarError('No se pudo cargar el análisis.');
+                      } finally {
+                        setDesactivarLoading(false);
+                      }
+                    }}
+                    style={{ color: '#993C1D' }}
+                  >
+                    Desactivar vendedor
                   </Button>
                 </div>
               </div>
@@ -449,6 +483,148 @@ export default function EquipoVentaModule({
             </Panel>
           )}
         </section>
+      )}
+
+      {desactivarModal && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}
+          onClick={() => setDesactivarModal(null)}
+        >
+          <div
+            style={{ background: 'var(--color-background-primary)', borderRadius: 12, padding: 24, width: 620, maxHeight: '85vh', overflowY: 'auto', border: '0.5px solid var(--color-border-tertiary)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div>
+                <div style={{ fontWeight: 500, fontSize: 15, color: 'var(--color-text-primary)' }}>
+                  {desactivarStep === 'analisis'
+                    ? `Análisis de desempeño — ${desactivarModal.nombre}`
+                    : `Confirmar desactivación — ${desactivarModal.nombre}`}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 2 }}>
+                  {desactivarStep === 'analisis'
+                    ? 'Revisá el historial completo antes de desactivar'
+                    : 'Esta acción no se puede deshacer'}
+                </div>
+              </div>
+              <button
+                onClick={() => setDesactivarModal(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: 'var(--color-text-secondary)' }}
+              >
+                ×
+              </button>
+            </div>
+
+            {desactivarStep === 'analisis' && (
+              <>
+                {desactivarLoading ? (
+                  <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-secondary)', fontSize: 13 }}>Cargando análisis...</div>
+                ) : null}
+                {desactivarError ? (
+                  <div style={{ fontSize: 13, color: '#A32D2D', marginBottom: 16 }}>{desactivarError}</div>
+                ) : null}
+                {!desactivarLoading && desactivarData ? (() => {
+                  const r = desactivarData?.resumen || {};
+                  const totalGestiones = (r.ventas || 0)
+                    + (r.rechazos || 0)
+                    + (r.seguimientos || 0)
+                    + (r.rellamar || 0)
+                    + (r.no_contesta || 0)
+                    + (r.dato_erroneo || 0);
+                  const efectividad = totalGestiones > 0
+                    ? (((r.ventas || 0) / Math.max(1, (totalGestiones - (r.dato_erroneo || 0)))) * 100).toFixed(1)
+                    : '0.0';
+                  const desde = desactivarData?.fecha_desde;
+                  const hasta = desactivarData?.fecha_hasta;
+                  const dias = (desde && hasta)
+                    ? Math.max(1, Math.floor((new Date(hasta) - new Date(desde)) / 86400000) + 1)
+                    : 1;
+                  const promDiario = (totalGestiones / dias).toFixed(1);
+                  const pendientes = (desactivarData?.detalle?.seguimiento?.length || 0)
+                    + (desactivarData?.detalle?.rellamar?.length || 0)
+                    + (desactivarData?.detalle?.no_contesta?.length || 0);
+
+                  return (
+                    <>
+                      <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 16, background: 'var(--color-background-secondary)', borderRadius: 8, padding: '8px 12px' }}>
+                        Período: <strong>{desde} → {hasta}</strong> ({dias} día{dias !== 1 ? 's' : ''} activo{dias !== 1 ? 's' : ''})
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 }}>
+                        {[
+                          { label: 'Total gestiones', value: totalGestiones, color: 'var(--color-text-primary)' },
+                          { label: 'Ventas', value: r.ventas || 0, color: '#0F6E56' },
+                          { label: 'Efectividad', value: `${efectividad}%`, color: '#185FA5' },
+                          { label: 'Prom. diario', value: promDiario, color: 'var(--color-text-primary)' },
+                          { label: 'Rechazos', value: r.rechazos || 0, color: '#A32D2D' },
+                          { label: 'Seguimientos', value: r.seguimientos || 0, color: 'var(--color-text-primary)' },
+                          { label: 'Rellamar', value: r.rellamar || 0, color: 'var(--color-text-primary)' },
+                          { label: 'No contesta', value: r.no_contesta || 0, color: 'var(--color-text-primary)' }
+                        ].map(({ label, value, color }) => (
+                          <div key={label} style={{ background: 'var(--color-background-secondary)', borderRadius: 8, padding: '10px 12px' }}>
+                            <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 4 }}>{label}</div>
+                            <div style={{ fontSize: 20, fontWeight: 500, color }}>{value}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {pendientes > 0 ? (
+                        <div style={{ background: '#FAECE7', border: '0.5px solid #F0997B', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#993C1D' }}>
+                          ⚠️ Este vendedor tiene <strong>{pendientes} contactos pendientes</strong> (seguimientos, rellamadas y no contesta). Redistribuílos desde el detalle del lote antes de desactivar.
+                        </div>
+                      ) : null}
+
+                      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
+                        <Button variant="secondary" onClick={() => setDesactivarModal(null)}>Cancelar</Button>
+                        <Button
+                          onClick={() => setDesactivarStep('confirmar')}
+                          style={{ background: '#993C1D', color: '#fff', border: 'none' }}
+                        >
+                          Continuar con desactivación
+                        </Button>
+                      </div>
+                    </>
+                  );
+                })() : null}
+              </>
+            )}
+
+            {desactivarStep === 'confirmar' && (
+              <>
+                <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 20 }}>
+                  Al confirmar, <strong>{desactivarModal.nombre}</strong> pasará a estado <strong>Baja</strong>, será removido de todos los lotes activos y dejará de aparecer en los monitores.
+                </div>
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  <Button variant="secondary" onClick={() => setDesactivarStep('analisis')}>← Volver</Button>
+                  <Button
+                    onClick={async () => {
+                      try {
+                        const api = getApiClient();
+                        const res = await api.patch(`/api/users/${desactivarModal.id}/desactivar`);
+                        const payload = res?.data ?? res;
+                        const data = payload?.data ?? payload;
+                        if (!data.ok) throw new Error(data.message || 'Error al desactivar');
+                        setDesactivarModal(null);
+                        setVendedores((prev) => prev.map((u) => (
+                          u.id === desactivarModal.id
+                            ? { ...u, status: 'baja', estado: 'Baja' }
+                            : u
+                        )));
+                        setSelectedVendedor(null);
+                      } catch (err) {
+                        setDesactivarError(err?.message || 'No se pudo desactivar.');
+                        setDesactivarStep('analisis');
+                      }
+                    }}
+                    style={{ background: '#993C1D', color: '#fff', border: 'none' }}
+                  >
+                    Confirmar desactivación
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
