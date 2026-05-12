@@ -492,7 +492,8 @@ export default function EquipoVentaModule({
         >
           <div
             style={{
-              background: 'var(--color-background-primary)',
+              background: 'rgba(255,255,255,0.98)',
+              backdropFilter: 'blur(6px)',
               borderRadius: 12,
               padding: 24,
               width: 620,
