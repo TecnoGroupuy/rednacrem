@@ -491,7 +491,16 @@ export default function EquipoVentaModule({
           onClick={() => setDesactivarModal(null)}
         >
           <div
-            style={{ background: 'var(--color-background-primary)', borderRadius: 12, padding: 24, width: 620, maxHeight: '85vh', overflowY: 'auto', border: '0.5px solid var(--color-border-tertiary)' }}
+            style={{
+              background: 'var(--color-background-primary)',
+              borderRadius: 12,
+              padding: 24,
+              width: 620,
+              maxHeight: '85vh',
+              overflowY: 'auto',
+              border: '1px solid var(--color-border-secondary)',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
@@ -561,7 +570,7 @@ export default function EquipoVentaModule({
                           { label: 'Rellamar', value: r.rellamar || 0, color: 'var(--color-text-primary)' },
                           { label: 'No contesta', value: r.no_contesta || 0, color: 'var(--color-text-primary)' }
                         ].map(({ label, value, color }) => (
-                          <div key={label} style={{ background: 'var(--color-background-secondary)', borderRadius: 8, padding: '10px 12px' }}>
+                          <div key={label} style={{ background: 'var(--color-background-secondary)', borderRadius: 8, padding: '10px 12px', border: '0.5px solid var(--color-border-secondary)' }}>
                             <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 4 }}>{label}</div>
                             <div style={{ fontSize: 20, fontWeight: 500, color }}>{value}</div>
                           </div>
