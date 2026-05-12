@@ -550,9 +550,7 @@ export default function EquipoVentaModule({
                     ? Math.max(1, Math.floor((new Date(hasta) - new Date(desde)) / 86400000) + 1)
                     : 1;
                   const promDiario = (totalGestiones / dias).toFixed(1);
-                  const pendientes = (desactivarData?.detalle?.seguimiento?.length || 0)
-                    + (desactivarData?.detalle?.rellamar?.length || 0)
-                    + (desactivarData?.detalle?.no_contesta?.length || 0);
+                  const pendientes = desactivarData?.pendientes_count ?? 0;
 
                   return (
                     <>
