@@ -495,12 +495,25 @@
     .clients-view .clients-action-btn.button.ghost:hover { background: #F9FAFB; transform: none; }
     .clients-view .clients-action-btn--danger.button.ghost { color: #B91C1C; }
 
-    .coberturas-list { display: flex; flex-direction: column; gap: 8px; }
+    .coberturas-predefined { display: flex; flex-direction: column;
+      gap: 8px; margin-bottom: 12px; }
+    .cobertura-check { display: flex; align-items: center;
+      gap: 10px; padding: 10px 14px; border-radius: 8px;
+      border: 1px solid #E2E8F0; background: #F8FAFC;
+      cursor: pointer; font-size: 13px; color: #1e293b;
+      user-select: none; }
+    .cobertura-check:has(input:checked) {
+      background: #F0FDF4; border-color: #86EFAC; color: #14532d;
+      font-weight: 500; }
+    .cobertura-check input { accent-color: #22c55e;
+      width: 15px; height: 15px; flex-shrink: 0; }
+    .coberturas-custom { display: flex; flex-direction: column; gap: 8px; }
     .cobertura-row { display: flex; gap: 8px; align-items: center; }
     .cobertura-row .input { flex: 1; }
     .btn-add-cobertura { align-self: flex-start; font-size: 13px;
-      color: #0F766E; background: none; border: 1px dashed #0F766E;
-      border-radius: 8px; padding: 6px 14px; cursor: pointer; }
+      color: #0F766E; background: none;
+      border: 1px dashed #0F766E; border-radius: 8px;
+      padding: 6px 14px; cursor: pointer; margin-top: 4px; }
     .btn-add-cobertura:hover { background: #F0FDF4; }
 
     /* Responsive */

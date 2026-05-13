@@ -28,6 +28,15 @@ const DEFAULT_USER_ROLE = 'supervisor';
 const DEFAULT_USER_STATUS = 'approved';
 const DEFAULT_USER_REASON = 'Alta manual desde panel superadmin';
 
+const COBERTURAS_PREDEFINIDAS = [
+  'Cuota social',
+  'Tarjeta de beneficios',
+  '3 días de acompañante en dos eventos anuales de 3 horas',
+  'Traslado en ambulancia en dos eventos al año',
+];
+
+const { useState } = React;
+
 const createImportDraft = () => ({
   fileName: '',
   csvText: '',
@@ -176,7 +185,13 @@ export default function SuperadminWorkbench({
   const [diffTab, setDiffTab] = React.useState('alta_bd_baja_csv');
 
   const [productDraft, setProductDraft] = React.useState({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', activo: true, disponible_venta: true });
-  const [coberturas, setCoberturas] = React.useState([]);
+  const [selectedPredefined, setSelectedPredefined] = useState(
+    (productDraft.coberturas || []).filter(c => COBERTURAS_PREDEFINIDAS.includes(c))
+  );
+  const [customItems, setCustomItems] = useState(
+    (productDraft.coberturas || []).filter(c => !COBERTURAS_PREDEFINIDAS.includes(c))
+  );
+  const coberturas = [...selectedPredefined, ...customItems.filter(Boolean)];
   const [showProductForm, setShowProductForm] = React.useState(false);
   const [productsSearch, setProductsSearch] = React.useState('');
   const [productsFilter, setProductsFilter] = React.useState('todos'); // todos | disponibles | activos | inactivos
@@ -775,7 +790,8 @@ export default function SuperadminWorkbench({
       logActivityEvent({ entidad: 'producto', entidadId: created.id, tipo: 'alta', descripcion: 'Producto creado: ' + created.nombre, usuarioId: 'usr-001' });
     }
     setProductDraft({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', activo: true, disponible_venta: true });
-    setCoberturas([]);
+    setSelectedPredefined([]);
+    setCustomItems([]);
     await loadProducts();
     loadActivity();
     setShowProductForm(false);
@@ -1583,7 +1599,8 @@ export default function SuperadminWorkbench({
                   icon={<Plus size={16} />}
                   onClick={() => {
                     setProductDraft({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', activo: true, disponible_venta: true });
-                    setCoberturas([]);
+                    setSelectedPredefined([]);
+                    setCustomItems([]);
                     setShowProductForm(true);
                   }}
                 >
@@ -1665,7 +1682,9 @@ export default function SuperadminWorkbench({
                                 activo: item.activo !== false,
                                 disponible_venta: item.disponible_venta !== false
                               });
-                              setCoberturas(Array.isArray(item.coberturas) ? item.coberturas : []);
+                              const coberturasProducto = Array.isArray(item.coberturas) ? item.coberturas : [];
+                              setSelectedPredefined(coberturasProducto.filter(c => COBERTURAS_PREDEFINIDAS.includes(c)));
+                              setCustomItems(coberturasProducto.filter(c => !COBERTURAS_PREDEFINIDAS.includes(c)));
                               setShowProductForm(true);
                             }}
                           >
@@ -1693,25 +1712,44 @@ export default function SuperadminWorkbench({
 
                 <div className="form-field">
                   <label>Coberturas</label>
-                  <div className="coberturas-list">
-                    {coberturas.map((item, i) => (
+                  <div className="coberturas-predefined">
+                    {COBERTURAS_PREDEFINIDAS.map((label) => (
+                      <label key={label} className="cobertura-check">
+                        <input
+                          type="checkbox"
+                          checked={selectedPredefined.includes(label)}
+                          onChange={() => {
+                            setSelectedPredefined((prev) => (
+                              prev.includes(label)
+                                ? prev.filter((item) => item !== label)
+                                : [...prev, label]
+                            ));
+                          }}
+                        />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="coberturas-custom">
+                    {customItems.map((item, i) => (
                       <div key={i} className="cobertura-row">
                         <input
                           className="input"
                           value={item}
                           onChange={e => {
-                            const updated = [...coberturas];
+                            const updated = [...customItems];
                             updated[i] = e.target.value;
-                            setCoberturas(updated);
+                            setCustomItems(updated);
                           }}
                           placeholder="Ej: Tarjeta de beneficios"
                         />
-                        <button type="button" onClick={() => setCoberturas(coberturas.filter((_, j) => j !== i))}>
+                        <button type="button" onClick={() => setCustomItems(customItems.filter((_, j) => j !== i))}>
                           <Trash2 size={14} />
                         </button>
                       </div>
                     ))}
-                    <button type="button" className="btn-add-cobertura" onClick={() => setCoberturas([...coberturas, ''])}>
+                    <button type="button" className="btn-add-cobertura" onClick={() => setCustomItems([...customItems, ''])}>
                       + Agregar cobertura
                     </button>
                   </div>
@@ -1741,7 +1779,8 @@ export default function SuperadminWorkbench({
                     onClick={() => {
                       setShowProductForm(false);
                       setProductDraft({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', activo: true, disponible_venta: true });
-                      setCoberturas([]);
+                      setSelectedPredefined([]);
+                      setCustomItems([]);
                     }}
                   >
                     Cancelar
