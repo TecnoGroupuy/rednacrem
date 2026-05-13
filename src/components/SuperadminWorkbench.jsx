@@ -176,6 +176,7 @@ export default function SuperadminWorkbench({
   const [diffTab, setDiffTab] = React.useState('alta_bd_baja_csv');
 
   const [productDraft, setProductDraft] = React.useState({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', activo: true, disponible_venta: true });
+  const [coberturas, setCoberturas] = React.useState([]);
   const [showProductForm, setShowProductForm] = React.useState(false);
   const [productsSearch, setProductsSearch] = React.useState('');
   const [productsFilter, setProductsFilter] = React.useState('todos'); // todos | disponibles | activos | inactivos
@@ -763,7 +764,8 @@ export default function SuperadminWorkbench({
       precio: Number(productDraft.precio || 0),
       descripcion: productDraft.descripcion.trim(),
       activo: !!productDraft.activo,
-      disponible_venta: !!productDraft.disponible_venta
+      disponible_venta: !!productDraft.disponible_venta,
+      coberturas
     };
     if (productDraft.id) {
       const updated = await updateProduct(productDraft.id, payload);
@@ -773,6 +775,7 @@ export default function SuperadminWorkbench({
       logActivityEvent({ entidad: 'producto', entidadId: created.id, tipo: 'alta', descripcion: 'Producto creado: ' + created.nombre, usuarioId: 'usr-001' });
     }
     setProductDraft({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', activo: true, disponible_venta: true });
+    setCoberturas([]);
     await loadProducts();
     loadActivity();
     setShowProductForm(false);
@@ -1580,6 +1583,7 @@ export default function SuperadminWorkbench({
                   icon={<Plus size={16} />}
                   onClick={() => {
                     setProductDraft({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', activo: true, disponible_venta: true });
+                    setCoberturas([]);
                     setShowProductForm(true);
                   }}
                 >
@@ -1661,6 +1665,7 @@ export default function SuperadminWorkbench({
                                 activo: item.activo !== false,
                                 disponible_venta: item.disponible_venta !== false
                               });
+                              setCoberturas(Array.isArray(item.coberturas) ? item.coberturas : []);
                               setShowProductForm(true);
                             }}
                           >
@@ -1686,6 +1691,32 @@ export default function SuperadminWorkbench({
                 <input className="input" placeholder="Precio / Cuota" value={productDraft.precio} onChange={(event) => setProductDraft((prev) => ({ ...prev, precio: event.target.value }))} />
                 <textarea className="input" rows="3" placeholder="Descripción" value={productDraft.descripcion} onChange={(event) => setProductDraft((prev) => ({ ...prev, descripcion: event.target.value }))} />
 
+                <div className="form-field">
+                  <label>Coberturas</label>
+                  <div className="coberturas-list">
+                    {coberturas.map((item, i) => (
+                      <div key={i} className="cobertura-row">
+                        <input
+                          className="input"
+                          value={item}
+                          onChange={e => {
+                            const updated = [...coberturas];
+                            updated[i] = e.target.value;
+                            setCoberturas(updated);
+                          }}
+                          placeholder="Ej: Tarjeta de beneficios"
+                        />
+                        <button type="button" onClick={() => setCoberturas(coberturas.filter((_, j) => j !== i))}>
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                    <button type="button" className="btn-add-cobertura" onClick={() => setCoberturas([...coberturas, ''])}>
+                      + Agregar cobertura
+                    </button>
+                  </div>
+                </div>
+
                 <div style={{ padding: 10, borderRadius: 12, border: '1px solid var(--line)', background: 'rgba(20,34,53,0.03)' }}>
                   <ToggleSwitch
                     label="Disponible para venta"
@@ -1710,6 +1741,7 @@ export default function SuperadminWorkbench({
                     onClick={() => {
                       setShowProductForm(false);
                       setProductDraft({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', activo: true, disponible_venta: true });
+                      setCoberturas([]);
                     }}
                   >
                     Cancelar
