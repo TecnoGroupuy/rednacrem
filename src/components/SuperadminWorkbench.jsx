@@ -48,6 +48,43 @@ const createUserDraft = (overrides = {}) => ({
   ...overrides
 });
 
+const ToggleSwitch = ({ checked, onChange, label }) => (
+  <div className="toolbar" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>{label}</span>
+    <button
+      type="button"
+      aria-checked={checked}
+      role="switch"
+      onClick={onChange}
+      style={{
+        width: 42,
+        height: 24,
+        borderRadius: 999,
+        border: checked ? '1px solid rgba(16,185,129,0.55)' : '1px solid rgba(148,163,184,0.7)',
+        background: checked ? 'rgba(16,185,129,0.22)' : 'rgba(148,163,184,0.22)',
+        display: 'inline-flex',
+        alignItems: 'center',
+        padding: 2,
+        cursor: 'pointer'
+      }}
+      title={checked ? 'Activo' : 'Inactivo'}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          width: 20,
+          height: 20,
+          borderRadius: 999,
+          background: checked ? '#10b981' : '#94a3b8',
+          transform: checked ? 'translateX(18px)' : 'translateX(0px)',
+          transition: 'transform 150ms ease',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.15)'
+        }}
+      />
+    </button>
+  </div>
+);
+
 export default function SuperadminWorkbench({
   route,
   onOpenRoute,
@@ -138,7 +175,7 @@ export default function SuperadminWorkbench({
   });
   const [diffTab, setDiffTab] = React.useState('alta_bd_baja_csv');
 
-  const [productDraft, setProductDraft] = React.useState({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', observaciones: '', activo: true });
+  const [productDraft, setProductDraft] = React.useState({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', activo: true, disponible_venta: true });
   const [userDraft, setUserDraft] = React.useState(() => createUserDraft());
   const [showUserForm, setShowUserForm] = React.useState(false);
   const [userFormError, setUserFormError] = React.useState('');
@@ -693,8 +730,8 @@ export default function SuperadminWorkbench({
       categoria: productDraft.categoria.trim() || 'General',
       precio: Number(productDraft.precio || 0),
       descripcion: productDraft.descripcion.trim(),
-      observaciones: productDraft.observaciones.trim(),
-      activo: !!productDraft.activo
+      activo: !!productDraft.activo,
+      disponible_venta: !!productDraft.disponible_venta
     };
     if (productDraft.id) {
       const updated = await updateProduct(productDraft.id, payload);
@@ -703,7 +740,7 @@ export default function SuperadminWorkbench({
       const created = await createProduct(payload);
       logActivityEvent({ entidad: 'producto', entidadId: created.id, tipo: 'alta', descripcion: 'Producto creado: ' + created.nombre, usuarioId: 'usr-001' });
     }
-    setProductDraft({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', observaciones: '', activo: true });
+    setProductDraft({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', activo: true, disponible_venta: true });
     await loadProducts();
     loadActivity();
   };
@@ -1488,7 +1525,74 @@ export default function SuperadminWorkbench({
     );
   }
   if (route === 'sa_productos') {
-    return <div className="view"><section className="content-grid"><Panel className="span-8" title="Productos" subtitle="Gestión de catálogo" action={<Button icon={<Plus size={16} />} onClick={() => setProductDraft({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', observaciones: '', activo: true })}>Nuevo</Button>}><div className="table-wrap"><table><thead><tr><th>Nombre</th><th>Categoría</th><th>Precio</th><th>Estado</th><th>Actualización</th><th>Acción</th></tr></thead><tbody>{products.map((item) => <tr key={item.id}><td><strong>{item.nombre}</strong></td><td>{item.categoria}</td><td>$ {Number(item.precio || 0).toLocaleString('es-UY')}</td><td><Tag variant={item.activo ? 'success' : 'warning'}>{item.activo ? 'Activo' : 'Inactivo'}</Tag></td><td>{formatDate(item.updatedAt)}</td><td><div className="toolbar"><Button variant="ghost" icon={<Edit3 size={15} />} onClick={() => setProductDraft({ id: item.id, nombre: item.nombre, categoria: item.categoria, precio: String(item.precio), descripcion: item.descripcion || '', observaciones: item.observaciones || '', activo: !!item.activo })}>Editar</Button><Button variant="secondary" onClick={async () => { await updateProduct(item.id, { activo: !item.activo }); await loadProducts(); }}>Estado</Button></div></td></tr>)}</tbody></table></div></Panel><Panel className="span-4" title={productDraft.id ? 'Editar producto' : 'Crear producto'} subtitle="Formulario"><div className="list"><input className="input" placeholder="Nombre" value={productDraft.nombre} onChange={(event) => setProductDraft((prev) => ({ ...prev, nombre: event.target.value }))} /><input className="input" placeholder="Categoría" value={productDraft.categoria} onChange={(event) => setProductDraft((prev) => ({ ...prev, categoria: event.target.value }))} /><input className="input" placeholder="Precio / Cuota" value={productDraft.precio} onChange={(event) => setProductDraft((prev) => ({ ...prev, precio: event.target.value }))} /><textarea className="input" rows="3" placeholder="Descripción" value={productDraft.descripcion} onChange={(event) => setProductDraft((prev) => ({ ...prev, descripcion: event.target.value }))}></textarea><textarea className="input" rows="3" placeholder="Observaciones" value={productDraft.observaciones} onChange={(event) => setProductDraft((prev) => ({ ...prev, observaciones: event.target.value }))}></textarea><Button icon={<CheckCircle2 size={16} />} onClick={saveProduct}>{productDraft.id ? 'Guardar' : 'Crear'}</Button></div></Panel></section></div>;
+    return (
+      <div className="view">
+        <section className="content-grid">
+          <Panel
+            className="span-8"
+            title="Productos"
+            subtitle="Gestión de catálogo"
+            action={
+              <Button
+                icon={<Plus size={16} />}
+                onClick={() => setProductDraft({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', activo: true, disponible_venta: true })}
+              >
+                Nuevo
+              </Button>
+            }
+          >
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Nombre</th><th>Categoría</th><th>Precio</th><th>Estado</th><th>Actualización</th><th>Acción</th></tr>
+                </thead>
+                <tbody>
+                  {products.map((item) => (
+                    <tr key={item.id}>
+                      <td><strong>{item.nombre}</strong></td>
+                      <td>{item.categoria}</td>
+                      <td>$ {Number(item.precio || 0).toLocaleString('es-UY')}</td>
+                      <td><Tag variant={item.activo ? 'success' : 'warning'}>{item.activo ? 'Activo' : 'Inactivo'}</Tag></td>
+                      <td>{formatDate(item.updatedAt)}</td>
+                      <td>
+                        <div className="toolbar">
+                          <Button
+                            variant="ghost"
+                            icon={<Edit3 size={15} />}
+                            onClick={() => setProductDraft({
+                              id: item.id,
+                              nombre: item.nombre,
+                              categoria: item.categoria,
+                              precio: String(item.precio),
+                              descripcion: item.descripcion || '',
+                              activo: !!item.activo,
+                              disponible_venta: item.disponible_venta !== false
+                            })}
+                          >
+                            Editar
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+          <Panel className="span-4" title={productDraft.id ? 'Editar producto' : 'Crear producto'} subtitle="Formulario">
+            <div className="list">
+              <input className="input" placeholder="Nombre" value={productDraft.nombre} onChange={(event) => setProductDraft((prev) => ({ ...prev, nombre: event.target.value }))} />
+              <input className="input" placeholder="Categoría" value={productDraft.categoria} onChange={(event) => setProductDraft((prev) => ({ ...prev, categoria: event.target.value }))} />
+              <input className="input" placeholder="Precio / Cuota" value={productDraft.precio} onChange={(event) => setProductDraft((prev) => ({ ...prev, precio: event.target.value }))} />
+              <textarea className="input" rows="3" placeholder="Descripción" value={productDraft.descripcion} onChange={(event) => setProductDraft((prev) => ({ ...prev, descripcion: event.target.value }))} />
+              <ToggleSwitch label="Disponible para venta" checked={!!productDraft.disponible_venta} onChange={() => setProductDraft((p) => ({ ...p, disponible_venta: !p.disponible_venta }))} />
+              <ToggleSwitch label="Activo" checked={!!productDraft.activo} onChange={() => setProductDraft((p) => ({ ...p, activo: !p.activo }))} />
+              <Button icon={<CheckCircle2 size={16} />} onClick={saveProduct}>{productDraft.id ? 'Guardar' : 'Crear'}</Button>
+            </div>
+          </Panel>
+        </section>
+      </div>
+    );
   }
 
   if (route === 'sa_usuarios') {

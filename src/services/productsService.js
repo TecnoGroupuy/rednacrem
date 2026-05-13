@@ -11,6 +11,7 @@ const normalizeProduct = (item = {}) => ({
   observaciones: item.observaciones || item.notes || '',
   precio: Number(item.precio ?? item.price ?? 0),
   activo: item.activo !== false,
+  disponible_venta: item.disponible_venta !== false,
   createdAt: item.createdAt || item.created_at || null,
   updatedAt: item.updatedAt || item.updated_at || null
 });
