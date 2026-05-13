@@ -10323,12 +10323,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             <td className="col-fecha">{(row.fechaAlta || row.fechaVenta)
               ? formatDate(row.fechaAlta || row.fechaVenta)
               : (formatDateShort(row.createdAt) || 'Sin dato')}</td>
-            <td className="col-producto">{row.product || 'Sin dato'}</td>
-            <td className="col-cuota">{row.fee || 'Sin dato'}</td>
+            <td className="col-producto"><span className="client-product">{row.product || 'Sin dato'}</span></td>
+            <td className="col-cuota"><span className="client-fee">{row.fee || 'Sin dato'}</span></td>
             <td className="col-estado">
               {['Al día', 'Al dia'].includes(row.status) ? (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '4px 10px', borderRadius: 999, background: 'rgba(16,185,129,0.12)', color: '#047857', border: '1px solid rgba(16,185,129,0.35)', fontSize: 12, fontWeight: 700 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 999, background: '#10b981', display: 'inline-block' }} />
+                <span className="status-pill status-pill--active">
+                  <span className="status-dot" />
                   Activo
                 </span>
               ) : (
@@ -10336,10 +10336,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               )}
             </td>
             <td className="col-accion">
-              <div className="toolbar">
-                <Button variant="ghost" icon={<Eye size={16} />} onClick={() => handleViewFicha(row.id)}>Ver ficha</Button>
+              <div className="clients-actions">
+                <Button className="clients-action-btn" variant="ghost" icon={<Eye size={15} />} onClick={() => handleViewFicha(row.id)}>Ver ficha</Button>
                 {viewerRole === 'superadministrador' ? (
-                  <Button variant="ghost" icon={<Trash2 size={16} />} onClick={() => handleDeleteClient(row.id, row.name)}>Eliminar</Button>
+                  <Button className="clients-action-btn clients-action-btn--danger" variant="ghost" icon={<Trash2 size={15} />} onClick={() => handleDeleteClient(row.id, row.name)}>Eliminar</Button>
                 ) : null}
               </div>
             </td>
@@ -10349,56 +10349,60 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
       return (
         <div className="view clients-view">
-          <section className="metrics-grid">
-            {clientMetrics.map((item) => <MetricCard key={item.title} item={item} />)}
-          </section>
-          <section className="content-grid">
-            <Panel className="span-12" title="Clientes" subtitle="Gestión de cartera activa">
-              <div className="toolbar clients-toolbar" style={{ marginBottom: 16 }}>
-                <input
-                  className="input"
-                  style={{ maxWidth: 280 }}
-                  placeholder="Buscar cliente..."
-                  value={clientSearch}
-                  onChange={(event) => setClientSearch(event.target.value)}
-                />
-                <Button icon={<Plus size={18} />} onClick={() => handleOpenNewClient()}>Nuevo cliente</Button>
-              </div>
-              <div className="table-wrap clients-table-wrap">
-                <table className="clients-table">
-                  <colgroup>
-                    <col className="col-cliente" />
-                    <col className="col-fecha" />
-                    <col className="col-producto" />
-                    <col className="col-cuota" />
-                    <col className="col-estado" />
-                    <col className="col-accion" />
-                  </colgroup>
-                  <thead>
-                    <tr>
-                      <th className="col-cliente">Cliente</th>
-                      <th className="col-fecha">Fecha de alta</th>
-                      <th className="col-producto">Producto</th>
-                      <th className="col-cuota">Cuota</th>
-                      <th className="col-estado">Estado</th>
-                      <th className="col-accion">Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody>{renderClientRows()}</tbody>
-                </table>
-              </div>
-              <div className="toolbar" style={{ justifyContent: 'space-between', marginTop: 12 }}>
-                <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>
-                  Mostrando {filteredClients.length} de {clientTotal || 0}
+          <div className="clients-container">
+            <section className="metrics-grid">
+              {clientMetrics.map((item) => <MetricCard key={item.title} item={item} />)}
+            </section>
+            <section className="content-grid">
+              <Panel className="span-12" title="Clientes" subtitle="Gestión de cartera activa">
+                <div className="clients-headerbar">
+                  <div className="clients-search">
+                    <Search size={16} className="clients-search-icon" />
+                    <input
+                      className="clients-search-input"
+                      placeholder="Buscar cliente..."
+                      value={clientSearch}
+                      onChange={(event) => setClientSearch(event.target.value)}
+                    />
+                  </div>
+                  <Button className="clients-new-btn" icon={<Plus size={18} />} onClick={() => handleOpenNewClient()}>Nuevo cliente</Button>
                 </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <Button variant="ghost" disabled={clientPage <= 1} onClick={() => setClientPage((prev) => Math.max(1, prev - 1))}>Anterior</Button>
-                  <div style={{ fontWeight: 600 }}>Página {clientPage} de {totalPages}</div>
-                  <Button variant="ghost" disabled={clientPage >= totalPages} onClick={() => setClientPage((prev) => Math.min(totalPages, prev + 1))}>Siguiente</Button>
+                <div className="table-wrap clients-table-wrap">
+                  <table className="clients-table">
+                    <colgroup>
+                      <col className="col-cliente" />
+                      <col className="col-fecha" />
+                      <col className="col-producto" />
+                      <col className="col-cuota" />
+                      <col className="col-estado" />
+                      <col className="col-accion" />
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th className="col-cliente">Cliente</th>
+                        <th className="col-fecha">Fecha de alta</th>
+                        <th className="col-producto">Producto</th>
+                        <th className="col-cuota">Cuota</th>
+                        <th className="col-estado">Estado</th>
+                        <th className="col-accion">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>{renderClientRows()}</tbody>
+                  </table>
                 </div>
-              </div>
-            </Panel>
-          </section>
+                <div className="toolbar" style={{ justifyContent: 'space-between', marginTop: 12 }}>
+                  <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>
+                    Mostrando {filteredClients.length} de {clientTotal || 0}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <Button variant="ghost" disabled={clientPage <= 1} onClick={() => setClientPage((prev) => Math.max(1, prev - 1))}>Anterior</Button>
+                    <div style={{ fontWeight: 600 }}>Página {clientPage} de {totalPages}</div>
+                    <Button variant="ghost" disabled={clientPage >= totalPages} onClick={() => setClientPage((prev) => Math.min(totalPages, prev + 1))}>Siguiente</Button>
+                  </div>
+                </div>
+              </Panel>
+            </section>
+          </div>
           <ClienteFichaForm
             open={Boolean(selectedClient)}
             client={selectedClient}
