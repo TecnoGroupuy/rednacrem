@@ -184,12 +184,15 @@ export default function SuperadminWorkbench({
   });
   const [diffTab, setDiffTab] = React.useState('alta_bd_baja_csv');
 
-  const [productDraft, setProductDraft] = React.useState({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', activo: true, disponible_venta: true });
+  const [productDraft, setProductDraft] = React.useState({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', activo: true, disponible_venta: true, coberturas: [] });
+
+  // Initialize from product.coberturas when form opens
+  const existingCoberturas = productDraft?.coberturas || [];
   const [selectedPredefined, setSelectedPredefined] = useState(
-    (productDraft.coberturas || []).filter(c => COBERTURAS_PREDEFINIDAS.includes(c))
+    existingCoberturas.filter(c => COBERTURAS_PREDEFINIDAS.includes(c))
   );
   const [customItems, setCustomItems] = useState(
-    (productDraft.coberturas || []).filter(c => !COBERTURAS_PREDEFINIDAS.includes(c))
+    existingCoberturas.filter(c => !COBERTURAS_PREDEFINIDAS.includes(c))
   );
   const coberturas = [...selectedPredefined, ...customItems.filter(Boolean)];
   const [showProductForm, setShowProductForm] = React.useState(false);
@@ -215,6 +218,13 @@ export default function SuperadminWorkbench({
     setPreviewError('');
     setPreviewLoading(false);
   }, []);
+
+  React.useEffect(() => {
+    if (!showProductForm) return;
+    const nextExisting = Array.isArray(productDraft?.coberturas) ? productDraft.coberturas : [];
+    setSelectedPredefined(nextExisting.filter(c => COBERTURAS_PREDEFINIDAS.includes(c)));
+    setCustomItems(nextExisting.filter(c => !COBERTURAS_PREDEFINIDAS.includes(c)));
+  }, [showProductForm, productDraft?.id]);
 
   const openDiffFilePicker = React.useCallback(() => {
     const input = document.createElement('input');
@@ -789,7 +799,7 @@ export default function SuperadminWorkbench({
       const created = await createProduct(payload);
       logActivityEvent({ entidad: 'producto', entidadId: created.id, tipo: 'alta', descripcion: 'Producto creado: ' + created.nombre, usuarioId: 'usr-001' });
     }
-    setProductDraft({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', activo: true, disponible_venta: true });
+    setProductDraft({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', activo: true, disponible_venta: true, coberturas: [] });
     setSelectedPredefined([]);
     setCustomItems([]);
     await loadProducts();
@@ -1598,7 +1608,7 @@ export default function SuperadminWorkbench({
                 <Button
                   icon={<Plus size={16} />}
                   onClick={() => {
-                    setProductDraft({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', activo: true, disponible_venta: true });
+                    setProductDraft({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', activo: true, disponible_venta: true, coberturas: [] });
                     setSelectedPredefined([]);
                     setCustomItems([]);
                     setShowProductForm(true);
@@ -1680,11 +1690,9 @@ export default function SuperadminWorkbench({
                                 precio: String(item.precio),
                                 descripcion: item.descripcion || '',
                                 activo: item.activo !== false,
-                                disponible_venta: item.disponible_venta !== false
+                                disponible_venta: item.disponible_venta !== false,
+                                coberturas: Array.isArray(item.coberturas) ? item.coberturas : []
                               });
-                              const coberturasProducto = Array.isArray(item.coberturas) ? item.coberturas : [];
-                              setSelectedPredefined(coberturasProducto.filter(c => COBERTURAS_PREDEFINIDAS.includes(c)));
-                              setCustomItems(coberturasProducto.filter(c => !COBERTURAS_PREDEFINIDAS.includes(c)));
                               setShowProductForm(true);
                             }}
                           >
@@ -1778,7 +1786,7 @@ export default function SuperadminWorkbench({
                     variant="ghost"
                     onClick={() => {
                       setShowProductForm(false);
-                      setProductDraft({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', activo: true, disponible_venta: true });
+                      setProductDraft({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', activo: true, disponible_venta: true, coberturas: [] });
                       setSelectedPredefined([]);
                       setCustomItems([]);
                     }}
