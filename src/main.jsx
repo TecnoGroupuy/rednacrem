@@ -9813,6 +9813,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         const [newClientError, setNewClientError] = React.useState('');
         const [newClientSaving, setNewClientSaving] = React.useState(false);
         const [newClientStep, setNewClientStep] = React.useState(0);
+        const [paymentMethods, setPaymentMethods] = React.useState([]);
+        const [paymentMethodsLoading, setPaymentMethodsLoading] = React.useState(false);
+        const [paymentMethodsError, setPaymentMethodsError] = React.useState('');
         const [newClientDraft, setNewClientDraft] = React.useState({
           contact: {
             nombre: '',
@@ -9832,10 +9835,56 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           sale: {
             mode: 'logged',
             externalName: '',
-            medioPago: 'debito'
+            paymentMethodId: '',
+            medioPago: ''
           }
         });
         const [isCompactForm, setIsCompactForm] = React.useState(window.innerWidth < 768);
+
+      React.useEffect(() => {
+        if (!newClientOpen) return;
+        let cancelled = false;
+        const api = getApiClient();
+        setPaymentMethodsLoading(true);
+        setPaymentMethodsError('');
+        api.get('/payment-methods')
+          .then((res) => {
+            const rawItems = Array.isArray(res?.items)
+              ? res.items
+              : (Array.isArray(res) ? res : (Array.isArray(res?.data?.items) ? res.data.items : []));
+            const items = rawItems
+              .map((pm) => ({
+                id: pm?.id || pm?.payment_method_id || '',
+                nombre: pm?.nombre || pm?.name || ''
+              }))
+              .filter((pm) => pm.id && pm.nombre);
+            if (cancelled) return;
+            setPaymentMethods(items);
+            setNewClientDraft((prev) => {
+              if (prev?.sale?.paymentMethodId) return prev;
+              const first = items[0];
+              if (!first) return prev;
+              return {
+                ...prev,
+                sale: {
+                  ...prev.sale,
+                  paymentMethodId: first.id,
+                  medioPago: first.nombre
+                }
+              };
+            });
+          })
+          .catch(() => {
+            if (cancelled) return;
+            setPaymentMethods([]);
+            setPaymentMethodsError('No se pudo cargar los medios de pago.');
+          })
+          .finally(() => {
+            if (cancelled) return;
+            setPaymentMethodsLoading(false);
+          });
+        return () => { cancelled = true; };
+      }, [newClientOpen]);
 
       React.useEffect(() => {
         let canceled = false;
@@ -10035,7 +10084,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             sale: {
               mode: 'logged',
               externalName: '',
-              medioPago: 'debito'
+              paymentMethodId: '',
+              medioPago: ''
             }
           });
           setNewClientError('');
@@ -10069,6 +10119,11 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             setNewClientStep(2);
             return;
           }
+
+          const selectedPaymentMethodId = String(newClientDraft.sale?.paymentMethodId || '').trim();
+          const selectedPaymentMethod = paymentMethods.find((pm) => String(pm.id) === selectedPaymentMethodId);
+          const selectedPaymentMethodName = String(selectedPaymentMethod?.nombre || newClientDraft.sale?.medioPago || '').trim();
+
         const contactPayload = {
           ...newClientDraft.contact,
           fechaNacimiento: newClientDraft.contact.fechaNacimiento || newClientDraft.contact.fecha_nacimiento || '',
@@ -10095,8 +10150,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             nombre_producto: product.nombre || product.nombreProducto || product.nombre_producto,
               plan: product.plan || product.categoria || 'Plan estándar',
               precio: product.precio,
-              medioPago: normalizePaymentMethod(newClientDraft.sale?.medioPago || product.medioPago || product.medio_pago || 'debito'),
-              medio_pago: normalizePaymentMethod(newClientDraft.sale?.medioPago || product.medioPago || product.medio_pago || 'debito'),
+              payment_method_id: selectedPaymentMethodId || undefined,
+              medio_pago: selectedPaymentMethodName || undefined,
               fechaAlta: new Date().toISOString().slice(0, 10),
               estado: 'alta',
               sellerName: saleName || loggedName || 'Usuario'
@@ -10206,12 +10261,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           setNewClientError('');
         };
 
-        const handleSalePaymentChange = (value) => {
+        const handleSalePaymentChange = (paymentMethodId) => {
+          const selected = paymentMethods.find((pm) => String(pm.id) === String(paymentMethodId));
           setNewClientDraft((prev) => ({
             ...prev,
             sale: {
               ...prev.sale,
-              medioPago: normalizePaymentMethod(value)
+              paymentMethodId,
+              medioPago: selected?.nombre || prev.sale?.medioPago || ''
             }
           }));
           setNewClientError('');
@@ -10591,7 +10648,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       }}>
                         <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#64748b' }}>Medio de pago</div>
                         <select
-                          value={newClientDraft.sale.medioPago}
+                          value={newClientDraft.sale.paymentMethodId || ''}
                           onChange={(event) => handleSalePaymentChange(event.target.value)}
                           style={{
                             width: '100%',
@@ -10601,29 +10658,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                             background: '#fff'
                           }}
                         >
-                          {[
-                            { value: 'abitab', label: 'ABITAB' },
-                            { value: 'ajupen', label: 'AJUPEN' },
-                            { value: 'ajupen_anp', label: 'AJUPEN ANP' },
-                            { value: 'anjuped', label: 'ANJUPED' },
-                            { value: 'antel', label: 'ANTEL' },
-                            { value: 'cabal', label: 'Cabal' },
-                            { value: 'creditel', label: 'Creditel' },
-                            { value: 'credito', label: 'Crédito' },
-                            { value: 'debito', label: 'Débito' },
-                            { value: 'efectivo', label: 'Efectivo' },
-                            { value: 'master', label: 'MASTER' },
-                            { value: 'mastercard', label: 'MASTERCARD' },
-                            { value: 'mercado_pago', label: 'Mercado Pago' },
-                            { value: 'mi_dinero', label: 'Mi dinero' },
-                            { value: 'oca', label: 'OCA' },
-                            { value: 'pass_card', label: 'PASS CARD' },
-                            { value: 'transferencia', label: 'Transferencia' },
-                            { value: 'visa', label: 'VISA' }
-                          ].map((option) => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
+                          {paymentMethodsLoading ? <option value="">Cargando...</option> : null}
+                          {!paymentMethodsLoading && paymentMethods.length === 0 ? <option value="">Sin medios</option> : null}
+                          {paymentMethods.map((pm) => (
+                            <option key={pm.id} value={pm.id}>{pm.nombre}</option>
                           ))}
                         </select>
+                        {paymentMethodsError ? <div style={{ fontSize: 12, color: '#b91c1c' }}>{paymentMethodsError}</div> : null}
                       </div>
                     </div>
                     {newClientError ? (
@@ -10700,6 +10741,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
       const [newClientError, setNewClientError] = React.useState('');
       const [newClientSaving, setNewClientSaving] = React.useState(false);
       const [newClientStep, setNewClientStep] = React.useState(0);
+      const [paymentMethods, setPaymentMethods] = React.useState([]);
+      const [paymentMethodsLoading, setPaymentMethodsLoading] = React.useState(false);
+      const [paymentMethodsError, setPaymentMethodsError] = React.useState('');
       const [familiarSuggestions, setFamiliarSuggestions] = React.useState([]);
       const [loadingSuggestions, setLoadingSuggestions] = React.useState(false);
       const fetchFamiliarSuggestions = React.useCallback(async () => {
@@ -10747,10 +10791,44 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         familiares: [],
         productsByContact: {},
         sale: {
-          medioPago: 'debito',
+          paymentMethodId: '',
+          medioPago: '',
           cobranzaDocumento: ''
         }
       });
+
+      React.useEffect(() => {
+        let cancelled = false;
+        setPaymentMethodsLoading(true);
+        setPaymentMethodsError('');
+        api.get('/payment-methods')
+          .then((res) => {
+            const rawItems = Array.isArray(res?.items)
+              ? res.items
+              : (Array.isArray(res) ? res : (Array.isArray(res?.data?.items) ? res.data.items : []));
+            const items = rawItems
+              .map((pm) => ({ id: pm?.id || pm?.payment_method_id || '', nombre: pm?.nombre || pm?.name || '' }))
+              .filter((pm) => pm.id && pm.nombre);
+            if (cancelled) return;
+            setPaymentMethods(items);
+            setNewClientDraft((prev) => {
+              if (prev?.sale?.paymentMethodId) return prev;
+              const first = items[0];
+              if (!first) return prev;
+              return { ...prev, sale: { ...prev.sale, paymentMethodId: first.id, medioPago: first.nombre } };
+            });
+          })
+          .catch(() => {
+            if (cancelled) return;
+            setPaymentMethods([]);
+            setPaymentMethodsError('No se pudo cargar los medios de pago.');
+          })
+          .finally(() => {
+            if (cancelled) return;
+            setPaymentMethodsLoading(false);
+          });
+        return () => { cancelled = true; };
+      }, []);
 
       React.useEffect(() => {
         if (!draft) return;
@@ -10855,12 +10933,14 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         setNewClientError('');
       };
 
-      const handleSalePaymentChange = (value) => {
+      const handleSalePaymentChange = (paymentMethodId) => {
+        const selected = paymentMethods.find((pm) => String(pm.id) === String(paymentMethodId));
         setNewClientDraft((prev) => ({
           ...prev,
           sale: {
             ...prev.sale,
-            medioPago: normalizePaymentMethod(value)
+            paymentMethodId,
+            medioPago: selected?.nombre || prev.sale?.medioPago || ''
           }
         }));
         setNewClientError('');
@@ -10890,6 +10970,9 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           setNewClientStep(2);
           return;
         }
+        const selectedPaymentMethodId = String(newClientDraft.sale?.paymentMethodId || '').trim();
+        const selectedPaymentMethod = paymentMethods.find((pm) => String(pm.id) === selectedPaymentMethodId);
+        const selectedPaymentMethodName = String(selectedPaymentMethod?.nombre || newClientDraft.sale?.medioPago || '').trim();
         const contactPayload = {
           ...newClientDraft.contact,
           fechaNacimiento: newClientDraft.contact.fechaNacimiento || newClientDraft.contact.fecha_nacimiento || '',
@@ -10903,8 +10986,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             nombre_producto: product.nombre || product.nombreProducto || product.nombre_producto,
             plan: product.plan || product.categoria || 'Plan estándar',
             precio: product.precio,
-            medioPago: normalizePaymentMethod(newClientDraft.sale?.medioPago || product.medioPago || product.medio_pago || 'debito'),
-            medio_pago: normalizePaymentMethod(newClientDraft.sale?.medioPago || product.medioPago || product.medio_pago || 'debito'),
+            payment_method_id: selectedPaymentMethodId || undefined,
+            medio_pago: selectedPaymentMethodName || undefined,
             fechaAlta: new Date().toISOString().slice(0, 10),
             estado: 'alta',
             sellerName: saleName
@@ -10921,7 +11004,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
             fechaNacimiento: fam.fechaNacimiento || fam.fecha_nacimiento || newClientDraft.contact.fecha_nacimiento || ''
           },
           products: [buildProductPayload(newClientDraft.productsByContact[fam.id])].filter(Boolean),
-          medioPago: normalizePaymentMethod(newClientDraft.sale?.medioPago || 'debito')
+          payment_method_id: selectedPaymentMethodId || undefined,
+          medio_pago: selectedPaymentMethodName || undefined
         }));
         const principalContactId = newClientDraft.contact.principal_contact_id
           || newClientDraft.contact.contact_id
@@ -10935,7 +11019,8 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
           principal_contact_id: principalContactId,
           contact: contactPayload,
           products: principalProduct ? [principalProduct] : [],
-          medioPago: normalizePaymentMethod(newClientDraft.sale?.medioPago || 'debito'),
+          payment_method_id: selectedPaymentMethodId || undefined,
+          medio_pago: selectedPaymentMethodName || undefined,
           cobranza_documento: String(newClientDraft.sale?.cobranzaDocumento || '').trim() || undefined,
           familySales,
           gestion_id: gestion_id ?? null
@@ -11261,7 +11346,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     }}>
                       <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#64748b' }}>Medio de pago</div>
                       <select
-                        value={newClientDraft.sale.medioPago}
+                        value={newClientDraft.sale.paymentMethodId || ''}
                         onChange={(event) => handleSalePaymentChange(event.target.value)}
                         style={{
                           width: '100%',
@@ -11271,29 +11356,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                           background: '#fff'
                         }}
                       >
-                        {[
-                          { value: 'abitab', label: 'ABITAB' },
-                          { value: 'ajupen', label: 'AJUPEN' },
-                          { value: 'ajupen_anp', label: 'AJUPEN ANP' },
-                          { value: 'anjuped', label: 'ANJUPED' },
-                          { value: 'antel', label: 'ANTEL' },
-                          { value: 'cabal', label: 'Cabal' },
-                          { value: 'creditel', label: 'Creditel' },
-                          { value: 'credito', label: 'Crédito' },
-                          { value: 'debito', label: 'Débito' },
-                          { value: 'efectivo', label: 'Efectivo' },
-                          { value: 'master', label: 'MASTER' },
-                          { value: 'mastercard', label: 'MASTERCARD' },
-                          { value: 'mercado_pago', label: 'Mercado Pago' },
-                          { value: 'mi_dinero', label: 'Mi dinero' },
-                          { value: 'oca', label: 'OCA' },
-                          { value: 'pass_card', label: 'PASS CARD' },
-                          { value: 'transferencia', label: 'Transferencia' },
-                          { value: 'visa', label: 'VISA' }
-                        ].map((option) => (
-                          <option key={option.value} value={option.value}>{option.label}</option>
+                        {paymentMethodsLoading ? <option value="">Cargando...</option> : null}
+                        {!paymentMethodsLoading && paymentMethods.length === 0 ? <option value="">Sin medios</option> : null}
+                        {paymentMethods.map((pm) => (
+                          <option key={pm.id} value={pm.id}>{pm.nombre}</option>
                         ))}
                       </select>
+                      {paymentMethodsError ? <div style={{ fontSize: 12, color: '#b91c1c' }}>{paymentMethodsError}</div> : null}
                     </div>
                     <label style={{ fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1 }}>
                       Cédula de identidad de cobranza
