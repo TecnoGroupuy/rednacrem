@@ -1,5 +1,5 @@
 ﻿import React from 'react';
-import { Plus, Edit3, X, Loader2, ChevronRight, TrendingUp, Phone, ShoppingBag, UserX } from 'lucide-react';
+import { Plus, Edit3, X, Loader2, ChevronRight, TrendingUp, Phone, ShoppingBag, UserX, BarChart2 } from 'lucide-react';
 import { getApiClient } from '../services/apiClient.js';
 
 const DEFAULT_DRAFT = {
@@ -364,23 +364,25 @@ export default function EquipoVentaModule({
               </div>
 
               <div style={{ flex: 1, overflowY: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  {[
-                    { label: 'Ventas hoy', value: selectedVendedor.stats?.sales ?? 0, color: '#15803d' },
-                    { label: 'Contactos hoy', value: selectedVendedor.stats?.calls ?? 0, color: 'var(--text)' },
-                    { label: 'Efectividad', value: `${selectedVendedor.stats?.conversion ?? 0}%`, color: '#2563eb' },
-                    { label: 'Pausas', value: selectedVendedor.stats?.pausesCount ?? 0, color: 'var(--muted)' }
-                  ].map((item) => (
-                    <div key={item.label} style={{
-                      padding: '14px 16px', borderRadius: 12,
-                      border: '1px solid var(--line)',
-                      background: 'var(--surface)'
-                    }}>
-                      <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>{item.label}</div>
-                      <div style={{ fontSize: 24, fontWeight: 700, color: item.color }}>{item.value}</div>
-                    </div>
-                  ))}
-                </div>
+                {selectedVendedor?.status !== 'baja' && selectedVendedor?.status !== 'inactive' && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    {[
+                      { label: 'Ventas hoy', value: selectedVendedor.stats?.sales ?? 0, color: '#15803d' },
+                      { label: 'Contactos hoy', value: selectedVendedor.stats?.calls ?? 0, color: 'var(--text)' },
+                      { label: 'Efectividad', value: `${selectedVendedor.stats?.conversion ?? 0}%`, color: '#2563eb' },
+                      { label: 'Pausas', value: selectedVendedor.stats?.pausesCount ?? 0, color: 'var(--muted)' }
+                    ].map((item) => (
+                      <div key={item.label} style={{
+                        padding: '14px 16px', borderRadius: 12,
+                        border: '1px solid var(--line)',
+                        background: 'var(--surface)'
+                      }}>
+                        <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>{item.label}</div>
+                        <div style={{ fontSize: 24, fontWeight: 700, color: item.color }}>{item.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <div style={{ borderRadius: 12, border: '1px solid var(--line)', overflow: 'hidden' }}>
                   {[
@@ -413,6 +415,33 @@ export default function EquipoVentaModule({
                     }}
                   >
                     Editar vendedor
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    icon={<BarChart2 size={14} />}
+                    onClick={async () => {
+                      setDesactivarModal({
+                        id: selectedVendedor.id,
+                        nombre: `${selectedVendedor.nombre || ''} ${selectedVendedor.apellido || ''}`.trim()
+                      });
+                      setDesactivarStep('analisis');
+                      setDesactivarLoading(true);
+                      setDesactivarError('');
+                      try {
+                        const api = getApiClient();
+                        const params = new URLSearchParams({ seller_id: String(selectedVendedor.id) });
+                        if (activeOrgId) params.set('organization_id', String(activeOrgId));
+                        const res = await api.get(`/api/supervisor/seller-detail?${params.toString()}`);
+                        const payload = res?.data ?? res;
+                        setDesactivarData(payload?.data ?? payload);
+                      } catch (err) {
+                        setDesactivarError('No se pudo cargar el análisis.');
+                      } finally {
+                        setDesactivarLoading(false);
+                      }
+                    }}
+                  >
+                    Ver análisis de desempeño
                   </Button>
                   {selectedVendedor?.status !== 'baja' && selectedVendedor?.status !== 'inactive' && (
                     <Button
