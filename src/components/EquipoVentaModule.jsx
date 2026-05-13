@@ -599,7 +599,9 @@ export default function EquipoVentaModule({
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 2 }}>
                   {desactivarStep === 'analisis'
-                    ? 'Revisá el historial completo antes de desactivar'
+                    ? (desactivarModal && vendedores.find((v) => v.id === desactivarModal.id)?.status === 'baja'
+                      ? 'Historial de gestiones'
+                      : 'Revisá el historial completo antes de desactivar')
                     : 'Esta acción no se puede deshacer'}
                 </div>
               </div>
@@ -669,13 +671,19 @@ export default function EquipoVentaModule({
                       ) : null}
 
                       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
-                        <Button variant="secondary" onClick={() => setDesactivarModal(null)}>Cancelar</Button>
-                        <Button
-                          onClick={() => setDesactivarStep('confirmar')}
-                          style={{ background: '#993C1D', color: '#fff', border: 'none' }}
-                        >
-                          Continuar con desactivación
-                        </Button>
+                        <Button variant="secondary" onClick={() => setDesactivarModal(null)}>Cerrar</Button>
+                        {desactivarModal &&
+                          (() => {
+                            const vendedor = vendedores.find((v) => v.id === desactivarModal.id);
+                            return vendedor?.status !== 'baja' && vendedor?.status !== 'inactive';
+                          })() && (
+                          <Button
+                            onClick={() => setDesactivarStep('confirmar')}
+                            style={{ background: '#993C1D', color: '#fff', border: 'none' }}
+                          >
+                            Continuar con desactivación
+                          </Button>
+                        )}
                       </div>
                     </>
                   );
