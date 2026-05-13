@@ -5073,14 +5073,13 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                     <thead>
                       <tr>
                         <th>Fecha y hora</th>
-                        <th>Contacto</th><th>Origen</th><th>F. Ingreso</th><th>Teléfono</th><th>Intentos</th><th>Nota</th><th>Estado</th>
+                        <th>Contacto</th><th>Origen</th><th>F. Ingreso</th><th>Intentos</th><th>Nota</th><th>Asignación</th><th>Estado</th>
                       </tr>
                     </thead>
                     <tbody>
                       {seguimientos.map((row) => {
                         const fechaDt = row.fecha_agenda ? new Date(row.fecha_agenda) : null;
                         const vencida = fechaDt && fechaDt < ahora;
-                        const telefono = row.celular || row.telefono || '';
                         const intentos = row.intentos || 0;
                         const intentosMeta = intentos >= 3
                           ? { bg: '#FDECEA', color: '#E53E3E', label: `${intentos} intentos` }
@@ -5111,16 +5110,29 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                                 : '—'}
                             </td>
                             <td>
-                              {telefono
-                                ? <a href={`tel:${telefono.replace(/\s/g, '')}`} onClick={(e) => e.stopPropagation()} style={{ color: '#1A5C4A', fontWeight: 500 }}>{telefono}</a>
-                                : '—'}
-                            </td>
-                            <td>
                               <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 999, background: intentosMeta.bg, color: intentosMeta.color, fontSize: 12, fontWeight: 600 }}>
                                 {intentosMeta.label}
                               </span>
                             </td>
                             <td style={{ color: notaText ? '#888' : '#ccc', fontSize: 13 }}>{notaText || '—'}</td>
+                            <td>
+                              {row.reasignado_desde ? (
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4,
+                                  fontSize: 11,
+                                  fontWeight: 500,
+                                  padding: '3px 8px',
+                                  borderRadius: 20,
+                                  background: '#E6F1FB',
+                                  color: '#185FA5',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  ↗ {row.reasignado_desde.replace('Contacto reasignado desde ', '')}
+                                </span>
+                              ) : '—'}
+                            </td>
                             <td>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                                 <span style={{
