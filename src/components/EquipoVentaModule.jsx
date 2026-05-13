@@ -45,12 +45,13 @@ export default function EquipoVentaModule({
 
   const canManage = ['supervisor', 'director', 'superadministrador'].includes(userRole);
 
-  const loadVendedores = React.useCallback(async () => {
+  const loadVendedores = React.useCallback(async (inactivos = false) => {
     if (!activeOrgId) return;
     setLoading(true);
     try {
       const api = getApiClient();
-      const res = await api.get('/org/users?incluir_inactivos=true');
+      const url = inactivos ? '/org/users?incluir_inactivos=true' : '/org/users';
+      const res = await api.get(url);
       const items = res?.items || [];
       setVendedores(items);
     } catch (err) {
@@ -75,7 +76,7 @@ export default function EquipoVentaModule({
   }, [activeOrgId]);
 
   React.useEffect(() => {
-    loadVendedores();
+    loadVendedores(false);
   }, [loadVendedores]);
 
   React.useEffect(() => {
@@ -189,7 +190,11 @@ export default function EquipoVentaModule({
                       </p>
                     </div>
                     <button
-                      onClick={() => setMostrarInactivos((prev) => !prev)}
+                      onClick={() => {
+                        const nuevoEstado = !mostrarInactivos;
+                        setMostrarInactivos(nuevoEstado);
+                        loadVendedores(nuevoEstado);
+                      }}
                       style={{
                         fontSize: 12,
                         fontWeight: 500,
