@@ -2450,8 +2450,6 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               Object.entries(summaryWidgets).map(([tipo, widget]) => {
                 const label = TIPO_LABELS[tipo] || tipo;
                 const rows = (widget?.data || []).map(normalizeSummaryRow);
-                const maxGestiones = Math.max(...rows.map((r) => r.gestiones || 0), 1);
-                const totalGestiones = rows.reduce((acc, r) => acc + (r.gestiones || 0), 0);
 
                 return (
                   <Panel
@@ -2468,64 +2466,96 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                       partialText="Algunos datos no están disponibles"
                       onRetry={fetchAllSummary}
                     >
-                      <div className="table-wrap">
-                        <table>
-                          <thead>
-                            <tr>
-                              <th>Vendedor</th>
-                              <th>Ventas</th>
-                              <th>Seguimientos</th>
-                              <th>Rellamadas</th>
-                              <th>No contesta</th>
-                              <th>Rechazos</th>
-                              <th>Datos err.</th>
-                              <th>Contacto</th>
-                              <th>Efectividad</th>
-                              <th>Asignados</th>
-                              <th>Gestiones del día</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {rows.map((row, idx) => (
-                                <tr
-                                key={row.id || `${tipo}-${row.nombre}-${row.apellido}-${idx}`}
-                                onClick={() => setDetailAgent({
-                                  id: row.id,
-                                  nombre: row.name || row.nombre,
-                                  apellido: row.apellido
-                                })}
-                                style={{ cursor: 'pointer' }}
-                                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-background-secondary)'; }}
-                                onMouseLeave={(e) => { e.currentTarget.style.background = ''; }}
-                              >
-                                <td>
-                                  <div className="person">
-                                    <SellerAvatar nombre={row.nombre} apellido={row.apellido} />
-                                    <div>
-                                      <strong>{`${row.nombre || ''} ${row.apellido || ''}`.trim() || '—'}</strong>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td><SellerBadge value={row.gestiones_venta} styleFn={sellerVentasStyle} /></td>
-                                <td>{row.seguimientos}</td>
-                                <td>{row.rellamadas}</td>
-                                <td>{row.no_contesta}</td>
-                                <td><SellerBadge value={row.rechazos} styleFn={sellerRechazosStyle} /></td>
-                                <td>{row.datos_erroneos}</td>
-                                <td><SellerBadge value={row.contacto} styleFn={sellerPercentStyle} suffix="%" /></td>
-                                <td><SellerBadge value={row.efectividad} styleFn={sellerPercentStyle} suffix="%" /></td>
-                                <td>{row.asignados}</td>
-                                <td style={{ minWidth: 130 }}>
-                                  <SellerMiniBar value={row.gestiones} max={maxGestiones} />
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                      <div style={{ marginTop: 10, fontSize: 12, color: '#94a3b8', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-                        <span>{rows.length} vendedores</span>
-                        <span>Total gestiones: {totalGestiones}</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        {rows.map((row, idx) => {
+                          const key = row.id || `${tipo}-${row.nombre}-${row.apellido}-${idx}`;
+                          const nombre = String(row.nombre || row.name || '').trim();
+                          const apellido = String(row.apellido || '').trim();
+                          const asignados = Number(row.asignados ?? 0);
+                          const gestionesDelDia = Number(row.gestiones ?? 0);
+                          const sinGestion = asignados - gestionesDelDia;
+                          const openSellerReport = () => setDetailAgent({
+                            id: row.id,
+                            nombre: row.name || row.nombre,
+                            apellido: row.apellido
+                          });
+
+                          return (
+                            <div
+                              key={key}
+                              style={{
+                                background: 'var(--color-background-primary)',
+                                border: '0.5px solid var(--color-border-tertiary)',
+                                borderRadius: 12,
+                                padding: 12
+                              }}
+                            >
+                              <div className="table-wrap" style={{ margin: 0 }}>
+                                <table>
+                                  <thead>
+                                    <tr>
+                                      <th>Vendedor</th>
+                                      <th>Ventas</th>
+                                      <th>Seg.</th>
+                                      <th>Rellamar</th>
+                                      <th>No contesta</th>
+                                      <th>Rechazos</th>
+                                      <th>Datos err.</th>
+                                      <th>Contacto</th>
+                                      <th>Efectividad</th>
+                                      <th>Asignados</th>
+                                      <th>Gestiones</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    <tr
+                                      onClick={openSellerReport}
+                                      style={{ cursor: 'pointer' }}
+                                      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-background-secondary)'; }}
+                                      onMouseLeave={(e) => { e.currentTarget.style.background = ''; }}
+                                    >
+                                      <td>
+                                        <div className="person">
+                                          <SellerAvatar nombre={row.nombre} apellido={row.apellido} />
+                                          <div style={{ lineHeight: 1.15 }}>
+                                            <div style={{ fontWeight: 500, fontSize: 13, color: 'var(--color-text-primary)' }}>{nombre || '—'}</div>
+                                            <div style={{ fontSize: 12, color: 'var(--muted)' }}>{apellido || ' '}</div>
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td><SellerBadge value={row.gestiones_venta} styleFn={sellerVentasStyle} /></td>
+                                      <td>{row.seguimientos}</td>
+                                      <td>{row.rellamadas}</td>
+                                      <td>{row.no_contesta}</td>
+                                      <td><SellerBadge value={row.rechazos} styleFn={sellerRechazosStyle} /></td>
+                                      <td>{row.datos_erroneos}</td>
+                                      <td><SellerBadge value={row.contacto} styleFn={sellerPercentStyle} suffix="%" /></td>
+                                      <td><SellerBadge value={row.efectividad} styleFn={sellerPercentStyle} suffix="%" /></td>
+                                      <td>{row.asignados}</td>
+                                      <td>{gestionesDelDia}</td>
+                                    </tr>
+                                  </tbody>
+                                </table>
+                              </div>
+
+                              <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                                <span style={{ fontSize: 12, color: '#94a3b8' }}>Total gestiones: {gestionesDelDia}</span>
+                                <span style={{ width: 1, height: 16, background: 'rgba(20,34,53,0.18)' }} />
+                                <span style={{ fontSize: 12, color: '#854F0B', fontWeight: 600 }}>Sin gestión: {sinGestion}</span>
+                                <button
+                                  type="button"
+                                  className="button secondary"
+                                  onClick={openSellerReport}
+                                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+                                >
+                                  <FileText size={16} />
+                                  Ver informe
+                                  <ChevronRight size={16} />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </WidgetContainer>
                   </Panel>
