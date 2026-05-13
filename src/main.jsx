@@ -5068,122 +5068,157 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
                   <p style={{ fontSize: 12, margin: '4px 0 0 0' }}>Cuando agendés un seguimiento aparecerá acá</p>
                 </div>
               ) : (
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Fecha y hora</th>
-                        <th>Contacto</th><th>Origen</th><th>F. Ingreso</th><th>Intentos</th><th>Nota</th><th>Asignación</th><th>Estado</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {seguimientos.map((row) => {
-                        const fechaDt = row.fecha_agenda ? new Date(row.fecha_agenda) : null;
-                        const vencida = fechaDt && fechaDt < ahora;
-                        const intentos = row.intentos || 0;
-                        const intentosMeta = intentos >= 3
-                          ? { bg: '#FDECEA', color: '#E53E3E', label: `${intentos} intentos` }
-                          : intentos === 2
-                          ? { bg: 'rgba(245,166,35,0.15)', color: '#F5A623', label: `${intentos} intentos` }
-                          : { bg: 'rgba(158,158,158,0.12)', color: '#9E9E9E', label: `${intentos} intentos` };
-                        const notaText = row.nota ? (row.nota.length > 40 ? row.nota.slice(0, 40) + '"…' : row.nota) : null;
-                        const tipoAgenda = row.tipo_agenda || row.estado_venta;
-                        return (
-                          <tr
-                            key={row.id}
-                            onClick={() => abrirDrawer(row)}
-                            style={{ cursor: 'pointer', background: vencida ? '#FFF8E1' : undefined }}
-                          >
-                            <td>
-                              <div style={{ color: vencida ? '#E53E3E' : undefined, fontWeight: vencida ? 600 : undefined }}>
-                                {fechaDt ? fmtFechaHora(row.fecha_agenda) : '—'}
-                              </div>
-                              {vencida && (
-                                <span style={{ display: 'inline-block', marginTop: 2, fontSize: 10, fontWeight: 700, background: '#E53E3E', color: '#fff', borderRadius: 4, padding: '1px 6px' }}>Vencida</span>
-                              )}
-                            </td>
-                            <td><strong>{[row.nombre, row.apellido].filter(Boolean).join(' ') || '—'}</strong></td>
-                            <td style={{ color: '#475569', fontSize: 12 }}>{row.origen_dato || row.origen || '—'}</td>
-                            <td style={{ color: '#475569', fontSize: 12, whiteSpace: 'nowrap' }}>
-                              {row.created_at
-                                ? new Date(row.created_at).toLocaleDateString('es-UY', { timeZone: 'America/Montevideo', day: '2-digit', month: '2-digit', year: 'numeric' })
-                                : '—'}
-                            </td>
-                            <td>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 999, background: intentosMeta.bg, color: intentosMeta.color, fontSize: 12, fontWeight: 600 }}>
-                                {intentosMeta.label}
-                              </span>
-                            </td>
-                            <td style={{ color: notaText ? '#888' : '#ccc', fontSize: 13 }}>{notaText || '—'}</td>
-                            <td>
-                              {row.reasignado_desde ? (
-                                <span style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 4,
-                                  fontSize: 11,
-                                  fontWeight: 500,
-                                  padding: '3px 8px',
-                                  borderRadius: 20,
-                                  background: '#E6F1FB',
-                                  color: '#185FA5',
-                                  whiteSpace: 'nowrap'
-                                }}>
-                                  ↗ {row.reasignado_desde.replace('Contacto reasignado desde ', '')}
-                                </span>
-                              ) : '—'}
-                            </td>
-                            <td>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                <span style={{
-                                  display: 'inline-block',
-                                  padding: '3px 8px',
-                                  borderRadius: 20,
-                                  fontSize: 11,
-                                  fontWeight: 600,
-                                  background: tipoAgenda === 'seguimiento'
-                                    ? '#F8F0FF' : '#F0F7FF',
-                                  color: tipoAgenda === 'seguimiento'
-                                    ? '#9B59B6' : '#4A90D9',
-                                  border: `1px solid ${tipoAgenda === 'seguimiento'
-                                    ? '#9B59B640' : '#4A90D940'}`
-                                }}>
-                                  {tipoAgenda === 'seguimiento' ? '? Seguimiento' : '? Rellamar'}
-                                </span>
+                <>
+                  {(() => {
+                    const totalSeguimientos = seguimientos.filter((r) => (r.tipo_agenda || r.estado_venta) === 'seguimiento').length;
+                    const totalRellamar = seguimientos.filter((r) => (r.tipo_agenda || r.estado_venta) === 'rellamar').length;
+                    const totalPendientes = seguimientos.length;
+                    const totalVencidas = seguimientos.filter((r) => r.fecha_agenda && new Date(r.fecha_agenda) < ahora).length;
 
-                                {row.estado_venta && row.estado_venta !== tipoAgenda && (
+                    return (
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(4, 1fr)',
+                        gap: 10,
+                        marginBottom: 16
+                      }}>
+                        {[
+                          { label: 'Seguimientos', value: totalSeguimientos, color: '#9B59B6', bg: '#F8F0FF' },
+                          { label: 'Rellamar', value: totalRellamar, color: '#4A90D9', bg: '#F0F7FF' },
+                          { label: 'Pendientes', value: totalPendientes, color: '#475569', bg: 'var(--color-background-secondary)' },
+                          { label: 'Vencidas', value: totalVencidas, color: '#E53E3E', bg: '#FFF3F3' }
+                        ].map(({ label, value, color, bg }) => (
+                          <div key={label} style={{
+                            background: bg,
+                            borderRadius: 10,
+                            padding: '12px 16px',
+                            border: '0.5px solid var(--color-border-tertiary)'
+                          }}>
+                            <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 4 }}>{label}</div>
+                            <div style={{ fontSize: 22, fontWeight: 500, color }}>{value}</div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+
+                  <div className="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Fecha y hora</th>
+                          <th>Contacto</th><th>Origen</th><th>F. Ingreso</th><th>Intentos</th><th>Nota</th><th>Asignación</th><th>Estado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {seguimientos.map((row) => {
+                          const fechaDt = row.fecha_agenda ? new Date(row.fecha_agenda) : null;
+                          const vencida = fechaDt && fechaDt < ahora;
+                          const intentos = row.intentos || 0;
+                          const intentosMeta = intentos >= 3
+                            ? { bg: '#FDECEA', color: '#E53E3E', label: `${intentos} intentos` }
+                            : intentos === 2
+                            ? { bg: 'rgba(245,166,35,0.15)', color: '#F5A623', label: `${intentos} intentos` }
+                            : { bg: 'rgba(158,158,158,0.12)', color: '#9E9E9E', label: `${intentos} intentos` };
+                          const notaText = row.nota ? (row.nota.length > 40 ? row.nota.slice(0, 40) + '"…' : row.nota) : null;
+                          const tipoAgenda = row.tipo_agenda || row.estado_venta;
+                          return (
+                            <tr
+                              key={row.id}
+                              onClick={() => abrirDrawer(row)}
+                              style={{ cursor: 'pointer', background: vencida ? '#FFF8E1' : undefined }}
+                            >
+                              <td>
+                                <div style={{ color: vencida ? '#E53E3E' : undefined, fontWeight: vencida ? 600 : undefined }}>
+                                  {fechaDt ? fmtFechaHora(row.fecha_agenda) : '—'}
+                                </div>
+                                {vencida && (
+                                  <span style={{ display: 'inline-block', marginTop: 2, fontSize: 10, fontWeight: 700, background: '#E53E3E', color: '#fff', borderRadius: 4, padding: '1px 6px' }}>Vencida</span>
+                                )}
+                              </td>
+                              <td><strong>{[row.nombre, row.apellido].filter(Boolean).join(' ') || '—'}</strong></td>
+                              <td style={{ color: '#475569', fontSize: 12 }}>{row.origen_dato || row.origen || '—'}</td>
+                              <td style={{ color: '#475569', fontSize: 12, whiteSpace: 'nowrap' }}>
+                                {row.created_at
+                                  ? new Date(row.created_at).toLocaleDateString('es-UY', { timeZone: 'America/Montevideo', day: '2-digit', month: '2-digit', year: 'numeric' })
+                                  : '—'}
+                              </td>
+                              <td>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 999, background: intentosMeta.bg, color: intentosMeta.color, fontSize: 12, fontWeight: 600 }}>
+                                  {intentosMeta.label}
+                                </span>
+                              </td>
+                              <td style={{ color: notaText ? '#888' : '#ccc', fontSize: 13 }}>{notaText || '—'}</td>
+                              <td>
+                                {row.reasignado_desde ? (
+                                  <span style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    fontSize: 11,
+                                    fontWeight: 500,
+                                    padding: '3px 8px',
+                                    borderRadius: 20,
+                                    background: '#E6F1FB',
+                                    color: '#185FA5',
+                                    whiteSpace: 'nowrap'
+                                  }}>
+                                    ↗ {row.reasignado_desde.replace('Contacto reasignado desde ', '')}
+                                  </span>
+                                ) : '—'}
+                              </td>
+                              <td>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                                   <span style={{
                                     display: 'inline-block',
-                                    padding: '2px 6px',
+                                    padding: '3px 8px',
                                     borderRadius: 20,
-                                    fontSize: 10,
-                                    fontWeight: 500,
-                                    background: {
-                                      'no_contesta': '#FFF8EE',
-                                      'rellamar': '#F0F7FF',
-                                      'seguimiento': '#F8F0FF',
-                                      'rechazo': '#FFF3F3',
-                                      'venta': '#F0FFF4'
-                                    }[row.estado_venta] || '#F5F5F5',
-                                    color: {
-                                      'no_contesta': '#F5A623',
-                                      'rellamar': '#4A90D9',
-                                      'seguimiento': '#9B59B6',
-                                      'rechazo': '#E53E3E',
-                                      'venta': '#27AE60'
-                                    }[row.estado_venta] || '#888'
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    background: tipoAgenda === 'seguimiento'
+                                      ? '#F8F0FF' : '#F0F7FF',
+                                    color: tipoAgenda === 'seguimiento'
+                                      ? '#9B59B6' : '#4A90D9',
+                                    border: `1px solid ${tipoAgenda === 'seguimiento'
+                                      ? '#9B59B640' : '#4A90D940'}`
                                   }}>
-                                    {labelPorResultado(row.estado_venta)}
+                                    {tipoAgenda === 'seguimiento' ? '? Seguimiento' : '? Rellamar'}
                                   </span>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+
+                                  {row.estado_venta && row.estado_venta !== tipoAgenda && (
+                                    <span style={{
+                                      display: 'inline-block',
+                                      padding: '2px 6px',
+                                      borderRadius: 20,
+                                      fontSize: 10,
+                                      fontWeight: 500,
+                                      background: {
+                                        'no_contesta': '#FFF8EE',
+                                        'rellamar': '#F0F7FF',
+                                        'seguimiento': '#F8F0FF',
+                                        'rechazo': '#FFF3F3',
+                                        'venta': '#F0FFF4'
+                                      }[row.estado_venta] || '#F5F5F5',
+                                      color: {
+                                        'no_contesta': '#F5A623',
+                                        'rellamar': '#4A90D9',
+                                        'seguimiento': '#9B59B6',
+                                        'rechazo': '#E53E3E',
+                                        'venta': '#27AE60'
+                                      }[row.estado_venta] || '#888'
+                                    }}>
+                                      {labelPorResultado(row.estado_venta)}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               )}
             </Panel>
           </section>
