@@ -440,6 +440,37 @@
     .person-badge { width: 38px; height: 38px; border-radius: 14px; display: grid; place-items: center; font-weight: 800; font-family: 'Manrope', sans-serif; color: white; background: linear-gradient(135deg, #1d4ed8 0%, #0f766e 100%); }
     .input { width: 100%; border: 1px solid rgba(20, 34, 53, 0.1); background: rgba(255, 255, 255, 0.86); border-radius: 16px; padding: 12px 14px; outline: none; }
     .toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+    /* ClientsView layout (responsive, no horizontal scroll) */
+    .clients-view .metrics-grid { display: flex; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
+    .clients-view .metric-card { flex: 1 1 calc(50% - 8px); padding: 16px; }
+
+    .clients-view .clients-toolbar { flex-wrap: nowrap; }
+    @media (max-width: 767px) { .clients-view .clients-toolbar { flex-wrap: wrap; } }
+
+    .clients-view .clients-table-wrap { overflow: hidden; }
+    .clients-view .clients-table { width: 100%; table-layout: fixed; }
+    .clients-view .clients-table th,
+    .clients-view .clients-table td { padding: 8px 12px; }
+    .clients-view .clients-table th { font-size: 11px; }
+    .clients-view .clients-table td { font-size: 13px; }
+    .clients-view .clients-table td { vertical-align: top; }
+
+    .clients-view .clients-table th,
+    .clients-view .clients-table td { white-space: normal; }
+    .clients-view .clients-table .col-cliente { min-width: 160px; }
+    .clients-view .clients-table col.col-fecha { width: 120px; }
+    .clients-view .clients-table col.col-producto { width: 130px; }
+    .clients-view .clients-table col.col-cuota { width: 90px; }
+    .clients-view .clients-table col.col-estado { width: 100px; }
+    .clients-view .clients-table col.col-accion { width: 100px; }
+
+    .clients-view .clients-table .person { align-items: flex-start; }
+    .clients-view .clients-table .client-name { display: flex; flex-direction: column; }
+    .clients-view .clients-table .client-first { font-weight: 600; font-size: 13px; line-height: 1.3; }
+    .clients-view .clients-table .client-last { font-size: 12px; color: var(--muted); line-height: 1.3; margin-top: 1px; }
+
+    .clients-view .clients-table td.col-producto { max-width: 130px; white-space: normal; font-size: 13px; line-height: 1.3; }
     .progress { width: 100%; height: 10px; background: rgba(20, 34, 53, 0.08); border-radius: 999px; overflow: hidden; }
     .progress > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #14b8a6 0%, #0f766e 100%); }
     .fab { position: fixed; right: 24px; bottom: 24px; z-index: 60; }

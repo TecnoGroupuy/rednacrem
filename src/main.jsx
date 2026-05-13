@@ -10304,18 +10304,28 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         }
         return filteredClients.map((row, index) => (
           <tr key={row.id || `client-${index}`}>
-            <td>
+            <td className="col-cliente">
               <div className="person">
                 <div className="person-badge">{initials(row.name || 'Cliente')}</div>
-                <strong>{row.name || 'Sin dato'}</strong>
+                {(() => {
+                  const parts = (row.name || '').trim().split(' ');
+                  const lastName = parts.length > 1 ? parts[parts.length - 1] : '';
+                  const firstName = parts.length > 1 ? parts.slice(0, -1).join(' ') : parts[0];
+                  return (
+                    <div className="client-name">
+                      <div className="client-first">{firstName || 'Sin dato'}</div>
+                      {lastName && <div className="client-last">{lastName}</div>}
+                    </div>
+                  );
+                })()}
               </div>
             </td>
-            <td>{(row.fechaAlta || row.fechaVenta)
+            <td className="col-fecha">{(row.fechaAlta || row.fechaVenta)
               ? formatDate(row.fechaAlta || row.fechaVenta)
               : (formatDateShort(row.createdAt) || 'Sin dato')}</td>
-            <td>{row.product || 'Sin dato'}</td>
-            <td>{row.fee || 'Sin dato'}</td>
-            <td>
+            <td className="col-producto">{row.product || 'Sin dato'}</td>
+            <td className="col-cuota">{row.fee || 'Sin dato'}</td>
+            <td className="col-estado">
               {['Al día', 'Al dia'].includes(row.status) ? (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '4px 10px', borderRadius: 999, background: 'rgba(16,185,129,0.12)', color: '#047857', border: '1px solid rgba(16,185,129,0.35)', fontSize: 12, fontWeight: 700 }}>
                   <span style={{ width: 8, height: 8, borderRadius: 999, background: '#10b981', display: 'inline-block' }} />
@@ -10325,7 +10335,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 <Tag variant={statusVariant(row.status)}>{row.status || 'Sin dato'}</Tag>
               )}
             </td>
-            <td>
+            <td className="col-accion">
               <div className="toolbar">
                 <Button variant="ghost" icon={<Eye size={16} />} onClick={() => handleViewFicha(row.id)}>Ver ficha</Button>
                 {viewerRole === 'superadministrador' ? (
@@ -10338,25 +10348,42 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       };
 
       return (
-        <div className="view">
+        <div className="view clients-view">
           <section className="metrics-grid">
             {clientMetrics.map((item) => <MetricCard key={item.title} item={item} />)}
           </section>
           <section className="content-grid">
             <Panel className="span-12" title="Clientes" subtitle="Gestión de cartera activa">
-              <div className="toolbar" style={{ marginBottom: 16 }}>
+              <div className="toolbar clients-toolbar" style={{ marginBottom: 16 }}>
                 <input
                   className="input"
-                  style={{ maxWidth: 360 }}
+                  style={{ maxWidth: 280 }}
                   placeholder="Buscar cliente..."
                   value={clientSearch}
                   onChange={(event) => setClientSearch(event.target.value)}
                 />
                 <Button icon={<Plus size={18} />} onClick={() => handleOpenNewClient()}>Nuevo cliente</Button>
               </div>
-              <div className="table-wrap">
-                <table>
-                  <thead><tr><th>Cliente</th><th>Fecha de alta</th><th>Producto</th><th>Cuota</th><th>Estado</th><th>Acción</th></tr></thead>
+              <div className="table-wrap clients-table-wrap">
+                <table className="clients-table">
+                  <colgroup>
+                    <col className="col-cliente" />
+                    <col className="col-fecha" />
+                    <col className="col-producto" />
+                    <col className="col-cuota" />
+                    <col className="col-estado" />
+                    <col className="col-accion" />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th className="col-cliente">Cliente</th>
+                      <th className="col-fecha">Fecha de alta</th>
+                      <th className="col-producto">Producto</th>
+                      <th className="col-cuota">Cuota</th>
+                      <th className="col-estado">Estado</th>
+                      <th className="col-accion">Acción</th>
+                    </tr>
+                  </thead>
                   <tbody>{renderClientRows()}</tbody>
                 </table>
               </div>
