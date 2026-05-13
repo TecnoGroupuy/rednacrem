@@ -36,6 +36,7 @@ export default function EquipoVentaModule({
   const [agentStats, setAgentStats] = React.useState([]);
   const [statsLoading, setStatsLoading] = React.useState(false);
   const [selectedVendedor, setSelectedVendedor] = React.useState(null);
+  const [mostrarInactivos, setMostrarInactivos] = React.useState(false);
   const [desactivarModal, setDesactivarModal] = React.useState(null); // { id, nombre }
   const [desactivarStep, setDesactivarStep] = React.useState('analisis'); // 'analisis' | 'confirmar'
   const [desactivarData, setDesactivarData] = React.useState(null);
@@ -49,7 +50,7 @@ export default function EquipoVentaModule({
     setLoading(true);
     try {
       const api = getApiClient();
-      const res = await api.get('/org/users');
+      const res = await api.get('/org/users?incluir_inactivos=true');
       const items = res?.items || [];
       setVendedores(items);
     } catch (err) {
@@ -147,7 +148,7 @@ export default function EquipoVentaModule({
           <Panel
             className={showForm ? 'span-8' : 'span-12'}
             title="Vendedores"
-            subtitle={`${vendedores.length} vendedor${vendedores.length !== 1 ? 'es' : ''} activos`}
+            subtitle=""
             action={
               <div className="toolbar">
                 {showForm && (
@@ -171,95 +172,134 @@ export default function EquipoVentaModule({
               </div>
             }
           >
-            {loading || statsLoading ? (
-              <div style={{ textAlign: 'center', padding: 32, color: 'var(--muted)' }}>
-                <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} />
-              </div>
-            ) : vendedores.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 32, color: 'var(--muted)' }}>
-                No hay vendedores asignados a esta organizacion.
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {vendedores.map((v) => {
-                  const fullName = [v.nombre, v.apellido].filter(Boolean).join(' ').toLowerCase();
-                  const stats = agentStats.find((a) =>
-                    a.name?.toLowerCase() === fullName ||
-                    a.name?.toLowerCase() === v.nombre?.toLowerCase() ||
-                    a.id === v.id
-                  );
-                  const ventas = stats?.sales ?? 0;
-                  const contactos = stats?.calls ?? 0;
-                  const efectividad = stats?.conversion ?? 0;
-                  const statusVariant =
-                    v.status === 'approved' ? 'success' :
-                    v.status === 'pausado' ? 'warning' :
-                    v.status === 'blocked' ? 'danger' : 'default';
-                  const statusLabel =
-                    v.status === 'approved' ? 'Activo' :
-                    v.status === 'pausado' ? 'Baja' :
-                    v.status === 'blocked' ? 'Bloqueado' :
-                    v.status === 'inactive' ? 'Inactivo' : v.status;
+            {(() => {
+              const vendedoresFiltrados = vendedores.filter((v) => (
+                mostrarInactivos
+                  ? v.status === 'baja' || v.status === 'inactive'
+                  : v.status === 'approved' || v.status === 'pausado'
+              ));
 
-                  return (
-                    <div key={v.id} style={{
-                      display: 'grid',
-                      gridTemplateColumns: '2fr 1fr 1fr 1fr auto',
-                      alignItems: 'center',
-                      gap: 12,
-                      padding: '12px 16px',
-                      borderRadius: 12,
-                      border: '1px solid var(--line)',
-                      background: 'var(--surface)'
-                    }}>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {v.nombre} {v.apellido}
-                        </div>
-                        <Tag variant={statusVariant} style={{ marginTop: 4 }}>
-                          {statusLabel}
-                        </Tag>
-                      </div>
-                      <div style={{ textAlign: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, color: 'var(--muted)', fontSize: 11, marginBottom: 2 }}>
-                          <ShoppingBag size={11} /> Ventas
-                        </div>
-                        <div style={{ fontWeight: 700, fontSize: 18, color: '#15803d' }}>{ventas}</div>
-                      </div>
-                      <div style={{ textAlign: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, color: 'var(--muted)', fontSize: 11, marginBottom: 2 }}>
-                          <Phone size={11} /> Contactos
-                        </div>
-                        <div style={{ fontWeight: 700, fontSize: 18 }}>{contactos}</div>
-                      </div>
-                      <div style={{ textAlign: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, color: 'var(--muted)', fontSize: 11, marginBottom: 2 }}>
-                          <TrendingUp size={11} /> Efectividad
-                        </div>
-                        <div style={{ fontWeight: 700, fontSize: 18, color: efectividad >= 20 ? '#15803d' : efectividad >= 10 ? '#d97706' : '#be123c' }}>
-                          {efectividad}%
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => setSelectedVendedor({ ...v, stats })}
-                        style={{
-                          width: 36, height: 36, borderRadius: 10,
-                          border: '1px solid var(--line)',
-                          background: 'transparent',
-                          cursor: 'pointer',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          color: 'var(--muted)',
-                          flexShrink: 0
-                        }}
-                        title="Ver detalle"
-                      >
-                        <ChevronRight size={16} />
-                      </button>
+              return (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <div>
+                      <h2 style={{ fontWeight: 600, fontSize: 16, margin: 0 }}>Vendedores</h2>
+                      <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>
+                        {vendedoresFiltrados.length} vendedores {mostrarInactivos ? 'inactivos' : 'activos'}
+                      </p>
                     </div>
-                  );
-                })}
-              </div>
-            )}
+                    <button
+                      onClick={() => setMostrarInactivos((prev) => !prev)}
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 500,
+                        padding: '6px 14px',
+                        borderRadius: 8,
+                        border: '1px solid var(--line)',
+                        background: mostrarInactivos ? '#FAECE7' : 'var(--surface)',
+                        color: mostrarInactivos ? '#993C1D' : 'var(--muted)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {mostrarInactivos ? 'Ver activos' : 'Ver inactivos'}
+                    </button>
+                  </div>
+
+                  {loading || statsLoading ? (
+                    <div style={{ textAlign: 'center', padding: 32, color: 'var(--muted)' }}>
+                      <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} />
+                    </div>
+                  ) : vendedoresFiltrados.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: 32, color: 'var(--muted)' }}>
+                      {mostrarInactivos
+                        ? 'No hay vendedores inactivos para mostrar.'
+                        : 'No hay vendedores activos para mostrar.'}
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {vendedoresFiltrados.map((v) => {
+                        const fullName = [v.nombre, v.apellido].filter(Boolean).join(' ').toLowerCase();
+                        const stats = agentStats.find((a) =>
+                          a.name?.toLowerCase() === fullName ||
+                          a.name?.toLowerCase() === v.nombre?.toLowerCase() ||
+                          a.id === v.id
+                        );
+                        const ventas = stats?.sales ?? 0;
+                        const contactos = stats?.calls ?? 0;
+                        const efectividad = stats?.conversion ?? 0;
+                        const statusVariant =
+                          v.status === 'approved' ? 'success' :
+                          v.status === 'pausado' ? 'warning' :
+                          v.status === 'blocked' ? 'danger' : 'default';
+                        const statusLabel =
+                          v.status === 'approved' ? 'Activo' :
+                          v.status === 'pausado' ? 'Pausado' :
+                          v.status === 'baja' ? 'Baja' :
+                          v.status === 'blocked' ? 'Bloqueado' :
+                          v.status === 'inactive' ? 'Inactivo' : v.status;
+
+                        return (
+                          <div key={v.id} style={{
+                            display: 'grid',
+                            gridTemplateColumns: '2fr 1fr 1fr 1fr auto',
+                            alignItems: 'center',
+                            gap: 12,
+                            padding: '12px 16px',
+                            borderRadius: 12,
+                            border: '1px solid var(--line)',
+                            background: 'var(--surface)'
+                          }}>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {v.nombre} {v.apellido}
+                              </div>
+                              <Tag variant={statusVariant} style={{ marginTop: 4 }}>
+                                {statusLabel}
+                              </Tag>
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, color: 'var(--muted)', fontSize: 11, marginBottom: 2 }}>
+                                <ShoppingBag size={11} /> Ventas
+                              </div>
+                              <div style={{ fontWeight: 700, fontSize: 18, color: '#15803d' }}>{ventas}</div>
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, color: 'var(--muted)', fontSize: 11, marginBottom: 2 }}>
+                                <Phone size={11} /> Contactos
+                              </div>
+                              <div style={{ fontWeight: 700, fontSize: 18 }}>{contactos}</div>
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, color: 'var(--muted)', fontSize: 11, marginBottom: 2 }}>
+                                <TrendingUp size={11} /> Efectividad
+                              </div>
+                              <div style={{ fontWeight: 700, fontSize: 18, color: efectividad >= 20 ? '#15803d' : efectividad >= 10 ? '#d97706' : '#be123c' }}>
+                                {efectividad}%
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => setSelectedVendedor({ ...v, stats })}
+                              style={{
+                                width: 36, height: 36, borderRadius: 10,
+                                border: '1px solid var(--line)',
+                                background: 'transparent',
+                                cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                color: 'var(--muted)',
+                                flexShrink: 0
+                              }}
+                              title="Ver detalle"
+                            >
+                              <ChevronRight size={16} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </Panel>
 
           {selectedVendedor && (
@@ -359,35 +399,37 @@ export default function EquipoVentaModule({
                   >
                     Editar vendedor
                   </Button>
-                  <Button
-                    variant="ghost"
-                    icon={<UserX size={14} />}
-                    onClick={async () => {
-                      const v = selectedVendedor;
-                      setDesactivarModal({
-                        id: v.id,
-                        nombre: `${v.nombre || ''} ${v.apellido || ''}`.trim()
-                      });
-                      setDesactivarStep('analisis');
-                      setDesactivarLoading(true);
-                      setDesactivarError('');
-                      try {
-                        const api = getApiClient();
-                        const params = new URLSearchParams({ seller_id: String(v.id) });
-                        if (activeOrgId) params.set('organization_id', String(activeOrgId));
-                        const res = await api.get(`/api/supervisor/seller-detail?${params.toString()}`);
-                        const payload = res?.data ?? res;
-                        setDesactivarData(payload?.data ?? payload);
-                      } catch (err) {
-                        setDesactivarError('No se pudo cargar el análisis.');
-                      } finally {
-                        setDesactivarLoading(false);
-                      }
-                    }}
-                    style={{ color: '#993C1D' }}
-                  >
-                    Desactivar vendedor
-                  </Button>
+                  {selectedVendedor?.status !== 'baja' && selectedVendedor?.status !== 'inactive' && (
+                    <Button
+                      variant="ghost"
+                      icon={<UserX size={14} />}
+                      onClick={async () => {
+                        const v = selectedVendedor;
+                        setDesactivarModal({
+                          id: v.id,
+                          nombre: `${v.nombre || ''} ${v.apellido || ''}`.trim()
+                        });
+                        setDesactivarStep('analisis');
+                        setDesactivarLoading(true);
+                        setDesactivarError('');
+                        try {
+                          const api = getApiClient();
+                          const params = new URLSearchParams({ seller_id: String(v.id) });
+                          if (activeOrgId) params.set('organization_id', String(activeOrgId));
+                          const res = await api.get(`/api/supervisor/seller-detail?${params.toString()}`);
+                          const payload = res?.data ?? res;
+                          setDesactivarData(payload?.data ?? payload);
+                        } catch (err) {
+                          setDesactivarError('No se pudo cargar el análisis.');
+                        } finally {
+                          setDesactivarLoading(false);
+                        }
+                      }}
+                      style={{ color: '#993C1D' }}
+                    >
+                      Desactivar vendedor
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
