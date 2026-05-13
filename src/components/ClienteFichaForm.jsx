@@ -336,6 +336,7 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
     normalizedProducts.push(item);
   }
   const primaryProduct = normalizedProducts[0] || null;
+  const product = primaryProduct || client.product || client.producto || null;
   const primaryKey = primaryProduct
     ? [
       primaryProduct.id || '',
@@ -711,6 +712,19 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
                 <div style={{ marginTop: 4, fontSize: 13, color: '#64748b' }}>{cuotas}/{carencia || 0} cuotas</div>
               </div>
             </div>
+            {product?.coberturas?.length > 0 && (
+              <div className="ficha-coverage">
+                <div className="ficha-coverage-title">Cobertura incluida</div>
+                <div className="ficha-coverage-grid">
+                  {product.coberturas.map((item, i) => (
+                    <div key={i} className="ficha-coverage-item">
+                      <div className="ficha-coverage-icon">✓</div>
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div style={progressBar}>
               <div style={progressFiller(progress)} />
             </div>
