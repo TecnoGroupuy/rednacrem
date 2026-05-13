@@ -229,9 +229,6 @@ export default function EquipoVentaModule({
                           a.name?.toLowerCase() === v.nombre?.toLowerCase() ||
                           a.id === v.id
                         );
-                        const ventas = stats?.sales ?? 0;
-                        const contactos = stats?.calls ?? 0;
-                        const efectividad = stats?.conversion ?? 0;
                         const statusVariant =
                           v.status === 'approved' ? 'success' :
                           v.status === 'pausado' ? 'warning' :
@@ -245,58 +242,71 @@ export default function EquipoVentaModule({
 
                         return (
                           <div key={v.id} style={{
-                            display: 'grid',
-                            gridTemplateColumns: '2fr 1fr 1fr 1fr auto',
+                            display: 'flex',
                             alignItems: 'center',
+                            justifyContent: 'space-between',
                             gap: 12,
-                            padding: '12px 16px',
+                            padding: '14px 16px',
                             borderRadius: 12,
                             border: '1px solid var(--line)',
                             background: 'var(--surface)'
                           }}>
-                            <div style={{ minWidth: 0 }}>
-                              <div style={{ fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {v.nombre} {v.apellido}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                              <div style={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: '50%',
+                                background: v.status === 'baja' ? '#F1EFE8' : '#E1F5EE',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: 13,
+                                fontWeight: 600,
+                                flexShrink: 0,
+                                color: v.status === 'baja' ? '#5F5E5A' : '#0F6E56'
+                              }}>
+                                {`${v.nombre?.[0] || ''}${v.apellido?.[0] || ''}`.toUpperCase()}
                               </div>
-                              <Tag variant={statusVariant} style={{ marginTop: 4 }}>
-                                {statusLabel}
-                              </Tag>
+
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{
+                                  fontWeight: 600,
+                                  fontSize: 14,
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  color: v.status === 'baja' ? 'var(--muted)' : 'var(--text)'
+                                }}>
+                                  {v.nombre} {v.apellido}
+                                </div>
+                                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>
+                                  {v.email}
+                                </div>
+                              </div>
                             </div>
-                            <div style={{ textAlign: 'center' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, color: 'var(--muted)', fontSize: 11, marginBottom: 2 }}>
-                                <ShoppingBag size={11} /> Ventas
-                              </div>
-                              <div style={{ fontWeight: 700, fontSize: 18, color: '#15803d' }}>{ventas}</div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                              <Tag variant={statusVariant}>{statusLabel}</Tag>
+                              <button
+                                onClick={() => setSelectedVendedor({ ...v, stats })}
+                                style={{
+                                  width: 34,
+                                  height: 34,
+                                  borderRadius: 8,
+                                  border: '1px solid var(--line)',
+                                  background: 'transparent',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: 'var(--muted)',
+                                  flexShrink: 0
+                                }}
+                                title="Ver detalle"
+                              >
+                                <ChevronRight size={15} />
+                              </button>
                             </div>
-                            <div style={{ textAlign: 'center' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, color: 'var(--muted)', fontSize: 11, marginBottom: 2 }}>
-                                <Phone size={11} /> Contactos
-                              </div>
-                              <div style={{ fontWeight: 700, fontSize: 18 }}>{contactos}</div>
-                            </div>
-                            <div style={{ textAlign: 'center' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, color: 'var(--muted)', fontSize: 11, marginBottom: 2 }}>
-                                <TrendingUp size={11} /> Efectividad
-                              </div>
-                              <div style={{ fontWeight: 700, fontSize: 18, color: efectividad >= 20 ? '#15803d' : efectividad >= 10 ? '#d97706' : '#be123c' }}>
-                                {efectividad}%
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => setSelectedVendedor({ ...v, stats })}
-                              style={{
-                                width: 36, height: 36, borderRadius: 10,
-                                border: '1px solid var(--line)',
-                                background: 'transparent',
-                                cursor: 'pointer',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                color: 'var(--muted)',
-                                flexShrink: 0
-                              }}
-                              title="Ver detalle"
-                            >
-                              <ChevronRight size={16} />
-                            </button>
                           </div>
                         );
                       })}
