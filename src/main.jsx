@@ -256,9 +256,12 @@ const DEFAULT_CLIENT_METRICS = {
 };
 
 const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
-  { title: 'Activos', value: metrics.activos, change: 2.8, label: 'base viva', trend: 'up', icon: UserCheck, bg: 'rgba(21,128,61,0.12)', color: '#15803d' },
-  { title: 'En baja', value: metrics.enBaja, change: -12.2, label: 'contención', trend: 'up', icon: TrendingDown, bg: 'rgba(190,18,60,0.12)', color: '#be123c' },
-  { title: 'Cuota promedio', value: metrics.cuotaPromedioLabel || `$ ${Number(metrics.cuotaPromedio || 0).toLocaleString('es-UY')}`, change: 1.4, label: 'ticket medio', trend: 'up', icon: DollarSign, bg: 'rgba(217,119,6,0.12)', color: '#d97706' }
+  { title: 'Activos', value: metrics.activos, icon: UserCheck, bg: 'rgba(21,128,61,0.12)', color: '#15803d', showTrend: false },
+  { title: 'En baja', value: metrics.enBaja, icon: TrendingDown, bg: 'rgba(190,18,60,0.12)', color: '#be123c', showTrend: false }
+]);
+
+const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
+  ...buildClientMetricCards(metrics)
 ]);
     const normalizePaymentMethod = (value) => {
       const raw = String(value || '').trim();
@@ -902,18 +905,21 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
 
     function MetricCard({ item }) {
       const IconComp = item.icon;
-      const trendClass = item.trend === 'down' && item.change > 0 ? 'down' : 'up';
+      const showTrend = item.showTrend !== false && item.change !== undefined && item.change !== null && item.label;
+      const trendClass = showTrend && item.trend === 'down' && item.change > 0 ? 'down' : 'up';
       return (
         <div className="metric-card">
           <div className="metric-top">
             <div>
               <div className="metric-label">{item.title}</div>
               <h3 className="metric-value">{item.value}</h3>
-              <div className={'trend ' + trendClass}>
-                {trendClass === 'up' ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
-                <span>{item.change > 0 ? '+' : ''}{item.change}%</span>
-                <span style={{ fontWeight: 500, opacity: 0.7 }}>{item.label}</span>
-              </div>
+              {showTrend ? (
+                <div className={'trend ' + trendClass}>
+                  {trendClass === 'up' ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
+                  <span>{item.change > 0 ? '+' : ''}{item.change}%</span>
+                  <span style={{ fontWeight: 500, opacity: 0.7 }}>{item.label}</span>
+                </div>
+              ) : null}
             </div>
             <div className="metric-icon" style={{ background: item.bg }}><IconComp size={24} color={item.color} /></div>
           </div>
@@ -9796,7 +9802,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
         );
       }
 
-    function ClientsView({ productsCatalog = [], prefillContact = null, onPrefillUsed = null }) {
+    function ClientsView({ productsCatalog = [], prefillContact = null, onPrefillUsed = null, viewerRole = '' }) {
         const { user: authUser } = useAuth();
         const [clientMetrics, setClientMetrics] = React.useState(() => buildClientMetricCards());
         const [clientRows, setClientRows] = React.useState([]);
@@ -10309,11 +10315,22 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               : (formatDateShort(row.createdAt) || 'Sin dato')}</td>
             <td>{row.product || 'Sin dato'}</td>
             <td>{row.fee || 'Sin dato'}</td>
-            <td><Tag variant={statusVariant(row.status)}>{row.status || 'Sin dato'}</Tag></td>
+            <td>
+              {['Al día', 'Al dia'].includes(row.status) ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '4px 10px', borderRadius: 999, background: 'rgba(16,185,129,0.12)', color: '#047857', border: '1px solid rgba(16,185,129,0.35)', fontSize: 12, fontWeight: 700 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 999, background: '#10b981', display: 'inline-block' }} />
+                  Activo
+                </span>
+              ) : (
+                <Tag variant={statusVariant(row.status)}>{row.status || 'Sin dato'}</Tag>
+              )}
+            </td>
             <td>
               <div className="toolbar">
                 <Button variant="ghost" icon={<Eye size={16} />} onClick={() => handleViewFicha(row.id)}>Ver ficha</Button>
-                <Button variant="ghost" icon={<Trash2 size={16} />} onClick={() => handleDeleteClient(row.id, row.name)}>Eliminar</Button>
+                {viewerRole === 'superadministrador' ? (
+                  <Button variant="ghost" icon={<Trash2 size={16} />} onClick={() => handleDeleteClient(row.id, row.name)}>Eliminar</Button>
+                ) : null}
               </div>
             </td>
           </tr>
@@ -13684,7 +13701,7 @@ const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
               onOpenNewClient={handleOpenVendedorNewClient}
             />
           );
-          return <ClientsView productsCatalog={productsCatalog} />;
+          return <ClientsView productsCatalog={productsCatalog} viewerRole={role} />;
         }
         if (route === 'contratos') {
           return (
