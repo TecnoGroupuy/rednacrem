@@ -50,7 +50,7 @@ const createUserDraft = (overrides = {}) => ({
 
 const ToggleSwitch = ({ checked, onChange, label }) => (
   <div className="toolbar" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>{label}</span>
+    {label ? <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>{label}</span> : <span />}
     <button
       type="button"
       aria-checked={checked}
@@ -176,6 +176,9 @@ export default function SuperadminWorkbench({
   const [diffTab, setDiffTab] = React.useState('alta_bd_baja_csv');
 
   const [productDraft, setProductDraft] = React.useState({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', activo: true, disponible_venta: true });
+  const [showProductForm, setShowProductForm] = React.useState(false);
+  const [productsSearch, setProductsSearch] = React.useState('');
+  const [productsFilter, setProductsFilter] = React.useState('todos'); // todos | disponibles | activos | inactivos
   const [userDraft, setUserDraft] = React.useState(() => createUserDraft());
   const [showUserForm, setShowUserForm] = React.useState(false);
   const [userFormError, setUserFormError] = React.useState('');
@@ -383,7 +386,22 @@ export default function SuperadminWorkbench({
     await loadImports();
   }, [loadImports]);
 
-  const loadProducts = React.useCallback(async () => setProducts(await listProductsAsync()), []);
+  const sortProducts = React.useCallback((items = []) => (
+    [...items].sort((a, b) => {
+      const aDisponible = a.disponible_venta !== false ? 1 : 0;
+      const bDisponible = b.disponible_venta !== false ? 1 : 0;
+      if (bDisponible !== aDisponible) return bDisponible - aDisponible;
+      const aActivo = a.activo !== false ? 1 : 0;
+      const bActivo = b.activo !== false ? 1 : 0;
+      if (bActivo !== aActivo) return bActivo - aActivo;
+      return String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es', { sensitivity: 'base' });
+    })
+  ), []);
+
+  const loadProducts = React.useCallback(async ({ search = productsSearch, filter = productsFilter } = {}) => {
+    const items = await listProductsAsync({ search, filter });
+    setProducts(sortProducts(items));
+  }, [productsSearch, productsFilter, sortProducts]);
   const loadUsers = React.useCallback(async () => setUsers(await listUsersAsync()), []);
   const loadOrgUsers = React.useCallback(async () => {
     if (!activeOrgId) return;
@@ -566,9 +584,23 @@ export default function SuperadminWorkbench({
 
   React.useEffect(() => {
     if (!route.startsWith('sa_') && route !== 'dashboard_global') return;
-    Promise.all([loadProducts(), loadUsers(), loadSpecialBases()]).catch(() => {});
+    Promise.all([
+      route === 'sa_productos' ? loadProducts() : Promise.resolve(),
+      loadUsers(),
+      loadSpecialBases()
+    ]).catch(() => {});
     loadActivity();
   }, [route, loadProducts, loadUsers, loadSpecialBases, loadActivity]);
+
+  React.useEffect(() => {
+    if (route !== 'sa_productos') return;
+    loadProducts();
+  }, [route, productsSearch, productsFilter, loadProducts]);
+
+  const handleToggleProduct = async (id, patch) => {
+    await updateProduct(id, patch);
+    await loadProducts();
+  };
 
   React.useEffect(() => {
     if (route === 'sa_usuarios') {
@@ -743,6 +775,7 @@ export default function SuperadminWorkbench({
     setProductDraft({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', activo: true, disponible_venta: true });
     await loadProducts();
     loadActivity();
+    setShowProductForm(false);
   };
 
   const saveUser = async () => {
@@ -1525,26 +1558,74 @@ export default function SuperadminWorkbench({
     );
   }
   if (route === 'sa_productos') {
+    const totalProductos = products.length;
+    const totalDisponiblesVenta = products.filter((p) => p.disponible_venta !== false).length;
     return (
       <div className="view">
         <section className="content-grid">
           <Panel
-            className="span-8"
+            className={showProductForm ? 'span-8' : 'span-12'}
             title="Productos"
             subtitle="Gestión de catálogo"
             action={
-              <Button
-                icon={<Plus size={16} />}
-                onClick={() => setProductDraft({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', activo: true, disponible_venta: true })}
-              >
-                Nuevo
-              </Button>
+              <div className="toolbar" style={{ flexWrap: 'wrap' }}>
+                <input
+                  className="input"
+                  style={{ width: 280 }}
+                  placeholder="Buscar productos..."
+                  value={productsSearch}
+                  onChange={(event) => setProductsSearch(event.target.value)}
+                />
+                <Button
+                  icon={<Plus size={16} />}
+                  onClick={() => {
+                    setProductDraft({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', activo: true, disponible_venta: true });
+                    setShowProductForm(true);
+                  }}
+                >
+                  Nuevo
+                </Button>
+              </div>
             }
           >
+            <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+              {[
+                { key: 'todos', label: 'Todos' },
+                { key: 'disponibles', label: 'Disponibles para venta' },
+                { key: 'activos', label: 'Activos' },
+                { key: 'inactivos', label: 'Inactivos' }
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setProductsFilter(tab.key)}
+                  style={{
+                    padding: '7px 12px',
+                    borderRadius: 999,
+                    border: '1px solid ' + (productsFilter === tab.key ? 'rgba(20,34,53,0.28)' : 'rgba(20,34,53,0.12)'),
+                    background: productsFilter === tab.key ? 'rgba(20,34,53,0.06)' : '#fff',
+                    color: productsFilter === tab.key ? 'var(--text)' : 'var(--muted)',
+                    fontWeight: 800,
+                    fontSize: 12,
+                    cursor: 'pointer'
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
             <div className="table-wrap">
               <table>
                 <thead>
-                  <tr><th>Nombre</th><th>Categoría</th><th>Precio</th><th>Estado</th><th>Actualización</th><th>Acción</th></tr>
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Categoría</th>
+                    <th>Precio</th>
+                    <th>Disponible</th>
+                    <th>Activo</th>
+                    <th>Actualización</th>
+                    <th>Acción</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {products.map((item) => (
@@ -1552,22 +1633,36 @@ export default function SuperadminWorkbench({
                       <td><strong>{item.nombre}</strong></td>
                       <td>{item.categoria}</td>
                       <td>$ {Number(item.precio || 0).toLocaleString('es-UY')}</td>
-                      <td><Tag variant={item.activo ? 'success' : 'warning'}>{item.activo ? 'Activo' : 'Inactivo'}</Tag></td>
+                      <td>
+                        <ToggleSwitch
+                          checked={item.disponible_venta !== false}
+                          onChange={() => handleToggleProduct(item.id, { disponible_venta: !(item.disponible_venta !== false) })}
+                        />
+                      </td>
+                      <td>
+                        <ToggleSwitch
+                          checked={item.activo !== false}
+                          onChange={() => handleToggleProduct(item.id, { activo: !(item.activo !== false) })}
+                        />
+                      </td>
                       <td>{formatDate(item.updatedAt)}</td>
                       <td>
                         <div className="toolbar">
                           <Button
                             variant="ghost"
                             icon={<Edit3 size={15} />}
-                            onClick={() => setProductDraft({
-                              id: item.id,
-                              nombre: item.nombre,
-                              categoria: item.categoria,
-                              precio: String(item.precio),
-                              descripcion: item.descripcion || '',
-                              activo: !!item.activo,
-                              disponible_venta: item.disponible_venta !== false
-                            })}
+                            onClick={() => {
+                              setProductDraft({
+                                id: item.id,
+                                nombre: item.nombre,
+                                categoria: item.categoria,
+                                precio: String(item.precio),
+                                descripcion: item.descripcion || '',
+                                activo: item.activo !== false,
+                                disponible_venta: item.disponible_venta !== false
+                              });
+                              setShowProductForm(true);
+                            }}
                           >
                             Editar
                           </Button>
@@ -1578,18 +1673,52 @@ export default function SuperadminWorkbench({
                 </tbody>
               </table>
             </div>
-          </Panel>
-          <Panel className="span-4" title={productDraft.id ? 'Editar producto' : 'Crear producto'} subtitle="Formulario">
-            <div className="list">
-              <input className="input" placeholder="Nombre" value={productDraft.nombre} onChange={(event) => setProductDraft((prev) => ({ ...prev, nombre: event.target.value }))} />
-              <input className="input" placeholder="Categoría" value={productDraft.categoria} onChange={(event) => setProductDraft((prev) => ({ ...prev, categoria: event.target.value }))} />
-              <input className="input" placeholder="Precio / Cuota" value={productDraft.precio} onChange={(event) => setProductDraft((prev) => ({ ...prev, precio: event.target.value }))} />
-              <textarea className="input" rows="3" placeholder="Descripción" value={productDraft.descripcion} onChange={(event) => setProductDraft((prev) => ({ ...prev, descripcion: event.target.value }))} />
-              <ToggleSwitch label="Disponible para venta" checked={!!productDraft.disponible_venta} onChange={() => setProductDraft((p) => ({ ...p, disponible_venta: !p.disponible_venta }))} />
-              <ToggleSwitch label="Activo" checked={!!productDraft.activo} onChange={() => setProductDraft((p) => ({ ...p, activo: !p.activo }))} />
-              <Button icon={<CheckCircle2 size={16} />} onClick={saveProduct}>{productDraft.id ? 'Guardar' : 'Crear'}</Button>
+            <div style={{ marginTop: 10, fontSize: 12, color: '#94a3b8', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+              <span>{totalProductos} productos · {totalDisponiblesVenta} disponibles para venta</span>
             </div>
           </Panel>
+
+          {showProductForm ? (
+            <Panel className="span-4" title={productDraft.id ? 'Editar producto' : 'Crear producto'} subtitle="Formulario">
+              <div className="list">
+                <input className="input" placeholder="Nombre" value={productDraft.nombre} onChange={(event) => setProductDraft((prev) => ({ ...prev, nombre: event.target.value }))} />
+                <input className="input" placeholder="Categoría" value={productDraft.categoria} onChange={(event) => setProductDraft((prev) => ({ ...prev, categoria: event.target.value }))} />
+                <input className="input" placeholder="Precio / Cuota" value={productDraft.precio} onChange={(event) => setProductDraft((prev) => ({ ...prev, precio: event.target.value }))} />
+                <textarea className="input" rows="3" placeholder="Descripción" value={productDraft.descripcion} onChange={(event) => setProductDraft((prev) => ({ ...prev, descripcion: event.target.value }))} />
+
+                <div style={{ padding: 10, borderRadius: 12, border: '1px solid var(--line)', background: 'rgba(20,34,53,0.03)' }}>
+                  <ToggleSwitch
+                    label="Disponible para venta"
+                    checked={!!productDraft.disponible_venta}
+                    onChange={() => setProductDraft((p) => ({ ...p, disponible_venta: !p.disponible_venta }))}
+                  />
+                  <div style={{ marginTop: 4, fontSize: 12, color: 'var(--muted)' }}>Visible para vendedores</div>
+                </div>
+
+                <div style={{ padding: 10, borderRadius: 12, border: '1px solid var(--line)', background: 'rgba(20,34,53,0.03)' }}>
+                  <ToggleSwitch
+                    label="Activo"
+                    checked={!!productDraft.activo}
+                    onChange={() => setProductDraft((p) => ({ ...p, activo: !p.activo }))}
+                  />
+                  <div style={{ marginTop: 4, fontSize: 12, color: 'var(--muted)' }}>Habilitado en el sistema</div>
+                </div>
+
+                <div className="toolbar" style={{ justifyContent: 'flex-end' }}>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setShowProductForm(false);
+                      setProductDraft({ id: '', nombre: '', categoria: '', precio: '', descripcion: '', activo: true, disponible_venta: true });
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button icon={<CheckCircle2 size={16} />} onClick={saveProduct}>{productDraft.id ? 'Guardar' : 'Crear'}</Button>
+                </div>
+              </div>
+            </Panel>
+          ) : null}
         </section>
       </div>
     );

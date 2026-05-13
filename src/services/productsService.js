@@ -18,8 +18,15 @@ const normalizeProduct = (item = {}) => ({
 
 export const listProducts = () => productsStore.map((item) => ({ ...item }));
 
-export const listProductsAsync = async () => {
-  const response = await api.get('/products');
+export const listProductsAsync = async ({ search = '', filter = 'todos' } = {}) => {
+  const params = new URLSearchParams();
+  if (search) params.set('search', search);
+  if (filter === 'disponibles') params.set('disponible_venta', 'true');
+  if (filter === 'activos') params.set('activo', 'true');
+  if (filter === 'inactivos') params.set('activo', 'false');
+
+  const qs = params.toString();
+  const response = await api.get(qs ? `/products?${qs}` : '/products');
   const items = Array.isArray(response?.items)
     ? response.items
     : (Array.isArray(response) ? response : []);
