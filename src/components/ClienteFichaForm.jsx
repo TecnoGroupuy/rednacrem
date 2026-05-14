@@ -2,6 +2,7 @@
 import { X, Phone, Check, XCircle, Edit3, FileDown, ChevronDown, Pencil } from 'lucide-react';
 import { updateContact, downloadClientDocument, notifyClientDocumentSent } from '../services/clientsService.js';
 import { getApiClient } from '../services/apiClient.js';
+import { fetchClientDetail } from '../services/clientDetailService.js';
 
 const overlayStyle = {
   position: 'fixed',
@@ -236,6 +237,9 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
   const [paymentMethods, setPaymentMethods] = React.useState([]);
   const [editingMedioPago, setEditingMedioPago] = React.useState(false);
   const [newMedioPago, setNewMedioPago] = React.useState('');
+  const [availableProducts, setAvailableProducts] = React.useState([]);
+  const [editingProducto, setEditingProducto] = React.useState(false);
+  const [newProductId, setNewProductId] = React.useState('');
 
   useEffect(() => {
     if (!open) return undefined;
@@ -259,6 +263,8 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
     setFamilyOpen(true);
     setEditingMedioPago(false);
     setNewMedioPago('');
+    setEditingProducto(false);
+    setNewProductId('');
   }, [open, client?.id]);
 
   useEffect(() => {
@@ -281,6 +287,31 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
       .catch(() => {
         if (cancelled) return;
         setPaymentMethods([]);
+      });
+    return () => { cancelled = true; };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    api.get('/products/available')
+      .then((res) => {
+        const rawItems = Array.isArray(res?.items)
+          ? res.items
+          : (Array.isArray(res) ? res : (Array.isArray(res?.data?.items) ? res.data.items : []));
+        const items = rawItems
+          .map((p) => ({
+            id: p?.id || p?.product_id || '',
+            nombre: p?.nombre || p?.name || '',
+            precio: Number(p?.precio ?? p?.price ?? 0)
+          }))
+          .filter((p) => p.id && p.nombre);
+        if (cancelled) return;
+        setAvailableProducts(items);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAvailableProducts([]);
       });
     return () => { cancelled = true; };
   }, [open]);
@@ -368,6 +399,17 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
   }
   const primaryProduct = normalizedProducts[0] || null;
   const product = primaryProduct || client.product || client.producto || null;
+  const currentProductId = pickField(
+    primaryProduct?.productId,
+    primaryProduct?.product_id,
+    primaryProduct?.productoId,
+    client.product?.id,
+    client.producto?.id,
+    client.product?.productId,
+    client.producto?.productId,
+    client.product?.product_id,
+    client.producto?.product_id
+  );
   const primaryKey = primaryProduct
     ? [
       primaryProduct.id || '',
@@ -516,6 +558,22 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
     if (typeof onUpdated === 'function') {
       onUpdated({ id: client.id, medioPago: newMedioPago, medio_pago: newMedioPago });
     }
+  };
+
+  const refreshFicha = async () => {
+    try {
+      const detail = await fetchClientDetail(client.id);
+      if (typeof onUpdated === 'function') onUpdated(detail);
+    } catch {
+      if (typeof onUpdated === 'function') onUpdated({ id: client.id });
+    }
+  };
+
+  const handleSaveProducto = async () => {
+    if (!client?.id) return;
+    await api.patch(`/clients/${client.id}/producto`, { product_id: newProductId });
+    setEditingProducto(false);
+    await refreshFicha();
   };
 
   const handleDownloadPdf = async () => {
@@ -746,7 +804,42 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
           <div style={{ marginTop: 12 }}>
             <div style={{ ...gridTwo, alignItems: 'baseline' }} className="client-sheet-grid">
               <div>
-                <div style={valueStyle}>{formatField(productName)}</div>
+                {editingProducto ? (
+                  <div className="producto-edit">
+                    <select
+                      className="input"
+                      value={newProductId}
+                      onChange={e => setNewProductId(e.target.value)}
+                    >
+                      <option value="">Seleccionar producto...</option>
+                      {availableProducts.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.nombre} — $ {p.precio}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="producto-edit-actions">
+                      <button type="button" className="button primary" onClick={handleSaveProducto}>Guardar</button>
+                      <button type="button" className="button ghost" onClick={() => setEditingProducto(false)}>Cancelar</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="producto-name-row">
+                    <span className="service-name" style={valueStyle}>{formatField(productName)}</span>
+                    {['supervisor','superadministrador'].includes(viewerRole) && (
+                      <button
+                        type="button"
+                        className="edit-inline-btn"
+                        onClick={() => {
+                          setNewProductId(currentProductId || '');
+                          setEditingProducto(true);
+                        }}
+                      >
+                        <Pencil size={13} />
+                      </button>
+                    )}
+                  </div>
+                )}
                 <div style={{ marginTop: 4, fontSize: 13, color: '#64748b' }}>{formatField(planName)}</div>
               </div>
               <div style={{ textAlign: 'right' }}>
