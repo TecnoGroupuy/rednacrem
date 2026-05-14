@@ -1,6 +1,7 @@
 ﻿import React, { useEffect } from 'react';
-import { X, Phone, Check, XCircle, Edit3, FileDown, ChevronDown } from 'lucide-react';
+import { X, Phone, Check, XCircle, Edit3, FileDown, ChevronDown, Pencil } from 'lucide-react';
 import { updateContact, downloadClientDocument, notifyClientDocumentSent } from '../services/clientsService.js';
+import { getApiClient } from '../services/apiClient.js';
 
 const overlayStyle = {
   position: 'fixed',
@@ -223,7 +224,8 @@ const buildDraftFromClient = (client) => {
   };
 };
 
-export default function ClienteFichaForm({ open, client, onClose, onUpdated, detailError = '' }) {
+export default function ClienteFichaForm({ open, client, onClose, onUpdated, detailError = '', viewerRole = '' }) {
+  const api = getApiClient();
   const [isEditing, setIsEditing] = React.useState(false);
   const [editDraft, setEditDraft] = React.useState(buildDraftFromClient(client || {}));
   const [editError, setEditError] = React.useState('');
@@ -231,6 +233,9 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
   const [downloadNotice, setDownloadNotice] = React.useState('');
   const [downloading, setDownloading] = React.useState(false);
   const [familyOpen, setFamilyOpen] = React.useState(true);
+  const [paymentMethods, setPaymentMethods] = React.useState([]);
+  const [editingMedioPago, setEditingMedioPago] = React.useState(false);
+  const [newMedioPago, setNewMedioPago] = React.useState('');
 
   useEffect(() => {
     if (!open) return undefined;
@@ -252,7 +257,33 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
     setDownloadNotice('');
     setEditDraft(buildDraftFromClient(client));
     setFamilyOpen(true);
+    setEditingMedioPago(false);
+    setNewMedioPago('');
   }, [open, client?.id]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    api.get('/payment-methods')
+      .then((res) => {
+        const rawItems = Array.isArray(res?.items)
+          ? res.items
+          : (Array.isArray(res) ? res : (Array.isArray(res?.data?.items) ? res.data.items : []));
+        const items = rawItems
+          .map((pm) => ({
+            id: pm?.id || pm?.payment_method_id || '',
+            nombre: pm?.nombre || pm?.name || ''
+          }))
+          .filter((pm) => pm.id && pm.nombre);
+        if (cancelled) return;
+        setPaymentMethods(items);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setPaymentMethods([]);
+      });
+    return () => { cancelled = true; };
+  }, [open]);
 
   if (!open || !client) return null;
 
@@ -473,6 +504,17 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
       }
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveMedioPago = async () => {
+    if (!client?.id) return;
+    await api.patch(`/clients/${client.id}/medio-pago`, {
+      medio_pago: newMedioPago
+    });
+    setEditingMedioPago(false);
+    if (typeof onUpdated === 'function') {
+      onUpdated({ id: client.id, medioPago: newMedioPago, medio_pago: newMedioPago });
     }
   };
 
@@ -763,7 +805,38 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
               </div>
               <div>
                 <div style={labelStyle}>Medio de pago</div>
-                <div style={medioPago ? valueStyle : valueEmpty}>{formatField(medioPagoLabel)}</div>
+                {editingMedioPago ? (
+                  <div className="medio-pago-edit">
+                    <select
+                      className="input"
+                      value={newMedioPago}
+                      onChange={e => setNewMedioPago(e.target.value)}
+                    >
+                      <option value="">Seleccionar...</option>
+                      {paymentMethods.map(pm => (
+                        <option key={pm.id} value={pm.nombre}>{pm.nombre}</option>
+                      ))}
+                    </select>
+                    <button type="button" className="button primary" onClick={handleSaveMedioPago}>Guardar</button>
+                    <button type="button" className="button ghost" onClick={() => setEditingMedioPago(false)}>Cancelar</button>
+                  </div>
+                ) : (
+                  <div className="medio-pago-row">
+                    <span>{medioPago ? formatField(medioPagoLabel) : 'Sin dato'}</span>
+                    {['supervisor','superadministrador'].includes(viewerRole) && (
+                      <button
+                        type="button"
+                        className="edit-inline-btn"
+                        onClick={() => {
+                          setNewMedioPago(medioPagoLabel);
+                          setEditingMedioPago(true);
+                        }}
+                      >
+                        <Pencil size={13} />
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
             {salesHistory.length ? (

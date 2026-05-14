@@ -10409,6 +10409,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             onClose={handleCloseFicha}
             onUpdated={handleClientUpdated}
             detailError={clientDetailError}
+            viewerRole={viewerRole}
           />
           {newClientOpen && (
             <>
