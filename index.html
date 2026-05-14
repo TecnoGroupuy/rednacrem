@@ -538,8 +538,29 @@
       color: #94a3b8; cursor: pointer; padding: 2px 4px;
       border-radius: 4px; display: flex; align-items: center; }
     .edit-inline-btn:hover { color: #0F766E; background: #F0FDF4; }
-    .medio-pago-edit { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .medio-pago-edit .input { height: 36px; max-width: 220px; }
+    .medio-pago-edit { 
+      display: flex; 
+      flex-direction: column;
+      gap: 8px; 
+      margin-top: 4px;
+    }
+    .medio-pago-edit select.input { 
+      height: 38px; 
+      width: 100%;
+      max-width: 280px;
+      border: 1px solid #D1D5DB;
+      border-radius: 8px;
+      padding: 0 12px;
+      font-size: 14px;
+      color: #1e293b;
+      background: #fff;
+      cursor: pointer;
+    }
+    .medio-pago-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
 
     /* Responsive */
     @media (max-width: 1024px) {

@@ -817,8 +817,10 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
                         <option key={pm.id} value={pm.nombre}>{pm.nombre}</option>
                       ))}
                     </select>
-                    <button type="button" className="button primary" onClick={handleSaveMedioPago}>Guardar</button>
-                    <button type="button" className="button ghost" onClick={() => setEditingMedioPago(false)}>Cancelar</button>
+                    <div className="medio-pago-actions">
+                      <button type="button" className="button primary" onClick={handleSaveMedioPago}>Guardar</button>
+                      <button type="button" className="button ghost" onClick={() => setEditingMedioPago(false)}>Cancelar</button>
+                    </div>
                   </div>
                 ) : (
                   <div className="medio-pago-row">
