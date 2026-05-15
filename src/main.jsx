@@ -6769,6 +6769,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
     };
 
     function SupervisorModule({ route, contacts, lots, accessToken, activeOrgId, onBulkAssignContacts, onCreateLot, onAssignLotSeller, onCloseLot, onReactivateError, onOpenRoute }) {
+      const api = React.useMemo(() => getApiClient(), []);
       const [search, setSearch] = React.useState('');
       const [sourceFilter, setSourceFilter] = React.useState('todos');
       const [cityFilter, setCityFilter] = React.useState('todos');
@@ -6817,6 +6818,21 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [wizardAssignMode, setWizardAssignMode] = React.useState('individual');
       const [wizardSeller, setWizardSeller] = React.useState('');
       const [wizardGroupSellers, setWizardGroupSellers] = React.useState([]);
+
+      const [showNuevoContactoModal, setShowNuevoContactoModal] = React.useState(false);
+      const [nuevoContactoForm, setNuevoContactoForm] = React.useState({
+        nombre: '', apellido: '', celular: '', telefono: '',
+        documento: '', correo_electronico: '', departamento: '',
+        origen_dato: '', mensaje: '', seller_id: ''
+      });
+      const [nuevoContactoLoading, setNuevoContactoLoading] = React.useState(false);
+      const [nuevoContactoError, setNuevoContactoError] = React.useState('');
+
+      const URUGUAY_DEPARTAMENTOS = React.useMemo(() => ([
+        'Artigas', 'Canelones', 'Cerro Largo', 'Colonia', 'Durazno', 'Flores', 'Florida',
+        'Lavalleja', 'Maldonado', 'Montevideo', 'Paysandú', 'Río Negro', 'Rivera', 'Rocha',
+        'Salto', 'San José', 'Soriano', 'Tacuarembó', 'Treinta y Tres'
+      ]), []);
 
       const formatDateYmdLocal = React.useCallback((value) => {
         if (!value) return '';
@@ -7123,6 +7139,46 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         setShowLotWizard(false);
         resetWizard();
       };
+
+      async function handleGuardarNuevoContacto() {
+        if (!nuevoContactoForm.nombre.trim() ||
+            !nuevoContactoForm.apellido.trim() ||
+            !nuevoContactoForm.celular.trim()) {
+          setNuevoContactoError('Nombre, apellido y celular son requeridos');
+          return;
+        }
+        if (!nuevoContactoForm.origen_dato) {
+          setNuevoContactoError('Seleccioná el origen del dato');
+          return;
+        }
+        setNuevoContactoLoading(true);
+        setNuevoContactoError('');
+        try {
+          const res = await api.post(
+            `/lead-batches/${selectedLot.id}/contacts/manual`,
+            nuevoContactoForm
+          );
+          if (res?.ok) {
+            setShowNuevoContactoModal(false);
+            setNuevoContactoForm({
+              nombre: '', apellido: '', celular: '', telefono: '',
+              documento: '', correo_electronico: '', departamento: '',
+              origen_dato: '', mensaje: '', seller_id: ''
+            });
+            setNuevoContactoError('');
+            const lotId = selectedLot.id;
+            setSelectedLotOverride(null);
+            setSelectedLotId(null);
+            window.setTimeout(() => setSelectedLotId(lotId), 0);
+          } else {
+            setNuevoContactoError(res?.message || 'Error al guardar el contacto');
+          }
+        } catch {
+          setNuevoContactoError('Error de conexión');
+        } finally {
+          setNuevoContactoLoading(false);
+        }
+      }
 
       const createLot = async () => {
         if (!lotNameDraft.trim()) return;
@@ -7521,6 +7577,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             onClick={() => { setAddDataToLotOpen(true); resetAddDataWizard(); }}
                             style={{ fontSize: 11, fontWeight: 500, color: '#185FA5', background: '#E6F1FB', border: '1px solid #85B7EB', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
                           >+ Agregar datos</button>
+                          <button
+                            onClick={() => { setNuevoContactoError(''); setShowNuevoContactoModal(true); }}
+                            style={{ fontSize: 11, fontWeight: 500, color: '#185FA5', background: '#E6F1FB', border: '1px solid #85B7EB', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
+                          >+ Nuevo contacto</button>
                           <button
                             onClick={() => setAddSellerOpen(true)}
                             style={{ fontSize: 11, fontWeight: 500, color: '#0F6E56', background: '#E1F5EE', border: '1px solid #5DCAA5', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
@@ -8060,6 +8120,124 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       </div>
                     </>
                   )}
+                </div>
+              </div>
+            )}
+
+            {showNuevoContactoModal && selectedLot && (
+              <div style={{
+                position: 'fixed', inset: 0,
+                backgroundColor: 'rgba(0,0,0,0.45)',
+                zIndex: 1000,
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}>
+                <div style={{
+                  backgroundColor: '#fff', borderRadius: 12, padding: 32,
+                  width: 480, maxWidth: '90vw', maxHeight: '90vh',
+                  overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14
+                }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>
+                      Nuevo contacto
+                    </h3>
+                    <p style={{ margin: '4px 0 0', fontSize: 13, color: '#666' }}>
+                      Lote: {selectedLot?.name}
+                    </p>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
+                      Nombre *
+                      <input className="input" value={nuevoContactoForm.nombre} onChange={(e) => setNuevoContactoForm(p => ({ ...p, nombre: e.target.value }))} />
+                    </label>
+                    <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
+                      Apellido *
+                      <input className="input" value={nuevoContactoForm.apellido} onChange={(e) => setNuevoContactoForm(p => ({ ...p, apellido: e.target.value }))} />
+                    </label>
+                    <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
+                      Celular *
+                      <input className="input" value={nuevoContactoForm.celular} onChange={(e) => setNuevoContactoForm(p => ({ ...p, celular: e.target.value }))} />
+                    </label>
+                    <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
+                      Teléfono fijo
+                      <input className="input" value={nuevoContactoForm.telefono} onChange={(e) => setNuevoContactoForm(p => ({ ...p, telefono: e.target.value }))} />
+                    </label>
+                    <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
+                      Email
+                      <input className="input" value={nuevoContactoForm.correo_electronico} onChange={(e) => setNuevoContactoForm(p => ({ ...p, correo_electronico: e.target.value }))} />
+                    </label>
+                    <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
+                      Documento
+                      <input className="input" value={nuevoContactoForm.documento} onChange={(e) => setNuevoContactoForm(p => ({ ...p, documento: e.target.value }))} />
+                    </label>
+
+                    <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
+                      Departamento
+                      <select className="input" value={nuevoContactoForm.departamento} onChange={(e) => setNuevoContactoForm(p => ({ ...p, departamento: e.target.value }))}>
+                        <option value="">Seleccioná...</option>
+                        {URUGUAY_DEPARTAMENTOS.map((d) => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                    </label>
+
+                    <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
+                      Origen del dato *
+                      <select className="input" value={nuevoContactoForm.origen_dato} onChange={(e) => setNuevoContactoForm(p => ({ ...p, origen_dato: e.target.value }))}>
+                        <option value="" disabled>Seleccioná...</option>
+                        <option value="facebook">Facebook</option>
+                        <option value="instagram">Instagram</option>
+                        <option value="correo">Correo</option>
+                        <option value="whatsapp">WhatsApp</option>
+                        <option value="guia_telefonica">Guía telefónica</option>
+                        <option value="referido">Referido</option>
+                      </select>
+                    </label>
+
+                    <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
+                      Asignar a
+                      <select className="input" value={nuevoContactoForm.seller_id} onChange={(e) => setNuevoContactoForm(p => ({ ...p, seller_id: e.target.value }))}>
+                        <option value="">Asignación automática</option>
+                        {(selectedLot?.vendedores || []).map((v) => {
+                          const label = `${v.nombre || ''} ${v.apellido || ''}`.trim() || v.id;
+                          return <option key={v.id} value={v.id}>{label}</option>;
+                        })}
+                      </select>
+                    </label>
+
+                    <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569', gridColumn: '1 / -1' }}>
+                      Mensaje
+                      <textarea className="input" rows={3} value={nuevoContactoForm.mensaje} onChange={(e) => setNuevoContactoForm(p => ({ ...p, mensaje: e.target.value }))} />
+                    </label>
+                  </div>
+
+                  {nuevoContactoError && (
+                    <p style={{ color: '#e53e3e', fontSize: 13, margin: 0 }}>
+                      {nuevoContactoError}
+                    </p>
+                  )}
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setShowNuevoContactoModal(false);
+                        setNuevoContactoError('');
+                        setNuevoContactoForm({
+                          nombre: '', apellido: '', celular: '', telefono: '',
+                          documento: '', correo_electronico: '', departamento: '',
+                          origen_dato: '', mensaje: '', seller_id: ''
+                        });
+                      }}
+                      disabled={nuevoContactoLoading}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={handleGuardarNuevoContacto}
+                      disabled={nuevoContactoLoading}
+                    >
+                      {nuevoContactoLoading ? 'Guardando...' : 'Guardar contacto'}
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
