@@ -8261,117 +8261,126 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     <div style={{ gridColumn: '1 / -1', display: 'grid', gap: 8 }}>
                       {phoneWarnings.length > 0 && (
                         <div style={{
-                          borderRadius: 8, border: '0.5px solid var(--color-border-warning)',
-                          background: 'var(--color-background-warning)',
-                          padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10
+                          borderRadius: 8,
+                          border: '1px solid #f59e0b',
+                          background: '#fffbeb',
+                          padding: '12px 14px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 10,
+                          margin: '4px 0'
                         }}>
-                          <div style={{ display: 'flex', alignItems: 'center' }}>
-                            <i
-                              className="ti ti-alert-triangle"
-                              style={{ fontSize: 16, color: 'var(--color-text-warning)', marginRight: 6 }}
-                            />
-                            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-warning)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <i className="ti ti-alert-triangle"
+                              style={{ fontSize: 16, color: '#b45309' }} />
+                            <span style={{ fontSize: 13, fontWeight: 500, color: '#b45309' }}>
                               Se encontraron coincidencias para este número
                             </span>
                           </div>
 
                           {phoneWarnings.map((w, i) => (
                             <div key={i} style={{
-                              background: 'var(--color-background-primary)',
-                              borderRadius: 8, border: '0.5px solid var(--color-border-warning)',
-                              padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 4
+                              background: '#ffffff',
+                              borderRadius: 8,
+                              border: '1px solid #f59e0b',
+                              padding: '10px 12px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 4
                             }}>
-                              {w.tipo === 'no_llamar' && (
-                                <>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    <i className="ti ti-phone-off" style={{ fontSize: 14, color: 'var(--color-text-warning)' }} />
-                                    <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-warning)' }}>
-                                      Lista no llamar
+                              {w.tipo === 'no_llamar' && (<>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <i className="ti ti-phone-off"
+                                    style={{ fontSize: 14, color: '#b45309' }} />
+                                  <span style={{ fontSize: 13, fontWeight: 500, color: '#b45309' }}>
+                                    Lista no llamar
+                                  </span>
+                                </div>
+                                <div style={{ paddingLeft: 20, display: 'flex',
+                                  flexDirection: 'column', gap: 2 }}>
+                                  <span style={{ fontSize: 12, color: '#6b7280' }}>
+                                    Motivo: <span style={{ color: '#111827' }}>
+                                      {w.motivo || 'Sin motivo registrado'}
                                     </span>
-                                  </div>
-                                  <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                    <span>
-                                      {w.motivo ? `Motivo: ${w.motivo}` : 'Sin motivo registrado'}
-                                      {w.fecha_carga
-                                        ? ` · Cargado: ${new Date(w.fecha_carga).toLocaleDateString('es-UY')}`
+                                  </span>
+                                  {w.fecha_carga && (
+                                    <span style={{ fontSize: 12, color: '#6b7280' }}>
+                                      Cargado: <span style={{ color: '#111827' }}>
+                                        {new Date(w.fecha_carga).toLocaleDateString('es-UY')}
+                                      </span>
+                                    </span>
+                                  )}
+                                </div>
+                              </>)}
+
+                              {w.tipo === 'datos_para_trabajar' && (<>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <i className="ti ti-users"
+                                    style={{ fontSize: 14, color: '#b45309' }} />
+                                  <span style={{ fontSize: 13, fontWeight: 500, color: '#b45309' }}>
+                                    Datos para trabajar
+                                  </span>
+                                </div>
+                                <div style={{ paddingLeft: 20, display: 'flex',
+                                  flexDirection: 'column', gap: 2 }}>
+                                  {w.lote_nombre && (
+                                    <span style={{ fontSize: 12, color: '#6b7280' }}>
+                                      Lote: <span style={{ color: '#111827' }}>{w.lote_nombre}</span>
+                                    </span>
+                                  )}
+                                  {w.vendedor_nombre && (
+                                    <span style={{ fontSize: 12, color: '#6b7280' }}>
+                                      Asignado a: <span style={{ color: '#111827' }}>
+                                        {w.vendedor_nombre} {w.vendedor_apellido}
+                                      </span>
+                                    </span>
+                                  )}
+                                  <span style={{ fontSize: 12, color: '#6b7280' }}>
+                                    Último resultado: <span style={{ color: '#111827' }}>
+                                      {w.ultimo_resultado || 'Sin gestiones'}
+                                      {w.ultima_gestion
+                                        ? ` · ${new Date(w.ultima_gestion)
+                                            .toLocaleDateString('es-UY')}`
                                         : ''}
                                     </span>
-                                  </div>
-                                </>
-                              )}
+                                  </span>
+                                </div>
+                              </>)}
 
-                              {w.tipo === 'datos_para_trabajar' && (
-                                <>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    <i className="ti ti-users" style={{ fontSize: 14, color: 'var(--color-text-warning)' }} />
-                                    <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-warning)' }}>
-                                      Datos para trabajar
+                              {w.tipo === 'cliente' && (<>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <i className="ti ti-user-check"
+                                    style={{ fontSize: 14, color: '#b45309' }} />
+                                  <span style={{ fontSize: 13, fontWeight: 500, color: '#b45309' }}>
+                                    {w.estado === 'activo' ? 'Cliente activo' : 'Cliente en baja'}
+                                  </span>
+                                </div>
+                                <div style={{ paddingLeft: 20, display: 'flex',
+                                  flexDirection: 'column', gap: 2 }}>
+                                  <span style={{ fontSize: 12, color: '#6b7280' }}>
+                                    Nombre: <span style={{ color: '#111827' }}>
+                                      {w.nombre} {w.apellido}
                                     </span>
-                                  </div>
-                                  <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                    {w.lote_nombre && (
-                                      <span>
-                                        Lote: <span style={{ color: 'var(--color-text-primary)' }}>{w.lote_nombre}</span>
-                                      </span>
-                                    )}
-                                    {w.vendedor_nombre && (
-                                      <span>
-                                        Asignado a:{' '}
-                                        <span style={{ color: 'var(--color-text-primary)' }}>
-                                          {w.vendedor_nombre} {w.vendedor_apellido}
-                                        </span>
-                                      </span>
-                                    )}
-                                    {w.ultimo_resultado ? (
-                                      <span>
-                                        Último resultado:{' '}
-                                        <span style={{ color: 'var(--color-text-primary)' }}>
-                                          {w.ultimo_resultado}
-                                          {w.ultima_gestion
-                                            ? ` · ${new Date(w.ultima_gestion).toLocaleDateString('es-UY')}`
-                                            : ''}
-                                        </span>
-                                      </span>
-                                    ) : (
-                                      <span style={{ color: 'var(--color-text-secondary)' }}>
-                                        Sin gestiones registradas
-                                      </span>
-                                    )}
-                                  </div>
-                                </>
-                              )}
-
-                              {w.tipo === 'cliente' && (
-                                <>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    <i className="ti ti-user-check" style={{ fontSize: 14, color: 'var(--color-text-warning)' }} />
-                                    <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-warning)' }}>
-                                      {w.estado === 'activo' ? 'Cliente activo' : 'Cliente en baja'}
+                                  </span>
+                                  <span style={{ fontSize: 12, color: '#6b7280' }}>
+                                    Producto: <span style={{ color: '#111827' }}>
+                                      {w.nombre_producto}{w.plan ? ` — ${w.plan}` : ''}
+                                      {w.fecha_alta
+                                        ? ` · Alta: ${new Date(w.fecha_alta)
+                                            .toLocaleDateString('es-UY')}`
+                                        : ''}
+                                      {w.fecha_baja
+                                        ? ` · Baja: ${new Date(w.fecha_baja)
+                                            .toLocaleDateString('es-UY')}`
+                                        : ''}
                                     </span>
-                                  </div>
-                                  <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                    <span>
-                                      Nombre: <span style={{ color: 'var(--color-text-primary)' }}>{w.nombre} {w.apellido}</span>
-                                    </span>
-                                    <span>
-                                      Producto:{' '}
-                                      <span style={{ color: 'var(--color-text-primary)' }}>
-                                        {w.nombre_producto}{w.plan ? ` — ${w.plan}` : ''}
-                                        {w.fecha_alta
-                                          ? ` · Alta: ${new Date(w.fecha_alta).toLocaleDateString('es-UY')}`
-                                          : ''}
-                                        {w.fecha_baja
-                                          ? ` · Baja: ${new Date(w.fecha_baja).toLocaleDateString('es-UY')}`
-                                          : ''}
-                                      </span>
-                                    </span>
-                                  </div>
-                                </>
-                              )}
+                                  </span>
+                                </div>
+                              </>)}
                             </div>
                           ))}
 
-                          <p style={{ margin: 0, fontSize: 12, color: 'var(--color-text-warning)' }}>
+                          <p style={{ margin: 0, fontSize: 12, color: '#92400e' }}>
                             Podés continuar si el contacto dio su consentimiento.
                           </p>
                         </div>
