@@ -351,6 +351,24 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       return text;
     };
     const initials = (name) => name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase();
+
+    // DEPRECADO: fallback de orígenes hardcodeados. Se mantiene mientras confirmamos el fetch a /origen-dato/list en producción.
+    const ORIGEN_DATO_OPTIONS_DEPRECADO = [
+      { valor: 'facebook', label: 'Facebook' },
+      { valor: 'instagram', label: 'Instagram' },
+      { valor: 'correo', label: 'Correo' },
+      { valor: 'whatsapp', label: 'WhatsApp' },
+      { valor: 'guia_telefonica', label: 'Guía telefónica' },
+      { valor: 'referido', label: 'Referido' },
+      { valor: 'captacion', label: 'Captación' },
+      { valor: 'recupero', label: 'Recupero' }
+    ];
+
+    function getOrigenLabel(valor, opciones = []) {
+      if (!valor) return '—';
+      const found = (Array.isArray(opciones) ? opciones : []).find((o) => o.valor === valor);
+      return found ? found.label : valor;
+    }
     const pickCellular = (contact) => (contact?.celular || contact?.cellphone || contact?.telefono_celular || contact?.telefonoCelular || '');
     const pickDireccion = (contact) => (
       contact?.direccion
@@ -3496,8 +3514,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       last: formatLastGestion(raw.ultima_gestion_real)
     });
 
-    function SalesContactsView({ contacts, selectedId, onSelect, onRegister, salesRecords, products, onAssignFamilySale, onUpdateContact, onVentaCerrada, onOpenNewClient, mode = 'contactos', vendedorNewClientOpen = false }) {
+    function SalesContactsView({ contacts, selectedId, onSelect, onRegister, salesRecords, products, onAssignFamilySale, onUpdateContact, onVentaCerrada, onOpenNewClient, mode = 'contactos', vendedorNewClientOpen = false, origenDatoOptions = [] }) {
       const api = getApiClient();
+      const origenDatoResolvedOptions = (Array.isArray(origenDatoOptions) && origenDatoOptions.length)
+        ? origenDatoOptions
+        : ORIGEN_DATO_OPTIONS_DEPRECADO;
       const isRecupero = mode === 'recupero';
       const accentColor = isRecupero ? '#f97316' : '#1A5C4A';
       const accentSoft = isRecupero ? 'rgba(249,115,22,0.12)' : '#F0FAF6';
@@ -4158,13 +4179,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       value={nuevoContacto.origen_dato || ''}
                       onChange={(e) => setNuevoContacto((prev) => ({ ...prev, origen_dato: e.target.value }))}
                     >
-                      <option value="">Sin especificar</option>
-                      <option value="facebook">Facebook</option>
-                      <option value="instagram">Instagram</option>
-                      <option value="correo">Correo</option>
-                      <option value="whatsapp">WhatsApp</option>
-                      <option value="guia_telefonica">Guía telefónica</option>
-                      <option value="referido">Referido</option>
+                      <option value="">Seleccioná...</option>
+                      {origenDatoResolvedOptions.map((o) => (
+                        <option key={o.valor} value={o.valor}>{o.label}</option>
+                      ))}
                     </select>
                   </label>
                 </div>
@@ -4364,10 +4382,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12, color: '#475569' }}
             >
               <option value="">Todos los orígenes</option>
-              <option value="Facebook">Facebook</option>
-              <option value="Guia telefonica">Guía telefónica</option>
-              <option value="recupero">Recupero</option>
-              <option value="captacion">Captación</option>
+              {origenDatoResolvedOptions.map((o) => (
+                <option key={o.valor} value={o.valor}>{o.label}</option>
+              ))}
             </select>
 
             <input
@@ -4445,7 +4462,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             })()}
                           </td>
                           <td>
-                            {contact.origen_dato || contact.origen || contact.source || contact.origenDato || contact.origin || '—'}
+                            {getOrigenLabel(contact.origen_dato || contact.origen || contact.source || contact.origenDato || contact.origin, origenDatoResolvedOptions)}
                           </td>
                           <td>
                             <div className="person">
@@ -5173,7 +5190,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                 )}
                               </td>
                               <td><strong>{[row.nombre, row.apellido].filter(Boolean).join(' ') || '—'}</strong></td>
-                              <td style={{ color: '#475569', fontSize: 12 }}>{row.origen_dato || row.origen || '—'}</td>
+                              <td style={{ color: '#475569', fontSize: 12 }}>
+                                {getOrigenLabel(row.origen_dato || row.origen, origenDatoResolvedOptions)}
+                              </td>
                               <td style={{ color: '#475569', fontSize: 12, whiteSpace: 'nowrap' }}>
                                 {row.created_at
                                   ? new Date(row.created_at).toLocaleDateString('es-UY', { timeZone: 'America/Montevideo', day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -6215,11 +6234,15 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       );
     }
 
-    function SalesClientsView({ onOpenNewClient = null }) {
+    function SalesClientsView({ onOpenNewClient = null, origenDatoOptions = [] }) {
       const [ventas, setVentas] = React.useState([]);
       const [allSales, setAllSales] = React.useState([]);
       const [loadingVentas, setLoadingVentas] = React.useState(true);
       const [selectedSale, setSelectedSale] = React.useState(null);
+      const origenDatoResolvedOptions = React.useMemo(
+        () => ((Array.isArray(origenDatoOptions) && origenDatoOptions.length) ? origenDatoOptions : ORIGEN_DATO_OPTIONS_DEPRECADO),
+        [origenDatoOptions]
+      );
 
       React.useEffect(() => {
         const cargar = async () => {
@@ -6334,7 +6357,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       const ubicacion = row.ubicacion
                         || [row.departamento, row.localidad].filter(Boolean).join(', ')
                         || '—';
-                      const origenDato = (row.origen_dato && String(row.origen_dato).trim()) ? row.origen_dato : '—';
+                      const origenDato = getOrigenLabel((row.origen_dato && String(row.origen_dato).trim()) ? row.origen_dato : '', origenDatoResolvedOptions);
                       const relatedCount = getRelatedSales(row).length;
                       return (
                         <tr
@@ -6768,8 +6791,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       return map[status] || map.sin_asignar;
     };
 
-    function SupervisorModule({ route, contacts, lots, accessToken, activeOrgId, onBulkAssignContacts, onCreateLot, onAssignLotSeller, onCloseLot, onReactivateError, onOpenRoute }) {
+    function SupervisorModule({ route, contacts, lots, accessToken, activeOrgId, onBulkAssignContacts, onCreateLot, onAssignLotSeller, onCloseLot, onReactivateError, onOpenRoute, origenDatoOptions = [] }) {
       const api = React.useMemo(() => getApiClient(), []);
+      const origenDatoResolvedOptions = React.useMemo(
+        () => ((Array.isArray(origenDatoOptions) && origenDatoOptions.length) ? origenDatoOptions : ORIGEN_DATO_OPTIONS_DEPRECADO),
+        [origenDatoOptions]
+      );
       const [search, setSearch] = React.useState('');
       const [sourceFilter, setSourceFilter] = React.useState('todos');
       const [cityFilter, setCityFilter] = React.useState('todos');
@@ -6895,11 +6922,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       }, [route, workDataTab]);
 
       const workDataOriginOptions = React.useMemo(() => {
-        const values = workDataRows
+        const valuesFromRows = workDataRows
           .map((item) => (item.origen_dato || '').toString().trim())
           .filter(Boolean);
-        return ['todos', ...new Set(values)];
-      }, [workDataRows]);
+        const valuesFromApi = (origenDatoResolvedOptions || []).map((o) => o.valor).filter(Boolean);
+        return ['todos', ...new Set([...valuesFromApi, ...valuesFromRows])];
+      }, [workDataRows, origenDatoResolvedOptions]);
 
       const workDataDeptOptions = React.useMemo(() => {
         const values = workDataRows
@@ -8002,7 +8030,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                   <td style={{ color: phone === '—' ? 'var(--muted)' : 'inherit', fontSize: phone === '—' ? 12 : 'inherit' }}>
                                     {phone}
                                   </td>
-                                  <td>{row.origen_dato || '—'}</td>
+                                  <td>{getOrigenLabel(row.origen_dato, origenDatoResolvedOptions)}</td>
                                   <td>{row.departamento || '—'}</td>
                                   <td style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
                                     {row.fecha_solicitud || row.created_at
@@ -8183,12 +8211,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       Origen del dato *
                       <select className="input" value={nuevoContactoForm.origen_dato} onChange={(e) => setNuevoContactoForm(p => ({ ...p, origen_dato: e.target.value }))}>
                         <option value="" disabled>Seleccioná...</option>
-                        <option value="facebook">Facebook</option>
-                        <option value="instagram">Instagram</option>
-                        <option value="correo">Correo</option>
-                        <option value="whatsapp">WhatsApp</option>
-                        <option value="guia_telefonica">Guía telefónica</option>
-                        <option value="referido">Referido</option>
+                        {origenDatoResolvedOptions.map((o) => (
+                          <option key={o.valor} value={o.valor}>{o.label}</option>
+                        ))}
                       </select>
                     </label>
 
@@ -8483,7 +8508,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 >
                   {workDataOriginOptions.map((origin) => (
                     <option key={origin} value={origin}>
-                      {origin === 'todos' ? 'Todos los orígenes' : origin}
+                      {origin === 'todos' ? 'Todos los orígenes' : getOrigenLabel(origin, origenDatoResolvedOptions)}
                     </option>
                   ))}
                 </select>
@@ -8555,7 +8580,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         </td>
                         <td>{item.telefono || item.celular || '-'}</td>
                         <td>{item.departamento || '-'}</td>
-                        <td>{(item.origen_dato && String(item.origen_dato).trim()) ? item.origen_dato : '-'}</td>
+                        <td>{getOrigenLabel((item.origen_dato && String(item.origen_dato).trim()) ? item.origen_dato : '', origenDatoResolvedOptions)}</td>
                         <td>{item.estado_label || item.estado || '-'}</td>
                         <td>{item.ultima_gestion || '-'}</td>
                         <td>{item.proxima_accion || '-'}</td>
@@ -9980,8 +10005,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         );
       }
 
-    function ClientsView({ productsCatalog = [], prefillContact = null, onPrefillUsed = null, viewerRole = '' }) {
+    function ClientsView({ productsCatalog = [], prefillContact = null, onPrefillUsed = null, viewerRole = '', origenDatoOptions = [] }) {
         const { user: authUser } = useAuth();
+        const origenDatoResolvedOptions = React.useMemo(
+          () => ((Array.isArray(origenDatoOptions) && origenDatoOptions.length) ? origenDatoOptions : ORIGEN_DATO_OPTIONS_DEPRECADO),
+          [origenDatoOptions]
+        );
         const [clientMetrics, setClientMetrics] = React.useState(() => buildClientMetricCards());
         const [clientRows, setClientRows] = React.useState([]);
         const [clientSearch, setClientSearch] = React.useState('');
@@ -10710,13 +10739,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             border: '1px solid #e5e7eb'
                           }}
                         >
-                          <option value="">Sin especificar</option>
-                          <option value="facebook">Facebook</option>
-                          <option value="instagram">Instagram</option>
-                          <option value="correo">Correo</option>
-                          <option value="whatsapp">WhatsApp</option>
-                          <option value="guia_telefonica">Guía telefónica</option>
-                          <option value="referido">Referido</option>
+                          <option value="">Seleccioná...</option>
+                          {origenDatoResolvedOptions.map((o) => (
+                            <option key={o.valor} value={o.valor}>{o.label}</option>
+                          ))}
                         </select>
                       </label>
                       <label style={{ gridColumn: '1 / -1', fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1 }}>
@@ -13149,6 +13175,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const topbarRef = React.useRef(null);
       const agendaNotifiedRef = React.useRef(new Set());
       const [productsCatalog, setProductsCatalog] = React.useState([]);
+      const api = React.useMemo(() => getApiClient(), []);
+      const [origenDatoOptions, setOrigenDatoOptions] = React.useState([]);
       const productsById = React.useMemo(
         () => Object.fromEntries(productsCatalog.map((product) => [product.id, product])),
         [productsCatalog]
@@ -13233,6 +13261,16 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           });
         });
       }, [authUser?.id]);
+
+      React.useEffect(() => {
+        api.get('/origen-dato/list')
+          .then((res) => {
+            if (res?.ok && Array.isArray(res.items)) {
+              setOrigenDatoOptions(res.items);
+            }
+          })
+          .catch(() => {});
+      }, [api]);
 
       React.useEffect(() => {
         if (!authUser?.id) return undefined;
@@ -13833,6 +13871,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               onCloseLot={closeSupervisorLot}
               onReactivateError={reactivateSupervisorError}
               onOpenRoute={setRoute}
+              origenDatoOptions={origenDatoOptions}
             />
           );
         }
@@ -13895,6 +13934,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 onVentaCerrada={(contactData, gestion_id = null) => handleOpenVendedorNewClient(contactData, gestion_id)}
                 onOpenNewClient={handleOpenVendedorNewClient}
                 vendedorNewClientOpen={vendedorNewClientOpen}
+                origenDatoOptions={origenDatoOptions}
               />
             );
           }
@@ -13909,9 +13949,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               salesRecords={salesRecords}
               productsById={productsById}
               onOpenNewClient={handleOpenVendedorNewClient}
+              origenDatoOptions={origenDatoOptions}
             />
           );
-          return <ClientsView productsCatalog={productsCatalog} viewerRole={role} />;
+          return <ClientsView productsCatalog={productsCatalog} viewerRole={role} origenDatoOptions={origenDatoOptions} />;
         }
         if (route === 'contratos') {
           return (
