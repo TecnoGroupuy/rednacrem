@@ -8274,9 +8274,13 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           background: 'var(--color-background-warning)',
                           padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10
                         }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ display: 'flex', alignItems: 'center' }}>
+                            <i
+                              className="ti ti-alert-triangle"
+                              style={{ fontSize: 16, color: 'var(--color-text-warning)', marginRight: 6 }}
+                            />
                             <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-warning)' }}>
-                              ⚠ Se encontraron coincidencias para este número
+                              Se encontraron coincidencias para este número
                             </span>
                           </div>
 
@@ -8288,24 +8292,32 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             }}>
                               {w.tipo === 'no_llamar' && (
                                 <>
-                                  <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-warning)' }}>
-                                    Lista no llamar
-                                  </span>
-                                  <span style={{ fontSize: 12, color: 'var(--color-text-secondary)', paddingLeft: 4 }}>
-                                    {w.motivo ? `Motivo: ${w.motivo}` : 'Sin motivo registrado'}
-                                    {w.fecha_carga
-                                      ? ` · Cargado: ${new Date(w.fecha_carga).toLocaleDateString('es-UY')}`
-                                      : ''}
-                                  </span>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <i className="ti ti-phone-off" style={{ fontSize: 14, color: 'var(--color-text-warning)' }} />
+                                    <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-warning)' }}>
+                                      Lista no llamar
+                                    </span>
+                                  </div>
+                                  <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    <span>
+                                      {w.motivo ? `Motivo: ${w.motivo}` : 'Sin motivo registrado'}
+                                      {w.fecha_carga
+                                        ? ` · Cargado: ${new Date(w.fecha_carga).toLocaleDateString('es-UY')}`
+                                        : ''}
+                                    </span>
+                                  </div>
                                 </>
                               )}
 
                               {w.tipo === 'datos_para_trabajar' && (
                                 <>
-                                  <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-warning)' }}>
-                                    Datos para trabajar
-                                  </span>
-                                  <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', paddingLeft: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <i className="ti ti-users" style={{ fontSize: 14, color: 'var(--color-text-warning)' }} />
+                                    <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-warning)' }}>
+                                      Datos para trabajar
+                                    </span>
+                                  </div>
+                                  <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 2 }}>
                                     {w.lote_nombre && (
                                       <span>
                                         Lote: <span style={{ color: 'var(--color-text-primary)' }}>{w.lote_nombre}</span>
@@ -8340,10 +8352,13 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
                               {w.tipo === 'cliente' && (
                                 <>
-                                  <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-warning)' }}>
-                                    {w.estado === 'activo' ? 'Cliente activo' : 'Cliente en baja'}
-                                  </span>
-                                  <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', paddingLeft: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <i className="ti ti-user-check" style={{ fontSize: 14, color: 'var(--color-text-warning)' }} />
+                                    <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-warning)' }}>
+                                      {w.estado === 'activo' ? 'Cliente activo' : 'Cliente en baja'}
+                                    </span>
+                                  </div>
+                                  <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 2 }}>
                                     <span>
                                       Nombre: <span style={{ color: 'var(--color-text-primary)' }}>{w.nombre} {w.apellido}</span>
                                     </span>
