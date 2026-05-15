@@ -3239,7 +3239,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             ayerDate.setDate(ayerDate.getDate() - 1);
             const ayer = ayerDate.toLocaleDateString('en-CA');
 
-            const contactosData = await api.get('/leads/assigned?page=1&limit=200&tab=todos');
+            const contactosData = await api.get('/leads/assigned?tipo=captacion&page=1&limit=200&tab=todos');
             if (contactosData.success || contactosData.ok) {
               setAssignedData({
                 contactos: contactosData.data.contactos || [],
@@ -3623,6 +3623,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             limit: String(LIMIT),
             tab: tabActivo
           });
+          if (!isRecupero) params.set('tipo', 'captacion');
           if (searchDebounced) params.set('search', searchDebounced);
           if (filtroOrigen) params.set('origen_dato', filtroOrigen);
           const contactosData = await api.get(`${contactsEndpoint}?${params}`);
@@ -3653,6 +3654,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             limit: String(LIMIT),
             tab: tabActivo
           });
+          if (!isRecupero) params.set('tipo', 'captacion');
           if (searchDebounced) params.set('search', searchDebounced);
           if (filtroOrigen) params.set('origen_dato', filtroOrigen);
           const d = await api.get(`${contactsEndpoint}?${params}`);
