@@ -4973,8 +4973,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       return <SalesContactsView {...props} mode="recupero" />;
     }
 
-    function SalesAgendaView({ onVentaCerrada }) {
+    function SalesAgendaView({ onVentaCerrada, origenDatoOptions = [] }) {
       const agendaApi = getApiClient();
+      const origenDatoResolvedOptions = (Array.isArray(origenDatoOptions) && origenDatoOptions.length)
+        ? normalizeOrigenOptions(origenDatoOptions)
+        : ORIGEN_DATO_OPTIONS_DEPRECADO;
       const [seguimientos, setSeguimientos] = React.useState([]);
       const [loadingAgenda, setLoadingAgenda] = React.useState(true);
       const [drawerItem, setDrawerItem] = React.useState(null);
@@ -14148,7 +14151,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           return <ContactsView />;
         }
         if (route === 'agenda') {
-          if (role === 'vendedor') return <SalesAgendaView onVentaCerrada={(contactData, gestion_id = null) => handleOpenVendedorNewClient(contactData, gestion_id)} />;
+          if (role === 'vendedor') return (
+            <SalesAgendaView
+              onVentaCerrada={(contactData, gestion_id = null) => handleOpenVendedorNewClient(contactData, gestion_id)}
+              origenDatoOptions={origenDatoOptions}
+            />
+          );
         }
         if (route === 'clientes') {
           if (role === 'vendedor') return (
