@@ -6890,6 +6890,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       });
       const [nuevoContactoLoading, setNuevoContactoLoading] = React.useState(false);
       const [nuevoContactoError, setNuevoContactoError] = React.useState('');
+      const [phoneWarnings, setPhoneWarnings] = React.useState([]);
+      const [phoneCheckLoading, setPhoneCheckLoading] = React.useState(false);
 
       const URUGUAY_DEPARTAMENTOS = React.useMemo(() => ([
         'Artigas', 'Canelones', 'Cerro Largo', 'Colonia', 'Durazno', 'Flores', 'Florida',
@@ -7230,6 +7232,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               origen_dato: '', mensaje: '', seller_id: ''
             });
             setNuevoContactoError('');
+            setPhoneWarnings([]);
             const lotId = selectedLot.id;
             setSelectedLotOverride(null);
             // Forzar refresco del contador y vendedores del lote
@@ -7244,6 +7247,27 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           setNuevoContactoError('Error de conexión');
         } finally {
           setNuevoContactoLoading(false);
+        }
+      }
+
+      async function checkPhone(telefono) {
+        const tel = String(telefono || '').replace(/[\s\-]/g, '').trim();
+        if (tel.length < 6) {
+          setPhoneWarnings([]);
+          return;
+        }
+        setPhoneCheckLoading(true);
+        try {
+          const res = await api.get(
+            `/lead-batches/contacts/check-phone?telefono=${encodeURIComponent(tel)}`
+          );
+          if (res?.ok) {
+            setPhoneWarnings(res.advertencias || []);
+          }
+        } catch {
+          // silencioso — no bloquear el formulario si falla la verificación
+        } finally {
+          setPhoneCheckLoading(false);
         }
       }
 
@@ -8223,12 +8247,136 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     </label>
                     <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
                       Celular *
-                      <input className="input" value={nuevoContactoForm.celular} onChange={(e) => setNuevoContactoForm(p => ({ ...p, celular: e.target.value }))} />
+                      <input
+                        className="input"
+                        value={nuevoContactoForm.celular}
+                        onChange={(e) => {
+                          setNuevoContactoForm((p) => ({ ...p, celular: e.target.value }));
+                          if (!e.target.value) setPhoneWarnings([]);
+                        }}
+                        onBlur={(e) => checkPhone(e.target.value)}
+                      />
                     </label>
                     <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
                       Teléfono fijo
-                      <input className="input" value={nuevoContactoForm.telefono} onChange={(e) => setNuevoContactoForm(p => ({ ...p, telefono: e.target.value }))} />
+                      <input
+                        className="input"
+                        value={nuevoContactoForm.telefono}
+                        onChange={(e) => setNuevoContactoForm((p) => ({ ...p, telefono: e.target.value }))}
+                        onBlur={(e) => { if (e.target.value) checkPhone(e.target.value); }}
+                      />
                     </label>
+
+                    <div style={{ gridColumn: '1 / -1', display: 'grid', gap: 8 }}>
+                      {phoneWarnings.length > 0 && (
+                        <div style={{
+                          borderRadius: 8, border: '0.5px solid var(--color-border-warning)',
+                          background: 'var(--color-background-warning)',
+                          padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-warning)' }}>
+                              ⚠ Se encontraron coincidencias para este número
+                            </span>
+                          </div>
+
+                          {phoneWarnings.map((w, i) => (
+                            <div key={i} style={{
+                              background: 'var(--color-background-primary)',
+                              borderRadius: 8, border: '0.5px solid var(--color-border-warning)',
+                              padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 4
+                            }}>
+                              {w.tipo === 'no_llamar' && (
+                                <>
+                                  <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-warning)' }}>
+                                    Lista no llamar
+                                  </span>
+                                  <span style={{ fontSize: 12, color: 'var(--color-text-secondary)', paddingLeft: 4 }}>
+                                    {w.motivo ? `Motivo: ${w.motivo}` : 'Sin motivo registrado'}
+                                    {w.fecha_carga
+                                      ? ` · Cargado: ${new Date(w.fecha_carga).toLocaleDateString('es-UY')}`
+                                      : ''}
+                                  </span>
+                                </>
+                              )}
+
+                              {w.tipo === 'datos_para_trabajar' && (
+                                <>
+                                  <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-warning)' }}>
+                                    Datos para trabajar
+                                  </span>
+                                  <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', paddingLeft: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    {w.lote_nombre && (
+                                      <span>
+                                        Lote: <span style={{ color: 'var(--color-text-primary)' }}>{w.lote_nombre}</span>
+                                      </span>
+                                    )}
+                                    {w.vendedor_nombre && (
+                                      <span>
+                                        Asignado a:{' '}
+                                        <span style={{ color: 'var(--color-text-primary)' }}>
+                                          {w.vendedor_nombre} {w.vendedor_apellido}
+                                        </span>
+                                      </span>
+                                    )}
+                                    {w.ultimo_resultado ? (
+                                      <span>
+                                        Último resultado:{' '}
+                                        <span style={{ color: 'var(--color-text-primary)' }}>
+                                          {w.ultimo_resultado}
+                                          {w.ultima_gestion
+                                            ? ` · ${new Date(w.ultima_gestion).toLocaleDateString('es-UY')}`
+                                            : ''}
+                                        </span>
+                                      </span>
+                                    ) : (
+                                      <span style={{ color: 'var(--color-text-secondary)' }}>
+                                        Sin gestiones registradas
+                                      </span>
+                                    )}
+                                  </div>
+                                </>
+                              )}
+
+                              {w.tipo === 'cliente' && (
+                                <>
+                                  <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-warning)' }}>
+                                    {w.estado === 'activo' ? 'Cliente activo' : 'Cliente en baja'}
+                                  </span>
+                                  <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', paddingLeft: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    <span>
+                                      Nombre: <span style={{ color: 'var(--color-text-primary)' }}>{w.nombre} {w.apellido}</span>
+                                    </span>
+                                    <span>
+                                      Producto:{' '}
+                                      <span style={{ color: 'var(--color-text-primary)' }}>
+                                        {w.nombre_producto}{w.plan ? ` — ${w.plan}` : ''}
+                                        {w.fecha_alta
+                                          ? ` · Alta: ${new Date(w.fecha_alta).toLocaleDateString('es-UY')}`
+                                          : ''}
+                                        {w.fecha_baja
+                                          ? ` · Baja: ${new Date(w.fecha_baja).toLocaleDateString('es-UY')}`
+                                          : ''}
+                                      </span>
+                                    </span>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          ))}
+
+                          <p style={{ margin: 0, fontSize: 12, color: 'var(--color-text-warning)' }}>
+                            Podés continuar si el contacto dio su consentimiento.
+                          </p>
+                        </div>
+                      )}
+
+                      {phoneCheckLoading && (
+                        <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', margin: 0 }}>
+                          Verificando número...
+                        </p>
+                      )}
+                    </div>
                     <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
                       Email
                       <input className="input" value={nuevoContactoForm.correo_electronico} onChange={(e) => setNuevoContactoForm(p => ({ ...p, correo_electronico: e.target.value }))} />
@@ -8285,6 +8433,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       onClick={() => {
                         setShowNuevoContactoModal(false);
                         setNuevoContactoError('');
+                        setPhoneWarnings([]);
                         setNuevoContactoForm({
                           nombre: '', apellido: '', celular: '', telefono: '',
                           documento: '', correo_electronico: '', departamento: '',
