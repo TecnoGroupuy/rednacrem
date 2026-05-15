@@ -6824,7 +6824,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       return map[status] || map.sin_asignar;
     };
 
-    function SupervisorModule({ route, contacts, lots, accessToken, activeOrgId, onBulkAssignContacts, onCreateLot, onAssignLotSeller, onCloseLot, onReactivateError, onOpenRoute, origenDatoOptions = [] }) {
+    function SupervisorModule({ route, contacts, lots, accessToken, activeOrgId, onBulkAssignContacts, onCreateLot, onAssignLotSeller, onCloseLot, onReactivateError, onOpenRoute, origenDatoOptions = [], fetchLots = null }) {
       const api = React.useMemo(() => getApiClient(), []);
       const origenDatoResolvedOptions = React.useMemo(
         () => {
@@ -7232,8 +7232,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             setNuevoContactoError('');
             const lotId = selectedLot.id;
             setSelectedLotOverride(null);
-            setSelectedLotId(null);
-            window.setTimeout(() => setSelectedLotId(lotId), 0);
+            // Forzar refresco del contador y vendedores del lote
+            if (typeof fetchLots === 'function') {
+              await fetchLots();
+            }
+            setSelectedLotId(lotId);
           } else {
             setNuevoContactoError(res?.message || 'Error al guardar el contacto');
           }
@@ -13915,6 +13918,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               onReactivateError={reactivateSupervisorError}
               onOpenRoute={setRoute}
               origenDatoOptions={origenDatoOptions}
+              fetchLots={refreshLotsFromService}
             />
           );
         }
