@@ -3549,6 +3549,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         ? normalizeOrigenOptions(origenDatoOptions)
         : ORIGEN_DATO_OPTIONS_DEPRECADO;
       const isRecupero = mode === 'recupero';
+      const contactsEndpoint = isRecupero ? '/recupero/contactos' : '/leads/assigned';
       const accentColor = isRecupero ? '#f97316' : '#1A5C4A';
       const accentSoft = isRecupero ? 'rgba(249,115,22,0.12)' : '#F0FAF6';
       const accentText = isRecupero ? '#9a3412' : '#1A5C4A';
@@ -3624,9 +3625,13 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           });
           if (searchDebounced) params.set('search', searchDebounced);
           if (filtroOrigen) params.set('origen_dato', filtroOrigen);
-          const contactosData = await api.get(`/leads/assigned?${params}`);
+          const contactosData = await api.get(`${contactsEndpoint}?${params}`);
           if (contactosData?.success || contactosData?.ok) {
-            const items = contactosData?.data?.contactos || [];
+            const items = contactosData?.data?.contactos
+              || contactosData?.data?.items
+              || contactosData?.items
+              || contactosData?.data
+              || [];
             setLocalContacts(items.map(normalizeAssignedContact));
             setTotalPages(contactosData?.data?.totalPages || 1);
             setTotalContactos(contactosData?.data?.total || 0);
@@ -3638,7 +3643,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         } catch (err) {
           console.error('[refresh] error silencioso:', err);
         }
-      }, [page, tabActivo, searchDebounced, filtroOrigen]); // eslint-disable-line react-hooks/exhaustive-deps
+      }, [page, tabActivo, searchDebounced, filtroOrigen, contactsEndpoint]); // eslint-disable-line react-hooks/exhaustive-deps
 
       const cargarContactos = React.useCallback(async () => {
         setLoadingContacts(true);
@@ -3650,10 +3655,14 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           });
           if (searchDebounced) params.set('search', searchDebounced);
           if (filtroOrigen) params.set('origen_dato', filtroOrigen);
-          const d = await api.get(`/leads/assigned?${params}`);
+          const d = await api.get(`${contactsEndpoint}?${params}`);
           console.log('[assigned] params:', params.toString(), 'resp:', d);
           if (d?.success || d?.ok) {
-            const items = d?.data?.contactos || [];
+            const items = d?.data?.contactos
+              || d?.data?.items
+              || d?.items
+              || d?.data
+              || [];
             setLocalContacts(items.map(normalizeAssignedContact));
             setTotalPages(d?.data?.totalPages || 1);
             setTotalContactos(d?.data?.total || 0);
@@ -3666,7 +3675,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         } finally {
           setLoadingContacts(false);
         }
-      }, [contacts, page, tabActivo, searchDebounced, filtroOrigen]); // eslint-disable-line react-hooks/exhaustive-deps
+      }, [contacts, page, tabActivo, searchDebounced, filtroOrigen, contactsEndpoint]); // eslint-disable-line react-hooks/exhaustive-deps
 
       const [drawerContact, setDrawerContact] = React.useState(null);
       const drawerOpen = Boolean(drawerContact);
