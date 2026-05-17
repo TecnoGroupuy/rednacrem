@@ -3685,8 +3685,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         if (vendedorNewClientOpen || drawerOpen) return;
         loadStats();
       }, [loadStats, vendedorNewClientOpen, drawerOpen]);
-      const [nextLoading, setNextLoading] = React.useState(false);
-      const [nextMessage, setNextMessage] = React.useState('');
+
       const [activeTab, setActiveTab] = React.useState('datos');
       const [estadoGestion, setEstadoGestion] = React.useState('');
       const [notaGestion, setNotaGestion] = React.useState('');
@@ -3960,25 +3959,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         onSelect(null);
       };
 
-      const handleNextContact = async () => {
-        if (nextLoading) return;
-        setNextLoading(true);
-        setNextMessage('');
-        try {
-          const nextUrl = `/leads/next`;
-          const res = await api.get(nextUrl);
-          if (res?.data) {
-            openDrawer(res.data);
-          } else {
-            setNextMessage(res?.message || 'No hay contactos disponibles en esta franja horaria.');
-          }
-        } catch {
-          setNextMessage('No se pudo obtener el siguiente contacto.');
-        } finally {
-          setNextLoading(false);
-        }
-      };
-
       const buildVentaDraft = (contact) => ({
         contacto_id: String(contact.id),
         contact_id: contact.contact_id || contact.contactId || contact.contacto_id || contact.id || '',
@@ -4126,25 +4106,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                   Nuevo contacto
                 </button>
               ) : null}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-                <button
-                  onClick={handleNextContact}
-                  disabled={nextLoading}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: accentColor, color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontWeight: 600, fontSize: 13, cursor: nextLoading ? 'wait' : 'pointer', whiteSpace: 'nowrap', opacity: nextLoading ? 0.7 : 1 }}
-                >
-                  <span>?</span>
-                  {nextLoading ? 'Buscando...' : 'Empezar gestión'}
-                </button>
-                <span style={{ fontSize: 11, color: '#9CA3AF' }}>El sistema te asigna el próximo contacto a llamar</span>
-              </div>
+
             </div>
           </div>
-
-          {nextMessage ? (
-            <div style={{ background: '#FFF8E1', border: '1px solid #FFD54F', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#795548', marginBottom: 12 }}>
-              {nextMessage}
-            </div>
-          ) : null}
 
           {nuevoContactoOpen ? (
             <>
