@@ -3567,9 +3567,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           { key: 'recuperado', label: 'Recuperados' }
         ]
         : [
-          { key: 'nuevo', label: 'Nuevos' },
-          { key: 'no_contesta', label: 'No contesta' },
-          { key: 'rechazo', label: 'Rechazos' }
+          { key: 'nuevo', label: 'Nuevos', dot: '#6ee7b7' },
+          { key: 'no_contesta', label: 'No contesta', dot: '#f97316' }
         ];
       const estadosFinalesGestion = isRecupero ? ['alta', 'rechazo', 'dato_erroneo'] : ESTADOS_FINALES_GESTION;
       const estadosConAgenda = isRecupero ? ['interesado', 'volver_a_llamar'] : ['seguimiento', 'rellamar'];
@@ -4379,26 +4378,40 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             display: 'flex', gap: 4, marginBottom: 12,
             borderBottom: '1px solid #E0E0E0', paddingBottom: 0
           }}>
-            {tabs.map((t) => (
-              <button
-                key={t.key}
-                onClick={() => { console.log('[tabs] click:', t.key); setTabActivo(t.key); setPage(1); }}
-                style={{
-                  padding: '8px 16px',
-                  background: 'transparent',
-                  border: 'none',
-                  borderBottom: tabActivo === t.key
-                    ? `2px solid ${accentColor}` : '2px solid transparent',
-                  color: tabActivo === t.key ? accentColor : '#888',
-                  fontWeight: tabActivo === t.key ? 600 : 400,
-                  fontSize: 13,
-                  cursor: 'pointer',
-                  marginBottom: -1
-                }}
-              >
-                {t.label}
-              </button>
-            ))}
+            {tabs.map((tab) => {
+              const isActive = tabActivo === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => { setTabActivo(tab.key); setPage(1); }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 7,
+                    padding: '7px 16px',
+                    background: isActive ? '#1a6b4a' : 'var(--color-background-secondary)',
+                    border: isActive ? 'none' : '0.5px solid var(--color-border-secondary)',
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                    transition: 'background 0.15s'
+                  }}
+                >
+                  {tab.dot && (
+                    <div style={{
+                      width: 7, height: 7, borderRadius: '50%',
+                      background: isActive ? 'rgba(255,255,255,0.7)' : tab.dot
+                    }} />
+                  )}
+                  <span style={{
+                    fontSize: 13,
+                    fontWeight: isActive ? 500 : 400,
+                    color: isActive ? '#fff' : 'var(--color-text-secondary)'
+                  }}>
+                    {tab.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           <div style={{ display: 'flex', gap: 8, padding: '12px 0', flexWrap: 'wrap', alignItems: 'center' }}>
