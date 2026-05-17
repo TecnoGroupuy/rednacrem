@@ -13393,6 +13393,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [productsCatalog, setProductsCatalog] = React.useState([]);
       const api = React.useMemo(() => getApiClient(), []);
       const [origenDatoOptions, setOrigenDatoOptions] = React.useState([]);
+      const [modulos, setModulos] = React.useState({ recupero: true });
       const productsById = React.useMemo(
         () => Object.fromEntries(productsCatalog.map((product) => [product.id, product])),
         [productsCatalog]
@@ -13439,6 +13440,13 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         [supportNewTickets]
       );
 
+      const roleNavResolved = React.useMemo(() => {
+        return roleNavWithBadges.filter((item) => {
+          if (item.path === 'recupero' && modulos?.recupero === false) return false;
+          return true;
+        });
+      }, [roleNavWithBadges, modulos?.recupero]);
+
       React.useEffect(() => {
         const onResize = () => {
           const desktop = window.innerWidth >= 1024;
@@ -13450,12 +13458,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       }, []);
 
       React.useEffect(() => {
-        const visible = roleNavWithBadges
+        const visible = roleNavResolved
           .filter((item) => item.roles.includes(role) && isModuleVisible(moduleStates, role, item.path))
           .map((item) => item.path);
         if (route === 'lotes_crear') return;
         if (!visible.includes(route)) setRoute(visible[0] || 'dashboard');
-      }, [role, route, moduleStates, roleNavWithBadges]);
+      }, [role, route, moduleStates, roleNavResolved]);
 
       React.useEffect(() => {
         persistModuleStates(moduleStates);
@@ -13491,6 +13499,25 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           })
           .catch(() => {});
       }, [api]);
+
+      React.useEffect(() => {
+        if (!authUser) return;
+        api.get('/api/me/modulos')
+          .then((res) => {
+            const mods = res?.modulos || res?.data?.modulos || null;
+            if (res?.ok && mods) {
+              setModulos(mods);
+              return;
+            }
+            return api.get('/me/modulos')
+              .then((alt) => {
+                const altMods = alt?.modulos || alt?.data?.modulos || null;
+                if (alt?.ok && altMods) setModulos(altMods);
+              })
+              .catch(() => {});
+          })
+          .catch(() => {});
+      }, [api, authUser]);
 
       React.useEffect(() => {
         if (!authUser?.id) return undefined;
@@ -13948,7 +13975,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
       const effectiveRoleForUi = getEffectiveRoleForUi({ rolEfectivo: role, rolReal, fallback: 'atencion_cliente' });
       const navItems = getVisibleNavItemsForRole({
-        roleNav: roleNavWithBadges,
+        roleNav: roleNavResolved,
         role: effectiveRoleForUi,
         moduleStates,
         isModuleVisible
