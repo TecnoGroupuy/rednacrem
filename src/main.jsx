@@ -3545,7 +3545,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
     function SalesContactsView({ contacts, selectedId, onSelect, onRegister, salesRecords, products, onAssignFamilySale, onUpdateContact, onVentaCerrada, onOpenNewClient, mode = 'contactos', vendedorNewClientOpen = false, origenDatoOptions = [] }) {
       const api = getApiClient();
-      const { user: authUser } = useAuth();
       const origenDatoResolvedOptions = (Array.isArray(origenDatoOptions) && origenDatoOptions.length)
         ? normalizeOrigenOptions(origenDatoOptions)
         : ORIGEN_DATO_OPTIONS_DEPRECADO;
@@ -3634,14 +3633,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               || contactosData?.items
               || contactosData?.data
               || [];
-            const vendedorId = authUser?.id || '';
-            const filteredItems = (isRecupero && vendedorId)
-              ? (Array.isArray(items) ? items : []).filter((item) => {
-                const assignedId = item?.vendedor_asignado_id ?? item?.seller_id ?? item?.vendedor_id ?? null;
-                return !assignedId || String(assignedId) === String(vendedorId);
-              })
-              : items;
-            setLocalContacts((Array.isArray(filteredItems) ? filteredItems : []).map(normalizeAssignedContact));
+            setLocalContacts(items.map(normalizeAssignedContact));
             setTotalPages(contactosData?.data?.totalPages || 1);
             setTotalContactos(contactosData?.data?.total || 0);
           }
@@ -3652,7 +3644,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         } catch (err) {
           console.error('[refresh] error silencioso:', err);
         }
-      }, [page, tabActivo, searchDebounced, filtroOrigen, contactsEndpoint, authUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+      }, [page, tabActivo, searchDebounced, filtroOrigen, contactsEndpoint]); // eslint-disable-line react-hooks/exhaustive-deps
 
       const cargarContactos = React.useCallback(async () => {
         setLoadingContacts(true);
@@ -3673,14 +3665,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               || d?.items
               || d?.data
               || [];
-            const vendedorId = authUser?.id || '';
-            const filteredItems = (isRecupero && vendedorId)
-              ? (Array.isArray(items) ? items : []).filter((item) => {
-                const assignedId = item?.vendedor_asignado_id ?? item?.seller_id ?? item?.vendedor_id ?? null;
-                return !assignedId || String(assignedId) === String(vendedorId);
-              })
-              : items;
-            setLocalContacts((Array.isArray(filteredItems) ? filteredItems : []).map(normalizeAssignedContact));
+            setLocalContacts(items.map(normalizeAssignedContact));
             setTotalPages(d?.data?.totalPages || 1);
             setTotalContactos(d?.data?.total || 0);
           }
@@ -3692,7 +3677,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         } finally {
           setLoadingContacts(false);
         }
-      }, [contacts, page, tabActivo, searchDebounced, filtroOrigen, contactsEndpoint, authUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+      }, [contacts, page, tabActivo, searchDebounced, filtroOrigen, contactsEndpoint]); // eslint-disable-line react-hooks/exhaustive-deps
 
       const [drawerContact, setDrawerContact] = React.useState(null);
       const drawerOpen = Boolean(drawerContact);
