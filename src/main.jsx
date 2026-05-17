@@ -3601,6 +3601,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [filtroUbicacion, setFiltroUbicacion] = React.useState('');
       const [filtroFechaDesde, setFiltroFechaDesde] = React.useState('');
       const [filtroFechaHasta, setFiltroFechaHasta] = React.useState('');
+      const [totalNuevos, setTotalNuevos] = React.useState(null);
+      const [totalNoContesta, setTotalNoContesta] = React.useState(null);
 
       const loadStats = React.useCallback(async () => {
         try {
@@ -3667,6 +3669,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             setLocalContacts(items.map(normalizeAssignedContact));
             setTotalPages(d?.data?.totalPages || 1);
             setTotalContactos(d?.data?.total || 0);
+            if (!isRecupero) {
+              const total = d?.data?.total ?? null;
+              if (tabActivo === 'nuevo') setTotalNuevos(total);
+              if (tabActivo === 'no_contesta') setTotalNoContesta(total);
+            }
           }
         } catch {
           const fallback = contacts.filter(isSalesActiveContact);
@@ -3677,6 +3684,16 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           setLoadingContacts(false);
         }
       }, [contacts, page, tabActivo, searchDebounced, filtroOrigen, contactsEndpoint]); // eslint-disable-line react-hooks/exhaustive-deps
+
+      React.useEffect(() => {
+        if (isRecupero) return;
+        api.get('/leads/assigned?tipo=captacion&tab=nuevo&page=1&limit=1')
+          .then((r) => setTotalNuevos(r?.data?.total ?? null))
+          .catch(() => {});
+        api.get('/leads/assigned?tipo=captacion&tab=no_contesta&page=1&limit=1')
+          .then((r) => setTotalNoContesta(r?.data?.total ?? null))
+          .catch(() => {});
+      }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
       const [drawerContact, setDrawerContact] = React.useState(null);
       const drawerOpen = Boolean(drawerContact);
@@ -4373,6 +4390,30 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                   }}>
                     {tab.label}
                   </span>
+                  {tab.key === 'nuevo' && totalNuevos !== null && (
+                    <span style={{
+                      fontSize: 11,
+                      background: isActive ? 'rgba(255,255,255,0.2)' : '#e8f5e9',
+                      color: isActive ? '#fff' : '#1a6b4a',
+                      padding: '1px 7px',
+                      borderRadius: 10,
+                      fontWeight: 500
+                    }}>
+                      {totalNuevos}
+                    </span>
+                  )}
+                  {tab.key === 'no_contesta' && totalNoContesta !== null && (
+                    <span style={{
+                      fontSize: 11,
+                      background: isActive ? 'rgba(255,255,255,0.2)' : '#fff3e0',
+                      color: isActive ? '#fff' : '#c2410c',
+                      padding: '1px 7px',
+                      borderRadius: 10,
+                      fontWeight: 500
+                    }}>
+                      {totalNoContesta}
+                    </span>
+                  )}
                 </button>
               );
             })}
