@@ -299,11 +299,21 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   }, [filterOptions, sellers, ultimoEstadoOptions]);
 
   const getMotivoBaja = (row) => {
-    const raw = (row?.motivo_baja ?? '').toString().trim();
-    if (!raw) return null;
+    const rawDetalle = (row?.motivo_baja_detalle ?? row?.motivoBajaDetalle ?? row?.motivo_baja_detail ?? row?.motivoBajaDetail ?? '').toString().trim();
+    const raw = rawDetalle || (row?.motivo_baja ?? '').toString().trim();
+    if (!raw) return 'Sin especificar';
     const normalized = raw.toLowerCase();
-    if (normalized === 'otro' || normalized === 'otros') return null;
+    if (normalized === 'otro' || normalized === 'otros') return 'Sin especificar';
+    if (normalized === 'baja') return 'Sin especificar';
     return raw;
+  };
+
+  const getMotivoColor = (value) => {
+    const raw = (value ?? '').toString().trim().toUpperCase();
+    if (!raw || raw === 'SIN ESPECIFICAR') return 'var(--color-text-secondary)';
+    if (raw.includes('FALLECIMIENTO')) return '#DC2626';
+    if (raw.includes('FALTA DE PAGO') || raw.includes('SIN PAGO') || raw.includes('MOROSIDAD')) return '#92400E';
+    return 'var(--color-text-secondary)';
   };
   const getNombreLote = (row) => row?.nombre_lote || null;
   const getVendedorAsignado = (row) => (
@@ -1411,7 +1421,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                     : null;
                   const diasColor = dias === null
                     ? 'var(--color-text-secondary)'
-                    : (dias > 180 ? 'var(--color-text-danger)' : (dias >= 90 ? '#b45309' : 'var(--color-text-success)'));
+                    : (dias > 180 ? '#DC2626' : (dias >= 90 ? '#92400E' : '#15803D'));
                   const subContacto = [row.edad ? `${row.edad} años` : null, row.departamento || row.depto || null].filter(Boolean).join(' · ') || '—';
                   const hasActiveProduct = detectActiveProduct(row);
                   const isExpanded = String(expandedRowId) === String(row.id);
@@ -1477,7 +1487,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <i className="ti ti-clipboard-text" style={{ fontSize: 14, color: 'var(--color-text-secondary)' }} />
-                            <span style={{ color: 'var(--color-text-primary)' }}>{motivoBaja || '—'}</span>
+                            <span style={{ color: getMotivoColor(motivoBaja) }}>{motivoBaja || '—'}</span>
                           </div>
                         </td>
                         <td style={{ fontWeight: 600, color: 'var(--color-text-primary)', maxWidth: 280, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
