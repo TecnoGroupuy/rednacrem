@@ -3239,7 +3239,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             ayerDate.setDate(ayerDate.getDate() - 1);
             const ayer = ayerDate.toLocaleDateString('en-CA');
 
-            const contactosData = await api.get('/leads/assigned?tipo=captacion&page=1&limit=200&tab=todos');
+            const contactosData = await api.get('/leads/assigned?tipo_excluir=recupero&page=1&limit=200&tab=todos');
             if (contactosData.success || contactosData.ok) {
               setAssignedData({
                 contactos: contactosData.data.contactos || [],
@@ -3624,7 +3624,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             limit: String(LIMIT),
             tab: tabActivo
           });
-          if (!isRecupero) params.set('tipo', 'captacion');
+          if (!isRecupero) params.set('tipo_excluir', 'recupero');
           if (searchDebounced) params.set('search', searchDebounced);
           if (filtroOrigen) params.set('origen_dato', filtroOrigen);
           const contactosData = await api.get(`${contactsEndpoint}?${params}`);
@@ -3655,7 +3655,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             limit: String(LIMIT),
             tab: tabActivo
           });
-          if (!isRecupero) params.set('tipo', 'captacion');
+          if (!isRecupero) params.set('tipo_excluir', 'recupero');
           if (searchDebounced) params.set('search', searchDebounced);
           if (filtroOrigen) params.set('origen_dato', filtroOrigen);
           const d = await api.get(`${contactsEndpoint}?${params}`);
@@ -3687,10 +3687,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
       React.useEffect(() => {
         if (isRecupero) return;
-        api.get('/leads/assigned?tipo=captacion&tab=nuevo&page=1&limit=1')
+        api.get('/leads/assigned?tipo_excluir=recupero&tab=nuevo&page=1&limit=1')
           .then((r) => setTotalNuevos(r?.data?.total ?? null))
           .catch(() => {});
-        api.get('/leads/assigned?tipo=captacion&tab=no_contesta&page=1&limit=1')
+        api.get('/leads/assigned?tipo_excluir=recupero&tab=no_contesta&page=1&limit=1')
           .then((r) => setTotalNoContesta(r?.data?.total ?? null))
           .catch(() => {});
       }, []); // eslint-disable-line react-hooks/exhaustive-deps
