@@ -1309,9 +1309,15 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                   const initials = sellerName.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
                   const informe = lotId ? lotesMetrics?.[lotId]?.informe : null;
                   const totalContactos = Number(informe?.total_contactos ?? count ?? 0);
-                  const totalNuevos = Number(informe?.total_nuevos ?? 0);
-                  const totalGestionados = Math.max(0, totalContactos - totalNuevos);
-                  const pct = totalContactos > 0 ? Math.round((totalGestionados / totalContactos) * 100) : 0;
+                  const totalGestionados = Number(informe?.total_vendidos || 0)
+                    + Number(informe?.total_no_contesta || 0)
+                    + Number(informe?.total_rechazos || 0)
+                    + Number(informe?.total_dato_erroneo || 0)
+                    + Number(informe?.total_en_proceso || 0)
+                    + Number(informe?.total_incontactables || 0);
+                  const pct = totalContactos > 0
+                    ? Math.round((totalGestionados / totalContactos) * 100)
+                    : 0;
                   const isCompletado = totalContactos > 0 && totalGestionados >= totalContactos;
                   const estadoBadge = isCompletado
                     ? { label: 'Completado', bg: 'rgba(148,163,184,0.22)', color: 'var(--color-text-secondary)' }
@@ -1980,7 +1986,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
           )}
 
         </Panel>
-      </section>`r`n`r`n
+      </section>
 
       {showAssignModal && (
         <div className="lot-wizard-overlay" onClick={closeAssign}>
