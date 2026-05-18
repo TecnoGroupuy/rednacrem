@@ -1,5 +1,5 @@
 ﻿import React from 'react';
-import { Filter, RefreshCw, Plus, X, Upload, Columns } from 'lucide-react';
+import { Filter, RefreshCw, X, Upload, Columns, ChevronDown } from 'lucide-react';
 import { getApiClient } from '../services/apiClient.js';
 import { formatDate } from '../utils/dateFormat.js';
 
@@ -67,10 +67,12 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const [page, setPage] = React.useState(1);
   const [total, setTotal] = React.useState(0);
   const [selectedIds, setSelectedIds] = React.useState([]);
-  const [showCreateLot, setShowCreateLot] = React.useState(false);
-  const [lotName, setLotName] = React.useState('');
+  const [showAssignModal, setShowAssignModal] = React.useState(false);
+  const [assignContactIds, setAssignContactIds] = React.useState([]);
+  const [assignSellerId, setAssignSellerId] = React.useState('');
+  const [assignNotes, setAssignNotes] = React.useState('');
+  const [assignHasActiveProduct, setAssignHasActiveProduct] = React.useState(false);
   const [sellers, setSellers] = React.useState([]);
-  const [selectedSellers, setSelectedSellers] = React.useState([]);
   const [creatingLot, setCreatingLot] = React.useState(false);
   const [showLotesModal, setShowLotesModal] = React.useState(false);
   const [lotesCreados, setLotesCreados] = React.useState([]);
@@ -88,6 +90,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const requestIdRef = React.useRef('');
   const lastInputAtRef = React.useRef(0);
   const selectAllRef = React.useRef(null);
+  const [expandedRowId, setExpandedRowId] = React.useState(null);
 
   const isImportSuccess = (result) => {
     if (!result) return false;
@@ -133,9 +136,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
 
   const tabsOperativos = [
     { key: 'disponibles', label: 'Disponibles' },
-    { key: 'en_lote', label: 'En lote' },
-    { key: 'asignados', label: 'Asignados' },
-    { key: 'gestionados', label: 'Gestionados' },
+    { key: 'asignados', label: 'En gestión' },
     { key: 'recuperados', label: 'Recuperados' },
     { key: 'rechazados', label: 'Rechazados' }
   ];
@@ -318,6 +319,66 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     || row?.ultima_gestion_real
     || null
   );
+
+  const getContactoNombre = React.useCallback((row) => (
+    [row?.nombre, row?.apellido].filter(Boolean).join(' ')
+    || [row?.contacto_nombre, row?.contacto_apellido].filter(Boolean).join(' ')
+    || row?.contacto
+    || '—'
+  ), []);
+
+  const getEstadoBadge = React.useCallback((row) => {
+    const vendedorAsignado = getVendedorAsignado(row);
+    const ultimoEstadoGestion = getUltimoEstado(row);
+    const estadoNorm = String(ultimoEstadoGestion || '').trim().toLowerCase();
+    if (estadoNorm === 'rechazo' || estadoNorm === 'rechazado') {
+      return { label: 'Rechazado', bg: '#FAECE7', color: '#993C1D' };
+    }
+    if (estadoNorm === 'recuperado' || estadoNorm === 'alta' || estadoNorm === 'venta') {
+      return { label: 'Recuperado', bg: '#BBF7D0', color: '#166534' };
+    }
+    if (vendedorAsignado) {
+      return { label: 'En gestión', bg: '#E1F5EE', color: '#0F6E56' };
+    }
+    return { label: 'Sin asignar', bg: '#FFF8E1', color: '#BA7517' };
+  }, []);
+
+  const detectActiveProduct = (row) => Boolean(
+    row?.producto_activo
+    || row?.productoActivo
+    || row?.tiene_producto_activo
+    || row?.tieneProductoActivo
+    || row?.cliente_activo
+    || row?.estado_cliente === 'activo'
+  );
+
+  const openAssign = React.useCallback((contactIds = [], row = null) => {
+    const ids = Array.isArray(contactIds) ? contactIds.filter(Boolean) : [];
+    if (!ids.length) return;
+    setAssignContactIds(ids);
+    setAssignSellerId('');
+    setAssignNotes('');
+    const rows = Array.isArray(visibleItems) ? visibleItems : [];
+    const hasActive = row ? detectActiveProduct(row) : ids.some((id) => detectActiveProduct(rows.find((it) => String(it?.id) === String(id))));
+    setAssignHasActiveProduct(Boolean(hasActive));
+    setShowAssignModal(true);
+    loadSellers();
+  }, [loadSellers, visibleItems]);
+
+  const closeAssign = React.useCallback(() => {
+    setShowAssignModal(false);
+    setAssignContactIds([]);
+    setAssignSellerId('');
+    setAssignNotes('');
+    setAssignHasActiveProduct(false);
+  }, []);
+
+  const getAssignmentLotName = () => {
+    const now = new Date();
+    const ymd = now.toLocaleDateString('en-CA');
+    const hm = now.toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' });
+    return `Asignación recupero ${ymd} ${hm}`;
+  };
 
   const toNumberOrNull = (value) => {
     if (value === '' || value === null || value === undefined) return null;
@@ -516,15 +577,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       visibleSelectableIds.forEach((id) => next.add(id));
       return Array.from(next);
     });
-  };
-
-  const toggleSeller = (id) => {
-    setSelectedSellers((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
-  };
-
-  const resetLotModal = () => {
-    setLotName('');
-    setSelectedSellers([]);
   };
 
   const resetImportState = () => {
@@ -1078,27 +1130,21 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     }
   };
 
-  const openCreateLot = () => {
-    if (!selectedIds.length || activeTab !== 'disponibles') return;
-    setShowCreateLot(true);
-    loadSellers();
-  };
-
-  const handleCreateLot = async () => {
-    if (!lotName.trim()) return;
+  const handleConfirmAssign = async () => {
+    if (!assignContactIds.length) return;
+    if (!assignSellerId) return;
     setCreatingLot(true);
     try {
       await api.post('/api/recupero/lotes', {
-        nombre: lotName.trim(),
-        contact_ids: selectedIds,
-        seller_ids: selectedSellers
+        nombre: getAssignmentLotName(),
+        contact_ids: assignContactIds,
+        seller_ids: [assignSellerId]
       });
-      setShowCreateLot(false);
-      resetLotModal();
+      closeAssign();
       setSelectedIds([]);
       loadRecupero({ force: true });
     } catch (err) {
-      setError(err?.message || 'No se pudo crear el lote de recupero.');
+      setError(err?.message || 'No se pudo asignar el contacto.');
     } finally {
       setCreatingLot(false);
     }
@@ -1112,8 +1158,11 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
           title="Recupero de clientes"
           subtitle="Cartera de clientes para reconversión"
           action={(
-            <Button variant="secondary" onClick={() => { setShowLotesModal(true); loadLotesCreados(); }}>
-              Lotes creados
+            <Button
+              onClick={() => openAssign(selectedIds)}
+              disabled={activeTab !== 'disponibles' || selectedIds.length === 0}
+            >
+              Asignar seleccionados
             </Button>
           )}
         >
@@ -1228,8 +1277,8 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                 <span style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
                   Seleccionados: {selectedIds.length}
                 </span>
-                <Button icon={<Plus size={16} />} onClick={openCreateLot}>
-                  Crear lote de recupero
+                <Button onClick={() => openAssign(selectedIds)}>
+                  Asignar seleccionados
                 </Button>
               </div>
             )}
@@ -1329,7 +1378,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
             <table>
               <thead>
                 <tr>
-                  <th>
+                  <th style={{ width: 36 }}>
                     <input
                       ref={selectAllRef}
                       type="checkbox"
@@ -1339,56 +1388,236 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                       aria-label="Seleccionar todos los contactos visibles"
                     />
                   </th>
-                  {renderHeaderCell('contacto', 'Contacto')}
-                  {isColumnVisible('documento') && renderHeaderCell('documento', 'Documento')}
-                  {isColumnVisible('edad') && renderHeaderCell('edad', 'Edad')}
-                  {isColumnVisible('telefono') && renderHeaderCell('telefono', 'Teléfono')}
-                  {isColumnVisible('departamento') && renderHeaderCell('departamento', 'Departamento')}
-                  {isColumnVisible('producto') && renderHeaderCell('producto', 'Producto')}
-                  {isColumnVisible('precio') && renderHeaderCell('precio', 'Precio')}
-                  {isColumnVisible('fecha_baja') && renderHeaderCell('fecha_baja', 'Fecha de baja')}
-                  {isColumnVisible('motivo_baja') && renderHeaderCell('motivo_baja', 'Motivo de baja')}
-                  {isColumnVisible('lote') && renderHeaderCell('lote', 'Lote')}
-                  {isColumnVisible('vendedor_asignado') && renderHeaderCell('vendedor_asignado', 'Vendedor asignado')}
-                  {isColumnVisible('ultimo_estado') && renderHeaderCell('ultimo_estado', 'Último estado')}
-                  {isColumnVisible('ultima_gestion') && renderHeaderCell('ultima_gestion', 'Última gestión', false)}
+                  <th style={{ textAlign: 'left' }}>Contacto</th>
+                  <th style={{ textAlign: 'left' }}>Motivo de baja</th>
+                  <th style={{ textAlign: 'left' }}>Producto</th>
+                  <th style={{ textAlign: 'left' }}>Antigüedad</th>
+                  <th style={{ textAlign: 'left' }}>Estado</th>
+                  <th style={{ textAlign: 'left' }}>Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {visibleItems.map((row) => {
-                  console.log('ROW DATA', row);
-                  const nombre = [row.nombre, row.apellido].filter(Boolean).join(' ')
-                    || [row.contacto_nombre, row.contacto_apellido].filter(Boolean).join(' ')
-                    || row.contacto || '—';
+                  const nombre = getContactoNombre(row);
+                  const initials = nombre.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
                   const motivoBaja = getMotivoBaja(row);
-                  const nombreLote = getNombreLote(row);
-                  const vendedorAsignado = getVendedorAsignado(row);
-                  const ultimoEstadoGestion = getUltimoEstado(row);
-                  const fechaUltimaGestion = getFechaUltimaGestion(row);
+                  const estadoBadge = getEstadoBadge(row);
+                  const producto = row.producto || row.producto_anterior || row.nombre_producto || '—';
+                  const fechaBaja = row.fecha_baja || row.fechaBaja || null;
+                  const fechaBajaDate = fechaBaja ? new Date(fechaBaja) : null;
+                  const hoy = new Date();
+                  const dias = (fechaBajaDate && Number.isFinite(fechaBajaDate.getTime()))
+                    ? Math.max(0, Math.floor((hoy - fechaBajaDate) / 86400000))
+                    : null;
+                  const diasColor = dias === null
+                    ? 'var(--color-text-secondary)'
+                    : (dias > 180 ? 'var(--color-text-danger)' : (dias >= 90 ? '#b45309' : 'var(--color-text-success)'));
+                  const subContacto = [row.edad ? `${row.edad} años` : null, row.departamento || row.depto || null].filter(Boolean).join(' · ') || '—';
+                  const hasActiveProduct = detectActiveProduct(row);
+                  const isExpanded = String(expandedRowId) === String(row.id);
+                  const toggleExpand = () => setExpandedRowId((prev) => (String(prev) === String(row.id) ? null : row.id));
                   return (
-                    <tr key={row.id}>
-                      <td>
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.includes(row.id)}
-                          onChange={() => toggleSelection(row.id)}
-                          disabled={activeTab !== 'disponibles'}
-                        />
-                      </td>
-                      <td><strong>{nombre}</strong></td>
-                      {isColumnVisible('documento') && <td>{row.documento || row.cedula || row.ci || row.documento_identidad || '—'}</td>}
-                      {isColumnVisible('edad') && <td>{row.edad ? `${row.edad} años` : '—'}</td>}
-                      {isColumnVisible('telefono') && <td>{row.telefono || row.phone || '—'}</td>}
-                      {isColumnVisible('departamento') && <td>{row.departamento || row.depto || '—'}</td>}
-                      {isColumnVisible('producto') && <td>{row.producto || row.producto_anterior || row.nombre_producto || '—'}</td>}
-                      {isColumnVisible('precio') && <td>{row.precio || row.monto || '—'}</td>}
-                      {isColumnVisible('fecha_baja') && <td>{formatDate(row.fecha_baja || row.fechaBaja)}</td>}
-                      {isColumnVisible('motivo_baja') && <td>{motivoBaja || 'Sin motivo'}</td>}
-                      {isColumnVisible('lote') && <td>{nombreLote || '—'}</td>}
-                      {isColumnVisible('vendedor_asignado') && <td>{vendedorAsignado || 'Sin asignar'}</td>}
-                      {isColumnVisible('ultimo_estado') && <td>{ultimoEstadoGestion || 'Nuevo'}</td>}
-                      {isColumnVisible('ultima_gestion') && <td>{fechaUltimaGestion ? formatDateTime(fechaUltimaGestion) : '—'}</td>}
-                    </tr>
+                    <React.Fragment key={row.id}>
+                      <tr style={{ background: isExpanded ? 'rgba(148,163,184,0.12)' : undefined }}>
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(row.id)}
+                            onChange={() => toggleSelection(row.id)}
+                            disabled={activeTab !== 'disponibles'}
+                            aria-label="Seleccionar contacto"
+                          />
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{
+                              width: 34,
+                              height: 34,
+                              borderRadius: 999,
+                              background: 'rgba(249,115,22,0.14)',
+                              color: '#9a3412',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 700,
+                              fontSize: 13,
+                              flexShrink: 0
+                            }}>
+                              {initials || '—'}
+                            </div>
+                            <div style={{ minWidth: 0 }}>
+                              <button
+                                type="button"
+                                onClick={toggleExpand}
+                                style={{ border: 'none', background: 'transparent', padding: 0, margin: 0, cursor: 'pointer', textAlign: 'left' }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <span style={{ fontWeight: 700, color: 'var(--color-text-primary)' }}>{nombre}</span>
+                                  {hasActiveProduct && (
+                                    <span style={{
+                                      fontSize: 11,
+                                      fontWeight: 700,
+                                      background: 'rgba(249,115,22,0.14)',
+                                      color: '#9a3412',
+                                      padding: '2px 8px',
+                                      borderRadius: 999,
+                                      border: '1px solid rgba(249,115,22,0.25)'
+                                    }}>
+                                      Producto activo
+                                    </span>
+                                  )}
+                                </div>
+                                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {subContacto}
+                                </div>
+                              </button>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <i className="ti ti-clipboard-text" style={{ fontSize: 14, color: 'var(--color-text-secondary)' }} />
+                            <span style={{ color: 'var(--color-text-primary)' }}>{motivoBaja || '—'}</span>
+                          </div>
+                        </td>
+                        <td style={{ fontWeight: 600, color: 'var(--color-text-primary)', maxWidth: 280, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {producto}
+                        </td>
+                        <td>
+                          <div style={{ fontSize: 18, fontWeight: 800, color: diasColor, lineHeight: 1 }}>
+                            {dias === null ? '—' : `${dias}d`}
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 2 }}>
+                            {fechaBaja ? formatDate(fechaBaja) : '—'}
+                          </div>
+                        </td>
+                        <td>
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            padding: '4px 10px',
+                            borderRadius: 999,
+                            background: estadoBadge.bg,
+                            color: estadoBadge.color,
+                            fontSize: 12,
+                            fontWeight: 700
+                          }}>
+                            {estadoBadge.label}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={() => openAssign([row.id], row)}
+                              style={{
+                                fontSize: 12,
+                                fontWeight: 700,
+                                color: '#0f766e',
+                                background: 'rgba(15,118,110,0.08)',
+                                border: '1px solid rgba(15,118,110,0.22)',
+                                borderRadius: 8,
+                                padding: '6px 10px',
+                                cursor: 'pointer',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              {getVendedorAsignado(row) ? 'Reasignar' : 'Asignar'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={toggleExpand}
+                              style={{
+                                width: 34,
+                                height: 34,
+                                borderRadius: 8,
+                                border: '1px solid rgba(148,163,184,0.5)',
+                                background: '#fff',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                              aria-label="Expandir fila"
+                            >
+                              <ChevronDown size={16} style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {isExpanded && (
+                        <tr>
+                          <td colSpan={7} style={{ background: 'rgba(148,163,184,0.12)', padding: '12px 14px', borderTop: '0.5px solid var(--color-border-tertiary)' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                              <div>
+                                <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-secondary)', marginBottom: 8 }}>
+                                  Datos del contacto
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                                  <div>
+                                    <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Documento</div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{row.documento || row.cedula || row.ci || '—'}</div>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Teléfono</div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{row.telefono || row.celular || row.phone || '—'}</div>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Precio</div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{row.precio || row.monto || row.precio_producto || '—'}</div>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Departamento</div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{row.departamento || row.depto || '—'}</div>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Último pago</div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{row.ultimo_pago || row.ultimoPago || '—'}</div>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Forma de pago</div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{row.forma_pago || row.medio_pago || row.medioPago || '—'}</div>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Vendedor original</div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{row.vendedor_original || row.vendedorOriginal || row.vendedor_asignado_original || '—'}</div>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Fecha de alta original</div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{row.fecha_alta_original ? formatDate(row.fecha_alta_original) : (row.fecha_alta ? formatDate(row.fecha_alta) : '—')}</div>
+                                  </div>
+                                </div>
+                              </div>
+                              <div>
+                                <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-secondary)', marginBottom: 8 }}>
+                                  Historial
+                                </div>
+                                {Array.isArray(row.historial) && row.historial.length ? (
+                                  <div style={{ display: 'grid', gap: 10 }}>
+                                    {row.historial.map((h, idx) => (
+                                      <div key={idx} style={{ borderLeft: '2px solid rgba(148,163,184,0.6)', paddingLeft: 10 }}>
+                                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                                          {h.estado || h.resultado || h.label || 'Gestión'}
+                                        </div>
+                                        <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>
+                                          {h.fecha ? formatDateTime(h.fecha) : '—'}
+                                        </div>
+                                        {h.nota && <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 2 }}>{h.nota}</div>}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                                    Sin gestiones registradas
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
@@ -1460,47 +1689,62 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
         </div>
       )}
 
-      {showCreateLot && (
-        <>
-          <div className="lot-wizard-overlay" onClick={() => { setShowCreateLot(false); resetLotModal(); }}>
-            <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 520 }}>
-              <div className="lot-wizard-header">
-                <div style={{ fontWeight: 700 }}>Crear lote de recupero</div>
-                <button className="close-btn" onClick={() => { setShowCreateLot(false); resetLotModal(); }}><X size={16} /></button>
+      {showAssignModal && (
+        <div className="lot-wizard-overlay" onClick={closeAssign}>
+          <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 520 }}>
+            <div className="lot-wizard-header">
+              <div style={{ fontWeight: 700 }}>Asignar contacto</div>
+              <button className="close-btn" onClick={closeAssign}><X size={16} /></button>
+            </div>
+            <div className="lot-wizard-content">
+              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 12 }}>
+                Seleccionados: <strong>{assignContactIds.length}</strong>
               </div>
-              <div className="lot-wizard-content">
-                <label style={{ display: 'grid', gap: 6, marginBottom: 12 }}>
-                  <span style={{ fontSize: 12, color: '#64748b' }}>Nombre del lote</span>
-                  <input
-                    className="input"
-                    value={lotName}
-                    onChange={(event) => setLotName(event.target.value)}
-                    placeholder="Lote recupero marzo"
-                  />
-                </label>
-                <div style={{ marginBottom: 12 }}>
-                  <div style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Vendedores</div>
-                  <div style={{ border: '1px solid rgba(15,23,42,0.1)', borderRadius: 12, padding: 10, maxHeight: 200, overflowY: 'auto' }}>
-                    {sellers.length ? sellers.map((seller) => (
-                      <label key={seller.id || seller.email} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 2px' }}>
-                        <input
-                          type="checkbox"
-                          checked={selectedSellers.includes(seller.id)}
-                          onChange={() => toggleSeller(seller.id)}
-                        />
-                        <span>{seller.label || seller.nombre || seller.email || 'Vendedor'}</span>
-                      </label>
-                    )) : <div style={{ color: 'var(--muted)' }}>Sin vendedores disponibles.</div>}
-                  </div>
+              {assignHasActiveProduct && (
+                <div style={{
+                  background: 'rgba(245, 158, 11, 0.12)',
+                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                  borderRadius: 10,
+                  padding: '10px 12px',
+                  marginBottom: 12,
+                  color: '#92400e',
+                  fontSize: 12,
+                  fontWeight: 600
+                }}>
+                  ⚠ Este contacto tiene producto activo. Verificá antes de asignar.
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                  <Button variant="ghost" onClick={() => { setShowCreateLot(false); resetLotModal(); }}>Cancelar</Button>
-                  <Button disabled={!lotName.trim() || creatingLot} onClick={handleCreateLot}>Crear lote</Button>
-                </div>
+              )}
+              <label style={{ display: 'grid', gap: 6, marginBottom: 12 }}>
+                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Vendedor</span>
+                <select className="input" value={assignSellerId} onChange={(event) => setAssignSellerId(event.target.value)}>
+                  <option value="">Seleccionar...</option>
+                  {sellers.map((seller) => (
+                    <option key={seller.id || seller.email} value={seller.id}>
+                      {seller.label || seller.nombre || seller.email || 'Vendedor'}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label style={{ display: 'grid', gap: 6, marginBottom: 12 }}>
+                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Notas para el vendedor (opcional)</span>
+                <textarea
+                  className="input"
+                  rows={3}
+                  value={assignNotes}
+                  onChange={(event) => setAssignNotes(event.target.value)}
+                  placeholder="Ej: Prioridad alta, motivo de baja..."
+                  style={{ resize: 'vertical' }}
+                />
+              </label>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                <Button variant="ghost" onClick={closeAssign} disabled={creatingLot}>Cancelar</Button>
+                <Button onClick={handleConfirmAssign} disabled={!assignSellerId || creatingLot}>
+                  {creatingLot ? 'Asignando...' : 'Confirmar asignación'}
+                </Button>
               </div>
             </div>
           </div>
-        </>
+        </div>
       )}
 
       {showImportModal && (
