@@ -40,6 +40,7 @@ const FILTER_COLUMN_CONFIG = {
 
 export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const api = React.useMemo(() => getApiClient(), []);
+  const [vistaActual, setVistaActual] = React.useState('disponibles'); // 'disponibles' | 'lotes' | 'detalle-lote'
   const [metrics, setMetrics] = React.useState({ total: 0, disponibles: 0, enLote: 0, recuperados: 0, rechazados: 0 });
   const [items, setItems] = React.useState([]);
   const [columnFiltersDraft, setColumnFiltersDraft] = React.useState({ ...COLUMN_FILTERS_INITIAL });
@@ -74,7 +75,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const [assignHasActiveProduct, setAssignHasActiveProduct] = React.useState(false);
   const [sellers, setSellers] = React.useState([]);
   const [creatingLot, setCreatingLot] = React.useState(false);
-  const [showLotesModal, setShowLotesModal] = React.useState(false);
+  const [loteSeleccionado, setLoteSeleccionado] = React.useState(null);
   const [lotesCreados, setLotesCreados] = React.useState([]);
   const [lotesLoading, setLotesLoading] = React.useState(false);
   const [lotesError, setLotesError] = React.useState('');
@@ -91,6 +92,10 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const lastInputAtRef = React.useRef(0);
   const selectAllRef = React.useRef(null);
   const [expandedRowId, setExpandedRowId] = React.useState(null);
+  const [detalleMetrics, setDetalleMetrics] = React.useState(null);
+  const [detalleContacts, setDetalleContacts] = React.useState([]);
+  const [detalleLoading, setDetalleLoading] = React.useState(false);
+  const [detalleError, setDetalleError] = React.useState('');
 
   const isImportSuccess = (result) => {
     if (!result) return false;
@@ -307,6 +312,49 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     if (normalized === 'baja') return 'Sin especificar';
     return raw;
   };
+
+  const asLotId = (lote) => String(lote?.id || lote?.batch_id || lote?.lote_id || lote?.lead_batch_id || '');
+  const asLotName = (lote) => lote?.nombre || lote?.name || lote?.lote_nombre || '—';
+  const asLotCreatedAt = (lote) => lote?.created_at || lote?.fecha_creacion || lote?.createdAt || null;
+  const asLotCount = (lote) => Number(formatLoteCount(lote) || 0);
+  const asLotSellerName = (lote) => formatLoteSeller(lote);
+
+  React.useEffect(() => {
+    if (vistaActual !== 'lotes') return;
+    loadLotesCreados();
+  }, [loadLotesCreados, vistaActual]);
+
+  React.useEffect(() => {
+    if (vistaActual !== 'detalle-lote') return;
+    if (!loteSeleccionado?.id) return;
+    let active = true;
+    setDetalleLoading(true);
+    setDetalleError('');
+    setDetalleMetrics(null);
+    setDetalleContacts([]);
+    Promise.all([
+      api.get(`/lead-batches/${encodeURIComponent(loteSeleccionado.id)}/metrics`)
+        .then((res) => (res?.ok ? (res?.data?.data || res?.data) : null))
+        .catch(() => null),
+      api.get(`/api/recupero/contactos?lote=${encodeURIComponent(loteSeleccionado.id)}&page=1&limit=50`)
+        .then((res) => (res?.items || res?.data?.items || []))
+        .catch(() => [])
+    ])
+      .then(([m, contacts]) => {
+        if (!active) return;
+        setDetalleMetrics(m);
+        setDetalleContacts(Array.isArray(contacts) ? contacts : []);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setDetalleError(err?.message || 'No se pudo cargar el detalle del lote.');
+      })
+      .finally(() => {
+        if (!active) return;
+        setDetalleLoading(false);
+      });
+    return () => { active = false; };
+  }, [api, loteSeleccionado?.id, vistaActual]);
 
   const getMotivoColor = (value) => {
     const raw = (value ?? '').toString().trim().toUpperCase();
@@ -1168,20 +1216,263 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
           title="Recupero de clientes"
           subtitle="Cartera de clientes para reconversión"
           action={(
-            <Button
-              onClick={() => openAssign(selectedIds)}
-              disabled={activeTab !== 'disponibles' || selectedIds.length === 0}
-            >
-              Asignar seleccionados
-            </Button>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => { setVistaActual('disponibles'); setLoteSeleccionado(null); }}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: 10,
+                  border: vistaActual === 'disponibles' ? '1px solid #0F766E' : '1px solid rgba(148,163,184,0.45)',
+                  background: vistaActual === 'disponibles' ? '#0F766E' : 'transparent',
+                  color: vistaActual === 'disponibles' ? '#fff' : 'var(--color-text-secondary)',
+                  fontWeight: 700,
+                  fontSize: 12,
+                  cursor: 'pointer'
+                }}
+              >
+                Ver disponibles
+              </button>
+              <button
+                type="button"
+                onClick={() => { setVistaActual('lotes'); setLoteSeleccionado(null); }}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: 10,
+                  border: vistaActual === 'lotes' ? '1px solid #0F766E' : '1px solid rgba(148,163,184,0.45)',
+                  background: vistaActual === 'lotes' ? '#0F766E' : 'transparent',
+                  color: vistaActual === 'lotes' ? '#fff' : 'var(--color-text-secondary)',
+                  fontWeight: 700,
+                  fontSize: 12,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8
+                }}
+              >
+                Mis lotes
+                <span style={{
+                  fontSize: 11,
+                  fontWeight: 800,
+                  padding: '2px 8px',
+                  borderRadius: 999,
+                  background: vistaActual === 'lotes' ? 'rgba(255,255,255,0.2)' : 'rgba(15,118,110,0.10)',
+                  color: vistaActual === 'lotes' ? '#fff' : '#0F766E'
+                }}>
+                  {lotesCreados.length}
+                </span>
+              </button>
+            </div>
           )}
         >
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-            gap: '12px',
-            marginBottom: '24px'
-          }}>
+          {vistaActual === 'lotes' && (
+            <div>
+              {lotesLoading ? <div style={{ marginBottom: 12, color: 'var(--muted)' }}>Cargando lotes...</div> : null}
+              {lotesError ? <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 700 }}>{lotesError}</div> : null}
+              {!lotesLoading && !lotesCreados.length ? (
+                <div style={{ padding: 16, color: 'var(--muted)' }}>No hay lotes creados.</div>
+              ) : null}
+
+              <div style={{ display: 'grid', gap: 10 }}>
+                {lotesCreados.map((lote, idx) => {
+                  const lotId = asLotId(lote);
+                  const name = asLotName(lote);
+                  const createdAt = asLotCreatedAt(lote);
+                  const count = asLotCount(lote);
+                  const sellerName = asLotSellerName(lote);
+                  const initials = sellerName.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
+                  const stats = lote?.stats || lote?.estadisticas || lote?.metrics || null;
+                  const totalGestionados = Number(stats?.gestionados ?? stats?.total_gestionados ?? 0);
+                  const pct = count > 0 ? Math.min(100, Math.max(0, Math.round((totalGestionados / count) * 100))) : 0;
+                  const isCompletado = count > 0 && totalGestionados >= count;
+                  const estadoBadge = isCompletado
+                    ? { label: 'Completado', bg: 'rgba(148,163,184,0.22)', color: 'var(--color-text-secondary)' }
+                    : { label: 'Activo', bg: 'rgba(15,118,110,0.10)', color: '#0F766E' };
+
+                  const openDetalle = () => {
+                    if (!lotId) return;
+                    setLoteSeleccionado({
+                      id: lotId,
+                      nombre: name,
+                      createdAt,
+                      sellerName
+                    });
+                    setVistaActual('detalle-lote');
+                  };
+
+                  return (
+                    <div
+                      key={lotId || idx}
+                      role="button"
+                      tabIndex={0}
+                      onClick={openDetalle}
+                      onKeyDown={(e) => { if (e.key === 'Enter') openDetalle(); }}
+                      style={{
+                        border: '1px solid rgba(148,163,184,0.35)',
+                        borderRadius: 14,
+                        padding: 14,
+                        background: '#fff',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                            <div style={{ fontWeight: 800, color: 'var(--color-text-primary)', fontSize: 14 }}>
+                              {name}
+                            </div>
+                            <span style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              padding: '3px 10px',
+                              borderRadius: 999,
+                              background: estadoBadge.bg,
+                              color: estadoBadge.color,
+                              fontSize: 12,
+                              fontWeight: 800
+                            }}>
+                              {estadoBadge.label}
+                            </span>
+                          </div>
+                          <div style={{ marginTop: 4, fontSize: 12, color: 'var(--color-text-secondary)', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                            <span>{createdAt ? formatDateTime(createdAt) : '—'}</span>
+                            <span>·</span>
+                            <span><strong>{count}</strong> contactos</span>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                          <div style={{
+                            width: 30,
+                            height: 30,
+                            borderRadius: 999,
+                            background: 'rgba(15,118,110,0.10)',
+                            color: '#0F766E',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 800,
+                            fontSize: 12
+                          }}>
+                            {initials || '—'}
+                          </div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                            {sellerName || 'Sin asignar'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: 10 }}>
+                        <div style={{ height: 6, background: 'rgba(148,163,184,0.22)', borderRadius: 999, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: pct + '%', background: '#0F766E', borderRadius: 999 }} />
+                        </div>
+                        <div style={{ marginTop: 6, fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                          Avance: <strong>{pct}%</strong>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+                        <button type="button" onClick={(e) => { e.stopPropagation(); }} style={{ padding: '7px 10px', borderRadius: 10, border: '1px solid rgba(148,163,184,0.45)', background: 'transparent', cursor: 'pointer', fontWeight: 800, fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                          Agregar datos
+                        </button>
+                        <button type="button" onClick={(e) => { e.stopPropagation(); openDetalle(); }} style={{ padding: '7px 10px', borderRadius: 10, border: '1px solid rgba(15,118,110,0.35)', background: 'rgba(15,118,110,0.10)', cursor: 'pointer', fontWeight: 800, fontSize: 12, color: '#0F766E' }}>
+                          Ver informe
+                        </button>
+                        <button type="button" onClick={(e) => { e.stopPropagation(); openDetalle(); }} style={{ padding: '7px 10px', borderRadius: 10, border: '1px solid rgba(148,163,184,0.45)', background: 'transparent', cursor: 'pointer', fontWeight: 800, fontSize: 12, color: 'var(--color-text-secondary)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          Ver detalle <ChevronDown size={14} style={{ transform: 'rotate(-90deg)' }} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {vistaActual === 'detalle-lote' && (
+            <div>
+              <button
+                type="button"
+                onClick={() => { setVistaActual('lotes'); setLoteSeleccionado(null); }}
+                style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, marginBottom: 10, color: '#0F766E', fontWeight: 800, fontSize: 13 }}
+              >
+                ← Volver a lotes
+              </button>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--color-text-primary)' }}>
+                    {loteSeleccionado?.nombre || 'Detalle de lote'}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 2 }}>
+                    {loteSeleccionado?.sellerName ? `Vendedor: ${loteSeleccionado.sellerName}` : 'Vendedor: —'} · {loteSeleccionado?.createdAt ? formatDateTime(loteSeleccionado.createdAt) : '—'}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <Button variant="secondary" onClick={() => {}} disabled>Agregar datos</Button>
+                  <Button variant="secondary" onClick={() => {}} disabled>Reasignar</Button>
+                  <Button variant="ghost" onClick={() => {}} disabled>Ver informe</Button>
+                </div>
+              </div>
+
+              {detalleError ? (
+                <div style={{ marginTop: 12, color: '#b91c1c', fontWeight: 800 }}>{detalleError}</div>
+              ) : null}
+              {detalleLoading ? (
+                <div style={{ marginTop: 12, color: 'var(--muted)' }}>Cargando detalle…</div>
+              ) : null}
+
+              {detalleMetrics?.informe && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginTop: 12 }}>
+                  {[
+                    { label: 'Total', value: detalleMetrics.informe.total_contactos, color: 'var(--color-text-primary)' },
+                    { label: 'Ventas', value: detalleMetrics.informe.total_vendidos, color: '#15803D' },
+                    { label: 'Rechazos', value: detalleMetrics.informe.total_rechazos, color: '#DC2626' },
+                    { label: '% Avance', value: `${detalleMetrics.informe.pct_avance}%`, color: '#185FA5' }
+                  ].map((m) => (
+                    <div key={m.label} style={{ background: 'var(--color-background-secondary)', borderRadius: 12, padding: '12px 14px', border: '0.5px solid var(--color-border-tertiary)' }}>
+                      <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', fontWeight: 700 }}>{m.label}</div>
+                      <div style={{ fontSize: 26, fontWeight: 900, color: m.color, marginTop: 2 }}>{m.value ?? '—'}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="table-wrap" style={{ overflowX: 'auto', marginTop: 12 }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Contacto</th>
+                      <th>Producto</th>
+                      <th>Estado</th>
+                      <th>Última gestión</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(detalleContacts || []).map((row, idx) => (
+                      <tr key={row.id || idx}>
+                        <td><strong>{[row.nombre, row.apellido].filter(Boolean).join(' ') || row.contacto || '—'}</strong></td>
+                        <td>{row.producto || row.nombre_producto || '—'}</td>
+                        <td>{row.estado_venta || row.ultimo_estado_gestion || row.estado || '—'}</td>
+                        <td>{row.ultima_gestion ? formatDateTime(row.ultima_gestion) : (row.fecha_ultima_gestion ? formatDateTime(row.fecha_ultima_gestion) : '—')}</td>
+                      </tr>
+                    ))}
+                    {!detalleLoading && (!detalleContacts || !detalleContacts.length) ? (
+                      <tr><td colSpan={4} style={{ padding: 14, color: 'var(--muted)' }}>Sin contactos para este lote.</td></tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {vistaActual === 'disponibles' && (
+            <>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+              gap: '12px',
+              marginBottom: '24px'
+            }}>
             <div style={{
               background: 'var(--color-background-secondary)',
               borderRadius: '8px',
@@ -1292,7 +1583,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                 </Button>
               </div>
             )}
-          </div>
+            </div>
 
           {activeChips.length ? (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
@@ -1647,57 +1938,11 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
               <Button variant="ghost" disabled={page >= totalPages} onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}>Siguiente</Button>
             </div>
           </div>
+            </>
+          )}
 
         </Panel>
       </section>`r`n`r`n
-
-      {showLotesModal && (
-        <div className="lot-wizard-overlay" onClick={() => setShowLotesModal(false)}>
-          <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 900 }}>
-            <div className="lot-wizard-header">
-              <div style={{ fontWeight: 700 }}>Lotes creados</div>
-              <button className="close-btn" onClick={() => setShowLotesModal(false)}><X size={16} /></button>
-            </div>
-            <div className="lot-wizard-content">
-              {lotesLoading ? <div style={{ marginBottom: 12, color: 'var(--muted)' }}>Cargando lotes...</div> : null}
-              {lotesError ? <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 600 }}>{lotesError}</div> : null}
-              <div className="table-wrap" style={{ maxHeight: 360, overflow: 'auto' }}>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Fecha y hora</th>
-                      <th>Nombre</th>
-                      <th>Cantidad</th>
-                      <th>Configuración</th>
-                      <th>Vendedor asignado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lotesCreados.map((lote, idx) => {
-                      const configText = formatLoteConfig(lote);
-                      return (
-                        <tr key={lote.id || lote.lote_id || idx}>
-                          <td>{formatDateTime(lote.created_at || lote.fecha_creacion || lote.createdAt)}</td>
-                          <td>{lote.nombre || lote.name || '—'}</td>
-                          <td>{formatLoteCount(lote)}</td>
-                          <td title={configText}>{configText}</td>
-                          <td>{formatLoteSeller(lote)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                {!lotesLoading && !lotesCreados.length ? (
-                  <div style={{ padding: 16, color: 'var(--muted)' }}>No hay lotes creados.</div>
-                ) : null}
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-                <Button variant="ghost" onClick={() => setShowLotesModal(false)}>Cerrar</Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {showAssignModal && (
         <div className="lot-wizard-overlay" onClick={closeAssign}>
