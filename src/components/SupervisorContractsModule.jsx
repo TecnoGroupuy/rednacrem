@@ -1309,8 +1309,9 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                   const initials = sellerName.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
                   const informe = lotId ? lotesMetrics?.[lotId]?.informe : null;
                   const totalContactos = Number(informe?.total_contactos ?? count ?? 0);
-                  const totalGestionados = Number(informe?.total_gestionados ?? 0);
-                  const pct = Number.isFinite(informe?.pct_avance) ? Number(informe.pct_avance) : (totalContactos > 0 ? Math.min(100, Math.max(0, Math.round((totalGestionados / totalContactos) * 100))) : 0);
+                  const totalNuevos = Number(informe?.total_nuevos ?? 0);
+                  const totalGestionados = Math.max(0, totalContactos - totalNuevos);
+                  const pct = totalContactos > 0 ? Math.round((totalGestionados / totalContactos) * 100) : 0;
                   const isCompletado = totalContactos > 0 && totalGestionados >= totalContactos;
                   const estadoBadge = isCompletado
                     ? { label: 'Completado', bg: 'rgba(148,163,184,0.22)', color: 'var(--color-text-secondary)' }
