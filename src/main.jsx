@@ -7708,6 +7708,14 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         const total = v.total_contactos || 0;
                         const gestionados = v.gestionados || 0;
                         const pct = total > 0 ? Math.round((gestionados / total) * 100) : 0;
+                        const incontactables = (selectedLot.contacts || []).filter((c) => {
+                          const rawEstado = c?.estado_venta ?? c?.estadoVenta ?? c?.status ?? '';
+                          if (String(rawEstado).toLowerCase() !== 'incontactable') return false;
+                          const sellerId = c?.seller_id ?? c?.sellerId ?? c?.vendedor_id ?? c?.vendedorId ?? c?.assigned_to ?? c?.assignedTo ?? null;
+                          if (sellerId && String(sellerId) === String(v.id)) return true;
+                          const sellerName = (c?.sellerName || c?.seller || c?.vendedor || c?.assignedSellerName || '').toString().trim().toLowerCase();
+                          return sellerName && sellerName === nombre.toLowerCase();
+                        });
                         return (
                           <div key={v.id} style={{ border: '1px solid rgba(20,34,53,0.1)', borderRadius: 8, padding: '10px 12px', marginBottom: 8, background: 'var(--bg)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -7738,6 +7746,34 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                               </div>
                               <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 3 }}>{pct}% gestionado</div>
                             </div>
+
+                            {incontactables.length > 0 && (
+                              <div style={{ marginTop: 10, borderRadius: 8, border: '1px solid rgba(245,158,11,0.45)', background: 'rgba(245,158,11,0.08)', padding: '8px 10px' }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: '#b45309', marginBottom: 6 }}>Incontactables</div>
+                                <div style={{ display: 'grid', gap: 6 }}>
+                                  {incontactables.map((c) => {
+                                    const contactName = (c?.name || [c?.nombre, c?.apellido].filter(Boolean).join(' ')).toString().trim() || 'Contacto';
+                                    const phone = c?.celular || c?.telefono || c?.phone || '';
+                                    return (
+                                      <div key={c.id || contactName + phone} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+                                        <div style={{ minWidth: 0 }}>
+                                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{contactName}</div>
+                                          {phone ? <div style={{ fontSize: 11, color: 'var(--muted)' }}>{phone}</div> : null}
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => {}}
+                                          style={{ fontSize: 11, fontWeight: 600, color: '#0F6E56', background: '#E1F5EE', border: '1px solid #5DCAA5', borderRadius: 6, padding: '4px 9px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                          title="Reactivación pendiente de endpoint"
+                                        >
+                                          Reactivar
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
