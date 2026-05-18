@@ -7846,6 +7846,36 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             Informe del lote
                           </p>
 
+                          {informe.primer_dato && (
+                            <div style={{
+                              display: 'flex',
+                              gap: 16,
+                              flexWrap: 'wrap',
+                              padding: '8px 0',
+                              borderBottom: '0.5px solid var(--color-border-tertiary)',
+                              marginBottom: 8
+                            }}>
+                              <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                                Primer dato:{' '}
+                                <span style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>
+                                  {new Date(informe.primer_dato).toLocaleDateString('es-UY')}
+                                </span>
+                              </span>
+                              <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                                Último dato:{' '}
+                                <span style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>
+                                  {new Date(informe.ultimo_dato).toLocaleDateString('es-UY')}
+                                </span>
+                              </span>
+                              <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                                Días transcurridos:{' '}
+                                <span style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>
+                                  {informe.dias_transcurridos}
+                                </span>
+                              </span>
+                            </div>
+                          )}
+
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 6 }}>
                             {[
                               { label: 'Total contactos', value: informe.total_contactos, color: 'var(--color-text-primary)', sub: null },
