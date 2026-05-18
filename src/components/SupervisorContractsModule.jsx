@@ -81,6 +81,12 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const [lotesError, setLotesError] = React.useState('');
   const [lotesMetrics, setLotesMetrics] = React.useState({});
   const [activeTab, setActiveTab] = React.useState('disponibles');
+  const [tabCounts, setTabCounts] = React.useState({
+    disponibles: 0,
+    en_gestion: 0,
+    recuperados: 0,
+    rechazados: 0
+  });
   const [showImportModal, setShowImportModal] = React.useState(false);
   const [importFile, setImportFile] = React.useState(null);
   const [importRows, setImportRows] = React.useState([]);
@@ -341,6 +347,10 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   }, [loadLotesCreados, vistaActual]);
 
   React.useEffect(() => {
+    loadLotesCreados();
+  }, [loadLotesCreados]);
+
+  React.useEffect(() => {
     if (vistaActual !== 'lotes') return;
     if (!Array.isArray(lotesCreados) || !lotesCreados.length) {
       setLotesMetrics({});
@@ -599,6 +609,17 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       const totalCount = Number(response?.total ?? response?.data?.total ?? rows.length);
       setItems(Array.isArray(rows) ? rows : []);
       setTotal(Number.isFinite(totalCount) ? totalCount : 0);
+
+      const incomingTabCounts = response?.data?.tab_counts || response?.tab_counts || null;
+      if (incomingTabCounts && typeof incomingTabCounts === 'object') {
+        setTabCounts({
+          disponibles: Number(incomingTabCounts.disponibles || 0),
+          en_gestion: Number(incomingTabCounts.en_gestion ?? incomingTabCounts.asignados ?? 0),
+          recuperados: Number(incomingTabCounts.recuperados || 0),
+          rechazados: Number(incomingTabCounts.rechazados || 0)
+        });
+      }
+
       const backendMetrics = response?.metrics || response?.data?.metrics || null;
       if (backendMetrics) {
         setMetrics((prev) => ({
@@ -1847,23 +1868,46 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
             {tabsOperativos.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: 999,
-                  border: activeTab === tab.key ? '1px solid #f97316' : '1px solid rgba(148,163,184,0.4)',
-                  background: activeTab === tab.key ? 'rgba(249,115,22,0.12)' : 'transparent',
-                  color: activeTab === tab.key ? '#9a3412' : 'var(--color-text-secondary)',
-                  fontWeight: activeTab === tab.key ? 700 : 500,
-                  fontSize: 12,
-                  cursor: 'pointer'
-                }}
-              >
-                {tab.label}
-              </button>
+              (() => {
+                const isActive = activeTab === tab.key;
+                const count = (
+                  tab.key === 'disponibles' ? tabCounts.disponibles
+                    : tab.key === 'asignados' ? (tabCounts.en_gestion ?? tabCounts.asignados ?? 0)
+                      : tab.key === 'recuperados' ? tabCounts.recuperados
+                        : tab.key === 'rechazados' ? tabCounts.rechazados
+                          : 0
+                );
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setActiveTab(tab.key)}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: 8,
+                      border: isActive ? 'none' : '0.5px solid var(--color-border-tertiary)',
+                      background: isActive ? '#0F766E' : '#fff',
+                      color: isActive ? '#fff' : 'var(--color-text-secondary)',
+                      fontWeight: 700,
+                      fontSize: 13,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {tab.label}
+                    <span style={{
+                      fontSize: 11,
+                      padding: '1px 7px',
+                      borderRadius: 10,
+                      marginLeft: 6,
+                      background: isActive ? 'rgba(255,255,255,0.2)' : '#F1EFE8',
+                      color: isActive ? 'white' : '#5F5E5A',
+                      fontWeight: 500
+                    }}>
+                      {Number(count || 0).toLocaleString('es-UY')}
+                    </span>
+                  </button>
+                );
+              })()
             ))}
           </div>
 
