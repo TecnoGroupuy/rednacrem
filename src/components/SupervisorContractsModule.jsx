@@ -1644,7 +1644,12 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 14 }}>
                 <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', fontWeight: 800 }}>
-                  {detalleContacts.length.toLocaleString('es-UY')} contactos
+                  {Number(
+                    detalleMetrics?.informe?.total_contactos
+                      || loteSeleccionado?.total_contactos
+                      || loteSeleccionado?.contactos
+                      || 0
+                  ).toLocaleString('es-UY')} contactos
                 </div>
                 {showDetalleSearch ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1725,12 +1730,12 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                         const estadoRaw = row.estado_venta || row.ultimo_estado_gestion || row.estado || row.status || '—';
                         const estadoNorm = String(estadoRaw || '').toLowerCase();
                         const estadoMeta = (() => {
-                          if (estadoNorm === 'venta' || estadoNorm === 'alta') return { bg: '#EAF3DE', color: '#3B6D11', label: 'venta' };
-                          if (estadoNorm === 'rechazo' || estadoNorm === 'rechazado') return { bg: '#FCEBEB', color: '#A32D2D', label: 'rechazo' };
-                          if (estadoNorm === 'no_contesta') return { bg: '#FAEEDA', color: '#854F0B', label: 'no contesta' };
-                          if (estadoNorm === 'dato_erroneo') return { bg: '#F1EFE8', color: '#5F5E5A', label: 'dato erróneo' };
-                          if (estadoNorm === 'incontactable') return { bg: '#FCEBEB', color: '#791F1F', label: 'incontactable' };
-                          if (estadoNorm === 'nuevo' || estadoNorm === 'nuevos') return { bg: '#E1F5EE', color: '#0F6E56', label: 'nuevo' };
+                          if (estadoNorm === 'venta' || estadoNorm === 'alta') return { bg: '#EAF3DE', color: '#3B6D11', label: 'Venta' };
+                          if (estadoNorm === 'rechazo' || estadoNorm === 'rechazado') return { bg: '#FCEBEB', color: '#A32D2D', label: 'Rechazo' };
+                          if (estadoNorm === 'no_contesta') return { bg: '#FAEEDA', color: '#854F0B', label: 'No contesta' };
+                          if (estadoNorm === 'dato_erroneo') return { bg: '#F1EFE8', color: '#5F5E5A', label: 'Dato erróneo' };
+                          if (estadoNorm === 'incontactable') return { bg: '#FCEBEB', color: '#791F1F', label: 'Incontactable' };
+                          if (estadoNorm === 'nuevo' || estadoNorm === 'nuevos') return { bg: '#E1F5EE', color: '#0F6E56', label: 'Nuevo' };
                           return { bg: 'rgba(148,163,184,0.18)', color: 'var(--color-text-secondary)', label: estadoRaw || '—' };
                         })();
                         const ultima = row.ultima_gestion || row.fecha_ultima_gestion || row.ultima_gestion_real || null;
