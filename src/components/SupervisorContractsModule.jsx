@@ -1308,7 +1308,13 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                   const sellerName = asLotSellerName(lote);
                   const initials = sellerName.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
                   const informe = lotId ? lotesMetrics?.[lotId]?.informe : null;
-                  const totalContactos = Number(informe?.total_contactos ?? count ?? 0);
+                  const totalContactos = Number(
+                    lote?.total_contactos
+                    || lote?.contactos
+                    || informe?.total_contactos
+                    || count
+                    || 0
+                  );
                   const totalGestionados = Number(informe?.total_vendidos || 0)
                     + Number(informe?.total_no_contesta || 0)
                     + Number(informe?.total_rechazos || 0)
