@@ -79,6 +79,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const [lotesCreados, setLotesCreados] = React.useState([]);
   const [lotesLoading, setLotesLoading] = React.useState(false);
   const [lotesError, setLotesError] = React.useState('');
+  const [lotesMetrics, setLotesMetrics] = React.useState({});
   const [activeTab, setActiveTab] = React.useState('disponibles');
   const [showImportModal, setShowImportModal] = React.useState(false);
   const [importFile, setImportFile] = React.useState(null);
@@ -323,6 +324,31 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     if (vistaActual !== 'lotes') return;
     loadLotesCreados();
   }, [loadLotesCreados, vistaActual]);
+
+  React.useEffect(() => {
+    if (vistaActual !== 'lotes') return;
+    if (!Array.isArray(lotesCreados) || !lotesCreados.length) {
+      setLotesMetrics({});
+      return;
+    }
+    let active = true;
+    (async () => {
+      const metricsMap = {};
+      await Promise.all(
+        lotesCreados.map(async (lote) => {
+          const lotId = asLotId(lote);
+          if (!lotId) return;
+          try {
+            const res = await api.get(`/lead-batches/${encodeURIComponent(lotId)}/metrics`);
+            metricsMap[lotId] = res?.data?.data || res?.data || null;
+          } catch {}
+        })
+      );
+      if (!active) return;
+      setLotesMetrics(metricsMap);
+    })();
+    return () => { active = false; };
+  }, [api, lotesCreados, vistaActual]);
 
   React.useEffect(() => {
     if (vistaActual !== 'detalle-lote') return;
@@ -1281,10 +1307,11 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                   const count = asLotCount(lote);
                   const sellerName = asLotSellerName(lote);
                   const initials = sellerName.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
-                  const stats = lote?.stats || lote?.estadisticas || lote?.metrics || null;
-                  const totalGestionados = Number(stats?.gestionados ?? stats?.total_gestionados ?? 0);
-                  const pct = count > 0 ? Math.min(100, Math.max(0, Math.round((totalGestionados / count) * 100))) : 0;
-                  const isCompletado = count > 0 && totalGestionados >= count;
+                  const informe = lotId ? lotesMetrics?.[lotId]?.informe : null;
+                  const totalContactos = Number(informe?.total_contactos ?? count ?? 0);
+                  const totalGestionados = Number(informe?.total_gestionados ?? 0);
+                  const pct = Number.isFinite(informe?.pct_avance) ? Number(informe.pct_avance) : (totalContactos > 0 ? Math.min(100, Math.max(0, Math.round((totalGestionados / totalContactos) * 100))) : 0);
+                  const isCompletado = totalContactos > 0 && totalGestionados >= totalContactos;
                   const estadoBadge = isCompletado
                     ? { label: 'Completado', bg: 'rgba(148,163,184,0.22)', color: 'var(--color-text-secondary)' }
                     : { label: 'Activo', bg: 'rgba(15,118,110,0.10)', color: '#0F766E' };
@@ -1366,9 +1393,19 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                           <div style={{ height: '100%', width: pct + '%', background: '#0F766E', borderRadius: 999 }} />
                         </div>
                         <div style={{ marginTop: 6, fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                          Avance: <strong>{pct}%</strong>
+                          <strong>{pct}%</strong> gestionado · <strong>{totalGestionados}</strong>/<strong>{totalContactos}</strong> contactos
                         </div>
                       </div>
+
+                      {informe && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 10, fontSize: 12 }}>
+                          <span style={{ color: '#15803D', fontWeight: 800 }}>Ventas: {Number(informe.total_vendidos || 0)}</span>
+                          <span style={{ color: '#DC2626', fontWeight: 800 }}>Rechazos: {Number(informe.total_rechazos || 0)}</span>
+                          <span style={{ color: '#92400E', fontWeight: 800 }}>No contesta: {Number(informe.total_no_contesta || 0)}</span>
+                          <span style={{ color: 'var(--color-text-secondary)', fontWeight: 800 }}>Dato erróneo: {Number(informe.total_dato_erroneo || 0)}</span>
+                          <span style={{ color: '#639922', fontWeight: 800 }}>Nuevos: {Number(informe.total_nuevos || 0)}</span>
+                        </div>
+                      )}
 
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
                         <button type="button" onClick={(e) => { e.stopPropagation(); }} style={{ padding: '7px 10px', borderRadius: 10, border: '1px solid rgba(148,163,184,0.45)', background: 'transparent', cursor: 'pointer', fontWeight: 800, fontSize: 12, color: 'var(--color-text-secondary)' }}>
