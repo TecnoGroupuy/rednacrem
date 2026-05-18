@@ -7733,11 +7733,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         </div>
                       </div>
 
-                      {(selectedLot.vendedores?.length ? selectedLot.vendedores : []).map((v) => {
-                        const nombre = `${v.nombre || ''} ${v.apellido || ''}`.trim();
-                        const initials = nombre.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
-                        const total = v.total_contactos || 0;
-                        const gestionados = v.gestionados || 0;
+                    {(selectedLot.vendedores?.length ? selectedLot.vendedores : []).map((v) => {
+                      const nombre = `${v.nombre || ''} ${v.apellido || ''}`.trim();
+                      const initials = nombre.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+                      const total = v.total_contactos || 0;
+                      const gestionados = v.gestionados || 0;
                         const pct = total > 0 ? Math.round((gestionados / total) * 100) : 0;
                         const incontactables = (selectedLot.contacts || []).filter((c) => {
                           const rawEstado = c?.estado_venta ?? c?.estadoVenta ?? c?.status ?? '';
@@ -7823,6 +7823,124 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         <div style={{ fontSize: 12, color: 'var(--muted)', padding: '8px 0' }}>Sin vendedores asignados.</div>
                       )}
                     </div>
+
+                    {selectedLotMetrics?.informe && (() => {
+                      const informe = selectedLotMetrics.informe;
+                      return (
+                        <div style={{
+                          borderTop: '0.5px solid var(--color-border-tertiary)',
+                          paddingTop: 16,
+                          marginTop: 8,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 12
+                        }}>
+                          <p style={{
+                            margin: 0,
+                            fontSize: 12,
+                            fontWeight: 500,
+                            color: 'var(--color-text-secondary)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.06em'
+                          }}>
+                            Informe del lote
+                          </p>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+                            {[
+                              { label: 'Total contactos', value: informe.total_contactos, color: 'var(--color-text-primary)', sub: null },
+                              { label: '% Avance', value: informe.pct_avance + '%', color: '#185FA5', sub: informe.total_gestionados + ' gestionados' },
+                              { label: '% Contactabilidad', value: informe.pct_contactabilidad + '%', color: '#3B6D11', sub: informe.total_contactados + ' atendieron' },
+                              { label: '% Conversión', value: informe.pct_conversion + '%', color: '#0F6E56', sub: informe.total_vendidos + ' ventas' },
+                            ].map((m, i) => (
+                              <div key={i} style={{
+                                background: 'var(--color-background-secondary)',
+                                borderRadius: 8,
+                                padding: '10px 12px'
+                              }}>
+                                <p style={{ margin: 0, fontSize: 11, color: 'var(--color-text-secondary)' }}>
+                                  {m.label}
+                                </p>
+                                <p style={{ margin: '3px 0 0', fontSize: 20, fontWeight: 500, color: m.color }}>
+                                  {m.value}
+                                </p>
+                                {m.sub && (
+                                  <p style={{ margin: '1px 0 0', fontSize: 11, color: 'var(--color-text-secondary)' }}>
+                                    {m.sub}
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                            {[
+                              { icon: 'ti-circle-dot', color: '#639922', bg: '#EAF3DE', label: 'Nuevos', value: informe.total_nuevos },
+                              { icon: 'ti-check', color: '#0F6E56', bg: '#E1F5EE', label: 'Vendidos', value: informe.total_vendidos },
+                              { icon: 'ti-clock', color: '#854F0B', bg: '#FAEEDA', label: 'En proceso', value: informe.total_en_proceso },
+                              { icon: 'ti-phone-off', color: '#BA7517', bg: '#FFF8E1', label: 'No contesta', value: informe.total_no_contesta },
+                              { icon: 'ti-phone-x', color: '#A32D2D', bg: '#FCEBEB', label: 'Incontactables', value: informe.total_incontactables },
+                              { icon: 'ti-x', color: '#E24B4A', bg: '#FCEBEB', label: 'Rechazos', value: informe.total_rechazos },
+                              { icon: 'ti-alert-circle', color: '#888780', bg: '#F1EFE8', label: 'Dato erróneo', value: informe.total_dato_erroneo },
+                            ].map((row, i) => {
+                              const pct = informe.total_contactos > 0
+                                ? Math.round(row.value / informe.total_contactos * 100) : 0;
+                              return (
+                                <div key={i} style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 10,
+                                  padding: '8px 0',
+                                  borderBottom: i < 6 ? '0.5px solid var(--color-border-tertiary)' : 'none'
+                                }}>
+                                  <div style={{
+                                    width: 24,
+                                    height: 24,
+                                    borderRadius: 6,
+                                    background: row.bg,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0
+                                  }}>
+                                    <i className={'ti ' + row.icon} style={{ fontSize: 12, color: row.color }} />
+                                  </div>
+                                  <span style={{ flex: 1, fontSize: 12, color: 'var(--color-text-primary)' }}>
+                                    {row.label}
+                                  </span>
+                                  <div style={{
+                                    width: 60,
+                                    height: 3,
+                                    background: 'var(--color-background-secondary)',
+                                    borderRadius: 2,
+                                    overflow: 'hidden'
+                                  }}>
+                                    <div style={{ width: pct + '%', height: '100%', background: row.color, borderRadius: 2 }} />
+                                  </div>
+                                  <span style={{
+                                    fontSize: 12,
+                                    fontWeight: 500,
+                                    color: 'var(--color-text-primary)',
+                                    minWidth: 24,
+                                    textAlign: 'right'
+                                  }}>
+                                    {row.value}
+                                  </span>
+                                  <span style={{
+                                    fontSize: 11,
+                                    color: 'var(--color-text-secondary)',
+                                    minWidth: 30,
+                                    textAlign: 'right'
+                                  }}>
+                                    {pct}%
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* ACCIÓN */}
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
