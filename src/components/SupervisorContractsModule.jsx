@@ -97,6 +97,8 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const [detalleContacts, setDetalleContacts] = React.useState([]);
   const [detalleLoading, setDetalleLoading] = React.useState(false);
   const [detalleError, setDetalleError] = React.useState('');
+  const [showInformeModal, setShowInformeModal] = React.useState(false);
+  const [informeModalLoteId, setInformeModalLoteId] = React.useState('');
 
   const isImportSuccess = (result) => {
     if (!result) return false;
@@ -319,6 +321,17 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const asLotCreatedAt = (lote) => lote?.created_at || lote?.fecha_creacion || lote?.createdAt || null;
   const asLotCount = (lote) => Number(formatLoteCount(lote) || 0);
   const asLotSellerName = (lote) => formatLoteSeller(lote);
+
+  const openInformeModal = React.useCallback((lotId) => {
+    if (!lotId) return;
+    setInformeModalLoteId(String(lotId));
+    setShowInformeModal(true);
+  }, []);
+
+  const closeInformeModal = React.useCallback(() => {
+    setShowInformeModal(false);
+    setInformeModalLoteId('');
+  }, []);
 
   React.useEffect(() => {
     if (vistaActual !== 'lotes') return;
@@ -1424,7 +1437,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                         <button type="button" onClick={(e) => { e.stopPropagation(); }} style={{ padding: '7px 10px', borderRadius: 10, border: '1px solid rgba(148,163,184,0.45)', background: 'transparent', cursor: 'pointer', fontWeight: 800, fontSize: 12, color: 'var(--color-text-secondary)' }}>
                           Agregar datos
                         </button>
-                        <button type="button" onClick={(e) => { e.stopPropagation(); openDetalle(); }} style={{ padding: '7px 10px', borderRadius: 10, border: '1px solid rgba(15,118,110,0.35)', background: 'rgba(15,118,110,0.10)', cursor: 'pointer', fontWeight: 800, fontSize: 12, color: '#0F766E' }}>
+                        <button type="button" onClick={(e) => { e.stopPropagation(); openInformeModal(lotId); }} style={{ padding: '7px 10px', borderRadius: 10, border: '1px solid rgba(15,118,110,0.35)', background: 'rgba(15,118,110,0.10)', cursor: 'pointer', fontWeight: 800, fontSize: 12, color: '#0F766E' }}>
                           Ver informe
                         </button>
                         <button type="button" onClick={(e) => { e.stopPropagation(); openDetalle(); }} style={{ padding: '7px 10px', borderRadius: 10, border: '1px solid rgba(148,163,184,0.45)', background: 'transparent', cursor: 'pointer', fontWeight: 800, fontSize: 12, color: 'var(--color-text-secondary)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -2047,6 +2060,81 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                   {creatingLot ? 'Asignando...' : 'Confirmar asignación'}
                 </Button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showInformeModal && (
+        <div className="lot-wizard-overlay" onClick={closeInformeModal}>
+          <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 720 }}>
+            <div className="lot-wizard-header">
+              <div style={{ fontWeight: 700 }}>Informe del lote</div>
+              <button className="close-btn" onClick={closeInformeModal}><X size={16} /></button>
+            </div>
+            <div className="lot-wizard-content">
+              {(() => {
+                const loteId = String(informeModalLoteId || '');
+                const informe = loteId ? lotesMetrics?.[loteId]?.informe : null;
+                const loteNombre = (lotesCreados || []).find((l) => String(asLotId(l)) === loteId)?.nombre
+                  || (lotesCreados || []).find((l) => String(asLotId(l)) === loteId)?.name
+                  || '—';
+                if (!informe) {
+                  return <div style={{ color: 'var(--muted)' }}>No hay métricas disponibles para este lote.</div>;
+                }
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--color-text-primary)' }}>{loteNombre}</div>
+                      <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 2 }}>Lote: {loteId}</div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+                      {[
+                        { label: 'Total contactos', value: informe.total_contactos, color: 'var(--color-text-primary)', sub: null },
+                        { label: '% Avance', value: `${Math.round(((Number(informe.total_vendidos || 0) + Number(informe.total_no_contesta || 0) + Number(informe.total_rechazos || 0) + Number(informe.total_dato_erroneo || 0) + Number(informe.total_en_proceso || 0) + Number(informe.total_incontactables || 0)) / Math.max(1, Number(informe.total_contactos || 0))) * 100)}%`, color: '#185FA5', sub: `${Number(informe.total_vendidos || 0) + Number(informe.total_no_contesta || 0) + Number(informe.total_rechazos || 0) + Number(informe.total_dato_erroneo || 0) + Number(informe.total_en_proceso || 0) + Number(informe.total_incontactables || 0)} gestionados` },
+                        { label: '% Contactabilidad', value: `${informe.pct_contactabilidad ?? 0}%`, color: '#3B6D11', sub: `${informe.total_contactados ?? 0} atendieron` },
+                        { label: '% Conversión', value: `${informe.pct_conversion ?? 0}%`, color: '#0F6E56', sub: `${informe.total_vendidos ?? 0} ventas` },
+                      ].map((m, i) => (
+                        <div key={i} style={{ background: 'var(--color-background-secondary)', borderRadius: 8, padding: '8px 10px', alignSelf: 'start' }}>
+                          <p style={{ margin: 0, fontSize: 11, color: 'var(--color-text-secondary)' }}>{m.label}</p>
+                          <p style={{ margin: '3px 0 0', fontSize: 20, fontWeight: 700, color: m.color }}>{m.value ?? '—'}</p>
+                          {m.sub && <p style={{ margin: '1px 0 0', fontSize: 11, color: 'var(--color-text-secondary)' }}>{m.sub}</p>}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                      {[
+                        { icon: 'ti-circle-dot', color: '#639922', bg: '#EAF3DE', label: 'Nuevos', value: informe.total_nuevos },
+                        { icon: 'ti-check', color: '#0F6E56', bg: '#E1F5EE', label: 'Vendidos', value: informe.total_vendidos },
+                        { icon: 'ti-clock', color: '#854F0B', bg: '#FAEEDA', label: 'En proceso', value: informe.total_en_proceso },
+                        { icon: 'ti-phone-off', color: '#BA7517', bg: '#FFF8E1', label: 'No contesta', value: informe.total_no_contesta },
+                        { icon: 'ti-phone-x', color: '#A32D2D', bg: '#FCEBEB', label: 'Incontactables', value: informe.total_incontactables },
+                        { icon: 'ti-x', color: '#E24B4A', bg: '#FCEBEB', label: 'Rechazos', value: informe.total_rechazos },
+                        { icon: 'ti-alert-circle', color: '#888780', bg: '#F1EFE8', label: 'Dato erróneo', value: informe.total_dato_erroneo },
+                      ].map((row, i) => {
+                        const total = Number(informe.total_contactos || 0);
+                        const valueNum = Number(row.value || 0);
+                        const pct = total > 0 ? Math.round((valueNum / total) * 100) : 0;
+                        return (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < 6 ? '0.5px solid var(--color-border-tertiary)' : 'none' }}>
+                            <div style={{ width: 24, height: 24, borderRadius: 6, background: row.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <i className={'ti ' + row.icon} style={{ fontSize: 12, color: row.color }} />
+                            </div>
+                            <span style={{ flex: 1, fontSize: 12, color: 'var(--color-text-primary)' }}>{row.label}</span>
+                            <div style={{ width: 80, height: 3, background: 'var(--color-background-secondary)', borderRadius: 2, overflow: 'hidden' }}>
+                              <div style={{ width: pct + '%', height: '100%', background: row.color, borderRadius: 2 }} />
+                            </div>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-primary)', minWidth: 24, textAlign: 'right' }}>{valueNum}</span>
+                            <span style={{ fontSize: 11, color: 'var(--color-text-secondary)', minWidth: 30, textAlign: 'right' }}>{pct}%</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
