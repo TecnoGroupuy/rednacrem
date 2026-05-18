@@ -3932,7 +3932,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
       const openDrawer = (c) => {
         setDrawerContact(c);
-        setNextMessage('');
         resetForm();
         setDraftCelular(c?.celular || pickCellular(c) || '');
         setDraftDireccion(pickDireccion(c));
