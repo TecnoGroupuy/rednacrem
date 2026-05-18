@@ -6867,6 +6867,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [lotNameDraft, setLotNameDraft] = React.useState('');
       const [selectedLotId, setSelectedLotId] = React.useState(null);
       const [selectedLotOverride, setSelectedLotOverride] = React.useState(null);
+      const [selectedLotMetrics, setSelectedLotMetrics] = React.useState(null);
       const [lotSellerDraft, setLotSellerDraft] = React.useState('');
       const [reassignModal, setReassignModal] = React.useState(null); // { sellerId, sellerName, contactCount }
       const [reassignTarget, setReassignTarget] = React.useState('');
@@ -7082,6 +7083,30 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             : (lotSummaries.find((lot) => String(lot.id) === String(selectedLotId)) || null)
         ))
         : null;
+
+      React.useEffect(() => {
+        if (!selectedLot?.id) {
+          setSelectedLotMetrics(null);
+          return;
+        }
+        let active = true;
+        const orgQuery = activeOrgId ? `?organization_id=${encodeURIComponent(activeOrgId)}` : '';
+        api.get(`/lead-batches/${selectedLot.id}/metrics${orgQuery}`)
+          .then((res) => {
+            if (!active) return;
+            const data = res?.data?.data || res?.data || res?.metrics || null;
+            if (res?.ok && data) {
+              setSelectedLotMetrics(data);
+            } else {
+              setSelectedLotMetrics(null);
+            }
+          })
+          .catch(() => {
+            if (!active) return;
+            setSelectedLotMetrics(null);
+          });
+        return () => { active = false; };
+      }, [api, activeOrgId, selectedLot?.id]);
 
       const applyDistributionToLot = React.useCallback((lot, distribution = [], { ensureSeller } = {}) => {
         if (!lot) return lot;
@@ -7679,6 +7704,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           <Calendar size={14} />
                           {formatDate(selectedLot.createdAt)}
                         </span>
+                        {selectedLotMetrics?.incontactables_total > 0 && (
+                          <span style={{ fontSize: 12, color: '#e53e3e', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <i className="ti ti-phone-off" style={{ fontSize: 13 }} />
+                            {selectedLotMetrics.incontactables_total} incontactables
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -7724,6 +7755,17 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                 <div>
                                   <div style={{ fontSize: 13, fontWeight: 600 }}>{nombre}</div>
                                   <div style={{ fontSize: 11, color: 'var(--muted)' }}>{total} contactos · {gestionados} gestionados</div>
+                                  {(() => {
+                                    const vendedorIncontactable = selectedLotMetrics?.incontactables_por_vendedor
+                                      ?.find((item) => String(item.seller_id) === String(v.id));
+                                    if (!vendedorIncontactable || vendedorIncontactable.total === 0) return null;
+                                    return (
+                                      <span style={{ fontSize: 12, color: '#e53e3e' }}>
+                                        <i className="ti ti-phone-off" style={{ fontSize: 12, marginRight: 3 }} />
+                                        {vendedorIncontactable.total} incontactables
+                                      </span>
+                                    );
+                                  })()}
                                 </div>
                               </div>
                               <div style={{ display: 'flex', gap: 6 }}>
