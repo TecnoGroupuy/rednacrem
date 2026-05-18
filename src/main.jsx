@@ -7846,7 +7846,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             Informe del lote
                           </p>
 
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 6 }}>
                             {[
                               { label: 'Total contactos', value: informe.total_contactos, color: 'var(--color-text-primary)', sub: null },
                               { label: '% Avance', value: informe.pct_avance + '%', color: '#185FA5', sub: informe.total_gestionados + ' gestionados' },
@@ -7856,7 +7856,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                               <div key={i} style={{
                                 background: 'var(--color-background-secondary)',
                                 borderRadius: 8,
-                                padding: '8px 10px'
+                                padding: '8px 10px',
+                                alignSelf: 'start'
                               }}>
                                 <p style={{ margin: 0, fontSize: 11, color: 'var(--color-text-secondary)' }}>
                                   {m.label}
