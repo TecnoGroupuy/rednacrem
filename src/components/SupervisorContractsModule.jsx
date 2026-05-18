@@ -375,9 +375,35 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       api.get(`/lead-batches/${encodeURIComponent(loteSeleccionado.id)}/metrics`)
         .then((res) => (res?.ok ? (res?.data?.data || res?.data) : null))
         .catch(() => null),
-      api.get(`/api/recupero/contactos?lote=${encodeURIComponent(loteSeleccionado.id)}&page=1&limit=50`)
-        .then((res) => (res?.items || res?.data?.items || []))
-        .catch(() => [])
+      (async () => {
+        // Prefer lead_contact_status view (batch_id) when available.
+        try {
+          const assignedRes = await api.get(`/leads/assigned?batch_id=${encodeURIComponent(loteSeleccionado.id)}&page=1&limit=100`);
+          const assignedItems = assignedRes?.data?.contactos
+            || assignedRes?.data?.items
+            || assignedRes?.items
+            || assignedRes?.data
+            || [];
+          const list = Array.isArray(assignedItems) ? assignedItems : [];
+          if (list.length) return list;
+        } catch {}
+
+        // Fallback to recupero endpoint (supports lote_id / lote).
+        try {
+          const res = await api.get(`/api/recupero/contactos?lote_id=${encodeURIComponent(loteSeleccionado.id)}&page=1&limit=100`);
+          const items = res?.items || res?.data?.items || [];
+          const list = Array.isArray(items) ? items : [];
+          if (list.length) return list;
+        } catch {}
+
+        try {
+          const res = await api.get(`/api/recupero/contactos?lote=${encodeURIComponent(loteSeleccionado.id)}&page=1&limit=100`);
+          const items = res?.items || res?.data?.items || [];
+          return Array.isArray(items) ? items : [];
+        } catch {
+          return [];
+        }
+      })()
     ])
       .then(([m, contacts]) => {
         if (!active) return;
@@ -1512,12 +1538,47 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                   </thead>
                   <tbody>
                     {(detalleContacts || []).map((row, idx) => (
-                      <tr key={row.id || idx}>
-                        <td><strong>{[row.nombre, row.apellido].filter(Boolean).join(' ') || row.contacto || '—'}</strong></td>
-                        <td>{row.producto || row.nombre_producto || '—'}</td>
-                        <td>{row.estado_venta || row.ultimo_estado_gestion || row.estado || '—'}</td>
-                        <td>{row.ultima_gestion ? formatDateTime(row.ultima_gestion) : (row.fecha_ultima_gestion ? formatDateTime(row.fecha_ultima_gestion) : '—')}</td>
-                      </tr>
+                      (() => {
+                        const fullName = [row.nombre, row.apellido].filter(Boolean).join(' ')
+                          || row.name
+                          || row.contacto
+                          || '—';
+                        const producto = row.nombre_producto || row.producto || row.producto_anterior || '—';
+                        const estadoRaw = row.estado_venta || row.ultimo_estado_gestion || row.estado || row.status || '—';
+                        const estadoNorm = String(estadoRaw || '').toLowerCase();
+                        const estadoMeta = (() => {
+                          if (estadoNorm === 'venta' || estadoNorm === 'alta') return { bg: '#E1F5EE', color: '#15803D', label: 'Venta' };
+                          if (estadoNorm === 'rechazo' || estadoNorm === 'rechazado') return { bg: '#FAECE7', color: '#DC2626', label: 'Rechazo' };
+                          if (estadoNorm === 'no_contesta') return { bg: '#FAEEDA', color: '#92400E', label: 'No contesta' };
+                          if (estadoNorm === 'dato_erroneo') return { bg: '#F1EFE8', color: '#64748b', label: 'Dato erróneo' };
+                          if (estadoNorm === 'nuevo' || estadoNorm === 'nuevos') return { bg: '#EAF3DE', color: '#639922', label: 'Nuevo' };
+                          if (estadoNorm === 'incontactable') return { bg: '#FAECE7', color: '#7f1d1d', label: 'Incontactable' };
+                          return { bg: 'rgba(148,163,184,0.18)', color: 'var(--color-text-secondary)', label: estadoRaw || '—' };
+                        })();
+                        const ultima = row.ultima_gestion || row.fecha_ultima_gestion || row.ultima_gestion_real || null;
+                        return (
+                          <tr key={row.id || idx}>
+                            <td><strong>{fullName}</strong></td>
+                            <td>{producto}</td>
+                            <td>
+                              <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                padding: '4px 10px',
+                                borderRadius: 999,
+                                background: estadoMeta.bg,
+                                color: estadoMeta.color,
+                                fontSize: 12,
+                                fontWeight: 800,
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {estadoMeta.label}
+                              </span>
+                            </td>
+                            <td>{ultima ? formatDateTime(ultima) : '—'}</td>
+                          </tr>
+                        );
+                      })()
                     ))}
                     {!detalleLoading && (!detalleContacts || !detalleContacts.length) ? (
                       <tr><td colSpan={4} style={{ padding: 14, color: 'var(--muted)' }}>Sin contactos para este lote.</td></tr>
