@@ -97,6 +97,8 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const [detalleContacts, setDetalleContacts] = React.useState([]);
   const [detalleLoading, setDetalleLoading] = React.useState(false);
   const [detalleError, setDetalleError] = React.useState('');
+  const [detalleSearch, setDetalleSearch] = React.useState('');
+  const [showDetalleSearch, setShowDetalleSearch] = React.useState(false);
   const [showInformeModal, setShowInformeModal] = React.useState(false);
   const [informeModalLoteId, setInformeModalLoteId] = React.useState('');
 
@@ -1278,9 +1280,9 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       <section className="content-grid">
         <Panel
           className="span-12"
-          title="Recupero de clientes"
-          subtitle="Cartera de clientes para reconversión"
-          action={(
+          title={vistaActual === 'detalle-lote' ? null : 'Recupero de clientes'}
+          subtitle={vistaActual === 'detalle-lote' ? null : 'Cartera de clientes para reconversión'}
+          action={vistaActual === 'detalle-lote' ? null : (
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <button
                 type="button"
@@ -1479,29 +1481,133 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
 
           {vistaActual === 'detalle-lote' && (
             <div>
-              <button
-                type="button"
-                onClick={() => { setVistaActual('lotes'); setLoteSeleccionado(null); }}
-                style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, marginBottom: 10, color: '#0F766E', fontWeight: 800, fontSize: 13 }}
-              >
-                ← Volver a lotes
-              </button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+                <button
+                  type="button"
+                  onClick={() => { setVistaActual('lotes'); setLoteSeleccionado(null); }}
+                  style={{
+                    background: '#fff',
+                    border: '1px solid rgba(148,163,184,0.45)',
+                    borderRadius: 8,
+                    padding: '7px 14px',
+                    fontSize: 13,
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    color: 'var(--color-text-primary)'
+                  }}
+                >
+                  ← Volver a lotes
+                </button>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
-                <div>
-                  <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--color-text-primary)' }}>
-                    {loteSeleccionado?.nombre || 'Detalle de lote'}
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 2 }}>
-                    {loteSeleccionado?.sellerName ? `Vendedor: ${loteSeleccionado.sellerName}` : 'Vendedor: —'} · {loteSeleccionado?.createdAt ? formatDateTime(loteSeleccionado.createdAt) : '—'}
-                  </div>
-                </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <Button variant="secondary" onClick={() => {}} disabled>Agregar datos</Button>
-                  <Button variant="secondary" onClick={() => {}} disabled>Reasignar</Button>
-                  <Button variant="ghost" onClick={() => {}} disabled>Ver informe</Button>
+                  <button
+                    type="button"
+                    disabled
+                    style={{
+                      background: '#fff',
+                      border: '1px solid rgba(148,163,184,0.55)',
+                      borderRadius: 8,
+                      padding: '7px 14px',
+                      fontSize: 13,
+                      fontWeight: 800,
+                      cursor: 'not-allowed',
+                      color: 'var(--color-text-secondary)',
+                      opacity: 0.7
+                    }}
+                  >
+                    Agregar datos
+                  </button>
+                  <button
+                    type="button"
+                    disabled
+                    style={{
+                      background: '#fff',
+                      border: '1px solid rgba(148,163,184,0.55)',
+                      borderRadius: 8,
+                      padding: '7px 14px',
+                      fontSize: 13,
+                      fontWeight: 800,
+                      cursor: 'not-allowed',
+                      color: 'var(--color-text-secondary)',
+                      opacity: 0.7
+                    }}
+                  >
+                    Reasignar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openInformeModal(loteSeleccionado?.id)}
+                    disabled={!loteSeleccionado?.id}
+                    style={{
+                      background: '#0F766E',
+                      border: '1px solid rgba(15,118,110,0.65)',
+                      borderRadius: 8,
+                      padding: '7px 14px',
+                      fontSize: 13,
+                      fontWeight: 900,
+                      cursor: loteSeleccionado?.id ? 'pointer' : 'not-allowed',
+                      color: '#fff',
+                      opacity: loteSeleccionado?.id ? 1 : 0.75
+                    }}
+                  >
+                    Ver informe
+                  </button>
                 </div>
               </div>
+
+              {(() => {
+                const informe = detalleMetrics?.informe || null;
+                const totalContactos = Number(informe?.total_contactos || 0);
+                const totalGestionados = Number(informe?.total_vendidos || 0)
+                  + Number(informe?.total_no_contesta || 0)
+                  + Number(informe?.total_rechazos || 0)
+                  + Number(informe?.total_dato_erroneo || 0)
+                  + Number(informe?.total_en_proceso || 0)
+                  + Number(informe?.total_incontactables || 0);
+                const pctAvance = totalContactos > 0 ? Math.round((totalGestionados / totalContactos) * 100) : 0;
+                const isCompletado = totalContactos > 0 && totalGestionados >= totalContactos;
+                const statusBadge = isCompletado
+                  ? { label: 'Completado', bg: '#E1F5EE', color: '#0F6E56' }
+                  : { label: 'Activo', bg: '#FAEEDA', color: '#854F0B' };
+                return (
+                  <div style={{
+                    border: '1px solid rgba(148,163,184,0.35)',
+                    background: '#fff',
+                    borderRadius: 14,
+                    padding: 14
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                      <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--color-text-primary)' }}>
+                        {loteSeleccionado?.nombre || 'Detalle de lote'}
+                      </div>
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        padding: '3px 10px',
+                        borderRadius: 999,
+                        background: statusBadge.bg,
+                        color: statusBadge.color,
+                        fontSize: 12,
+                        fontWeight: 900
+                      }}>
+                        {statusBadge.label}
+                      </span>
+                    </div>
+                    <div style={{ marginTop: 4, fontSize: 12, color: 'var(--color-text-secondary)', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                      <span>{loteSeleccionado?.sellerName ? `Vendedor: ${loteSeleccionado.sellerName}` : 'Vendedor: —'}</span>
+                      <span>·</span>
+                      <span>Creado: {loteSeleccionado?.createdAt ? formatDateTime(loteSeleccionado.createdAt) : '—'}</span>
+                      <span>·</span>
+                      <span>Contactos: <strong style={{ color: 'var(--color-text-primary)' }}>{totalContactos || '—'}</strong></span>
+                    </div>
+                    <div style={{ marginTop: 10 }}>
+                      <div style={{ height: 4, background: 'rgba(148,163,184,0.22)', borderRadius: 999, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: pctAvance + '%', background: '#0F766E' }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {detalleError ? (
                 <div style={{ marginTop: 12, color: '#b91c1c', fontWeight: 800 }}>{detalleError}</div>
@@ -1511,22 +1617,83 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
               ) : null}
 
               {detalleMetrics?.informe && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginTop: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
                   {[
                     { label: 'Total', value: detalleMetrics.informe.total_contactos, color: 'var(--color-text-primary)' },
                     { label: 'Ventas', value: detalleMetrics.informe.total_vendidos, color: '#15803D' },
                     { label: 'Rechazos', value: detalleMetrics.informe.total_rechazos, color: '#DC2626' },
-                    { label: '% Avance', value: `${detalleMetrics.informe.pct_avance}%`, color: '#185FA5' }
+                    { label: '% Avance', value: `${(() => {
+                      const informe = detalleMetrics?.informe || {};
+                      const totalContactos = Number(informe.total_contactos || 0);
+                      const totalGestionados = Number(informe.total_vendidos || 0)
+                        + Number(informe.total_no_contesta || 0)
+                        + Number(informe.total_rechazos || 0)
+                        + Number(informe.total_dato_erroneo || 0)
+                        + Number(informe.total_en_proceso || 0)
+                        + Number(informe.total_incontactables || 0);
+                      return totalContactos > 0 ? Math.round((totalGestionados / totalContactos) * 100) : 0;
+                    })()}%`, color: '#0F766E' }
                   ].map((m) => (
-                    <div key={m.label} style={{ background: 'var(--color-background-secondary)', borderRadius: 12, padding: '12px 14px', border: '0.5px solid var(--color-border-tertiary)' }}>
-                      <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', fontWeight: 700 }}>{m.label}</div>
-                      <div style={{ fontSize: 26, fontWeight: 900, color: m.color, marginTop: 2 }}>{m.value ?? '—'}</div>
+                    <div key={m.label} style={{ background: 'var(--color-background-secondary)', borderRadius: 12, padding: '14px 16px', border: '0.5px solid var(--color-border-tertiary)' }}>
+                      <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', fontWeight: 800 }}>{m.label}</div>
+                      <div style={{ fontSize: 24, fontWeight: 900, color: m.color, marginTop: 2 }}>{m.value ?? '—'}</div>
                     </div>
                   ))}
                 </div>
               )}
 
-              <div className="table-wrap" style={{ overflowX: 'auto', marginTop: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 14 }}>
+                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', fontWeight: 800 }}>
+                  {detalleContacts.length.toLocaleString('es-UY')} contactos
+                </div>
+                {showDetalleSearch ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input
+                      className="input"
+                      value={detalleSearch}
+                      onChange={(event) => setDetalleSearch(event.target.value)}
+                      placeholder="Buscar contacto..."
+                      style={{ height: 36, width: 240 }}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => { setDetalleSearch(''); setShowDetalleSearch(false); }}
+                      style={{
+                        background: '#fff',
+                        border: '1px solid rgba(148,163,184,0.55)',
+                        borderRadius: 8,
+                        padding: '7px 12px',
+                        fontSize: 13,
+                        fontWeight: 900,
+                        cursor: 'pointer',
+                        color: 'var(--color-text-primary)'
+                      }}
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowDetalleSearch(true)}
+                    style={{
+                      background: '#fff',
+                      border: '1px solid rgba(148,163,184,0.55)',
+                      borderRadius: 8,
+                      padding: '7px 14px',
+                      fontSize: 13,
+                      fontWeight: 900,
+                      cursor: 'pointer',
+                      color: 'var(--color-text-primary)'
+                    }}
+                  >
+                    Buscar
+                  </button>
+                )}
+              </div>
+
+              <div className="table-wrap" style={{ overflowX: 'auto', marginTop: 10 }}>
                 <table>
                   <thead>
                     <tr>
@@ -1537,28 +1704,42 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {(detalleContacts || []).map((row, idx) => (
+                    {(detalleContacts || [])
+                      .filter((row) => {
+                        if (!detalleSearch.trim()) return true;
+                        const key = detalleSearch.trim().toLowerCase();
+                        const fullName = [row.nombre, row.apellido].filter(Boolean).join(' ')
+                          || row.name
+                          || row.contacto
+                          || '';
+                        return fullName.toLowerCase().includes(key);
+                      })
+                      .map((row, idx) => (
                       (() => {
                         const fullName = [row.nombre, row.apellido].filter(Boolean).join(' ')
                           || row.name
                           || row.contacto
                           || '—';
+                        const depto = row.departamento || row.depto || row.city || '';
                         const producto = row.nombre_producto || row.producto || row.producto_anterior || '—';
                         const estadoRaw = row.estado_venta || row.ultimo_estado_gestion || row.estado || row.status || '—';
                         const estadoNorm = String(estadoRaw || '').toLowerCase();
                         const estadoMeta = (() => {
-                          if (estadoNorm === 'venta' || estadoNorm === 'alta') return { bg: '#E1F5EE', color: '#15803D', label: 'Venta' };
-                          if (estadoNorm === 'rechazo' || estadoNorm === 'rechazado') return { bg: '#FAECE7', color: '#DC2626', label: 'Rechazo' };
-                          if (estadoNorm === 'no_contesta') return { bg: '#FAEEDA', color: '#92400E', label: 'No contesta' };
-                          if (estadoNorm === 'dato_erroneo') return { bg: '#F1EFE8', color: '#64748b', label: 'Dato erróneo' };
-                          if (estadoNorm === 'nuevo' || estadoNorm === 'nuevos') return { bg: '#EAF3DE', color: '#639922', label: 'Nuevo' };
-                          if (estadoNorm === 'incontactable') return { bg: '#FAECE7', color: '#7f1d1d', label: 'Incontactable' };
+                          if (estadoNorm === 'venta' || estadoNorm === 'alta') return { bg: '#EAF3DE', color: '#3B6D11', label: 'venta' };
+                          if (estadoNorm === 'rechazo' || estadoNorm === 'rechazado') return { bg: '#FCEBEB', color: '#A32D2D', label: 'rechazo' };
+                          if (estadoNorm === 'no_contesta') return { bg: '#FAEEDA', color: '#854F0B', label: 'no contesta' };
+                          if (estadoNorm === 'dato_erroneo') return { bg: '#F1EFE8', color: '#5F5E5A', label: 'dato erróneo' };
+                          if (estadoNorm === 'incontactable') return { bg: '#FCEBEB', color: '#791F1F', label: 'incontactable' };
+                          if (estadoNorm === 'nuevo' || estadoNorm === 'nuevos') return { bg: '#E1F5EE', color: '#0F6E56', label: 'nuevo' };
                           return { bg: 'rgba(148,163,184,0.18)', color: 'var(--color-text-secondary)', label: estadoRaw || '—' };
                         })();
                         const ultima = row.ultima_gestion || row.fecha_ultima_gestion || row.ultima_gestion_real || null;
                         return (
                           <tr key={row.id || idx}>
-                            <td><strong>{fullName}</strong></td>
+                            <td>
+                              <div style={{ fontWeight: 900, color: 'var(--color-text-primary)' }}>{fullName}</div>
+                              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 2 }}>{depto || '—'}</div>
+                            </td>
                             <td>{producto}</td>
                             <td>
                               <span style={{
