@@ -3759,11 +3759,107 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
       const [drawerContact, setDrawerContact] = React.useState(null);
       const drawerOpen = Boolean(drawerContact);
+      const [historialGestiones, setHistorialGestiones] = React.useState([]);
+      const [historialLoading, setHistorialLoading] = React.useState(false);
 
       React.useEffect(() => {
         if (vendedorNewClientOpen || drawerOpen) return;
         loadStats();
       }, [loadStats, vendedorNewClientOpen, drawerOpen]);
+
+      const formatFechaNacimiento = React.useCallback((value) => {
+        if (!value) return '—';
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) return '—';
+        return parsed.toLocaleDateString('es-UY', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      }, []);
+
+      const formatFechaHoraGestion = React.useCallback((value) => {
+        if (!value) return '—';
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) return '—';
+        return parsed.toLocaleString('es-UY', {
+          timeZone: 'America/Montevideo',
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      }, []);
+
+      const computeEdad = React.useCallback((fechaNacimiento, edadRaw = null) => {
+        const numericEdad = Number(edadRaw);
+        if (Number.isFinite(numericEdad) && numericEdad > 0) return Math.floor(numericEdad);
+        if (!fechaNacimiento) return null;
+        const parsed = new Date(fechaNacimiento);
+        if (Number.isNaN(parsed.getTime())) return null;
+        return Math.floor((Date.now() - parsed.getTime()) / 31557600000);
+      }, []);
+
+      const normalizeResultadoGestion = React.useCallback((value) => {
+        const raw = String(value || '').trim().toLowerCase();
+        if (!raw) return '';
+        if (raw === 'alta') return 'venta';
+        if (raw === 'no_contacto') return 'no_contesta';
+        return raw;
+      }, []);
+
+      const resultadoDotColor = React.useCallback((resultado) => {
+        switch (normalizeResultadoGestion(resultado)) {
+          case 'venta': return '#16a34a';
+          case 'rechazo': return '#dc2626';
+          case 'no_contesta': return '#f97316';
+          case 'dato_erroneo': return '#94a3b8';
+          case 'seguimiento': return '#2563eb';
+          case 'rellamar': return '#2563eb';
+          default: return '#64748b';
+        }
+      }, [normalizeResultadoGestion]);
+
+      const formatResultadoLabel = React.useCallback((value) => {
+        const normalized = normalizeResultadoGestion(value);
+        if (!normalized) return '—';
+        const pretty = normalized.replace(/_/g, ' ');
+        return pretty.charAt(0).toUpperCase() + pretty.slice(1);
+      }, [normalizeResultadoGestion]);
+
+      React.useEffect(() => {
+        if (!isRecupero) return;
+        const contactId = drawerContact?.id || null;
+        if (!contactId) {
+          setHistorialGestiones([]);
+          setHistorialLoading(false);
+          return;
+        }
+        let cancelled = false;
+        setHistorialLoading(true);
+        setHistorialGestiones([]);
+        (async () => {
+          try {
+            let data = null;
+            try {
+              data = await api.get(`/leads/${contactId}/history`);
+            } catch (err) {
+              if (err?.status !== 404) throw err;
+              data = await api.get(`/api/leads/${contactId}/management-history`);
+            }
+
+            const items = Array.isArray(data)
+              ? data
+              : (data?.items || data?.data?.items || data?.data || data?.history || []);
+            if (cancelled) return;
+            setHistorialGestiones(Array.isArray(items) ? items : []);
+          } catch (err) {
+            if (cancelled) return;
+            setHistorialGestiones([]);
+          } finally {
+            if (cancelled) return;
+            setHistorialLoading(false);
+          }
+        })();
+        return () => { cancelled = true; };
+      }, [drawerContact, isRecupero]); // eslint-disable-line react-hooks/exhaustive-deps
 
       const [activeTab, setActiveTab] = React.useState('datos');
       const [estadoGestion, setEstadoGestion] = React.useState('');
@@ -4853,6 +4949,27 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                     <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{dc?.celular || pickCellular(dc) || '—'}</div>
                                   </div>
                                   <div>
+                                    <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Documento</div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{dc?.documento || '—'}</div>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Fecha de nacimiento</div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{formatFechaNacimiento(dc?.fecha_nacimiento)}</div>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Edad</div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                                      {(() => {
+                                        const edad = computeEdad(dc?.fecha_nacimiento, dc?.edad);
+                                        return edad === null ? '—' : `${edad} años`;
+                                      })()}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Dirección</div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{String(dc?.direccion ?? '—').trim() || '—'}</div>
+                                  </div>
+                                  <div>
                                     <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Departamento</div>
                                     <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{dc?.departamento || dc?.city || '—'}</div>
                                   </div>
@@ -4865,6 +4982,72 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             </>
                           );
                         })()}
+
+                        <div style={{
+                          background: 'var(--color-background-secondary)',
+                          borderRadius: 12,
+                          padding: '14px 16px',
+                          border: '0.5px solid var(--color-border-tertiary)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 10
+                        }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: 0.6 }}>
+                            Historial de gestiones
+                          </div>
+
+                          {historialLoading ? (
+                            <div style={{ color: 'var(--color-text-secondary)', fontSize: 13 }}>Cargando…</div>
+                          ) : (Array.isArray(historialGestiones) && historialGestiones.length ? (
+                            <div style={{ display: 'grid', gap: 12 }}>
+                              {historialGestiones.map((item, idx) => {
+                                const resultado = item?.resultado || item?.status || item?.estado || item?.result || item?.resultado_gestion || item?.resultadoGestion || '';
+                                const fecha = item?.fecha || item?.at || item?.created_at || item?.createdAt || item?.fecha_gestion || item?.fechaGestion || '';
+                                const nota = item?.nota || item?.note || item?.observacion || item?.detalle || item?.comentario || '';
+                                const vendedor = item?.vendedor
+                                  || item?.vendedor_nombre
+                                  || item?.vendedorName
+                                  || item?.user_name
+                                  || item?.usuario
+                                  || item?.agente
+                                  || item?.user?.name
+                                  || '';
+                                const dotColor = resultadoDotColor(resultado);
+                                const key = item?.id || `${String(fecha)}-${String(resultado)}-${idx}`;
+
+                                return (
+                                  <div key={key} style={{ display: 'grid', gridTemplateColumns: '12px 1fr', gap: 10, alignItems: 'flex-start' }}>
+                                    <div style={{ width: 10, height: 10, borderRadius: '50%', marginTop: 4, background: dotColor }} />
+                                    <div style={{ display: 'grid', gap: 4 }}>
+                                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                        <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>{formatFechaHoraGestion(fecha)}</div>
+                                        <div style={{
+                                          fontSize: 11,
+                                          fontWeight: 800,
+                                          padding: '2px 8px',
+                                          borderRadius: 999,
+                                          background: 'rgba(15, 23, 42, 0.06)',
+                                          color: 'var(--color-text-primary)',
+                                          textTransform: 'capitalize'
+                                        }}>
+                                          {formatResultadoLabel(resultado)}
+                                        </div>
+                                      </div>
+                                      {nota ? (
+                                        <div style={{ fontSize: 13, color: 'var(--color-text-primary)' }}>{nota}</div>
+                                      ) : null}
+                                      {vendedor ? (
+                                        <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Vendedor: {vendedor}</div>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div style={{ color: 'var(--color-text-secondary)', fontSize: 13 }}>Sin gestiones registradas</div>
+                          ))}
+                        </div>
                       </div>
                     ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, padding: '16px 0' }}>
