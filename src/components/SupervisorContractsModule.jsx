@@ -1813,7 +1813,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                 Disponibles para recupero
               </div>
               <div style={{ fontSize: '28px', fontWeight: '500' }}>
-                {Number(metrics.disponibles || 0).toLocaleString('es-UY')}
+                {Number((tabCounts.disponibles || 0) || (metrics.disponibles || 0)).toLocaleString('es-UY')}
               </div>
               <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
                 sin producto activo
@@ -1828,7 +1828,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                 En lote
               </div>
               <div style={{ fontSize: '28px', fontWeight: '500' }}>
-                {Number(metrics.enLote || 0).toLocaleString('es-UY')}
+                {Number(tabCounts.en_gestion || 0).toLocaleString('es-UY')}
               </div>
               <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
                 en lotes activos
@@ -1843,7 +1843,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                 Recuperados
               </div>
               <div style={{ fontSize: '28px', fontWeight: '500', color: 'var(--color-text-success)' }}>
-                {Number(metrics.recuperados || 0).toLocaleString('es-UY')}
+                {Number(tabCounts.recuperados || 0).toLocaleString('es-UY')}
               </div>
               <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
                 volvieron a estar de alta
@@ -1858,7 +1858,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                 Rechazados
               </div>
               <div style={{ fontSize: '28px', fontWeight: '500', color: 'var(--color-text-danger)' }}>
-                {Number(metrics.rechazados || 0).toLocaleString('es-UY')}
+                {Number(tabCounts.rechazados || 0).toLocaleString('es-UY')}
               </div>
               <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
                 no quisieron volver
