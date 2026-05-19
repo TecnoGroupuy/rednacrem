@@ -3549,7 +3549,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         ? normalizeOrigenOptions(origenDatoOptions)
         : ORIGEN_DATO_OPTIONS_DEPRECADO;
       const isRecupero = mode === 'recupero';
-      const contactsEndpoint = isRecupero ? '/recupero/contactos' : '/leads/assigned';
+      const contactsEndpoint = '/leads/assigned';
       const accentColor = isRecupero ? '#f97316' : '#1A5C4A';
       const accentSoft = isRecupero ? 'rgba(249,115,22,0.12)' : '#F0FAF6';
       const accentText = isRecupero ? '#9a3412' : '#1A5C4A';
@@ -3667,7 +3667,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             limit: String(LIMIT),
             tab: tabActivo
           });
-          if (!isRecupero) params.set('tipo_excluir', 'recupero');
+          if (isRecupero) params.set('tipo', 'recupero');
+          else params.set('tipo_excluir', 'recupero');
           if (searchDebounced) params.set('search', searchDebounced);
           if (filtroOrigen) params.set('origen_dato', filtroOrigen);
           const contactosData = await api.get(`${contactsEndpoint}?${params}`);
@@ -3703,7 +3704,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             limit: String(LIMIT),
             tab: tabActivo
           });
-          if (!isRecupero) params.set('tipo_excluir', 'recupero');
+          if (isRecupero) params.set('tipo', 'recupero');
+          else params.set('tipo_excluir', 'recupero');
           if (searchDebounced) params.set('search', searchDebounced);
           if (filtroOrigen) params.set('origen_dato', filtroOrigen);
           const d = await api.get(`${contactsEndpoint}?${params}`);
@@ -3739,10 +3741,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
       React.useEffect(() => {
         if (isRecupero) {
-          api.get('/recupero/contactos?tab=nuevos&page=1&limit=1')
+          api.get('/leads/assigned?tipo=recupero&tab=nuevos&page=1&limit=1')
             .then((r) => setTotalRecuperoNuevos(r?.data?.total ?? null))
             .catch(() => {});
-          api.get('/recupero/contactos?tab=no_contacto&page=1&limit=1')
+          api.get('/leads/assigned?tipo=recupero&tab=no_contacto&page=1&limit=1')
             .then((r) => setTotalRecuperoNoContesta(r?.data?.total ?? null))
             .catch(() => {});
           return;
