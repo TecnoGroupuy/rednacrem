@@ -48,6 +48,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const [filterErrors, setFilterErrors] = React.useState({});
   const [openFilterColumn, setOpenFilterColumn] = React.useState('');
   const [orden, setOrden] = React.useState({ campo: '', direccion: 'asc' });
+  const [sortDir, setSortDir] = React.useState('desc');
   const [filterOptions, setFilterOptions] = React.useState({ productos: [], departamentos: [], motivos: [], estados: [], vendedores: [], lotes: [] });
   const [filtersLoading, setFiltersLoading] = React.useState(false);
   const [filtersError, setFiltersError] = React.useState('');
@@ -568,11 +569,13 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const buildSearchPayload = React.useCallback(() => ({
     tab: activeTab,
     filters: buildFiltersPayload(),
-    sort: orden.campo ? { field: orden.campo, dir: orden.direccion } : null,
+    sort: vistaActual === 'disponibles'
+      ? { field: 'fecha_baja', dir: sortDir }
+      : (orden.campo ? { field: orden.campo, dir: orden.direccion } : null),
     columns: visibleColumns.length ? visibleColumns : allColumns.map((col) => col.id),
     page,
     limit: PAGE_SIZE
-  }), [activeTab, allColumns, buildFiltersPayload, orden, page, visibleColumns]);
+  }), [activeTab, allColumns, buildFiltersPayload, orden, page, sortDir, vistaActual, visibleColumns]);
 
   const loadRecupero = React.useCallback(async (options = {}) => {
     const { force = false } = options;
@@ -686,7 +689,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
 
   React.useEffect(() => {
     setPage(1);
-  }, [orden, activeTab, visibleColumns]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [orden, activeTab, sortDir, visibleColumns]); // eslint-disable-line react-hooks/exhaustive-deps
 
   React.useEffect(() => {
     if (activeTab !== 'disponibles' && selectedIds.length) {
@@ -1921,13 +1924,16 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
               </Button>
             </div>
 
-            {activeTab === 'disponibles' && selectedIds.length > 0 && (
+            {activeTab === 'disponibles' && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <span style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
                   Seleccionados: {selectedIds.length}
                 </span>
-                <Button onClick={() => openAssign(selectedIds)}>
-                  Asignar seleccionados
+                <Button
+                  onClick={() => openAssign(selectedIds)}
+                  disabled={!selectedIds.length}
+                >
+                  Asignar seleccionados ({selectedIds.length})
                 </Button>
               </div>
             )}
@@ -1972,13 +1978,52 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
               >
                 Limpiar todo
               </button>
-              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                {activeFilterCount} filtros · {total.toLocaleString('es-UY')} resultados
-              </div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+              <span>{activeFilterCount} filtros · {total.toLocaleString('es-UY')} resultados</span>
+              <button
+                type="button"
+                onClick={() => setSortDir((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
+                style={{
+                  marginLeft: 10,
+                  padding: '6px 10px',
+                  borderRadius: 8,
+                  border: '0.5px solid var(--color-border-tertiary)',
+                  background: '#fff',
+                  color: 'var(--color-text-secondary)',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  fontSize: 12
+                }}
+              >
+                {sortDir === 'desc'
+                  ? '↑ Más antiguo primero'
+                  : '↓ Más reciente primero'}
+              </button>
             </div>
-          ) : (
+          </div>
+        ) : (
             <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 12 }}>
-              {total.toLocaleString('es-UY')} resultados
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <span>{total.toLocaleString('es-UY')} resultados</span>
+                <button
+                  type="button"
+                  onClick={() => setSortDir((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: 8,
+                    border: '0.5px solid var(--color-border-tertiary)',
+                    background: '#fff',
+                    color: 'var(--color-text-secondary)',
+                    cursor: 'pointer',
+                    fontWeight: 700,
+                    fontSize: 12
+                  }}
+                >
+                  {sortDir === 'desc'
+                    ? '↑ Más antiguo primero'
+                    : '↓ Más reciente primero'}
+                </button>
+              </div>
             </div>
           )}
 
