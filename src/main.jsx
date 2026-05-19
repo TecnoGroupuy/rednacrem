@@ -3561,7 +3561,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const tabs = isRecupero
         ? [
           { key: 'nuevos', label: 'Nuevos', dot: '#6ee7b7' },
-          { key: 'no_contacto', label: 'No contesta', dot: '#f97316' }
+          { key: 'no_contesta', label: 'No contesta', dot: '#f97316' }
         ]
         : [
           { key: 'nuevo', label: 'Nuevos', dot: '#6ee7b7' },
@@ -3684,7 +3684,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             if (isRecupero) {
               const total = contactosData?.data?.total ?? null;
               if (tabActivo === 'nuevos') setTotalRecuperoNuevos(total);
-              if (tabActivo === 'no_contacto') setTotalRecuperoNoContesta(total);
+              if (tabActivo === 'no_contesta') setTotalRecuperoNoContesta(total);
             }
           }
 
@@ -3722,7 +3722,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             if (isRecupero) {
               const total = d?.data?.total ?? null;
               if (tabActivo === 'nuevos') setTotalRecuperoNuevos(total);
-              if (tabActivo === 'no_contacto') setTotalRecuperoNoContesta(total);
+              if (tabActivo === 'no_contesta') setTotalRecuperoNoContesta(total);
             } else {
               const total = d?.data?.total ?? null;
               if (tabActivo === 'nuevo') setTotalNuevos(total);
@@ -3744,7 +3744,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           api.get('/leads/assigned?tipo=recupero&tab=nuevos&page=1&limit=1')
             .then((r) => setTotalRecuperoNuevos(r?.data?.total ?? null))
             .catch(() => {});
-          api.get('/leads/assigned?tipo=recupero&tab=no_contacto&page=1&limit=1')
+          api.get('/leads/assigned?tipo=recupero&tab=no_contesta&page=1&limit=1')
             .then((r) => setTotalRecuperoNoContesta(r?.data?.total ?? null))
             .catch(() => {});
           return;
@@ -4463,7 +4463,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       {totalRecuperoNuevos}
                     </span>
                   )}
-                  {tab.key === 'no_contacto' && totalRecuperoNoContesta !== null && (
+                  {tab.key === 'no_contesta' && totalRecuperoNoContesta !== null && (
                     <span style={{
                       fontSize: 11,
                       background: isActive ? 'rgba(255,255,255,0.2)' : '#fff3e0',
