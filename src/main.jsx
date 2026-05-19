@@ -3623,7 +3623,22 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           ?? contact?.motivo_normalized
           ?? ''
         ).trim().toLowerCase();
-        return MOTIVO_LABELS[key] || { label: 'Sin especificar', color: 'var(--color-text-secondary)' };
+        const base = MOTIVO_LABELS[key] || { label: 'Sin especificar', color: 'var(--color-text-secondary)' };
+        const detalleRaw = contact?.motivo_baja_detalle
+          ?? contact?.motivoBajaDetalle
+          ?? contact?.motivo_detalle
+          ?? contact?.motivoDetalle
+          ?? '';
+        const detalle = String(detalleRaw || '').trim();
+        const detalleCap = detalle ? (detalle.charAt(0).toUpperCase() + detalle.slice(1)) : '';
+
+        if (key === 'otro') {
+          return { ...base, label: detalleCap || base.label };
+        }
+        if (key === 'sin_detalle') {
+          return { ...base, label: detalleCap || base.label };
+        }
+        return base;
       }, [MOTIVO_LABELS]);
 
       const formatFechaBaja = React.useCallback((value) => {
@@ -4698,8 +4713,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       const isNuevo = String(statusValue || '').toLowerCase() === 'nuevo';
                       if (isRecupero) {
                         const fullName = contact.name || [contact.nombre, contact.apellido].filter(Boolean).join(' ') || '—';
-                        const depto = contact.departamento || contact.city || '—';
-                        const phone = contact.celular || contact.telefono || contact.phone || '—';
                         const motivoInfo = getMotivoInfo(contact);
                         const fechaBaja = contact.fecha_baja || contact.fechaBaja || null;
                         const dias = getAntiguedadDias(fechaBaja);
@@ -4738,9 +4751,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                 <div className="person-badge">{initials(fullName)}</div>
                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                                   <strong style={{ fontSize: 13 }}>{fullName}</strong>
-                                  <span style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1 }}>
-                                    {depto} · {phone}
-                                  </span>
                                 </div>
                               </div>
                             </td>
