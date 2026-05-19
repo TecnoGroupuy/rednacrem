@@ -3560,11 +3560,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [vistaMetricas, setVistaMetricas] = React.useState('hoy');
       const tabs = isRecupero
         ? [
-          { key: 'nuevos', label: 'Nuevos' },
-          { key: 'seguimiento', label: 'Seguimiento' },
-          { key: 'no_contacto', label: 'No contacto' },
-          { key: 'rechazo', label: 'Rechazos' },
-          { key: 'recuperado', label: 'Recuperados' }
+          { key: 'nuevos', label: 'Nuevos', dot: '#6ee7b7' },
+          { key: 'no_contacto', label: 'No contesta', dot: '#f97316' }
         ]
         : [
           { key: 'nuevo', label: 'Nuevos', dot: '#6ee7b7' },
@@ -3603,6 +3600,52 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [filtroFechaHasta, setFiltroFechaHasta] = React.useState('');
       const [totalNuevos, setTotalNuevos] = React.useState(null);
       const [totalNoContesta, setTotalNoContesta] = React.useState(null);
+      const [totalRecuperoNuevos, setTotalRecuperoNuevos] = React.useState(null);
+      const [totalRecuperoNoContesta, setTotalRecuperoNoContesta] = React.useState(null);
+
+      const MOTIVO_LABELS = React.useMemo(() => ({
+        fallecimiento:    { label: 'Fallecimiento',       color: '#DC2626' },
+        voluntaria:       { label: 'Baja voluntaria',      color: '#92400E' },
+        falta_de_pago:    { label: 'Falta de pago',        color: '#854F0B' },
+        baja_antel:       { label: 'Baja desde Antel',     color: '#185FA5' },
+        baja_bps:         { label: 'Baja desde BPS',       color: '#185FA5' },
+        administrativa:   { label: 'Administrativa',       color: '#5F5E5A' },
+        error_activacion: { label: 'Error de activación',  color: '#5F5E5A' },
+        no_llamar:        { label: 'No llamar',            color: '#DC2626' },
+        sin_detalle:      { label: 'Sin detalle',          color: 'var(--color-text-secondary)' },
+        otro:             { label: 'Otro',                 color: 'var(--color-text-secondary)' },
+      }), []);
+
+      const getMotivoInfo = React.useCallback((contact) => {
+        const key = String(
+          contact?.motivo_normalizado
+          ?? contact?.motivoNormalizado
+          ?? contact?.motivo_normalized
+          ?? ''
+        ).trim().toLowerCase();
+        return MOTIVO_LABELS[key] || { label: 'Sin especificar', color: 'var(--color-text-secondary)' };
+      }, [MOTIVO_LABELS]);
+
+      const formatFechaBaja = React.useCallback((value) => {
+        if (!value) return '—';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '—';
+        return date.toLocaleDateString('es-UY', {
+          timeZone: 'America/Montevideo',
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        });
+      }, []);
+
+      const getAntiguedadDias = React.useCallback((value) => {
+        if (!value) return null;
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return null;
+        const hoy = new Date();
+        const ms = hoy.getTime() - date.getTime();
+        return Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24)));
+      }, []);
 
       const loadStats = React.useCallback(async () => {
         try {
@@ -3637,6 +3680,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             setLocalContacts(items.map(normalizeAssignedContact));
             setTotalPages(contactosData?.data?.totalPages || 1);
             setTotalContactos(contactosData?.data?.total || 0);
+            if (isRecupero) {
+              const total = contactosData?.data?.total ?? null;
+              if (tabActivo === 'nuevos') setTotalRecuperoNuevos(total);
+              if (tabActivo === 'no_contacto') setTotalRecuperoNoContesta(total);
+            }
           }
 
           const statsUrl = `/leads/daily-stats?fecha=${hoy}`;
@@ -3669,7 +3717,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             setLocalContacts(items.map(normalizeAssignedContact));
             setTotalPages(d?.data?.totalPages || 1);
             setTotalContactos(d?.data?.total || 0);
-            if (!isRecupero) {
+            if (isRecupero) {
+              const total = d?.data?.total ?? null;
+              if (tabActivo === 'nuevos') setTotalRecuperoNuevos(total);
+              if (tabActivo === 'no_contacto') setTotalRecuperoNoContesta(total);
+            } else {
               const total = d?.data?.total ?? null;
               if (tabActivo === 'nuevo') setTotalNuevos(total);
               if (tabActivo === 'no_contesta') setTotalNoContesta(total);
@@ -3686,7 +3738,15 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       }, [contacts, page, tabActivo, searchDebounced, filtroOrigen, contactsEndpoint]); // eslint-disable-line react-hooks/exhaustive-deps
 
       React.useEffect(() => {
-        if (isRecupero) return;
+        if (isRecupero) {
+          api.get('/recupero/contactos?tab=nuevos&page=1&limit=1')
+            .then((r) => setTotalRecuperoNuevos(r?.data?.total ?? null))
+            .catch(() => {});
+          api.get('/recupero/contactos?tab=no_contacto&page=1&limit=1')
+            .then((r) => setTotalRecuperoNoContesta(r?.data?.total ?? null))
+            .catch(() => {});
+          return;
+        }
         api.get('/leads/assigned?tipo_excluir=recupero&tab=nuevo&page=1&limit=1')
           .then((r) => setTotalNuevos(r?.data?.total ?? null))
           .catch(() => {});
@@ -4389,6 +4449,30 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                   }}>
                     {tab.label}
                   </span>
+                  {tab.key === 'nuevos' && totalRecuperoNuevos !== null && (
+                    <span style={{
+                      fontSize: 11,
+                      background: isActive ? 'rgba(255,255,255,0.2)' : '#e8f5e9',
+                      color: isActive ? '#fff' : '#1a6b4a',
+                      padding: '1px 7px',
+                      borderRadius: 10,
+                      fontWeight: 500
+                    }}>
+                      {totalRecuperoNuevos}
+                    </span>
+                  )}
+                  {tab.key === 'no_contacto' && totalRecuperoNoContesta !== null && (
+                    <span style={{
+                      fontSize: 11,
+                      background: isActive ? 'rgba(255,255,255,0.2)' : '#fff3e0',
+                      color: isActive ? '#fff' : '#c2410c',
+                      padding: '1px 7px',
+                      borderRadius: 10,
+                      fontWeight: 500
+                    }}>
+                      {totalRecuperoNoContesta}
+                    </span>
+                  )}
                   {tab.key === 'nuevo' && totalNuevos !== null && (
                     <span style={{
                       fontSize: 11,
@@ -4485,10 +4569,20 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           <div className="table-wrap">
             <table className="sales-contacts-table">
               <thead>
-                <tr>
-                  <th>Estado</th><th>Ingreso</th><th>Origen del dato</th><th>Contacto</th>
-                  <th>Ubicación</th><th>Última gestión</th>
-                </tr>
+                {isRecupero ? (
+                  <tr>
+                    <th>Estado</th>
+                    <th>Contacto</th>
+                    <th>Motivo de baja</th>
+                    <th>Fecha de baja</th>
+                    <th>Antigüedad</th>
+                  </tr>
+                ) : (
+                  <tr>
+                    <th>Estado</th><th>Ingreso</th><th>Origen del dato</th><th>Contacto</th>
+                    <th>Ubicación</th><th>Última gestión</th>
+                  </tr>
+                )}
               </thead>
               <tbody>
                 {visibleContacts.map((contact) => {
@@ -4504,6 +4598,70 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     {(() => {
                       const statusValue = statusOverrides[contact.id] || contact.status;
                       const isNuevo = String(statusValue || '').toLowerCase() === 'nuevo';
+                      if (isRecupero) {
+                        const fullName = contact.name || [contact.nombre, contact.apellido].filter(Boolean).join(' ') || '—';
+                        const depto = contact.departamento || contact.city || '—';
+                        const phone = contact.celular || contact.telefono || contact.phone || '—';
+                        const motivoInfo = getMotivoInfo(contact);
+                        const fechaBaja = contact.fecha_baja || contact.fechaBaja || null;
+                        const dias = getAntiguedadDias(fechaBaja);
+                        const diasColor = (() => {
+                          if (dias === null) return 'var(--color-text-secondary)';
+                          if (dias > 365) return '#DC2626';
+                          if (dias >= 180) return '#92400E';
+                          if (dias >= 90) return '#854F0B';
+                          return 'var(--color-text-primary)';
+                        })();
+                        const statusNorm = String(statusValue || '').toLowerCase();
+                        const statusBadge = statusNorm === 'nuevo'
+                          ? { label: 'Nuevo', bg: '#E1F5EE', color: '#0F6E56' }
+                          : (statusNorm === 'no_contesta' || statusNorm === 'no_contacto')
+                            ? { label: 'No contesta', bg: '#FAEEDA', color: '#854F0B' }
+                            : { label: statusValue || '—', bg: 'rgba(148,163,184,0.18)', color: 'var(--color-text-secondary)' };
+                        return (
+                          <>
+                            <td>
+                              <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                padding: '4px 10px',
+                                borderRadius: 999,
+                                background: statusBadge.bg,
+                                color: statusBadge.color,
+                                fontSize: 12,
+                                fontWeight: 700,
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {statusBadge.label}
+                              </span>
+                            </td>
+                            <td>
+                              <div className="person" style={{ alignItems: 'flex-start' }}>
+                                <div className="person-badge">{initials(fullName)}</div>
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                  <strong style={{ fontSize: 13 }}>{fullName}</strong>
+                                  <span style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1 }}>
+                                    {depto} · {phone}
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <span style={{ color: motivoInfo.color, fontSize: 12, fontWeight: 500 }}>
+                                {motivoInfo.label}
+                              </span>
+                            </td>
+                            <td style={{ color: '#64748b', fontSize: 12, whiteSpace: 'nowrap' }}>
+                              {formatFechaBaja(fechaBaja)}
+                            </td>
+                            <td>
+                              <div style={{ fontSize: 16, fontWeight: 800, color: diasColor, lineHeight: 1 }}>
+                                {dias === null ? '—' : `${dias}d`}
+                              </div>
+                            </td>
+                          </>
+                        );
+                      }
                       return (
                         <>
                           <td><SalesStatusBadge status={statusValue} small /></td>
@@ -4633,6 +4791,80 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                   </div>
 
                   {activeTab === 'datos' ? (
+                    isRecupero ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '16px 0' }}>
+                        {(() => {
+                          const fechaBaja = dc?.fecha_baja || dc?.fechaBaja || null;
+                          const dias = getAntiguedadDias(fechaBaja);
+                          const motivoInfo = getMotivoInfo(dc);
+                          const productName = dc?.nombre_producto || dc?.producto || dc?.nombreProducto || '—';
+                          const priceRaw = dc?.precio ?? dc?.price ?? null;
+                          const priceNum = Number(priceRaw);
+                          const priceValue = priceRaw !== null && priceRaw !== undefined && String(priceRaw).trim() !== ''
+                            ? (Number.isFinite(priceNum) ? `$ ${priceNum.toLocaleString('es-UY')}` : String(priceRaw))
+                            : '—';
+                          return (
+                            <>
+                              <div style={{
+                                background: '#0F766E',
+                                borderRadius: 12,
+                                padding: '14px 16px',
+                                color: '#fff',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 8,
+                                boxShadow: '0 10px 24px rgba(15, 118, 110, 0.22)',
+                                border: '1px solid rgba(15, 118, 110, 0.35)'
+                              }}>
+                                <div style={{ fontSize: 12, opacity: 0.9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6 }}>
+                                  Servicio
+                                </div>
+                                <div style={{ fontSize: 14, fontWeight: 800, lineHeight: 1.2 }}>
+                                  {productName}
+                                </div>
+                                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 12 }}>
+                                  <span><strong>Precio:</strong> {priceValue}</span>
+                                  <span><strong>Motivo:</strong> {motivoInfo.label}</span>
+                                  <span><strong>Antigüedad:</strong> {dias === null ? '—' : `${dias} días`}</span>
+                                </div>
+                              </div>
+
+                              <div style={{
+                                background: 'var(--color-background-secondary)',
+                                borderRadius: 12,
+                                padding: '14px 16px',
+                                border: '0.5px solid var(--color-border-tertiary)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 10
+                              }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: 0.6 }}>
+                                  Datos del contacto
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                                  <div>
+                                    <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Teléfono</div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{dc?.telefono || dc?.phone || '—'}</div>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Celular</div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{dc?.celular || pickCellular(dc) || '—'}</div>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Departamento</div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{dc?.departamento || dc?.city || '—'}</div>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Fecha de baja</div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{formatFechaBaja(fechaBaja)}</div>
+                                  </div>
+                                </div>
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, padding: '16px 0' }}>
                       <div>
                         <p style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px 0' }}>Teléfonos</p>
@@ -4876,6 +5108,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         </div>
                       </div>
                     </div>
+                    )
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                       <div>
