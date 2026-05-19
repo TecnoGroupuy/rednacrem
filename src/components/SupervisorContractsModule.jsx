@@ -1483,12 +1483,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                       )}
 
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-                        <button type="button" onClick={(e) => { e.stopPropagation(); }} style={{ padding: '7px 10px', borderRadius: 10, border: '1px solid rgba(148,163,184,0.45)', background: 'transparent', cursor: 'pointer', fontWeight: 800, fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                          Agregar datos
-                        </button>
-                        <button type="button" onClick={(e) => { e.stopPropagation(); openInformeModal(lotId); }} style={{ padding: '7px 10px', borderRadius: 10, border: '1px solid rgba(15,118,110,0.35)', background: 'rgba(15,118,110,0.10)', cursor: 'pointer', fontWeight: 800, fontSize: 12, color: '#0F766E' }}>
-                          Ver informe
-                        </button>
                         <button type="button" onClick={(e) => { e.stopPropagation(); openDetalle(); }} style={{ padding: '7px 10px', borderRadius: 10, border: '1px solid rgba(148,163,184,0.45)', background: 'transparent', cursor: 'pointer', fontWeight: 800, fontSize: 12, color: 'var(--color-text-secondary)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                           Ver detalle <ChevronDown size={14} style={{ transform: 'rotate(-90deg)' }} />
                         </button>
