@@ -86,7 +86,8 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     disponibles: 0,
     en_gestion: 0,
     recuperados: 0,
-    rechazados: 0
+    rechazados: 0,
+    fallecidos: 0
   });
   const [showImportModal, setShowImportModal] = React.useState(false);
   const [importFile, setImportFile] = React.useState(null);
@@ -155,7 +156,8 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     { key: 'disponibles', label: 'Disponibles' },
     { key: 'asignados', label: 'En gestión' },
     { key: 'recuperados', label: 'Recuperados' },
-    { key: 'rechazados', label: 'Rechazados' }
+    { key: 'rechazados', label: 'Rechazados' },
+    { key: 'fallecidos', label: 'Fallecidos' }
   ];
 
   const allColumns = React.useMemo(() => ([
@@ -315,14 +317,27 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     return [];
   }, [filterOptions, sellers, ultimoEstadoOptions]);
 
-  const getMotivoBaja = (row) => {
-    const rawDetalle = (row?.motivo_baja_detalle ?? row?.motivoBajaDetalle ?? row?.motivo_baja_detail ?? row?.motivoBajaDetail ?? '').toString().trim();
-    const raw = rawDetalle || (row?.motivo_baja ?? '').toString().trim();
-    if (!raw) return 'Sin especificar';
-    const normalized = raw.toLowerCase();
-    if (normalized === 'otro' || normalized === 'otros') return 'Sin especificar';
-    if (normalized === 'baja') return 'Sin especificar';
-    return raw;
+  const MOTIVO_LABELS = {
+    fallecimiento: { label: 'Fallecimiento', color: '#DC2626' },
+    voluntaria: { label: 'Baja voluntaria', color: '#92400E' },
+    falta_de_pago: { label: 'Falta de pago', color: '#854F0B' },
+    baja_antel: { label: 'Baja desde Antel', color: '#185FA5' },
+    baja_bps: { label: 'Baja desde BPS', color: '#185FA5' },
+    administrativa: { label: 'Administrativa', color: '#5F5E5A' },
+    error_activacion: { label: 'Error de activación', color: '#5F5E5A' },
+    no_llamar: { label: 'No llamar', color: '#DC2626' },
+    sin_detalle: { label: 'Sin detalle', color: 'var(--color-text-secondary)' },
+    otro: { label: 'Otro', color: 'var(--color-text-secondary)' }
+  };
+
+  const getMotivoInfo = (contact) => {
+    const key = String(
+      contact?.motivo_normalizado
+      ?? contact?.motivoNormalizado
+      ?? contact?.motivo_normalized
+      ?? ''
+    ).trim().toLowerCase();
+    return MOTIVO_LABELS[key] || { label: 'Sin especificar', color: 'var(--color-text-secondary)' };
   };
 
   const asLotId = (lote) => String(lote?.id || lote?.batch_id || lote?.lote_id || lote?.lead_batch_id || '');
@@ -566,16 +581,22 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     return payload;
   }, [columnFiltersApplied]);
 
-  const buildSearchPayload = React.useCallback(() => ({
-    tab: activeTab,
-    filters: buildFiltersPayload(),
-    sort: vistaActual === 'disponibles'
-      ? { field: 'fecha_baja', dir: sortDir }
-      : (orden.campo ? { field: orden.campo, dir: orden.direccion } : null),
-    columns: visibleColumns.length ? visibleColumns : allColumns.map((col) => col.id),
-    page,
-    limit: PAGE_SIZE
-  }), [activeTab, allColumns, buildFiltersPayload, orden, page, sortDir, vistaActual, visibleColumns]);
+  const buildSearchPayload = React.useCallback(() => {
+    const filters = buildFiltersPayload();
+    if (activeTab === 'fallecidos') {
+      filters.motivo_normalizado = ['fallecimiento'];
+    }
+    return {
+      tab: activeTab,
+      filters,
+      sort: vistaActual === 'disponibles'
+        ? { field: 'fecha_baja', dir: sortDir }
+        : (orden.campo ? { field: orden.campo, dir: orden.direccion } : null),
+      columns: visibleColumns.length ? visibleColumns : allColumns.map((col) => col.id),
+      page,
+      limit: PAGE_SIZE
+    };
+  }, [activeTab, allColumns, buildFiltersPayload, orden, page, sortDir, vistaActual, visibleColumns]);
 
   const loadRecupero = React.useCallback(async (options = {}) => {
     const { force = false } = options;
@@ -619,7 +640,8 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
           disponibles: Number(incomingTabCounts.disponibles || 0),
           en_gestion: Number(incomingTabCounts.en_gestion ?? incomingTabCounts.asignados ?? 0),
           recuperados: Number(incomingTabCounts.recuperados || 0),
-          rechazados: Number(incomingTabCounts.rechazados || 0)
+          rechazados: Number(incomingTabCounts.rechazados || 0),
+          fallecidos: Number(incomingTabCounts.fallecidos || 0)
         });
       }
 
@@ -1872,7 +1894,8 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                     : tab.key === 'asignados' ? (tabCounts.en_gestion ?? tabCounts.asignados ?? 0)
                       : tab.key === 'recuperados' ? tabCounts.recuperados
                         : tab.key === 'rechazados' ? tabCounts.rechazados
-                          : 0
+                          : tab.key === 'fallecidos' ? tabCounts.fallecidos
+                            : 0
                 );
                 return (
                   <button
@@ -2094,7 +2117,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                 {visibleItems.map((row) => {
                   const nombre = getContactoNombre(row);
                   const initials = nombre.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
-                  const motivoBaja = getMotivoBaja(row);
+                  const motivoInfo = getMotivoInfo(row);
                   const estadoBadge = getEstadoBadge(row);
                   const producto = row.producto || row.producto_anterior || row.nombre_producto || '—';
                   const fechaBaja = row.fecha_baja || row.fechaBaja || null;
@@ -2171,7 +2194,9 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <i className="ti ti-clipboard-text" style={{ fontSize: 14, color: 'var(--color-text-secondary)' }} />
-                            <span style={{ color: getMotivoColor(motivoBaja) }}>{motivoBaja || '—'}</span>
+                            <span style={{ color: motivoInfo.color, fontSize: 12, fontWeight: 500 }}>
+                              {motivoInfo.label}
+                            </span>
                           </div>
                         </td>
                         <td style={{ fontWeight: 600, color: 'var(--color-text-primary)', maxWidth: 280, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
