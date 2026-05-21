@@ -6065,6 +6065,16 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
     function CodificacionesView() {
       const api = React.useMemo(() => getApiClient(), []);
       const PAGE_SIZE = 10;
+      const FALLBACK_CATALOGO = React.useMemo(() => ([
+        'dato_erroneo',
+        'incontactable',
+        'no_contesta',
+        'nuevo',
+        'rechazo',
+        'rellamar',
+        'seguimiento',
+        'venta'
+      ]), []);
       const [rows, setRows] = React.useState([]);
       const [total, setTotal] = React.useState(0);
       const [page, setPage] = React.useState(1);
@@ -6207,14 +6217,19 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         try {
           const response = await api.get('/api/codificaciones/catalogo');
           const itemsList = response?.items || response?.data?.items || response?.data || [];
-          setCatalogo(Array.isArray(itemsList) ? itemsList : []);
+          const normalized = Array.isArray(itemsList) ? itemsList : [];
+          const hasSeguimiento = normalized.some((item) => {
+            const nombre = item?.nombre ?? item;
+            return String(nombre || '').trim().toLowerCase() === 'seguimiento';
+          });
+          setCatalogo(hasSeguimiento ? normalized : [...normalized, 'seguimiento']);
         } catch {
-          setCatalogo([]);
+          setCatalogo(FALLBACK_CATALOGO);
           setCatalogoError('No se pudo cargar el catálogo.');
         } finally {
           setCatalogoLoading(false);
         }
-      }, [api]);
+      }, [api, FALLBACK_CATALOGO]);
 
       const buildQuery = React.useCallback((filters) => {
         const params = new URLSearchParams();
