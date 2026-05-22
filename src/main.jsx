@@ -11327,17 +11327,22 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             motivo_baja_detalle: motivo,
             observacion
           });
-          setClientRows((prev) => prev.map((row) => {
+          setClientRows((prev) => prev.filter((row) => {
             const rowContactId = row?.contactId || row?.id || '';
             const rowProductId = row?.productId || '';
-            if (String(rowContactId) !== String(contactId)) return row;
-            if (String(rowProductId) !== String(productId)) return row;
-            return { ...row, status: 'baja' };
+            if (String(rowContactId) !== String(contactId)) return true;
+            if (String(rowProductId) !== String(productId)) return true;
+            return false;
           }));
+          setClientTotal((prev) => Math.max(0, Number(prev || 0) - 1));
           setSelectedClient((prev) => (prev && String(prev.id) === String(contactId) ? { ...prev, status: 'baja' } : prev));
           setBajaModal({ open: false });
         } catch (err) {
-          setBajaError(err?.message || 'No se pudo dar de baja el producto.');
+          if (Number(err?.status) === 409) {
+            setBajaError('Este producto ya está dado de baja');
+          } else {
+            setBajaError(err?.message || 'No se pudo dar de baja el producto.');
+          }
         } finally {
           setBajaSaving(false);
         }
@@ -11622,7 +11627,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                   if (!canBaja) return null;
                   return (
                     <Button
-                      className="clients-action-btn clients-action-btn--danger"
+                      className="clients-action-btn clients-action-btn--danger-outline"
                       variant="ghost"
                       icon={<XCircle size={15} />}
                       onClick={() => openBajaModal(row)}
