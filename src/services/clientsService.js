@@ -85,6 +85,24 @@ const buildBackendClientName = (item = {}) => {
 const mapBackendPortfolioRow = (item = {}) => {
   const contact = item.contact || item.contacto || item.client || item.cliente || null;
   const productObj = item.product && typeof item.product === 'object' ? item.product : null;
+  const resolvedContactId =
+    item.contact_id
+    || item.contactId
+    || item.contacto_id
+    || contact?.id
+    || item.id
+    || '';
+  const resolvedProductId =
+    productObj?.id
+    || productObj?.product_id
+    || productObj?.producto_id
+    || productObj?.producto_contrato_id
+    || productObj?.productoContratoId
+    || item.product_id
+    || item.producto_id
+    || item.producto_contrato_id
+    || item.productoContratoId
+    || '';
   const cuotaRaw = productObj?.fee ?? productObj?.precio ?? productObj?.price
     ?? item.fee ?? item.cuota ?? item.cuota_mensual ?? item.precio ?? item.price;
   const cuotaValue = typeof cuotaRaw === 'string' && cuotaRaw.trim() ? cuotaRaw : cuotaRaw;
@@ -98,7 +116,9 @@ const mapBackendPortfolioRow = (item = {}) => {
     || item.fecha_alta
     || null;
   return {
-    id: item.id || '',
+    id: resolvedContactId || '',
+    contactId: resolvedContactId || '',
+    productId: String(resolvedProductId || ''),
     name: item.name || buildBackendClientName(item),
     product: productName,
     plan: planName,
@@ -427,6 +447,8 @@ export const fetchClientsDirectory = async ({ page = 1, limit = null, search = '
   const portfolio = items.map(mapBackendPortfolioRow);
   const table = portfolio.map((item) => ({
     id: item.id,
+    contactId: item.contactId,
+    productId: item.productId,
     name: item.name,
     product: item.product,
     plan: item.plan,

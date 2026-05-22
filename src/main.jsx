@@ -11029,6 +11029,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         const [clientsError, setClientsError] = React.useState('');
         const [selectedClient, setSelectedClient] = React.useState(null);
         const [clientDetailError, setClientDetailError] = React.useState('');
+        const [bajaModal, setBajaModal] = React.useState({ open: false });
+        const [bajaSaving, setBajaSaving] = React.useState(false);
+        const [bajaError, setBajaError] = React.useState('');
         const [newClientOpen, setNewClientOpen] = React.useState(false);
         const [newClientError, setNewClientError] = React.useState('');
         const [newClientSaving, setNewClientSaving] = React.useState(false);
@@ -11280,6 +11283,65 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           setClientsError(message);
         }
       }, [clientPage, clientPageSize, clientSearchDebounced]);
+
+      const openBajaModal = React.useCallback((row) => {
+        const now = new Date();
+        const loggedName = [authUser?.nombre, authUser?.apellido].filter(Boolean).join(' ') || authUser?.email || 'Usuario';
+        setBajaError('');
+        setBajaModal({
+          open: true,
+          contactId: row?.contactId || row?.id || '',
+          productId: row?.productId || '',
+          clientName: row?.name || '',
+          motivo: 'Sin liquidez',
+          observacion: '',
+          fechaHora: now.toISOString(),
+          usuario: loggedName
+        });
+      }, [authUser?.apellido, authUser?.email, authUser?.nombre]);
+
+      const closeBajaModal = React.useCallback(() => {
+        if (bajaSaving) return;
+        setBajaModal({ open: false });
+        setBajaError('');
+      }, [bajaSaving]);
+
+      const confirmBaja = React.useCallback(async () => {
+        const contactId = String(bajaModal?.contactId || '').trim();
+        const productId = String(bajaModal?.productId || '').trim();
+        const motivo = String(bajaModal?.motivo || '').trim();
+        const observacion = String(bajaModal?.observacion || '').trim();
+        if (!contactId || !productId) {
+          setBajaError('No se pudo identificar el cliente o el producto.');
+          return;
+        }
+        if (!motivo) {
+          setBajaError('Seleccioná un motivo.');
+          return;
+        }
+        setBajaSaving(true);
+        setBajaError('');
+        try {
+          const api = getApiClient();
+          await api.post(`/api/contacts/${encodeURIComponent(contactId)}/products/${encodeURIComponent(productId)}/baja`, {
+            motivo_baja_detalle: motivo,
+            observacion
+          });
+          setClientRows((prev) => prev.map((row) => {
+            const rowContactId = row?.contactId || row?.id || '';
+            const rowProductId = row?.productId || '';
+            if (String(rowContactId) !== String(contactId)) return row;
+            if (String(rowProductId) !== String(productId)) return row;
+            return { ...row, status: 'baja' };
+          }));
+          setSelectedClient((prev) => (prev && String(prev.id) === String(contactId) ? { ...prev, status: 'baja' } : prev));
+          setBajaModal({ open: false });
+        } catch (err) {
+          setBajaError(err?.message || 'No se pudo dar de baja el producto.');
+        } finally {
+          setBajaSaving(false);
+        }
+      }, [bajaModal?.contactId, bajaModal?.motivo, bajaModal?.observacion, bajaModal?.productId]);
 
         const handleCloseFicha = () => {
           setSelectedClient(null);
@@ -11552,6 +11614,23 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             <td className="col-accion">
               <div className="clients-actions">
                 <Button className="clients-action-btn" variant="ghost" icon={<Eye size={15} />} onClick={() => handleViewFicha(row.id)}>Ver ficha</Button>
+                {(() => {
+                  const status = String(row.status || '').toLowerCase();
+                  const isBaja = status.includes('baja');
+                  const canBaja = Boolean((row.contactId || row.id) && row.productId);
+                  if (isBaja) return null;
+                  if (!canBaja) return null;
+                  return (
+                    <Button
+                      className="clients-action-btn clients-action-btn--danger"
+                      variant="ghost"
+                      icon={<XCircle size={15} />}
+                      onClick={() => openBajaModal(row)}
+                    >
+                      Dar de baja
+                    </Button>
+                  );
+                })()}
                 {viewerRole === 'superadministrador' ? (
                   <Button className="clients-action-btn clients-action-btn--danger" variant="ghost" icon={<Trash2 size={15} />} onClick={() => handleDeleteClient(row.id, row.name)}>Eliminar</Button>
                 ) : null}
@@ -11625,6 +11704,82 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             detailError={clientDetailError}
             viewerRole={viewerRole}
           />
+          {bajaModal?.open ? (
+            <div className="lot-wizard-overlay" onClick={closeBajaModal}>
+              <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 520 }}>
+                <div className="lot-wizard-header">
+                  <div style={{ fontWeight: 700 }}>Dar de baja</div>
+                  <button className="close-btn" onClick={closeBajaModal}><X size={16} /></button>
+                </div>
+                <div className="lot-wizard-content">
+                  <div style={{ display: 'grid', gap: 12 }}>
+                    <div style={{ display: 'grid', gap: 4 }}>
+                      <div style={{ fontSize: 12, color: '#64748b' }}>Motivo</div>
+                      <select
+                        className="input"
+                        value={bajaModal?.motivo || ''}
+                        onChange={(e) => setBajaModal((prev) => ({ ...prev, motivo: e.target.value }))}
+                        disabled={bajaSaving}
+                      >
+                        <option value="Sin liquidez">Sin liquidez</option>
+                        <option value="Error en el pago">Error en el pago</option>
+                        <option value="Baja por auditoria">Baja por auditoria</option>
+                        <option value="Cuenta con otro servicio">Cuenta con otro servicio</option>
+                        <option value="Baja">Baja</option>
+                      </select>
+                    </div>
+                    <div style={{ display: 'grid', gap: 4 }}>
+                      <div style={{ fontSize: 12, color: '#64748b' }}>Observación (opcional)</div>
+                      <textarea
+                        className="input"
+                        rows={3}
+                        value={bajaModal?.observacion || ''}
+                        onChange={(e) => setBajaModal((prev) => ({ ...prev, observacion: e.target.value }))}
+                        disabled={bajaSaving}
+                      />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
+                      <div style={{ display: 'grid', gap: 4 }}>
+                        <div style={{ fontSize: 12, color: '#64748b' }}>Fecha y hora</div>
+                        <div style={{ fontWeight: 600 }}>
+                          {(() => {
+                            try { return new Date(bajaModal?.fechaHora || Date.now()).toLocaleString('es-UY', { timeZone: 'America/Montevideo' }); } catch { return '—'; }
+                          })()}
+                        </div>
+                      </div>
+                      <div style={{ display: 'grid', gap: 4 }}>
+                        <div style={{ fontSize: 12, color: '#64748b' }}>Usuario</div>
+                        <div style={{ fontWeight: 600 }}>{bajaModal?.usuario || 'Usuario'}</div>
+                      </div>
+                    </div>
+                    {bajaError ? (
+                      <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 6, padding: '8px 12px', fontSize: 13, color: '#B91C1C' }}>{bajaError}</div>
+                    ) : null}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 6 }}>
+                      <Button variant="ghost" onClick={closeBajaModal} disabled={bajaSaving}>Cancelar</Button>
+                      <button
+                        type="button"
+                        onClick={confirmBaja}
+                        disabled={bajaSaving}
+                        className="button"
+                        style={{
+                          borderRadius: 8,
+                          padding: '10px 16px',
+                          background: '#b91c1c',
+                          color: '#fff',
+                          boxShadow: 'none',
+                          cursor: bajaSaving ? 'not-allowed' : 'pointer',
+                          opacity: bajaSaving ? 0.7 : 1
+                        }}
+                      >
+                        {bajaSaving ? 'Confirmando…' : 'Confirmar baja'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
           {newClientOpen && (
             <>
               <div
