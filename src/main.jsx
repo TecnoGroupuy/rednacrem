@@ -10,7 +10,7 @@ import {
   Filter, Plus, CheckCircle2, Clock, Settings, Zap, BarChart3, Flame, Edit3, MoreHorizontal, Trash2,
   MessageSquare, Send, Headphones, Bot, User, Hash, Upload, LogOut, Coffee, Bath, PersonStanding,
   PauseCircle, XCircle,
-  Info, Shield, ChevronRight
+  Info, Shield, ChevronRight, RefreshCw
 } from 'lucide-react';
 import {
   ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip,
@@ -3899,6 +3899,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [nuevoContactoOpen, setNuevoContactoOpen] = React.useState(false);
       const [nuevoContactoError, setNuevoContactoError] = React.useState('');
       const [nuevoContactoSaving, setNuevoContactoSaving] = React.useState(false);
+      const [refreshingNow, setRefreshingNow] = React.useState(false);
       const [nuevoContacto, setNuevoContacto] = React.useState({
         nombre: '',
         apellido: '',
@@ -3913,6 +3914,26 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         pais: 'Uruguay',
         origen_dato: ''
       });
+
+      const handleManualRefresh = React.useCallback(async () => {
+        if (isRecupero) return;
+        if (vendedorNewClientOpen || drawerOpen || nuevoContactoOpen) return;
+        setRefreshingNow(true);
+        try {
+          await refreshSilencioso();
+        } finally {
+          setRefreshingNow(false);
+        }
+      }, [drawerOpen, isRecupero, nuevoContactoOpen, refreshSilencioso, vendedorNewClientOpen]);
+
+      React.useEffect(() => {
+        if (isRecupero) return undefined;
+        if (vendedorNewClientOpen || drawerOpen || nuevoContactoOpen) return undefined;
+        const intervalId = setInterval(() => {
+          refreshSilencioso();
+        }, 60_000);
+        return () => clearInterval(intervalId);
+      }, [drawerOpen, isRecupero, nuevoContactoOpen, refreshSilencioso, vendedorNewClientOpen]);
 
       React.useEffect(() => {
         const handler = setTimeout(() => {
@@ -4286,6 +4307,31 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 <Search size={16} color="#69788d" />
                 <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar por nombre, teléfono o documento..." />
               </div>
+              {!isRecupero ? (
+                <button
+                  onClick={handleManualRefresh}
+                  disabled={loadingContacts || refreshingNow || vendedorNewClientOpen || drawerOpen || nuevoContactoOpen}
+                  title={(vendedorNewClientOpen || drawerOpen || nuevoContactoOpen) ? 'Cerrá la gestión para actualizar' : 'Actualizar'}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    background: '#fff',
+                    color: '#64748b',
+                    border: '1px solid rgba(148,163,184,0.55)',
+                    borderRadius: 8,
+                    padding: '8px 12px',
+                    fontWeight: 600,
+                    fontSize: 13,
+                    cursor: (loadingContacts || refreshingNow || vendedorNewClientOpen || drawerOpen || nuevoContactoOpen) ? 'not-allowed' : 'pointer',
+                    opacity: (loadingContacts || refreshingNow || vendedorNewClientOpen || drawerOpen || nuevoContactoOpen) ? 0.6 : 1,
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  <RefreshCw size={16} />
+                  Actualizar
+                </button>
+              ) : null}
               {!isRecupero ? (
                 <button
                   onClick={openNuevoContacto}
