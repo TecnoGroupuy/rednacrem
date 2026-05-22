@@ -7541,11 +7541,13 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
       const lotSummaries = React.useMemo(() => lots.map((lot) => {
         const lotContacts = contacts.filter((contact) => contact.lotId === lot.id);
-        const totalReal = lot.total_contactos || lot.cantidad_contactos || lot.count || lotContacts.length || 0;
-        const closed = lotContacts.filter((contact) => !isCommercialContactActive(contact)).length;
-        const progress = totalReal ? Math.round((closed / totalReal) * 100) : 0;
+        const totalReal = Number(lot.total_contactos ?? lot.cantidad_contactos ?? lot.count ?? lotContacts.length ?? 0) || 0;
+        const gestionado = Number(lot.gestionado ?? lot.gestionados ?? lot.total_gestionado ?? 0) || 0;
+        const derivedGestionado = lotContacts.filter((contact) => !isCommercialContactActive(contact)).length;
+        const usedGestionado = gestionado > 0 ? gestionado : derivedGestionado;
+        const progress = totalReal ? Math.round((usedGestionado / totalReal) * 100) : 0;
         const finalizable = isLotFinalizableFromContacts(lotContacts);
-        return { ...lot, contacts: lotContacts, count: totalReal, progress, finalizable };
+        return { ...lot, contacts: lotContacts, count: totalReal, gestionado: usedGestionado, progress, finalizable };
       }), [lots, contacts]);
 
       const lotesActivos = React.useMemo(() =>
