@@ -6080,14 +6080,15 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [page, setPage] = React.useState(1);
       const [loading, setLoading] = React.useState(false);
       const [error, setError] = React.useState('');
-      const [searchPhone, setSearchPhone] = React.useState('');
+      const [searchQuery, setSearchQuery] = React.useState('');
       const [selectedSellerIds, setSelectedSellerIds] = React.useState([]);
       const [resultadoOriginal, setResultadoOriginal] = React.useState('');
       const [resultadoCorregido, setResultadoCorregido] = React.useState('');
-      const [estadoAuditoria, setEstadoAuditoria] = React.useState('');
+      const [estadoAuditoria, setEstadoAuditoria] = React.useState('corregida');
       const [fromDate, setFromDate] = React.useState('');
       const [toDate, setToDate] = React.useState('');
-      const [queryFilters, setQueryFilters] = React.useState({});
+      const [auditEstadoTab, setAuditEstadoTab] = React.useState('corregidas');
+      const [queryFilters, setQueryFilters] = React.useState(() => ({ estado: 'corregida', _force_list: true }));
       const [sellers, setSellers] = React.useState([]);
       const [catalogo, setCatalogo] = React.useState([]);
       const [catalogoLoading, setCatalogoLoading] = React.useState(false);
@@ -6116,7 +6117,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       }), []);
 
       const hasFilters = React.useMemo(() => (
-        Boolean(queryFilters?.search_phone)
+        Boolean(queryFilters?._force_list)
+        || Boolean(queryFilters?.search_phone)
         || (Array.isArray(queryFilters?.seller_ids) ? queryFilters.seller_ids.length > 0 : Boolean(queryFilters?.seller_id))
         || Boolean(queryFilters?.resultado)
         || Boolean(queryFilters?.resultado_corregido)
@@ -6327,7 +6329,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       }, [auditOpen, auditLoading]);
 
       React.useEffect(() => {
-        const normalized = normalizePhone(searchPhone);
+        const normalized = normalizePhone(searchQuery);
         const handler = setTimeout(() => {
           setPage(1);
           setQueryFilters((prev) => {
@@ -6341,32 +6343,66 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           });
         }, 400);
         return () => clearTimeout(handler);
-      }, [normalizePhone, searchPhone]);
+      }, [normalizePhone, searchQuery]);
 
       const handleBuscar = () => {
         setPage(1);
         setQueryFilters({
-          search_phone: normalizePhone(searchPhone),
+          search_phone: normalizePhone(searchQuery),
           seller_ids: selectedSellerIds,
           resultado: resultadoOriginal,
           resultado_corregido: resultadoCorregido,
           estado: estadoAuditoria,
           from: fromDate,
-          to: toDate
+          to: toDate,
+          _force_list: true
         });
       };
 
       const handleLimpiar = () => {
-        setSearchPhone('');
+        setSearchQuery('');
         setSelectedSellerIds([]);
         setResultadoOriginal('');
         setResultadoCorregido('');
-        setEstadoAuditoria('');
+        setEstadoAuditoria('corregida');
         setFromDate('');
         setToDate('');
+        setAuditEstadoTab('corregidas');
         setPage(1);
-        setQueryFilters({});
+        setQueryFilters({ estado: 'corregida', _force_list: true });
       };
+
+      const applyAuditEstadoTab = React.useCallback((tab) => {
+        setAuditEstadoTab(tab);
+        setPage(1);
+        const nextEstado = tab === 'pendientes' ? 'pendiente' : tab === 'corregidas' ? 'corregida' : '';
+        setEstadoAuditoria(nextEstado);
+        setQueryFilters((prev) => {
+          const next = { ...(prev || {}), _force_list: true };
+          if (nextEstado) next.estado = nextEstado;
+          else delete next.estado;
+          return next;
+        });
+      }, []);
+
+      const filteredRows = React.useMemo(() => {
+        const query = String(searchQuery || '').trim().toLowerCase();
+        if (!query) return rows;
+        return rows.filter((row) => {
+          const phoneValue = String(formatPhone(row) || '').toLowerCase();
+          const sellerValue = String(formatSeller(row) || '').toLowerCase();
+          const supervisorValue = String(formatSupervisor(row) || '').toLowerCase();
+          const originalValue = String(normalizeResultadoLabel(row?.resultado_original) || '').toLowerCase();
+          const correctedValue = String(normalizeResultadoLabel(row?.resultado_corregido) || '').toLowerCase();
+          return (
+            phoneValue.includes(query)
+            || sellerValue.includes(query)
+            || supervisorValue.includes(query)
+            || originalValue.includes(query)
+            || correctedValue.includes(query)
+          );
+        });
+      }, [rows, searchQuery, normalizeResultadoLabel]);
 
       const openAudit = async (row) => {
         setAuditOpen(true);
@@ -6466,7 +6502,27 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               subtitle="Auditoría de resultados de gestión"
             >
               <div style={{ display: 'grid', gap: 10, marginBottom: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <Button
+                      variant={auditEstadoTab === 'corregidas' ? 'secondary' : 'ghost'}
+                      onClick={() => applyAuditEstadoTab('corregidas')}
+                    >
+                      Corregidas
+                    </Button>
+                    <Button
+                      variant={auditEstadoTab === 'pendientes' ? 'secondary' : 'ghost'}
+                      onClick={() => applyAuditEstadoTab('pendientes')}
+                    >
+                      Pendientes
+                    </Button>
+                    <Button
+                      variant={auditEstadoTab === 'todas' ? 'secondary' : 'ghost'}
+                      onClick={() => applyAuditEstadoTab('todas')}
+                    >
+                      Todas
+                    </Button>
+                  </div>
                   <Button
                     variant="ghost"
                     icon={<Filter size={16} />}
@@ -6532,9 +6588,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 <div className="searchbox" style={{ width: '100%' }}>
                   <Search size={16} color="#69788d" />
                   <input
-                    placeholder="Buscar por teléfono"
-                    value={searchPhone}
-                    onChange={(event) => setSearchPhone(event.target.value)}
+                    placeholder="Buscar por teléfono, vendedor, supervisor o codificación"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
                   />
                 </div>
               </div>
@@ -6557,7 +6613,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((row) => {
+                    {filteredRows.map((row) => {
                       const badge = statusMeta(row);
                       const phoneValue = formatPhone(row);
                       const sellerValue = formatSeller(row);
@@ -6598,16 +6654,16 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     })}
                   </tbody>
                 </table>
-                {!loading && !rows.length ? (
+                {!loading && !filteredRows.length ? (
                   <div style={{ padding: 16, color: 'var(--muted)' }}>
-                    {searchPhone ? 'No se encontraron resultados para ese teléfono.' : 'No hay codificaciones para mostrar.'}
+                    {searchQuery ? 'No se encontraron resultados para esa búsqueda.' : 'No hay codificaciones para mostrar.'}
                   </div>
                 ) : null}
               </div>
 
               <div className="toolbar" style={{ justifyContent: 'space-between', marginTop: 12 }}>
                 <div style={{ color: 'var(--muted)' }}>
-                  Mostrando {rows.length} de {total}
+                  Mostrando {filteredRows.length} de {total}
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <Button variant="ghost" disabled={page <= 1 || !hasFilters} onClick={() => setPage((prev) => Math.max(1, prev - 1))}>Anterior</Button>
