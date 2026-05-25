@@ -6130,11 +6130,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [selectedSellerIds, setSelectedSellerIds] = React.useState([]);
       const [resultadoOriginal, setResultadoOriginal] = React.useState('');
       const [resultadoCorregido, setResultadoCorregido] = React.useState('');
-      const [estadoAuditoria, setEstadoAuditoria] = React.useState('corregida');
+      const [estadoAuditoria, setEstadoAuditoria] = React.useState('');
       const [fromDate, setFromDate] = React.useState('');
       const [toDate, setToDate] = React.useState('');
-      const [auditEstadoTab, setAuditEstadoTab] = React.useState('corregidas');
-      const [queryFilters, setQueryFilters] = React.useState(() => ({ estado: 'corregida', _force_list: true }));
+      const [auditEstadoTab, setAuditEstadoTab] = React.useState('todas');
+      const [queryFilters, setQueryFilters] = React.useState(() => ({ _force_list: true }));
       const [sellers, setSellers] = React.useState([]);
       const [catalogo, setCatalogo] = React.useState([]);
       const [catalogoLoading, setCatalogoLoading] = React.useState(false);
@@ -6410,12 +6410,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         setSelectedSellerIds([]);
         setResultadoOriginal('');
         setResultadoCorregido('');
-        setEstadoAuditoria('corregida');
+        setEstadoAuditoria('');
         setFromDate('');
         setToDate('');
-        setAuditEstadoTab('corregidas');
+        setAuditEstadoTab('todas');
         setPage(1);
-        setQueryFilters({ estado: 'corregida', _force_list: true });
+        setQueryFilters({ _force_list: true });
       };
 
       const applyAuditEstadoTab = React.useCallback((tab) => {
@@ -6549,18 +6549,18 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             >
               <div style={{ display: 'grid', gap: 10, marginBottom: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <Button
-                      variant={auditEstadoTab === 'corregidas' ? 'secondary' : 'ghost'}
-                      onClick={() => applyAuditEstadoTab('corregidas')}
-                    >
-                      Corregidas
-                    </Button>
+                  <div className="audit-tabs" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     <Button
                       variant={auditEstadoTab === 'todas' ? 'secondary' : 'ghost'}
                       onClick={() => applyAuditEstadoTab('todas')}
                     >
                       Gestiones todas
+                    </Button>
+                    <Button
+                      variant={auditEstadoTab === 'corregidas' ? 'secondary' : 'ghost'}
+                      onClick={() => applyAuditEstadoTab('corregidas')}
+                    >
+                      Corregidas
                     </Button>
                   </div>
                   <Button
