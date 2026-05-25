@@ -503,6 +503,32 @@
     .audit-tabs .button.ghost:hover { background: rgba(15, 23, 42, 0.05); transform: none; }
     .audit-tabs .button.secondary { background: #fff; border: 1px solid rgba(15, 23, 42, 0.08); box-shadow: 0 10px 22px rgba(15, 23, 42, 0.10); }
 
+    .agenda-controls { align-items: center; }
+    .agenda-tabs { display: flex; align-items: center; gap: 8px; }
+    .agenda-note { display: block; }
+    .agenda-cards { display: none; }
+    .agenda-card { width: 100%; border: 1px solid rgba(15, 23, 42, 0.06); border-radius: 14px; padding: 12px; box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06); }
+    .agenda-card + .agenda-card { margin-top: 10px; }
+    .agenda-card-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+    .agenda-card-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .agenda-card-note { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; text-align: right; }
+
+    @media (max-width: 768px) {
+      .agenda-metrics-grid { grid-template-columns: repeat(2, 1fr) !important; }
+      .agenda-controls { flex-direction: column; align-items: stretch !important; }
+      .agenda-tabs { overflow-x: auto; white-space: nowrap; flex-wrap: nowrap !important; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+      .agenda-tabs > * { flex: 0 0 auto; }
+      .agenda-search { min-width: 0 !important; width: 100%; }
+      table.agenda-table th.col-origen, table.agenda-table td.col-origen,
+      table.agenda-table th.col-ingreso, table.agenda-table td.col-ingreso { display: none; }
+      table.agenda-table td.col-nota .agenda-note { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    }
+
+    @media (max-width: 600px) {
+      table.agenda-table { display: none; }
+      .agenda-cards { display: block; }
+    }
+
     .coberturas-predefined { display: flex; flex-direction: column;
       gap: 8px; margin-bottom: 12px; }
     .cobertura-check { display: flex; align-items: center;

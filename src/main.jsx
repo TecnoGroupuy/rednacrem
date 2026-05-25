@@ -5734,7 +5734,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     const totalVencidas = seguimientos.filter((r) => r.fecha_agenda && new Date(r.fecha_agenda) < ahora).length;
 
                     return (
-                      <div style={{
+                      <div className="agenda-metrics-grid" style={{
                         display: 'grid',
                         gridTemplateColumns: 'repeat(4, 1fr)',
                         gap: 10,
@@ -5761,8 +5761,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                   })()}
 
                   <div className="table-wrap">
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div className="agenda-controls" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
+                      <div className="agenda-tabs" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                         {[
                           { key: 'todas', label: 'Todas', badge: { bg: 'rgba(148,163,184,0.2)', color: '#475569' }, value: agendaCounts.todas },
                           { key: 'seguimiento', label: 'Seguimiento', badge: { bg: 'rgba(59,130,246,0.14)', color: '#1d4ed8' }, value: agendaCounts.seguimiento },
@@ -5794,7 +5794,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           );
                         })}
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 280 }}>
+                      <div className="agenda-search" style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 280 }}>
                         <div className="searchbox" style={{ width: '100%' }}>
                           <Search size={16} color="#69788d" />
                           <input
@@ -5805,12 +5805,18 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         </div>
                       </div>
                     </div>
-                    <table>
+                    <table className="agenda-table">
                       <thead>
                         <tr>
                           <th>Fecha y hora</th>
                           <th>Tipo</th>
-                          <th>Contacto</th><th>Origen</th><th>F. Ingreso</th><th>Intentos</th><th>Nota</th><th>Asignación</th><th>Estado</th>
+                          <th>Contacto</th>
+                          <th className="col-origen">Origen</th>
+                          <th className="col-ingreso">F. Ingreso</th>
+                          <th>Intentos</th>
+                          <th className="col-nota">Nota</th>
+                          <th>Asignación</th>
+                          <th>Estado</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -5861,10 +5867,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                 </span>
                               </td>
                               <td><strong>{[row.nombre, row.apellido].filter(Boolean).join(' ') || '—'}</strong></td>
-                              <td style={{ color: '#475569', fontSize: 12 }}>
+                              <td className="col-origen" style={{ color: '#475569', fontSize: 12 }}>
                                 {getOrigenLabel(row.origen_dato || row.origen, origenDatoResolvedOptions)}
                               </td>
-                              <td style={{ color: '#475569', fontSize: 12, whiteSpace: 'nowrap' }}>
+                              <td className="col-ingreso" style={{ color: '#475569', fontSize: 12, whiteSpace: 'nowrap' }}>
                                 {row.created_at
                                   ? new Date(row.created_at).toLocaleDateString('es-UY', { timeZone: 'America/Montevideo', day: '2-digit', month: '2-digit', year: 'numeric' })
                                   : '—'}
@@ -5874,7 +5880,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                   {intentosMeta.label}
                                 </span>
                               </td>
-                              <td style={{ color: notaText ? '#888' : '#ccc', fontSize: 13 }}>{notaText || '—'}</td>
+                              <td className="col-nota" style={{ color: notaText ? '#888' : '#ccc', fontSize: 13 }}>
+                                <span className="agenda-note">{notaText || '—'}</span>
+                              </td>
                               <td>
                                 {row.reasignado_desde ? (
                                   <span style={{
@@ -5943,6 +5951,72 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         })}
                       </tbody>
                     </table>
+
+                    <div className="agenda-cards">
+                      {agendaVisibleRows.map((row) => {
+                        const fechaDt = row.fecha_agenda ? new Date(row.fecha_agenda) : null;
+                        const vencida = fechaDt && fechaDt < ahora;
+                        const intentos = row.intentos || 0;
+                        const intentosMeta = intentos >= 3
+                          ? { bg: '#FDECEA', color: '#E53E3E', label: `${intentos} intentos` }
+                          : intentos === 2
+                          ? { bg: 'rgba(245,166,35,0.15)', color: '#F5A623', label: `${intentos} intentos` }
+                          : { bg: 'rgba(158,158,158,0.12)', color: '#9E9E9E', label: `${intentos} intentos` };
+                        const tipoFromEstado = String(row.estado_venta || '').toLowerCase();
+                        const tipoLabel = tipoFromEstado === 'seguimiento' ? 'Seguimiento' : 'Rellamar';
+                        const tipoBadge = tipoFromEstado === 'seguimiento'
+                          ? { bg: 'rgba(59,130,246,0.14)', color: '#1d4ed8', border: 'rgba(59,130,246,0.30)' }
+                          : { bg: '#EEEDFE', color: '#3C3489', border: 'rgba(60,52,137,0.25)' };
+                        const notaRaw = String(row.nota || '').trim();
+                        return (
+                          <button
+                            key={row.id}
+                            type="button"
+                            className="agenda-card"
+                            onClick={() => abrirDrawer(row)}
+                            style={{ cursor: 'pointer', textAlign: 'left', background: vencida ? '#FEF2F2' : '#fff' }}
+                          >
+                            <div className="agenda-card-top">
+                              <div style={{ fontWeight: 800, color: '#0f172a' }}>
+                                {[row.nombre, row.apellido].filter(Boolean).join(' ') || '—'}
+                              </div>
+                              <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                padding: '3px 10px',
+                                borderRadius: 999,
+                                fontSize: 12,
+                                fontWeight: 800,
+                                background: tipoBadge.bg,
+                                color: tipoBadge.color,
+                                border: `1px solid ${tipoBadge.border}`,
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {tipoLabel}
+                              </span>
+                            </div>
+                            <div className="agenda-card-row">
+                              <div style={{ color: vencida ? '#E53E3E' : '#0f172a', fontWeight: vencida ? 700 : 600 }}>
+                                {fechaDt ? fmtFechaHora(row.fecha_agenda) : '—'}
+                              </div>
+                              {vencida ? (
+                                <span style={{ fontSize: 11, fontWeight: 900, background: '#E53E3E', color: '#fff', borderRadius: 6, padding: '2px 8px' }}>
+                                  Vencida
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className="agenda-card-row">
+                              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 999, background: intentosMeta.bg, color: intentosMeta.color, fontSize: 12, fontWeight: 700 }}>
+                                {intentosMeta.label}
+                              </span>
+                              <span className="agenda-card-note" style={{ color: notaRaw ? '#64748b' : '#94a3b8' }}>
+                                {notaRaw || '—'}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </>
               )}
