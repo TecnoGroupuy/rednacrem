@@ -5729,7 +5729,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       };
 
       const fmtGestionFecha = (date) => {
-        if (!date) return '—';
+        if (!date || Number.isNaN(date.getTime?.() ?? NaN)) return '—';
         return date.toLocaleDateString('es-UY', {
           timeZone: 'America/Montevideo',
           day: '2-digit',
@@ -5739,7 +5739,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       };
 
       const fmtGestionHora = (date) => {
-        if (!date) return '—';
+        if (!date || Number.isNaN(date.getTime?.() ?? NaN)) return '—';
         return date.toLocaleTimeString('es-UY', {
           timeZone: 'America/Montevideo',
           hour: '2-digit',
@@ -5826,7 +5826,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     );
                   })()}
 
-                  <div className="table-wrap">
+                  <div className="table-wrap" style={{ overflowX: 'auto', scrollbarGutter: 'stable' }}>
                     <div className="agenda-controls" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
                       <div className="agenda-tabs" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                         {[
@@ -5886,7 +5886,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         {agendaVisibleRows.map((row) => {
                           const fechaDt = row.fecha_agenda ? new Date(row.fecha_agenda) : null;
                           const vencida = fechaDt && fechaDt < ahora;
-                          const latestGestionAt = getLatestGestionAt(row);
+                          const latestGestionAt = row?.ultima_fecha_gestion ? new Date(row.ultima_fecha_gestion) : null;
                           const intentos = row.intentos || 0;
                           const intentosMeta = intentos >= 3
                             ? { bg: '#FDECEA', color: '#E53E3E', label: `${intentos} intentos` }
@@ -5948,7 +5948,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       {agendaVisibleRows.map((row) => {
                         const fechaDt = row.fecha_agenda ? new Date(row.fecha_agenda) : null;
                         const vencida = fechaDt && fechaDt < ahora;
-                        const latestGestionAt = getLatestGestionAt(row);
+                        const latestGestionAt = row?.ultima_fecha_gestion ? new Date(row.ultima_fecha_gestion) : null;
                         const intentos = row.intentos || 0;
                         const intentosMeta = intentos >= 3
                           ? { bg: '#FDECEA', color: '#E53E3E', label: `${intentos} intentos` }
