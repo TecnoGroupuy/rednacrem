@@ -3565,7 +3565,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         ]
         : [
           { key: 'nuevo', label: 'Nuevos', dot: '#6ee7b7' },
-          { key: 'no_contesta', label: 'No contesta', dot: '#f97316' }
+          { key: 'no_contesta', label: 'No contesta', dot: '#f97316' },
+          { key: 'rellamar', label: 'Rellamar', dot: '#4A90D9' },
+          { key: 'seguimiento', label: 'Seguimiento', dot: '#9B59B6' }
         ];
       const estadosFinalesGestion = isRecupero ? ['alta', 'rechazo', 'dato_erroneo'] : ESTADOS_FINALES_GESTION;
       const estadosConAgenda = isRecupero ? ['interesado', 'volver_a_llamar'] : ['seguimiento', 'rellamar'];
@@ -3600,6 +3602,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [filtroFechaHasta, setFiltroFechaHasta] = React.useState('');
       const [totalNuevos, setTotalNuevos] = React.useState(null);
       const [totalNoContesta, setTotalNoContesta] = React.useState(null);
+      const [totalRellamar, setTotalRellamar] = React.useState(null);
+      const [totalSeguimiento, setTotalSeguimiento] = React.useState(null);
       const [totalRecuperoNuevos, setTotalRecuperoNuevos] = React.useState(null);
       const [totalRecuperoNoContesta, setTotalRecuperoNoContesta] = React.useState(null);
 
@@ -3700,6 +3704,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               const total = contactosData?.data?.total ?? null;
               if (tabActivo === 'nuevos') setTotalRecuperoNuevos(total);
               if (tabActivo === 'no_contesta') setTotalRecuperoNoContesta(total);
+            } else {
+              const total = contactosData?.data?.total ?? null;
+              if (tabActivo === 'nuevo') setTotalNuevos(total);
+              if (tabActivo === 'no_contesta') setTotalNoContesta(total);
+              if (tabActivo === 'rellamar') setTotalRellamar(total);
+              if (tabActivo === 'seguimiento') setTotalSeguimiento(total);
             }
           }
 
@@ -3742,6 +3752,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               const total = d?.data?.total ?? null;
               if (tabActivo === 'nuevo') setTotalNuevos(total);
               if (tabActivo === 'no_contesta') setTotalNoContesta(total);
+              if (tabActivo === 'rellamar') setTotalRellamar(total);
+              if (tabActivo === 'seguimiento') setTotalSeguimiento(total);
             }
           }
         } catch {
@@ -3769,6 +3781,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           .catch(() => {});
         api.get('/leads/assigned?tipo_excluir=recupero&tab=no_contesta&page=1&limit=1')
           .then((r) => setTotalNoContesta(r?.data?.total ?? null))
+          .catch(() => {});
+        api.get('/leads/assigned?tipo_excluir=recupero&tab=rellamar&page=1&limit=1')
+          .then((r) => setTotalRellamar(r?.data?.total ?? null))
+          .catch(() => {});
+        api.get('/leads/assigned?tipo_excluir=recupero&tab=seguimiento&page=1&limit=1')
+          .then((r) => setTotalSeguimiento(r?.data?.total ?? null))
           .catch(() => {});
       }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -4654,6 +4672,30 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       fontWeight: 500
                     }}>
                       {totalNoContesta}
+                    </span>
+                  )}
+                  {tab.key === 'rellamar' && totalRellamar !== null && (
+                    <span style={{
+                      fontSize: 11,
+                      background: isActive ? 'rgba(255,255,255,0.2)' : 'rgba(74,144,217,0.12)',
+                      color: isActive ? '#fff' : '#185FA5',
+                      padding: '1px 7px',
+                      borderRadius: 10,
+                      fontWeight: 500
+                    }}>
+                      {totalRellamar}
+                    </span>
+                  )}
+                  {tab.key === 'seguimiento' && totalSeguimiento !== null && (
+                    <span style={{
+                      fontSize: 11,
+                      background: isActive ? 'rgba(255,255,255,0.2)' : 'rgba(155,89,182,0.12)',
+                      color: isActive ? '#fff' : '#6D28D9',
+                      padding: '1px 7px',
+                      borderRadius: 10,
+                      fontWeight: 500
+                    }}>
+                      {totalSeguimiento}
                     </span>
                   )}
                 </button>
