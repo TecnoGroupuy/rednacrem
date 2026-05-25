@@ -5526,6 +5526,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [loadingAgenda, setLoadingAgenda] = React.useState(true);
       const [drawerItem, setDrawerItem] = React.useState(null);
       const [agendaTab, setAgendaTab] = React.useState('datos');
+      const [agendaListTab, setAgendaListTab] = React.useState('todas');
+      const [agendaSearch, setAgendaSearch] = React.useState('');
       const [agEstado, setAgEstado] = React.useState('');
       const [agNota, setAgNota] = React.useState('');
       const [agFecha, setAgFecha] = React.useState('');
@@ -5684,6 +5686,33 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         return meta?.label || estado;
       };
 
+      const agendaCounts = React.useMemo(() => {
+        const base = Array.isArray(seguimientos) ? seguimientos : [];
+        const seguimiento = base.filter((r) => String(r?.estado_venta || '').toLowerCase() === 'seguimiento').length;
+        const rellamar = base.filter((r) => String(r?.estado_venta || '').toLowerCase() === 'rellamar').length;
+        return { todas: base.length, seguimiento, rellamar };
+      }, [seguimientos]);
+
+      const agendaVisibleRows = React.useMemo(() => {
+        const base = Array.isArray(seguimientos) ? seguimientos : [];
+        const tabFiltered = base.filter((row) => {
+          const estado = String(row?.estado_venta || '').toLowerCase();
+          if (agendaListTab === 'seguimiento') return estado === 'seguimiento';
+          if (agendaListTab === 'rellamar') return estado === 'rellamar';
+          return true;
+        });
+        const q = String(agendaSearch || '').trim().toLowerCase();
+        if (!q) return tabFiltered;
+        const digits = q.replace(/\\D/g, '');
+        return tabFiltered.filter((row) => {
+          const name = [row?.nombre, row?.apellido].filter(Boolean).join(' ').toLowerCase();
+          const phoneRaw = String(row?.celular || row?.telefono || '');
+          const phoneDigits = phoneRaw.replace(/\\D/g, '');
+          if (digits) return phoneDigits.includes(digits) || name.includes(q);
+          return name.includes(q) || phoneRaw.toLowerCase().includes(q);
+        });
+      }, [seguimientos, agendaListTab, agendaSearch]);
+
       return (
         <div className="view">
           <section className="content-grid">
@@ -5732,15 +5761,60 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                   })()}
 
                   <div className="table-wrap">
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                        {[
+                          { key: 'todas', label: 'Todas', badge: { bg: 'rgba(148,163,184,0.2)', color: '#475569' }, value: agendaCounts.todas },
+                          { key: 'seguimiento', label: 'Seguimiento', badge: { bg: 'rgba(59,130,246,0.14)', color: '#1d4ed8' }, value: agendaCounts.seguimiento },
+                          { key: 'rellamar', label: 'Rellamar', badge: { bg: '#EEEDFE', color: '#3C3489' }, value: agendaCounts.rellamar }
+                        ].map((t) => {
+                          const active = agendaListTab === t.key;
+                          return (
+                            <button
+                              key={t.key}
+                              type="button"
+                              onClick={() => setAgendaListTab(t.key)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                padding: '8px 12px',
+                                borderRadius: 999,
+                                border: active ? '1px solid rgba(15,23,42,0.10)' : '1px solid rgba(15,23,42,0.06)',
+                                background: active ? '#fff' : 'rgba(15,23,42,0.03)',
+                                boxShadow: active ? '0 10px 20px rgba(15,23,42,0.08)' : 'none',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <span style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>{t.label}</span>
+                              <span style={{ fontSize: 12, fontWeight: 800, padding: '2px 8px', borderRadius: 999, background: t.badge.bg, color: t.badge.color }}>
+                                {t.value}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 280 }}>
+                        <div className="searchbox" style={{ width: '100%' }}>
+                          <Search size={16} color="#69788d" />
+                          <input
+                            placeholder="Buscar por nombre o teléfono..."
+                            value={agendaSearch}
+                            onChange={(event) => setAgendaSearch(event.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
                     <table>
                       <thead>
                         <tr>
                           <th>Fecha y hora</th>
+                          <th>Tipo</th>
                           <th>Contacto</th><th>Origen</th><th>F. Ingreso</th><th>Intentos</th><th>Nota</th><th>Asignación</th><th>Estado</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {seguimientos.map((row) => {
+                        {agendaVisibleRows.map((row) => {
                           const fechaDt = row.fecha_agenda ? new Date(row.fecha_agenda) : null;
                           const vencida = fechaDt && fechaDt < ahora;
                           const intentos = row.intentos || 0;
@@ -5751,11 +5825,16 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             : { bg: 'rgba(158,158,158,0.12)', color: '#9E9E9E', label: `${intentos} intentos` };
                           const notaText = row.nota ? (row.nota.length > 40 ? row.nota.slice(0, 40) + '"…' : row.nota) : null;
                           const tipoAgenda = row.tipo_agenda || row.estado_venta;
+                          const tipoFromEstado = String(row.estado_venta || '').toLowerCase();
+                          const tipoLabel = tipoFromEstado === 'seguimiento' ? 'Seguimiento' : 'Rellamar';
+                          const tipoBadge = tipoFromEstado === 'seguimiento'
+                            ? { bg: 'rgba(59,130,246,0.14)', color: '#1d4ed8', border: 'rgba(59,130,246,0.30)' }
+                            : { bg: '#EEEDFE', color: '#3C3489', border: 'rgba(60,52,137,0.25)' };
                           return (
                             <tr
                               key={row.id}
                               onClick={() => abrirDrawer(row)}
-                              style={{ cursor: 'pointer', background: vencida ? '#FFF8E1' : undefined }}
+                              style={{ cursor: 'pointer', background: vencida ? '#FEF2F2' : undefined }}
                             >
                               <td>
                                 <div style={{ color: vencida ? '#E53E3E' : undefined, fontWeight: vencida ? 600 : undefined }}>
@@ -5764,6 +5843,22 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                 {vencida && (
                                   <span style={{ display: 'inline-block', marginTop: 2, fontSize: 10, fontWeight: 700, background: '#E53E3E', color: '#fff', borderRadius: 4, padding: '1px 6px' }}>Vencida</span>
                                 )}
+                              </td>
+                              <td>
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  padding: '3px 10px',
+                                  borderRadius: 999,
+                                  fontSize: 12,
+                                  fontWeight: 800,
+                                  background: tipoBadge.bg,
+                                  color: tipoBadge.color,
+                                  border: `1px solid ${tipoBadge.border}`,
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  {tipoLabel}
+                                </span>
                               </td>
                               <td><strong>{[row.nombre, row.apellido].filter(Boolean).join(' ') || '—'}</strong></td>
                               <td style={{ color: '#475569', fontSize: 12 }}>
