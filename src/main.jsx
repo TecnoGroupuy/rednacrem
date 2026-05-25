@@ -6544,7 +6544,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           <section className="content-grid">
             <Panel
               className="span-12"
-              title="Codificaciones"
+              title="Codifiaciones manuales"
               subtitle="Auditoría de resultados de gestión"
             >
               <div style={{ display: 'grid', gap: 10, marginBottom: 12 }}>
@@ -6655,7 +6655,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       <th>Estado auditoría</th>
                       <th>Codificación corregida</th>
                       <th>Supervisor</th>
-                      <th>Acción</th>
+                      {auditEstadoTab !== 'corregidas' ? <th>Acción</th> : null}
                     </tr>
                   </thead>
                   <tbody>
@@ -6689,12 +6689,16 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           <td title={supervisorValue}>
                             <div style={cellEllipsisStyle}>{supervisorValue}</div>
                           </td>
-                          <td>
-                            <div style={{ display: 'flex', gap: 6 }}>
-                              <Button variant="secondary" onClick={() => openAudit(row)}>{row.resultado_corregido ? 'Reauditar' : 'Auditar'}</Button>
-                              <Button variant="ghost" onClick={() => openHistory(row)}>Historial</Button>
-                            </div>
-                          </td>
+                          {auditEstadoTab !== 'corregidas' ? (
+                            <td>
+                              <div style={{ display: 'flex', gap: 6 }}>
+                                {!row.resultado_corregido ? (
+                                  <Button variant="secondary" onClick={() => openAudit(row)}>Auditar</Button>
+                                ) : null}
+                                <Button variant="ghost" onClick={() => openHistory(row)}>Historial</Button>
+                              </div>
+                            </td>
+                          ) : null}
                         </tr>
                       );
                     })}
