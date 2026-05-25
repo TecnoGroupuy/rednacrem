@@ -5935,7 +5935,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                   {intentosMeta.label}
                                 </span>
                               </td>
-                              <td className="col-nota" style={{ fontSize: 16, fontWeight: 800, color: notaText ? 'var(--color-text-danger)' : '#94a3b8' }}>
+                              <td className="col-nota" style={{ fontSize: 15, fontWeight: 800, color: notaText ? 'var(--color-text-danger)' : '#94a3b8' }}>
                                 <span className="agenda-note">{notaText || '—'}</span>
                               </td>
                             </tr>
@@ -6000,7 +6000,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                               <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 999, background: intentosMeta.bg, color: intentosMeta.color, fontSize: 12, fontWeight: 700 }}>
                                 {intentosMeta.label}
                               </span>
-                              <span className="agenda-card-note" style={{ fontSize: 16, fontWeight: 800, color: notaRaw ? 'var(--color-text-danger)' : '#94a3b8' }}>
+                              <span className="agenda-card-note" style={{ fontSize: 15, fontWeight: 800, color: notaRaw ? 'var(--color-text-danger)' : '#94a3b8' }}>
                                 {notaRaw || '—'}
                               </span>
                             </div>
@@ -6137,7 +6137,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           )}
                         </div>
                       </div>
-                      {(drawerItem.documento || drawerItem.fecha_nacimiento || drawerItem.departamento || drawerItem.localidad || drawerItem.correo_electronico) && (
+                      {(drawerItem.documento || drawerItem.fecha_nacimiento || drawerItem.correo_electronico || drawerItem.nota || drawerItem.origen_dato || drawerItem.origen || drawerItem.created_at || drawerItem.departamento || drawerItem.localidad) && (
                         <>
                           <hr style={{ border: 'none', borderTop: '1px solid #F0F0F0', margin: 0 }} />
                           <div>
@@ -6158,22 +6158,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                   </p>
                                 </div>
                               )}
-                              {drawerItem.departamento && (
-                                <div>
-                                  <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Departamento</p>
-                                  <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{drawerItem.departamento}</p>
-                                </div>
-                              )}
                               {drawerItem.nota && (
                                 <div style={{ gridColumn: '1 / -1' }}>
                                   <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Comentarios</p>
                                   <p style={{ fontSize: 13, fontWeight: 500, margin: 0, color: '#475569' }}>{drawerItem.nota}</p>
-                                </div>
-                              )}
-                              {drawerItem.localidad && (
-                                <div>
-                                  <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Localidad</p>
-                                  <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{drawerItem.localidad}</p>
                                 </div>
                               )}
                             </div>
@@ -6182,6 +6170,46 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                 <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Email</p>
                                 <a href={`mailto:${drawerItem.correo_electronico}`} style={{ fontSize: 13, color: '#1A5C4A', fontWeight: 500 }}>{drawerItem.correo_electronico}</a>
                               </div>
+                            )}
+
+                            {(drawerItem.origen_dato || drawerItem.origen || drawerItem.created_at) && (
+                              <>
+                                <hr style={{ border: 'none', borderTop: '1px solid #F0F0F0', margin: '14px 0' }} />
+                                <p style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px 0' }}>Origen del dato</p>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                  <div>
+                                    <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Origen</p>
+                                    <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>
+                                      {getOrigenLabel(drawerItem.origen_dato || drawerItem.origen, origenDatoResolvedOptions) || '—'}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Fecha de ingreso</p>
+                                    <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>
+                                      {drawerItem.created_at
+                                        ? new Date(drawerItem.created_at).toLocaleDateString('es-UY', { timeZone: 'America/Montevideo', day: '2-digit', month: '2-digit', year: 'numeric' })
+                                        : '—'}
+                                    </p>
+                                  </div>
+                                </div>
+                              </>
+                            )}
+
+                            {(drawerItem.departamento || drawerItem.localidad) && (
+                              <>
+                                <hr style={{ border: 'none', borderTop: '1px solid #F0F0F0', margin: '14px 0' }} />
+                                <p style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px 0' }}>Ubicación</p>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                  <div>
+                                    <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Departamento</p>
+                                    <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{drawerItem.departamento || '—'}</p>
+                                  </div>
+                                  <div>
+                                    <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Localidad</p>
+                                    <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{drawerItem.localidad || '—'}</p>
+                                  </div>
+                                </div>
+                              </>
                             )}
                           </div>
                         </>
