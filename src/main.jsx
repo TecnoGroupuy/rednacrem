@@ -6898,7 +6898,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             <td>
                               <div style={{ display: 'flex', gap: 6 }}>
                                 {!row.resultado_corregido ? (
-                                  <Button variant="secondary" onClick={() => openAudit(row)}>Auditar</Button>
+                                  <Button variant="secondary" className="audit-action-danger" onClick={() => openAudit(row)}>Codificar</Button>
                                 ) : null}
                                 <Button variant="ghost" onClick={() => openHistory(row)}>Historial</Button>
                               </div>
