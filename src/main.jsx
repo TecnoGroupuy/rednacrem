@@ -6560,7 +6560,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       variant={auditEstadoTab === 'pendientes' ? 'secondary' : 'ghost'}
                       onClick={() => applyAuditEstadoTab('pendientes')}
                     >
-                      Pendientes
+                      Gestiones todas
                     </Button>
                     <Button
                       variant={auditEstadoTab === 'todas' ? 'secondary' : 'ghost'}
