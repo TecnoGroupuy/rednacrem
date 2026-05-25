@@ -5680,6 +5680,72 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           return new Date(iso).toLocaleString('es-UY', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
         } catch { return iso; }
       };
+
+      const getLatestGestionAt = (row) => {
+        const candidates = [];
+
+        const pushDate = (value) => {
+          if (!value) return;
+          const date = new Date(value);
+          if (Number.isNaN(date.getTime())) return;
+          candidates.push(date);
+        };
+
+        [
+          row?.fecha_gestion,
+          row?.fechaGestion,
+          row?.last_gestion_at,
+          row?.lastGestionAt,
+          row?.updated_at
+        ].forEach(pushDate);
+
+        const historyLike = [
+          row?.lead_management_history,
+          row?.lead_management_histories,
+          row?.leadManagementHistory,
+          row?.management_history,
+          row?.managementHistory,
+          row?.historial_gestion,
+          row?.historialGestion
+        ];
+
+        historyLike.forEach((maybe) => {
+          if (!maybe) return;
+          const items = Array.isArray(maybe) ? maybe : (Array.isArray(maybe?.items) ? maybe.items : null);
+          if (!items) return;
+          items.forEach((item) => {
+            pushDate(item?.fecha_gestion);
+            pushDate(item?.fechaGestion);
+            pushDate(item?.created_at);
+            pushDate(item?.createdAt);
+            pushDate(item?.at);
+            pushDate(item?.fecha);
+          });
+        });
+
+        if (!candidates.length) return null;
+        candidates.sort((a, b) => b.getTime() - a.getTime());
+        return candidates[0];
+      };
+
+      const fmtGestionFecha = (date) => {
+        if (!date) return '—';
+        return date.toLocaleDateString('es-UY', {
+          timeZone: 'America/Montevideo',
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        });
+      };
+
+      const fmtGestionHora = (date) => {
+        if (!date) return '—';
+        return date.toLocaleTimeString('es-UY', {
+          timeZone: 'America/Montevideo',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      };
       const labelPorResultado = (estado) => {
         if (!estado) return '';
         const meta = salesStatusMeta(estado);
@@ -5808,29 +5874,26 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     <table className="agenda-table">
                       <thead>
                         <tr>
-                          <th>Fecha y hora</th>
+                          <th>Fecha</th>
+                          <th>Hora</th>
                           <th>Tipo</th>
                           <th>Contacto</th>
-                          <th className="col-origen">Origen</th>
-                          <th className="col-ingreso">F. Ingreso</th>
                           <th>Intentos</th>
                           <th className="col-nota">Nota</th>
-                          <th>Asignación</th>
-                          <th>Estado</th>
                         </tr>
                       </thead>
                       <tbody>
                         {agendaVisibleRows.map((row) => {
                           const fechaDt = row.fecha_agenda ? new Date(row.fecha_agenda) : null;
                           const vencida = fechaDt && fechaDt < ahora;
+                          const latestGestionAt = getLatestGestionAt(row);
                           const intentos = row.intentos || 0;
                           const intentosMeta = intentos >= 3
                             ? { bg: '#FDECEA', color: '#E53E3E', label: `${intentos} intentos` }
                             : intentos === 2
                             ? { bg: 'rgba(245,166,35,0.15)', color: '#F5A623', label: `${intentos} intentos` }
                             : { bg: 'rgba(158,158,158,0.12)', color: '#9E9E9E', label: `${intentos} intentos` };
-                          const notaText = row.nota ? (row.nota.length > 40 ? row.nota.slice(0, 40) + '"…' : row.nota) : null;
-                          const tipoAgenda = row.tipo_agenda || row.estado_venta;
+                          const notaText = String(row.nota || '').trim();
                           const tipoFromEstado = String(row.estado_venta || '').toLowerCase();
                           const tipoLabel = tipoFromEstado === 'seguimiento' ? 'Seguimiento' : 'Rellamar';
                           const tipoBadge = tipoFromEstado === 'seguimiento'
@@ -5844,11 +5907,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             >
                               <td>
                                 <div style={{ color: vencida ? '#E53E3E' : undefined, fontWeight: vencida ? 600 : undefined }}>
-                                  {fechaDt ? fmtFechaHora(row.fecha_agenda) : '—'}
+                                  {fmtGestionFecha(latestGestionAt)}
                                 </div>
-                                {vencida && (
-                                  <span style={{ display: 'inline-block', marginTop: 2, fontSize: 10, fontWeight: 700, background: '#E53E3E', color: '#fff', borderRadius: 4, padding: '1px 6px' }}>Vencida</span>
-                                )}
+                              </td>
+                              <td style={{ color: vencida ? '#E53E3E' : '#0f172a', fontWeight: vencida ? 700 : 600, whiteSpace: 'nowrap' }}>
+                                {fmtGestionHora(latestGestionAt)}
                               </td>
                               <td>
                                 <span style={{
@@ -5867,84 +5930,13 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                 </span>
                               </td>
                               <td><strong>{[row.nombre, row.apellido].filter(Boolean).join(' ') || '—'}</strong></td>
-                              <td className="col-origen" style={{ color: '#475569', fontSize: 12 }}>
-                                {getOrigenLabel(row.origen_dato || row.origen, origenDatoResolvedOptions)}
-                              </td>
-                              <td className="col-ingreso" style={{ color: '#475569', fontSize: 12, whiteSpace: 'nowrap' }}>
-                                {row.created_at
-                                  ? new Date(row.created_at).toLocaleDateString('es-UY', { timeZone: 'America/Montevideo', day: '2-digit', month: '2-digit', year: 'numeric' })
-                                  : '—'}
-                              </td>
                               <td>
                                 <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 999, background: intentosMeta.bg, color: intentosMeta.color, fontSize: 12, fontWeight: 600 }}>
                                   {intentosMeta.label}
                                 </span>
                               </td>
-                              <td className="col-nota" style={{ color: notaText ? '#888' : '#ccc', fontSize: 13 }}>
+                              <td className="col-nota" style={{ fontSize: 16, fontWeight: 800, color: notaText ? 'var(--color-text-danger)' : '#94a3b8' }}>
                                 <span className="agenda-note">{notaText || '—'}</span>
-                              </td>
-                              <td>
-                                {row.reasignado_desde ? (
-                                  <span style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: 4,
-                                    fontSize: 11,
-                                    fontWeight: 500,
-                                    padding: '3px 8px',
-                                    borderRadius: 20,
-                                    background: '#E6F1FB',
-                                    color: '#185FA5',
-                                    whiteSpace: 'nowrap'
-                                  }}>
-                                    ↗ {row.reasignado_desde.replace('Contacto reasignado desde ', '')}
-                                  </span>
-                                ) : '—'}
-                              </td>
-                              <td>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                  <span style={{
-                                    display: 'inline-block',
-                                    padding: '3px 8px',
-                                    borderRadius: 20,
-                                    fontSize: 11,
-                                    fontWeight: 600,
-                                    background: tipoAgenda === 'seguimiento'
-                                      ? '#F8F0FF' : '#F0F7FF',
-                                    color: tipoAgenda === 'seguimiento'
-                                      ? '#9B59B6' : '#4A90D9',
-                                    border: `1px solid ${tipoAgenda === 'seguimiento'
-                                      ? '#9B59B640' : '#4A90D940'}`
-                                  }}>
-                                    {tipoAgenda === 'seguimiento' ? '? Seguimiento' : '? Rellamar'}
-                                  </span>
-
-                                  {row.estado_venta && row.estado_venta !== tipoAgenda && (
-                                    <span style={{
-                                      display: 'inline-block',
-                                      padding: '2px 6px',
-                                      borderRadius: 20,
-                                      fontSize: 10,
-                                      fontWeight: 500,
-                                      background: {
-                                        'no_contesta': '#FFF8EE',
-                                        'rellamar': '#F0F7FF',
-                                        'seguimiento': '#F8F0FF',
-                                        'rechazo': '#FFF3F3',
-                                        'venta': '#F0FFF4'
-                                      }[row.estado_venta] || '#F5F5F5',
-                                      color: {
-                                        'no_contesta': '#F5A623',
-                                        'rellamar': '#4A90D9',
-                                        'seguimiento': '#9B59B6',
-                                        'rechazo': '#E53E3E',
-                                        'venta': '#27AE60'
-                                      }[row.estado_venta] || '#888'
-                                    }}>
-                                      {labelPorResultado(row.estado_venta)}
-                                    </span>
-                                  )}
-                                </div>
                               </td>
                             </tr>
                           );
@@ -5956,6 +5948,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       {agendaVisibleRows.map((row) => {
                         const fechaDt = row.fecha_agenda ? new Date(row.fecha_agenda) : null;
                         const vencida = fechaDt && fechaDt < ahora;
+                        const latestGestionAt = getLatestGestionAt(row);
                         const intentos = row.intentos || 0;
                         const intentosMeta = intentos >= 3
                           ? { bg: '#FDECEA', color: '#E53E3E', label: `${intentos} intentos` }
@@ -5996,20 +5989,18 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                               </span>
                             </div>
                             <div className="agenda-card-row">
-                              <div style={{ color: vencida ? '#E53E3E' : '#0f172a', fontWeight: vencida ? 700 : 600 }}>
-                                {fechaDt ? fmtFechaHora(row.fecha_agenda) : '—'}
+                              <div style={{ color: '#0f172a', fontWeight: 700 }}>
+                                {fmtGestionFecha(latestGestionAt)}
                               </div>
-                              {vencida ? (
-                                <span style={{ fontSize: 11, fontWeight: 900, background: '#E53E3E', color: '#fff', borderRadius: 6, padding: '2px 8px' }}>
-                                  Vencida
-                                </span>
-                              ) : null}
+                              <div style={{ color: '#0f172a', fontWeight: 700 }}>
+                                {fmtGestionHora(latestGestionAt)}
+                              </div>
                             </div>
                             <div className="agenda-card-row">
                               <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 999, background: intentosMeta.bg, color: intentosMeta.color, fontSize: 12, fontWeight: 700 }}>
                                 {intentosMeta.label}
                               </span>
-                              <span className="agenda-card-note" style={{ color: notaRaw ? '#64748b' : '#94a3b8' }}>
+                              <span className="agenda-card-note" style={{ fontSize: 16, fontWeight: 800, color: notaRaw ? 'var(--color-text-danger)' : '#94a3b8' }}>
                                 {notaRaw || '—'}
                               </span>
                             </div>
