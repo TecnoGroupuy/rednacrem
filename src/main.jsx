@@ -7355,10 +7355,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
     }
 
     function SalesClientsView({ onOpenNewClient = null, origenDatoOptions = [] }) {
-      const [ventas, setVentas] = React.useState([]);
       const [allSales, setAllSales] = React.useState([]);
       const [loadingVentas, setLoadingVentas] = React.useState(true);
       const [selectedSale, setSelectedSale] = React.useState(null);
+      const [salesFilter, setSalesFilter] = React.useState('hoy'); // hoy | mes | bajas
       const origenDatoResolvedOptions = (Array.isArray(origenDatoOptions) && origenDatoOptions.length)
         ? normalizeOrigenOptions(origenDatoOptions)
         : ORIGEN_DATO_OPTIONS_DEPRECADO;
@@ -7373,12 +7373,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               const items = data?.items || data?.data?.items || data?.data || [];
               const allItems = Array.isArray(items) ? items : [];
               setAllSales(allItems);
-              const today = new Date().toLocaleDateString('en-CA');
-              const ventasHoy = allItems.filter((item) => {
-                const fecha = item?.fecha_venta || item?.created_at || '';
-                return String(fecha).startsWith(today);
-              });
-              setVentas(ventasHoy);
             }
           } catch (err) {
             console.error('[my-sales] error:', err);
@@ -7405,10 +7399,44 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       );
       const todayKey = new Date().toLocaleDateString('en-CA');
       const monthKey = todayKey.slice(0, 7);
+      const monthStartKey = `${monthKey}-01`;
       const pickDateKey = (row) => {
-        const value = row?.fecha_venta || row?.created_at || '';
+        const value = row?.fecha_venta || row?.created_at || row?.createdAt || '';
         return String(value).slice(0, 10);
       };
+      const getBajaDateKey = (row) => String(
+        row?.contact_products?.fecha_baja
+        || row?.contact_products?.fechaBaja
+        || row?.contact_products_fecha_baja
+        || row?.fecha_baja
+        || row?.fechaBaja
+        || ''
+      ).slice(0, 10);
+      const getEstadoProducto = (row) => String(
+        row?.contact_products?.estado
+        || row?.contact_products_estado
+        || row?.estado
+        || row?.status
+        || 'alta'
+      ).toLowerCase();
+
+      const filteredSales = React.useMemo(() => {
+        const base = Array.isArray(allSales) ? allSales : [];
+        if (salesFilter === 'hoy') {
+          return base.filter((item) => pickDateKey(item) === todayKey);
+        }
+        if (salesFilter === 'mes') {
+          return base.filter((item) => pickDateKey(item) >= monthStartKey);
+        }
+        if (salesFilter === 'bajas') {
+          return base.filter((item) => {
+            const estado = getEstadoProducto(item);
+            const bajaDate = getBajaDateKey(item);
+            return estado === 'baja' && bajaDate && bajaDate >= monthStartKey;
+          });
+        }
+        return base;
+      }, [allSales, salesFilter, todayKey, monthStartKey]);
       const ventasHoy = allSales
         .filter((item) => {
           const fecha = item?.fecha_venta || item?.created_at || '';
@@ -7425,8 +7453,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           return total + 1 + related;
         }, 0);
       const bajasMes = allSales.filter((item) => {
-        const status = String(item?.estado || item?.status || '').toLowerCase();
-        return pickDateKey(item).startsWith(monthKey) && status === 'baja';
+        const estado = getEstadoProducto(item);
+        const bajaDate = getBajaDateKey(item);
+        return estado === 'baja' && bajaDate && bajaDate >= monthStartKey;
       });
       const getRelatedSales = (row) => {
         const items = row?.related_sales || row?.relatedSales || [];
@@ -7444,26 +7473,62 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               subtitle="Contactos que convertiste en clientes"
             >
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, marginBottom: 16 }}>
-                <div style={{ borderRadius: 14, border: '1px solid rgba(16,185,129,0.2)', background: 'rgba(16,185,129,0.08)', padding: 14 }}>
+                <button
+                  type="button"
+                  onClick={() => setSalesFilter('hoy')}
+                  style={{
+                    textAlign: 'left',
+                    borderRadius: 14,
+                    border: '1px solid rgba(16,185,129,0.2)',
+                    background: 'rgba(16,185,129,0.08)',
+                    padding: 14,
+                    cursor: 'pointer',
+                    boxShadow: salesFilter === 'hoy' ? '0 0 0 2px #1f2937' : 'none'
+                  }}
+                >
                   <div style={{ fontSize: 12, color: '#047857', textTransform: 'uppercase', letterSpacing: 1 }}>Ventas de hoy</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: '#047857' }}>{ventasHoy}</div>
-                </div>
-                <div style={{ borderRadius: 14, border: '1px solid rgba(59,130,246,0.2)', background: 'rgba(59,130,246,0.08)', padding: 14 }}>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSalesFilter('mes')}
+                  style={{
+                    textAlign: 'left',
+                    borderRadius: 14,
+                    border: '1px solid rgba(59,130,246,0.2)',
+                    background: 'rgba(59,130,246,0.08)',
+                    padding: 14,
+                    cursor: 'pointer',
+                    boxShadow: salesFilter === 'mes' ? '0 0 0 2px #1f2937' : 'none'
+                  }}
+                >
                   <div style={{ fontSize: 12, color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: 1 }}>Ventas del mes</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: '#1d4ed8' }}>{ventasMes}</div>
-                </div>
-                <div style={{ borderRadius: 14, border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.08)', padding: 14 }}>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSalesFilter('bajas')}
+                  style={{
+                    textAlign: 'left',
+                    borderRadius: 14,
+                    border: '1px solid rgba(239,68,68,0.2)',
+                    background: 'rgba(239,68,68,0.08)',
+                    padding: 14,
+                    cursor: 'pointer',
+                    boxShadow: salesFilter === 'bajas' ? '0 0 0 2px #1f2937' : 'none'
+                  }}
+                >
                   <div style={{ fontSize: 12, color: '#b91c1c', textTransform: 'uppercase', letterSpacing: 1 }}>Bajas del mes</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: '#b91c1c' }}>{bajasMes.length}</div>
-                </div>
+                </button>
               </div>
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>Estado</th><th>Contacto</th><th>Ubicación</th><th>Origen del dato</th><th>Relacionadas</th><th>Fecha</th></tr></thead>
+                  <thead><tr><th>Fecha de venta</th><th>Estado</th><th>Contacto</th></tr></thead>
                   <tbody>
-                    {ventas.map((row) => {
-                      const statusRaw = row.estado || row.status || 'alta';
-                      const status = String(statusRaw).toLowerCase();
+                    {filteredSales.map((row) => {
+                      const status = getEstadoProducto(row) === 'baja' ? 'baja' : 'alta';
+                      const statusLabel = status === 'baja' ? 'Baja' : 'Alta';
                       const statusColor = status === 'alta'
                         ? { bg: 'rgba(16,185,129,0.15)', text: '#047857', border: 'rgba(16,185,129,0.35)' }
                         : status === 'baja'
@@ -7472,21 +7537,19 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       const nombre = [row.nombre, row.apellido].filter(Boolean).join(' ')
                         || [row.contact_nombre, row.contact_apellido].filter(Boolean).join(' ')
                         || '—';
-                      const telefono = row.celular || row.telefono || row.phone || '—';
-                      const ubicacion = row.ubicacion
-                        || [row.departamento, row.localidad].filter(Boolean).join(', ')
-                        || '—';
-                      const origenDato = getOrigenLabel((row.origen_dato && String(row.origen_dato).trim()) ? row.origen_dato : '', origenDatoResolvedOptions);
-                      const relatedCount = getRelatedSales(row).length;
+                      const fechaVenta = row?.fecha_venta || row?.created_at || row?.createdAt || '';
                       return (
                         <tr
-                          key={row.id || row.contacto_id || nombre + telefono}
+                          key={row.id || row.contacto_id || `${nombre}-${String(fechaVenta)}`}
                           style={{ cursor: 'pointer' }}
                           onClick={() => handleOpenSaleDetail(row)}
                         >
                           <td>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: statusColor.bg, color: statusColor.text, border: `1px solid ${statusColor.border}` }}>
-                              {status || 'alta'}
+                            {formatFechaVenta(fechaVenta)}
+                          </td>
+                          <td>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 800, background: statusColor.bg, color: statusColor.text, border: `1px solid ${statusColor.border}` }}>
+                              {statusLabel}
                             </span>
                           </td>
                           <td>
@@ -7495,22 +7558,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                               <strong>{nombre}</strong>
                             </div>
                           </td>
-                          <td>{ubicacion}</td>
-                          <td><span style={{ color: '#666', fontSize: 12 }}>{origenDato}</span></td>
-                          <td>
-                            {relatedCount ? (
-                              <span style={{ fontSize: 12, fontWeight: 700, color: '#0f766e' }}>+{relatedCount}</span>
-                            ) : (
-                              <span style={{ color: '#aaa', fontSize: 12 }}>—</span>
-                            )}
-                          </td>
-                          <td>{formatFechaVenta(row.fecha_venta)}</td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
-                {!loadingVentas && !ventas.length ? (
+                {!loadingVentas && !filteredSales.length ? (
                   <div style={{ textAlign: 'center', padding: '48px', color: '#aaa' }}>
                     <p style={{ fontSize: 14, fontWeight: 600, color: '#333', margin: '0 0 4px 0' }}>
                       Aún no tenés ventas registradas
