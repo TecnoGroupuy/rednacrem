@@ -5851,13 +5851,19 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     <style>{`
 .agenda-table { table-layout: auto; width: 100%; }
 .agenda-cards { display: none; }
+.agenda-main-tabs { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 0 16px; }
+@media (max-width: 600px) {
+  .agenda-main-tabs { overflow-x: auto; white-space: nowrap; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; padding: 0 16px; }
+  .agenda-main-tabs > * { flex: 0 0 auto; }
+}
 @media (max-width: 600px) {
   .agenda-table { display: none; }
   .agenda-cards { display: grid; grid-template-columns: 1fr; gap: 10px; }
 }
                     `}</style>
 
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
+                    <div style={{ padding: 16, overflow: 'hidden' }}>
+                    <div className="agenda-main-tabs">
                       {[
                         { key: 'hoy', label: 'Hoy', value: agendaCounts.hoy },
                         { key: 'vencidas', label: 'Vencidas', value: agendaCounts.vencidas },
@@ -5873,7 +5879,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: 8,
-                              padding: '8px 12px',
+                              padding: '8px 16px',
                               borderRadius: 999,
                               border: `1px solid ${active ? '#1f2937' : '#e5e7eb'}`,
                               background: active ? '#1f2937' : '#ffffff',
@@ -5881,7 +5887,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                               cursor: 'pointer'
                             }}
                           >
-                            <span style={{ fontSize: 13, fontWeight: 800 }}>{t.label}</span>
+                            <span style={{ fontSize: 14, fontWeight: 800 }}>{t.label}</span>
                             <span style={{
                               fontSize: 11,
                               fontWeight: 800,
@@ -5897,7 +5903,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       })}
                     </div>
 
-                    <div style={{ padding: '0 0 6px 0' }}>
+                    <div style={{ margin: '12px 0' }}>
                       <div style={{
                         width: '100%',
                         display: 'flex',
@@ -5917,41 +5923,41 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           style={{ border: 'none', outline: 'none', width: '100%', fontSize: 14, background: 'transparent' }}
                         />
                       </div>
-                      {agendaListTab === 'todas' && (
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 10 }}>
-                          {[
-                            { key: 'todas', label: 'Todas', badge: { bg: 'rgba(148,163,184,0.2)', color: '#475569' }, value: agendaCounts.todas },
-                            { key: 'seguimiento', label: 'Seguimiento', badge: { bg: '#f5f3ff', color: '#6d28d9' }, value: agendaCounts.totalSeguimiento },
-                            { key: 'rellamar', label: 'Rellamar', badge: { bg: '#eff6ff', color: '#1d4ed8' }, value: agendaCounts.totalRellamar }
-                          ].map((t) => {
-                            const active = agendaTipoTab === t.key;
-                            return (
-                              <button
-                                key={`tipo-${t.key}`}
-                                type="button"
-                                onClick={() => setAgendaTipoTab(t.key)}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 8,
-                                  padding: '7px 12px',
-                                  borderRadius: 999,
-                                  border: active ? '1px solid rgba(15,23,42,0.14)' : '1px solid rgba(15,23,42,0.08)',
-                                  background: active ? '#fff' : 'rgba(15,23,42,0.03)',
-                                  boxShadow: active ? '0 10px 20px rgba(15,23,42,0.08)' : 'none',
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                <span style={{ fontSize: 12, fontWeight: 800, color: '#0f172a' }}>{t.label}</span>
-                                <span style={{ fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 999, background: t.badge.bg, color: t.badge.color }}>
-                                  {t.value}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
                     </div>
+
+                    {agendaListTab === 'todas' && (
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
+                        {[
+                          { key: 'todas', label: 'Todas', badge: { bg: 'rgba(148,163,184,0.15)', color: '#64748b' }, value: agendaCounts.todas },
+                          { key: 'seguimiento', label: 'Seguimiento', badge: { bg: '#f5f3ff', color: '#6d28d9' }, value: agendaCounts.totalSeguimiento },
+                          { key: 'rellamar', label: 'Rellamar', badge: { bg: '#eff6ff', color: '#1d4ed8' }, value: agendaCounts.totalRellamar }
+                        ].map((t) => {
+                          const active = agendaTipoTab === t.key;
+                          return (
+                            <button
+                              key={`tipo-${t.key}`}
+                              type="button"
+                              onClick={() => setAgendaTipoTab(t.key)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                padding: '4px 10px',
+                                borderRadius: 999,
+                                border: active ? '1px solid rgba(15,23,42,0.14)' : '1px solid rgba(15,23,42,0.08)',
+                                background: active ? '#fff' : 'rgba(15,23,42,0.02)',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <span style={{ fontSize: 12, fontWeight: 700, color: active ? '#0f172a' : '#94a3b8' }}>{t.label}</span>
+                              <span style={{ fontSize: 11, fontWeight: 800, padding: '1px 7px', borderRadius: 999, background: t.badge.bg, color: t.badge.color }}>
+                                {t.value}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                     {(() => {
                       if (agendaListTab === 'hoy') {
                         return (
@@ -5959,7 +5965,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             display: 'grid',
                             gridTemplateColumns: 'repeat(2, 1fr)',
                             gap: 10,
-                            margin: '8px 8px 12px 8px'
+                            margin: '0 0 12px 0'
                           }}>
                             {[
                               { label: 'Rellamar hoy', value: agendaCounts.rellamarHoy, color: '#4A90D9', bg: '#F0F7FF' },
@@ -5989,7 +5995,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             display: 'grid',
                             gridTemplateColumns: 'repeat(3, 1fr)',
                             gap: 10,
-                            margin: '8px 8px 12px 8px'
+                            margin: '0 0 12px 0'
                           }}>
                             {[
                               { label: 'Total vencidas', value: vencidasRows.length, color: '#b45309', bg: 'rgba(245,158,11,0.12)' },
@@ -6019,7 +6025,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           display: 'grid',
                           gridTemplateColumns: 'repeat(4, 1fr)',
                           gap: 10,
-                          margin: '8px 8px 12px 8px'
+                          margin: '0 0 12px 0'
                         }}>
                           {[
                             { label: 'Seguimientos', value: totalSeguimientos, color: '#9B59B6', bg: '#F8F0FF' },
@@ -6231,6 +6237,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           </button>
                         );
                       })}
+                    </div>
                     </div>
                   </div>
                 </>
