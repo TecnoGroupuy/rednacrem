@@ -5526,7 +5526,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [loadingAgenda, setLoadingAgenda] = React.useState(true);
       const [drawerItem, setDrawerItem] = React.useState(null);
       const [agendaTab, setAgendaTab] = React.useState('datos');
-      const [agendaListTab, setAgendaListTab] = React.useState('todas');
+      const [agendaListTab, setAgendaListTab] = React.useState('hoy');
+      const [agendaTipoTab, setAgendaTipoTab] = React.useState('todas');
       const [agendaSearch, setAgendaSearch] = React.useState('');
       const [agEstado, setAgEstado] = React.useState('');
       const [agNota, setAgNota] = React.useState('');
@@ -5752,32 +5753,85 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         return meta?.label || estado;
       };
 
+      const TZ = 'America/Montevideo';
+      const todayYmd = new Date().toLocaleDateString('en-CA', { timeZone: TZ });
+      const getAgendaYmd = (row) => {
+        if (!row?.fecha_agenda) return '';
+        const parsed = new Date(row.fecha_agenda);
+        if (Number.isNaN(parsed.getTime())) return '';
+        return parsed.toLocaleDateString('en-CA', { timeZone: TZ });
+      };
+
+      const isRowVencida = (row) => {
+        const ymd = getAgendaYmd(row);
+        if (!ymd) return false;
+        return ymd < todayYmd && !row?.cumplida;
+      };
+
+      const daysVencida = (row) => {
+        const ymd = getAgendaYmd(row);
+        if (!ymd || ymd >= todayYmd) return 0;
+        const start = new Date(`${ymd}T00:00:00`);
+        const end = new Date(`${todayYmd}T00:00:00`);
+        const diff = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+        return Math.max(0, diff);
+      };
+
       const agendaCounts = React.useMemo(() => {
         const base = Array.isArray(seguimientos) ? seguimientos : [];
-        const seguimiento = base.filter((r) => String(r?.estado_venta || '').toLowerCase() === 'seguimiento').length;
-        const rellamar = base.filter((r) => String(r?.estado_venta || '').toLowerCase() === 'rellamar').length;
-        return { todas: base.length, seguimiento, rellamar };
-      }, [seguimientos]);
+        const totalSeguimiento = base.filter((r) => String(r?.estado_venta || '').toLowerCase() === 'seguimiento').length;
+        const totalRellamar = base.filter((r) => String(r?.estado_venta || '').toLowerCase() === 'rellamar').length;
+        const hoy = base.filter((r) => getAgendaYmd(r) === todayYmd);
+        const seguimientoHoy = hoy.filter((r) => String(r?.estado_venta || '').toLowerCase() === 'seguimiento').length;
+        const rellamarHoy = hoy.filter((r) => String(r?.estado_venta || '').toLowerCase() === 'rellamar').length;
+        const vencidas = base.filter((r) => isRowVencida(r)).length;
+        return {
+          hoy: hoy.length,
+          rellamarHoy,
+          seguimientoHoy,
+          vencidas,
+          todas: base.length,
+          totalSeguimiento,
+          totalRellamar
+        };
+      }, [seguimientos, todayYmd]);
 
       const agendaVisibleRows = React.useMemo(() => {
         const base = Array.isArray(seguimientos) ? seguimientos : [];
         const tabFiltered = base.filter((row) => {
+          const ymd = getAgendaYmd(row);
+          if (agendaListTab === 'hoy') return ymd === todayYmd;
+          if (agendaListTab === 'vencidas') return isRowVencida(row);
+          return true; // todas
+        }).filter((row) => {
+          if (agendaListTab !== 'todas') return true;
           const estado = String(row?.estado_venta || '').toLowerCase();
-          if (agendaListTab === 'seguimiento') return estado === 'seguimiento';
-          if (agendaListTab === 'rellamar') return estado === 'rellamar';
+          if (agendaTipoTab === 'seguimiento') return estado === 'seguimiento';
+          if (agendaTipoTab === 'rellamar') return estado === 'rellamar';
           return true;
         });
         const q = String(agendaSearch || '').trim().toLowerCase();
-        if (!q) return tabFiltered;
-        const digits = q.replace(/\\D/g, '');
-        return tabFiltered.filter((row) => {
-          const name = [row?.nombre, row?.apellido].filter(Boolean).join(' ').toLowerCase();
-          const phoneRaw = String(row?.celular || row?.telefono || '');
-          const phoneDigits = phoneRaw.replace(/\\D/g, '');
-          if (digits) return phoneDigits.includes(digits) || name.includes(q);
-          return name.includes(q) || phoneRaw.toLowerCase().includes(q);
-        });
-      }, [seguimientos, agendaListTab, agendaSearch]);
+        const searched = (() => {
+          if (!q) return tabFiltered;
+          const digits = q.replace(/\\D/g, '');
+          return tabFiltered.filter((row) => {
+            const name = [row?.nombre, row?.apellido].filter(Boolean).join(' ').toLowerCase();
+            const phoneRaw = String(row?.celular || row?.telefono || '');
+            const phoneDigits = phoneRaw.replace(/\\D/g, '');
+            if (digits) return phoneDigits.includes(digits) || name.includes(q);
+            return name.includes(q) || phoneRaw.toLowerCase().includes(q);
+          });
+        })();
+
+        if (agendaListTab === 'vencidas') {
+          return [...searched].sort((a, b) => {
+            const aTime = a?.fecha_agenda ? new Date(a.fecha_agenda).getTime() : 0;
+            const bTime = b?.fecha_agenda ? new Date(b.fecha_agenda).getTime() : 0;
+            return bTime - aTime;
+          });
+        }
+        return searched;
+      }, [seguimientos, agendaListTab, agendaTipoTab, agendaSearch, todayYmd]);
 
       return (
         <div className="view">
@@ -5794,11 +5848,68 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               ) : (
                 <>
                   {(() => {
-                    const totalSeguimientos = seguimientos.filter((r) => (r.tipo_agenda || r.estado_venta) === 'seguimiento').length;
-                    const totalRellamar = seguimientos.filter((r) => (r.tipo_agenda || r.estado_venta) === 'rellamar').length;
-                    const totalPendientes = seguimientos.length;
-                    const totalVencidas = seguimientos.filter((r) => r.fecha_agenda && new Date(r.fecha_agenda) < ahora).length;
+                    if (agendaListTab === 'hoy') {
+                      return (
+                        <div className="agenda-metrics-grid" style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(3, 1fr)',
+                          gap: 10,
+                          marginBottom: 16
+                        }}>
+                          {[
+                            { label: 'Rellamar hoy', value: agendaCounts.rellamarHoy, color: '#4A90D9', bg: '#F0F7FF' },
+                            { label: 'Seguimiento hoy', value: agendaCounts.seguimientoHoy, color: '#9B59B6', bg: '#F8F0FF' },
+                            { label: 'Total hoy', value: agendaCounts.hoy, color: '#475569', bg: 'var(--color-background-secondary)' }
+                          ].map(({ label, value, color, bg }) => (
+                            <div key={label} style={{
+                              background: bg,
+                              borderRadius: 10,
+                              padding: '12px 16px',
+                              border: '0.5px solid var(--color-border-tertiary)'
+                            }}>
+                              <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 4 }}>{label}</div>
+                              <div style={{ fontSize: 22, fontWeight: 500, color }}>{value}</div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    }
 
+                    if (agendaListTab === 'vencidas') {
+                      const vencidasRows = (Array.isArray(seguimientos) ? seguimientos : []).filter((r) => isRowVencida(r));
+                      const days = vencidasRows.map((r) => daysVencida(r)).filter((n) => Number.isFinite(n));
+                      const oldest = days.length ? Math.max(...days) : 0;
+                      const avg = days.length ? Math.round(days.reduce((acc, n) => acc + n, 0) / days.length) : 0;
+                      return (
+                        <div className="agenda-metrics-grid" style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(3, 1fr)',
+                          gap: 10,
+                          marginBottom: 16
+                        }}>
+                          {[
+                            { label: 'Total vencidas', value: vencidasRows.length, color: '#b45309', bg: 'rgba(245,158,11,0.12)' },
+                            { label: 'Más antigua', value: oldest ? `${oldest} días` : '—', color: '#b45309', bg: 'rgba(245,158,11,0.12)' },
+                            { label: 'Promedio', value: avg ? `${avg} días` : '—', color: '#b45309', bg: 'rgba(245,158,11,0.12)' }
+                          ].map(({ label, value, color, bg }) => (
+                            <div key={label} style={{
+                              background: bg,
+                              borderRadius: 10,
+                              padding: '12px 16px',
+                              border: '0.5px solid var(--color-border-tertiary)'
+                            }}>
+                              <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 4 }}>{label}</div>
+                              <div style={{ fontSize: 22, fontWeight: 500, color }}>{value}</div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    }
+
+                    const totalSeguimientos = agendaCounts.totalSeguimiento;
+                    const totalRellamar = agendaCounts.totalRellamar;
+                    const totalPendientes = (Array.isArray(seguimientos) ? seguimientos : []).length;
+                    const totalVencidas = agendaCounts.vencidas;
                     return (
                       <div className="agenda-metrics-grid" style={{
                         display: 'grid',
@@ -5830,9 +5941,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     <div className="agenda-controls" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
                       <div className="agenda-tabs" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                         {[
-                          { key: 'todas', label: 'Todas', badge: { bg: 'rgba(148,163,184,0.2)', color: '#475569' }, value: agendaCounts.todas },
-                          { key: 'seguimiento', label: 'Seguimiento', badge: { bg: 'rgba(59,130,246,0.14)', color: '#1d4ed8' }, value: agendaCounts.seguimiento },
-                          { key: 'rellamar', label: 'Rellamar', badge: { bg: '#EEEDFE', color: '#3C3489' }, value: agendaCounts.rellamar }
+                          { key: 'hoy', label: 'Hoy', badge: { bg: 'rgba(37,99,235,0.12)', color: '#2563eb' }, value: agendaCounts.hoy },
+                          { key: 'vencidas', label: 'Vencidas', badge: { bg: 'rgba(245,158,11,0.18)', color: '#b45309' }, value: agendaCounts.vencidas },
+                          { key: 'todas', label: 'Todas', badge: { bg: 'rgba(148,163,184,0.2)', color: '#475569' }, value: agendaCounts.todas }
                         ].map((t) => {
                           const active = agendaListTab === t.key;
                           return (
@@ -5859,6 +5970,40 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             </button>
                           );
                         })}
+                        {agendaListTab === 'todas' && (
+                          <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+                            {[
+                              { key: 'todas', label: 'Todas', badge: { bg: 'rgba(148,163,184,0.2)', color: '#475569' }, value: agendaCounts.todas },
+                              { key: 'seguimiento', label: 'Seguimiento', badge: { bg: 'rgba(59,130,246,0.14)', color: '#1d4ed8' }, value: agendaCounts.totalSeguimiento },
+                              { key: 'rellamar', label: 'Rellamar', badge: { bg: '#EEEDFE', color: '#3C3489' }, value: agendaCounts.totalRellamar }
+                            ].map((t) => {
+                              const active = agendaTipoTab === t.key;
+                              return (
+                                <button
+                                  key={`tipo-${t.key}`}
+                                  type="button"
+                                  onClick={() => setAgendaTipoTab(t.key)}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    padding: '6px 10px',
+                                    borderRadius: 999,
+                                    border: active ? '1px solid rgba(15,23,42,0.10)' : '1px solid rgba(15,23,42,0.06)',
+                                    background: active ? '#fff' : 'rgba(15,23,42,0.03)',
+                                    boxShadow: active ? '0 10px 20px rgba(15,23,42,0.08)' : 'none',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  <span style={{ fontSize: 12, fontWeight: 800, color: '#0f172a' }}>{t.label}</span>
+                                  <span style={{ fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 999, background: t.badge.bg, color: t.badge.color }}>
+                                    {t.value}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                       <div className="agenda-search" style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 280 }}>
                         <div className="searchbox" style={{ width: '100%' }}>
@@ -5876,8 +6021,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         <tr>
                           <th>Fecha</th>
                           <th>Hora</th>
+                          {agendaListTab === 'vencidas' ? <th>Días vencida</th> : null}
                           <th>Tipo</th>
                           <th>Contacto</th>
+                          {(agendaListTab === 'vencidas' || agendaListTab === 'todas') ? <th>Situación</th> : null}
                           <th>Intentos</th>
                           <th className="col-nota">Nota</th>
                         </tr>
@@ -5885,7 +6032,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       <tbody>
                         {agendaVisibleRows.map((row) => {
                           const fechaDt = row.fecha_agenda ? new Date(row.fecha_agenda) : null;
-                          const vencida = fechaDt && fechaDt < ahora;
+                          const vencida = isRowVencida(row);
+                          const diasVencida = agendaListTab === 'vencidas' ? daysVencida(row) : 0;
                           const latestGestionAt = row?.ultima_fecha_gestion ? new Date(row.ultima_fecha_gestion) : null;
                           const intentos = row.intentos || 0;
                           const intentosMeta = intentos >= 3
@@ -5906,13 +6054,18 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                               style={{ cursor: 'pointer', background: vencida ? '#FEF2F2' : undefined }}
                             >
                               <td>
-                                <div style={{ color: vencida ? '#E53E3E' : undefined, fontWeight: vencida ? 600 : undefined }}>
+                                <div style={{ color: vencida ? '#b45309' : undefined, fontWeight: vencida ? 700 : undefined }}>
                                   {fmtGestionFecha(latestGestionAt)}
                                 </div>
                               </td>
-                              <td style={{ color: vencida ? '#E53E3E' : '#0f172a', fontWeight: vencida ? 700 : 600, whiteSpace: 'nowrap' }}>
+                              <td style={{ color: vencida ? '#b45309' : '#0f172a', fontWeight: vencida ? 800 : 600, whiteSpace: 'nowrap' }}>
                                 {fmtGestionHora(latestGestionAt)}
                               </td>
+                              {agendaListTab === 'vencidas' ? (
+                                <td style={{ whiteSpace: 'nowrap', fontWeight: 800, color: '#b45309' }}>
+                                  {diasVencida ? `${diasVencida}d` : '—'}
+                                </td>
+                              ) : null}
                               <td>
                                 <span style={{
                                   display: 'inline-flex',
@@ -5930,13 +6083,37 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                 </span>
                               </td>
                               <td><strong>{[row.nombre, row.apellido].filter(Boolean).join(' ') || '—'}</strong></td>
+                              {(agendaListTab === 'vencidas' || agendaListTab === 'todas') ? (
+                                <td>
+                                  {vencida ? (
+                                    <span style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 6,
+                                      padding: '3px 10px',
+                                      borderRadius: 999,
+                                      background: 'rgba(245,158,11,0.18)',
+                                      color: '#b45309',
+                                      border: '1px solid rgba(245,158,11,0.35)',
+                                      fontSize: 12,
+                                      fontWeight: 900,
+                                      whiteSpace: 'nowrap'
+                                    }}>
+                                      <AlertTriangle size={14} />
+                                      Vencida
+                                    </span>
+                                  ) : '—'}
+                                </td>
+                              ) : null}
                               <td>
                                 <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 999, background: intentosMeta.bg, color: intentosMeta.color, fontSize: 12, fontWeight: 600 }}>
                                   {intentosMeta.label}
                                 </span>
                               </td>
                               <td className="col-nota" style={{ fontSize: 15, fontWeight: 800, color: notaText ? 'var(--color-text-danger)' : '#94a3b8' }}>
-                                <span className="agenda-note">{notaText || '—'}</span>
+                                <span className="agenda-note" style={{ display: 'block', whiteSpace: 'normal', maxWidth: 320, overflowWrap: 'anywhere' }}>
+                                  {notaText || '—'}
+                                </span>
                               </td>
                             </tr>
                           );
@@ -5947,7 +6124,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     <div className="agenda-cards">
                       {agendaVisibleRows.map((row) => {
                         const fechaDt = row.fecha_agenda ? new Date(row.fecha_agenda) : null;
-                        const vencida = fechaDt && fechaDt < ahora;
+                        const vencida = isRowVencida(row);
+                        const diasVencida = agendaListTab === 'vencidas' ? daysVencida(row) : 0;
                         const latestGestionAt = row?.ultima_fecha_gestion ? new Date(row.ultima_fecha_gestion) : null;
                         const intentos = row.intentos || 0;
                         const intentosMeta = intentos >= 3
@@ -5996,11 +6174,31 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                 {fmtGestionHora(latestGestionAt)}
                               </div>
                             </div>
+                            {(agendaListTab === 'vencidas' || agendaListTab === 'todas') && vencida ? (
+                              <div className="agenda-card-row" style={{ justifyContent: 'flex-start' }}>
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  padding: '3px 10px',
+                                  borderRadius: 999,
+                                  background: 'rgba(245,158,11,0.18)',
+                                  color: '#b45309',
+                                  border: '1px solid rgba(245,158,11,0.35)',
+                                  fontSize: 12,
+                                  fontWeight: 900,
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  <AlertTriangle size={14} />
+                                  Vencida{agendaListTab === 'vencidas' && diasVencida ? ` · ${diasVencida}d` : ''}
+                                </span>
+                              </div>
+                            ) : null}
                             <div className="agenda-card-row">
                               <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 999, background: intentosMeta.bg, color: intentosMeta.color, fontSize: 12, fontWeight: 700 }}>
                                 {intentosMeta.label}
                               </span>
-                              <span className="agenda-card-note" style={{ fontSize: 15, fontWeight: 800, color: notaRaw ? 'var(--color-text-danger)' : '#94a3b8' }}>
+                              <span className="agenda-card-note" style={{ fontSize: 15, fontWeight: 800, color: notaRaw ? 'var(--color-text-danger)' : '#94a3b8', whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
                                 {notaRaw || '—'}
                               </span>
                             </div>
