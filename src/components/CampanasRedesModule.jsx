@@ -784,7 +784,7 @@ export default function CampanasRedesModule() {
                             {lead.nombre || '—'} {lead.apellido || ''}
                           </td>
                           <td style={{ padding: '10px 12px', color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' }}>
-                            {lead.telefono || '—'}
+                            {lead.telefono || lead.celular || '—'}
                           </td>
                           <td style={{ padding: '10px 12px', color: 'var(--color-text-secondary, #64748b)', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {lead.email || '—'}
