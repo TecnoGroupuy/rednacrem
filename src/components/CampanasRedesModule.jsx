@@ -188,19 +188,32 @@ export default function CampanasRedesModule() {
   const convertidos = safeNumber(metricas.convertidos) ?? 0;
   const monthConversionPercent = total > 0 ? (convertidos / total) * 100 : 0;
 
+  const [leadsPhoneQuery, setLeadsPhoneQuery] = React.useState('');
+  const [leadsPhoneQueryDebounced, setLeadsPhoneQueryDebounced] = React.useState('');
+
+  React.useEffect(() => {
+    const handle = setTimeout(() => {
+      setLeadsPhoneQueryDebounced(String(leadsPhoneQuery || '').trim());
+    }, 500);
+
+    return () => clearTimeout(handle);
+  }, [leadsPhoneQuery]);
+
   const sinAsignarTotal =
     safeNumber(data?.sin_asignar?.total) ??
     safeNumber(data?.sin_asignar_total) ??
     safeNumber(data?.unassigned_total) ??
     0;
 
-  const loadLeads = React.useCallback(async (page = 1) => {
+  const loadLeads = React.useCallback(async (page = 1, telefono = leadsPhoneQueryDebounced) => {
     setLeadsLoading(true);
     try {
       const api = getApiClient();
       const params = new URLSearchParams();
       const originValue = String(origen || '').trim();
       if (originValue && originValue.toLowerCase() !== 'todos') params.set('origen_dato', originValue.toLowerCase());
+      const telefonoValue = String(telefono || '').trim();
+      if (telefonoValue) params.set('telefono', telefonoValue);
       params.set('periodo', String(periodo || ''));
       params.set('page', String(page));
       params.set('limit', String(LEADS_LIMIT));
@@ -213,7 +226,7 @@ export default function CampanasRedesModule() {
     } finally {
       setLeadsLoading(false);
     }
-  }, [origen, periodo]);
+  }, [origen, periodo, leadsPhoneQueryDebounced]);
 
   React.useEffect(() => { loadLeads(1); }, [loadLeads]);
 
@@ -608,6 +621,24 @@ export default function CampanasRedesModule() {
                   <RefreshCw size={16} />
                   Actualizar
                 </button>
+
+                <div style={{ position: 'relative', minWidth: 260 }}>
+                  <input
+                    value={leadsPhoneQuery}
+                    onChange={(e) => setLeadsPhoneQuery(e.target.value)}
+                    placeholder="Buscar por teléfono..."
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: 12,
+                      border: '1px solid var(--color-border-tertiary, rgba(15,23,42,0.12))',
+                      fontSize: 13,
+                      fontWeight: 700,
+                      outline: 'none',
+                      background: 'rgba(255,255,255,0.86)'
+                    }}
+                  />
+                </div>
               </div>
 
               {leadsTotal > LEADS_LIMIT && (
