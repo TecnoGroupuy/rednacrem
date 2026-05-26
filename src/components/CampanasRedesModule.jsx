@@ -629,7 +629,7 @@ export default function CampanasRedesModule() {
                     placeholder="Buscar por teléfono..."
                     style={{
                       width: '100%',
-                      padding: '8px 12px',
+                      padding: '8px 34px 8px 12px',
                       borderRadius: 12,
                       border: '1px solid var(--color-border-tertiary, rgba(15,23,42,0.12))',
                       fontSize: 13,
@@ -638,6 +638,38 @@ export default function CampanasRedesModule() {
                       background: 'rgba(255,255,255,0.86)'
                     }}
                   />
+                  {!!String(leadsPhoneQuery || '').trim() && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setLeadsPhoneQuery('');
+                        setLeadsPhoneQueryDebounced('');
+                        await loadLeads(1, '');
+                      }}
+                      aria-label="Limpiar búsqueda"
+                      style={{
+                        position: 'absolute',
+                        right: 10,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        width: 22,
+                        height: 22,
+                        borderRadius: 999,
+                        border: 'none',
+                        background: 'transparent',
+                        color: 'var(--color-text-tertiary, #94a3b8)',
+                        cursor: 'pointer',
+                        fontSize: 14,
+                        fontWeight: 900,
+                        display: 'grid',
+                        placeItems: 'center',
+                        padding: 0
+                      }}
+                      title="Limpiar"
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
               </div>
 
