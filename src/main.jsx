@@ -5852,14 +5852,13 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       return (
                         <div className="agenda-metrics-grid" style={{
                           display: 'grid',
-                          gridTemplateColumns: 'repeat(3, 1fr)',
+                          gridTemplateColumns: 'repeat(2, 1fr)',
                           gap: 10,
                           marginBottom: 16
                         }}>
                           {[
                             { label: 'Rellamar hoy', value: agendaCounts.rellamarHoy, color: '#4A90D9', bg: '#F0F7FF' },
-                            { label: 'Seguimiento hoy', value: agendaCounts.seguimientoHoy, color: '#9B59B6', bg: '#F8F0FF' },
-                            { label: 'Total hoy', value: agendaCounts.hoy, color: '#475569', bg: 'var(--color-background-secondary)' }
+                            { label: 'Seguimiento hoy', value: agendaCounts.seguimientoHoy, color: '#9B59B6', bg: '#F8F0FF' }
                           ].map(({ label, value, color, bg }) => (
                             <div key={label} style={{
                               background: bg,
@@ -5938,83 +5937,87 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                   })()}
 
                   <div className="table-wrap" style={{ overflowX: 'auto', scrollbarGutter: 'stable' }}>
-                    <div className="agenda-controls" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
-                      <div className="agenda-tabs" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                        {[
-                          { key: 'hoy', label: 'Hoy', badge: { bg: 'rgba(37,99,235,0.12)', color: '#2563eb' }, value: agendaCounts.hoy },
-                          { key: 'vencidas', label: 'Vencidas', badge: { bg: 'rgba(245,158,11,0.18)', color: '#b45309' }, value: agendaCounts.vencidas },
-                          { key: 'todas', label: 'Todas', badge: { bg: 'rgba(148,163,184,0.2)', color: '#475569' }, value: agendaCounts.todas }
-                        ].map((t) => {
-                          const active = agendaListTab === t.key;
-                          return (
-                            <button
-                              key={t.key}
-                              type="button"
-                              onClick={() => setAgendaListTab(t.key)}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 8,
-                                padding: '8px 12px',
-                                borderRadius: 999,
-                                border: active ? '1px solid rgba(15,23,42,0.10)' : '1px solid rgba(15,23,42,0.06)',
-                                background: active ? '#fff' : 'rgba(15,23,42,0.03)',
-                                boxShadow: active ? '0 10px 20px rgba(15,23,42,0.08)' : 'none',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              <span style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>{t.label}</span>
-                              <span style={{ fontSize: 12, fontWeight: 800, padding: '2px 8px', borderRadius: 999, background: t.badge.bg, color: t.badge.color }}>
-                                {t.value}
-                              </span>
-                            </button>
-                          );
-                        })}
-                        {agendaListTab === 'todas' && (
-                          <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
-                            {[
-                              { key: 'todas', label: 'Todas', badge: { bg: 'rgba(148,163,184,0.2)', color: '#475569' }, value: agendaCounts.todas },
-                              { key: 'seguimiento', label: 'Seguimiento', badge: { bg: 'rgba(59,130,246,0.14)', color: '#1d4ed8' }, value: agendaCounts.totalSeguimiento },
-                              { key: 'rellamar', label: 'Rellamar', badge: { bg: '#EEEDFE', color: '#3C3489' }, value: agendaCounts.totalRellamar }
-                            ].map((t) => {
-                              const active = agendaTipoTab === t.key;
-                              return (
-                                <button
-                                  key={`tipo-${t.key}`}
-                                  type="button"
-                                  onClick={() => setAgendaTipoTab(t.key)}
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: 8,
-                                    padding: '6px 10px',
-                                    borderRadius: 999,
-                                    border: active ? '1px solid rgba(15,23,42,0.10)' : '1px solid rgba(15,23,42,0.06)',
-                                    background: active ? '#fff' : 'rgba(15,23,42,0.03)',
-                                    boxShadow: active ? '0 10px 20px rgba(15,23,42,0.08)' : 'none',
-                                    cursor: 'pointer'
-                                  }}
-                                >
-                                  <span style={{ fontSize: 12, fontWeight: 800, color: '#0f172a' }}>{t.label}</span>
-                                  <span style={{ fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 999, background: t.badge.bg, color: t.badge.color }}>
-                                    {t.value}
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
+                    <style>{`
+.agenda-chrome-bar { background: #dfe1e5; display: flex; align-items: flex-end; padding: 8px 8px 0; }
+.agenda-tab { position: relative; background: #e8eaed; border-radius: 10px 10px 0 0; margin-right: -8px; padding: 10px 16px; font-size: 13px; font-weight: 500; color: #5f6368; cursor: pointer; z-index: 1; display: flex; align-items: center; gap: 8px; min-width: 140px; }
+.agenda-tab::before, .agenda-tab::after { content: ''; position: absolute; bottom: 0; width: 16px; height: 16px; background: inherit; z-index: -1; }
+.agenda-tab::before { left: -8px; border-radius: 0 0 10px 0; }
+.agenda-tab::after { right: -8px; border-radius: 0 0 0 10px; }
+.agenda-tab.active { background: #ffffff; color: #1f2937; z-index: 3; }
+.agenda-tab .tab-favicon { width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; font-weight: 700; color: #fff; flex-shrink: 0; }
+.agenda-tab .tab-badge { font-size: 11px; padding: 1px 7px; border-radius: 10px; font-weight: 700; background: #fecaca; color: #991b1b; }
+                    `}</style>
+
+                    <div className="agenda-chrome-bar">
+                      <div className={`agenda-tab ${agendaListTab === 'hoy' ? 'active' : ''}`} onClick={() => setAgendaListTab('hoy')}>
+                        <span className="tab-favicon" style={{ background: '#2563eb' }}>H</span>
+                        Hoy
                       </div>
-                      <div className="agenda-search" style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 280 }}>
-                        <div className="searchbox" style={{ width: '100%' }}>
-                          <Search size={16} color="#69788d" />
-                          <input
-                            placeholder="Buscar por nombre o teléfono..."
-                            value={agendaSearch}
-                            onChange={(event) => setAgendaSearch(event.target.value)}
-                          />
+                      <div className={`agenda-tab ${agendaListTab === 'vencidas' ? 'active' : ''}`} onClick={() => setAgendaListTab('vencidas')}>
+                        <span className="tab-favicon" style={{ background: '#dc2626' }}>V</span>
+                        Vencidas
+                        <span className="tab-badge">{agendaCounts.vencidas}</span>
+                      </div>
+                      <div className={`agenda-tab ${agendaListTab === 'todas' ? 'active' : ''}`} onClick={() => setAgendaListTab('todas')}>
+                        <span className="tab-favicon" style={{ background: '#7c3aed' }}>T</span>
+                        Todas
+                      </div>
+                    </div>
+
+                    <div style={{ padding: '10px 8px 6px 8px', background: '#dfe1e5' }}>
+                      <div style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        background: '#fff',
+                        border: '1px solid rgba(15,23,42,0.10)',
+                        borderRadius: 999,
+                        padding: '10px 14px',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.06)'
+                      }}>
+                        <Search size={16} color="#69788d" />
+                        <input
+                          placeholder="Buscar por nombre o teléfono..."
+                          value={agendaSearch}
+                          onChange={(event) => setAgendaSearch(event.target.value)}
+                          style={{ border: 'none', outline: 'none', width: '100%', fontSize: 14, background: 'transparent' }}
+                        />
+                      </div>
+                      {agendaListTab === 'todas' && (
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 10 }}>
+                          {[
+                            { key: 'todas', label: 'Todas', badge: { bg: 'rgba(148,163,184,0.2)', color: '#475569' }, value: agendaCounts.todas },
+                            { key: 'seguimiento', label: 'Seguimiento', badge: { bg: '#f5f3ff', color: '#6d28d9' }, value: agendaCounts.totalSeguimiento },
+                            { key: 'rellamar', label: 'Rellamar', badge: { bg: '#eff6ff', color: '#1d4ed8' }, value: agendaCounts.totalRellamar }
+                          ].map((t) => {
+                            const active = agendaTipoTab === t.key;
+                            return (
+                              <button
+                                key={`tipo-${t.key}`}
+                                type="button"
+                                onClick={() => setAgendaTipoTab(t.key)}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 8,
+                                  padding: '7px 12px',
+                                  borderRadius: 999,
+                                  border: active ? '1px solid rgba(15,23,42,0.14)' : '1px solid rgba(15,23,42,0.08)',
+                                  background: active ? '#fff' : 'rgba(15,23,42,0.03)',
+                                  boxShadow: active ? '0 10px 20px rgba(15,23,42,0.08)' : 'none',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                <span style={{ fontSize: 12, fontWeight: 800, color: '#0f172a' }}>{t.label}</span>
+                                <span style={{ fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 999, background: t.badge.bg, color: t.badge.color }}>
+                                  {t.value}
+                                </span>
+                              </button>
+                            );
+                          })}
                         </div>
-                      </div>
+                      )}
                     </div>
                     <table className="agenda-table">
                       <thead>
@@ -6036,17 +6039,18 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           const diasVencida = agendaListTab === 'vencidas' ? daysVencida(row) : 0;
                           const latestGestionAt = row?.ultima_fecha_gestion ? new Date(row.ultima_fecha_gestion) : null;
                           const intentos = row.intentos || 0;
+                          const intentosLabel = intentos === 1 ? '1 intento' : `${intentos} intentos`;
                           const intentosMeta = intentos >= 3
-                            ? { bg: '#FDECEA', color: '#E53E3E', label: `${intentos} intentos` }
+                            ? { bg: '#FDECEA', color: '#E53E3E', label: intentosLabel }
                             : intentos === 2
-                            ? { bg: 'rgba(245,166,35,0.15)', color: '#F5A623', label: `${intentos} intentos` }
-                            : { bg: 'rgba(158,158,158,0.12)', color: '#9E9E9E', label: `${intentos} intentos` };
+                            ? { bg: 'rgba(245,166,35,0.15)', color: '#F5A623', label: intentosLabel }
+                            : { bg: 'rgba(158,158,158,0.12)', color: '#9E9E9E', label: intentosLabel };
                           const notaText = String(row.nota || '').trim();
                           const tipoFromEstado = String(row.estado_venta || '').toLowerCase();
                           const tipoLabel = tipoFromEstado === 'seguimiento' ? 'Seguimiento' : 'Rellamar';
                           const tipoBadge = tipoFromEstado === 'seguimiento'
-                            ? { bg: 'rgba(59,130,246,0.14)', color: '#1d4ed8', border: 'rgba(59,130,246,0.30)' }
-                            : { bg: '#EEEDFE', color: '#3C3489', border: 'rgba(60,52,137,0.25)' };
+                            ? { bg: '#f5f3ff', color: '#6d28d9', border: 'rgba(109,40,217,0.25)' }
+                            : { bg: '#eff6ff', color: '#1d4ed8', border: 'rgba(29,78,216,0.25)' };
                           return (
                             <tr
                               key={row.id}
@@ -6099,8 +6103,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                       fontWeight: 900,
                                       whiteSpace: 'nowrap'
                                     }}>
-                                      <AlertTriangle size={14} />
-                                      Vencida
+                                      ⚠ Vencida
                                     </span>
                                   ) : '—'}
                                 </td>
@@ -6111,7 +6114,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                 </span>
                               </td>
                               <td className="col-nota" style={{ fontSize: 15, fontWeight: 800, color: notaText ? 'var(--color-text-danger)' : '#94a3b8' }}>
-                                <span className="agenda-note" style={{ display: 'block', whiteSpace: 'normal', maxWidth: 320, overflowWrap: 'anywhere' }}>
+                                <span
+                                  className="agenda-note"
+                                  title={notaText || ''}
+                                  style={{ display: 'block', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                >
                                   {notaText || '—'}
                                 </span>
                               </td>
@@ -6128,16 +6135,17 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         const diasVencida = agendaListTab === 'vencidas' ? daysVencida(row) : 0;
                         const latestGestionAt = row?.ultima_fecha_gestion ? new Date(row.ultima_fecha_gestion) : null;
                         const intentos = row.intentos || 0;
+                        const intentosLabel = intentos === 1 ? '1 intento' : `${intentos} intentos`;
                         const intentosMeta = intentos >= 3
-                          ? { bg: '#FDECEA', color: '#E53E3E', label: `${intentos} intentos` }
+                          ? { bg: '#FDECEA', color: '#E53E3E', label: intentosLabel }
                           : intentos === 2
-                          ? { bg: 'rgba(245,166,35,0.15)', color: '#F5A623', label: `${intentos} intentos` }
-                          : { bg: 'rgba(158,158,158,0.12)', color: '#9E9E9E', label: `${intentos} intentos` };
+                          ? { bg: 'rgba(245,166,35,0.15)', color: '#F5A623', label: intentosLabel }
+                          : { bg: 'rgba(158,158,158,0.12)', color: '#9E9E9E', label: intentosLabel };
                         const tipoFromEstado = String(row.estado_venta || '').toLowerCase();
                         const tipoLabel = tipoFromEstado === 'seguimiento' ? 'Seguimiento' : 'Rellamar';
                         const tipoBadge = tipoFromEstado === 'seguimiento'
-                          ? { bg: 'rgba(59,130,246,0.14)', color: '#1d4ed8', border: 'rgba(59,130,246,0.30)' }
-                          : { bg: '#EEEDFE', color: '#3C3489', border: 'rgba(60,52,137,0.25)' };
+                          ? { bg: '#f5f3ff', color: '#6d28d9', border: 'rgba(109,40,217,0.25)' }
+                          : { bg: '#eff6ff', color: '#1d4ed8', border: 'rgba(29,78,216,0.25)' };
                         const notaRaw = String(row.nota || '').trim();
                         return (
                           <button
@@ -6189,8 +6197,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                   fontWeight: 900,
                                   whiteSpace: 'nowrap'
                                 }}>
-                                  <AlertTriangle size={14} />
-                                  Vencida{agendaListTab === 'vencidas' && diasVencida ? ` · ${diasVencida}d` : ''}
+                                  ⚠ Vencida{agendaListTab === 'vencidas' && diasVencida ? ` · ${diasVencida}d` : ''}
                                 </span>
                               </div>
                             ) : null}
@@ -6198,7 +6205,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                               <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 999, background: intentosMeta.bg, color: intentosMeta.color, fontSize: 12, fontWeight: 700 }}>
                                 {intentosMeta.label}
                               </span>
-                              <span className="agenda-card-note" style={{ fontSize: 15, fontWeight: 800, color: notaRaw ? 'var(--color-text-danger)' : '#94a3b8', whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
+                              <span
+                                className="agenda-card-note"
+                                title={notaRaw || ''}
+                                style={{ fontSize: 15, fontWeight: 800, color: notaRaw ? 'var(--color-text-danger)' : '#94a3b8', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                              >
                                 {notaRaw || '—'}
                               </span>
                             </div>
