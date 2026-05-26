@@ -5847,17 +5847,19 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 </div>
               ) : (
                 <>
-                  <div className="table-wrap" style={{ overflowX: 'auto', scrollbarGutter: 'stable', borderRadius: 0, background: 'transparent' }}>
+                  <div className="table-wrap" style={{ overflowX: 'auto', scrollbarGutter: 'stable', borderRadius: 0, background: '#dfe1e5' }}>
                     <style>{`
-.agenda-chrome-bar { background: #dfe1e5; display: flex; align-items: flex-end; padding: 8px 8px 0; }
-.agenda-chrome-bar { border-bottom: 1px solid rgba(15,23,42,0.10); border-radius: 0; }
-.agenda-tab { position: relative; background: #e8eaed; border-radius: 10px 10px 0 0; margin-right: -8px; padding: 10px 16px; font-size: 13px; font-weight: 500; color: #5f6368; cursor: pointer; z-index: 1; display: flex; align-items: center; gap: 8px; min-width: 140px; }
-.agenda-tab::before, .agenda-tab::after { content: ''; position: absolute; bottom: 0; width: 16px; height: 16px; background: inherit; z-index: -1; }
-.agenda-tab::before { left: -8px; border-radius: 0 0 10px 0; }
-.agenda-tab::after { right: -8px; border-radius: 0 0 0 10px; }
-.agenda-tab.active { background: #ffffff; color: #1f2937; z-index: 3; border-bottom: 2px solid #ffffff; }
-.agenda-tab .tab-favicon { width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; font-weight: 700; color: #fff; flex-shrink: 0; }
-.agenda-tab .tab-badge { font-size: 11px; padding: 1px 7px; border-radius: 10px; font-weight: 700; background: #fecaca; color: #991b1b; }
+.chrome-bar { background: #dfe1e5; border-bottom: 1px solid #c6cacf; display: flex; align-items: flex-end; padding: 8px 8px 0 8px; }
+.chrome-tab { position: relative; background: #e8eaed; border-radius: 10px 10px 0 0; margin-right: -8px; padding: 10px 16px; font-size: 13px; font-weight: 500; color: #5f6368; cursor: pointer; z-index: 1; display: flex; align-items: center; gap: 8px; min-width: 140px; }
+.chrome-tab::before, .chrome-tab::after { content: ''; position: absolute; bottom: 0; width: 16px; height: 16px; background: inherit; z-index: -1; }
+.chrome-tab::before { left: -8px; border-radius: 0 0 10px 0; }
+.chrome-tab::after { right: -8px; border-radius: 0 0 0 10px; }
+.chrome-tab.active { background: #ffffff; color: #1f2937; z-index: 3; border-bottom: 2px solid #ffffff; margin-bottom: -1px; }
+.chrome-tab.active::before, .chrome-tab.active::after { background: #ffffff; }
+.chrome-tab:hover { background: #f1f3f4; z-index: 2; }
+.chrome-tab:hover::before, .chrome-tab:hover::after { background: #f1f3f4; }
+.chrome-tab .tab-favicon { width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; font-weight: 700; color: #fff; flex-shrink: 0; }
+.chrome-tab .tab-badge { font-size: 11px; padding: 1px 7px; border-radius: 10px; font-weight: 700; background: #fecaca; color: #991b1b; }
 .agenda-table { table-layout: auto; width: 100%; }
 .agenda-cards { display: none; }
 @media (max-width: 600px) {
@@ -5866,17 +5868,17 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 }
                     `}</style>
 
-                    <div className="agenda-chrome-bar">
-                      <div className={`agenda-tab ${agendaListTab === 'hoy' ? 'active' : ''}`} onClick={() => setAgendaListTab('hoy')}>
+                    <div className="chrome-bar">
+                      <div className={`chrome-tab ${agendaListTab === 'hoy' ? 'active' : ''}`} onClick={() => setAgendaListTab('hoy')}>
                         <span className="tab-favicon" style={{ background: '#2563eb' }}>H</span>
                         Hoy
                       </div>
-                      <div className={`agenda-tab ${agendaListTab === 'vencidas' ? 'active' : ''}`} onClick={() => setAgendaListTab('vencidas')}>
+                      <div className={`chrome-tab ${agendaListTab === 'vencidas' ? 'active' : ''}`} onClick={() => setAgendaListTab('vencidas')}>
                         <span className="tab-favicon" style={{ background: '#dc2626' }}>V</span>
                         Vencidas
                         <span className="tab-badge">{agendaCounts.vencidas}</span>
                       </div>
-                      <div className={`agenda-tab ${agendaListTab === 'todas' ? 'active' : ''}`} onClick={() => setAgendaListTab('todas')}>
+                      <div className={`chrome-tab ${agendaListTab === 'todas' ? 'active' : ''}`} onClick={() => setAgendaListTab('todas')}>
                         <span className="tab-favicon" style={{ background: '#7c3aed' }}>T</span>
                         Todas
                       </div>
