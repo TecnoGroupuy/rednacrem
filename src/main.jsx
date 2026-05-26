@@ -5847,19 +5847,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 </div>
               ) : (
                 <>
-                  <div className="table-wrap" style={{ overflowX: 'auto', scrollbarGutter: 'stable', borderRadius: 0, background: '#dfe1e5' }}>
+                  <div className="table-wrap">
                     <style>{`
-.chrome-bar { background: #dfe1e5; border-bottom: 1px solid #c6cacf; display: flex; align-items: flex-end; padding: 8px 8px 0 8px; }
-.chrome-tab { position: relative; background: #e8eaed; border-radius: 10px 10px 0 0; margin-right: -8px; padding: 10px 16px; font-size: 13px; font-weight: 500; color: #5f6368; cursor: pointer; z-index: 1; display: flex; align-items: center; gap: 8px; min-width: 140px; }
-.chrome-tab::before, .chrome-tab::after { content: ''; position: absolute; bottom: 0; width: 16px; height: 16px; background: inherit; z-index: -1; }
-.chrome-tab::before { left: -8px; border-radius: 0 0 10px 0; }
-.chrome-tab::after { right: -8px; border-radius: 0 0 0 10px; }
-.chrome-tab.active { background: #ffffff; color: #1f2937; z-index: 3; border-bottom: 2px solid #ffffff; margin-bottom: -1px; }
-.chrome-tab.active::before, .chrome-tab.active::after { background: #ffffff; }
-.chrome-tab:hover { background: #f1f3f4; z-index: 2; }
-.chrome-tab:hover::before, .chrome-tab:hover::after { background: #f1f3f4; }
-.chrome-tab .tab-favicon { width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; font-weight: 700; color: #fff; flex-shrink: 0; }
-.chrome-tab .tab-badge { font-size: 11px; padding: 1px 7px; border-radius: 10px; font-weight: 700; background: #fecaca; color: #991b1b; }
 .agenda-table { table-layout: auto; width: 100%; }
 .agenda-cards { display: none; }
 @media (max-width: 600px) {
@@ -5868,23 +5857,47 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 }
                     `}</style>
 
-                    <div className="chrome-bar">
-                      <div className={`chrome-tab ${agendaListTab === 'hoy' ? 'active' : ''}`} onClick={() => setAgendaListTab('hoy')}>
-                        <span className="tab-favicon" style={{ background: '#2563eb' }}>H</span>
-                        Hoy
-                      </div>
-                      <div className={`chrome-tab ${agendaListTab === 'vencidas' ? 'active' : ''}`} onClick={() => setAgendaListTab('vencidas')}>
-                        <span className="tab-favicon" style={{ background: '#dc2626' }}>V</span>
-                        Vencidas
-                        <span className="tab-badge">{agendaCounts.vencidas}</span>
-                      </div>
-                      <div className={`chrome-tab ${agendaListTab === 'todas' ? 'active' : ''}`} onClick={() => setAgendaListTab('todas')}>
-                        <span className="tab-favicon" style={{ background: '#7c3aed' }}>T</span>
-                        Todas
-                      </div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
+                      {[
+                        { key: 'hoy', label: 'Hoy', value: agendaCounts.hoy },
+                        { key: 'vencidas', label: 'Vencidas', value: agendaCounts.vencidas },
+                        { key: 'todas', label: 'Todas', value: agendaCounts.todas }
+                      ].map((t) => {
+                        const active = agendaListTab === t.key;
+                        return (
+                          <button
+                            key={t.key}
+                            type="button"
+                            onClick={() => setAgendaListTab(t.key)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 8,
+                              padding: '8px 12px',
+                              borderRadius: 999,
+                              border: `1px solid ${active ? '#1f2937' : '#e5e7eb'}`,
+                              background: active ? '#1f2937' : '#ffffff',
+                              color: active ? '#ffffff' : '#6b7280',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <span style={{ fontSize: 13, fontWeight: 800 }}>{t.label}</span>
+                            <span style={{
+                              fontSize: 11,
+                              fontWeight: 800,
+                              padding: '2px 8px',
+                              borderRadius: 999,
+                              background: active ? 'rgba(255,255,255,0.2)' : '#f3f4f6',
+                              color: active ? '#ffffff' : '#374151'
+                            }}>
+                              {t.value}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
 
-                    <div style={{ padding: '10px 8px 6px 8px', background: '#dfe1e5' }}>
+                    <div style={{ padding: '0 0 6px 0' }}>
                       <div style={{
                         width: '100%',
                         display: 'flex',
@@ -6096,7 +6109,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                   {tipoLabel}
                                 </span>
                               </td>
-                              <td style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              <td>
                                 <strong>{[row.nombre, row.apellido].filter(Boolean).join(' ') || '—'}</strong>
                               </td>
                               {(agendaListTab === 'vencidas' || agendaListTab === 'todas') ? (
@@ -6129,7 +6142,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                 <span
                                   className="agenda-note"
                                   title={notaText || ''}
-                                  style={{ display: 'block', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                  style={{ display: 'block', maxWidth: 300, whiteSpace: 'normal', lineHeight: 1.5 }}
                                 >
                                   {notaText || '—'}
                                 </span>
@@ -6210,7 +6223,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                               <span
                                 className="agenda-card-note"
                                 title={notaRaw || ''}
-                                style={{ fontSize: 15, fontWeight: 800, color: notaRaw ? 'var(--color-text-danger)' : '#94a3b8', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                style={{ fontSize: 15, fontWeight: 800, color: notaRaw ? 'var(--color-text-danger)' : '#94a3b8', maxWidth: 300, whiteSpace: 'normal', lineHeight: 1.5 }}
                               >
                                 {notaRaw || '—'}
                               </span>
