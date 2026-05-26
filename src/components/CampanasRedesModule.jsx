@@ -715,10 +715,10 @@ export default function CampanasRedesModule() {
             </div>
 
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 980 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 900 }}>
                 <thead>
                   <tr style={{ background: 'rgba(15,23,42,0.02)' }}>
-                    {['F. Solicitud', 'Nombre', 'Teléfono', 'Email', 'Origen', 'Estado', 'Motivo', 'Gestión', 'Intentos', 'Último intento', 'Vendedor', 'Ingreso'].map((h) => (
+                    {['F. Solicitud', 'Nombre', 'Teléfono', 'Email', 'Origen', 'Estado', 'Motivo', 'Gestión', 'Intentos', 'Último intento', 'Vendedor'].map((h) => (
                       <th
                         key={h}
                         style={{
@@ -740,11 +740,11 @@ export default function CampanasRedesModule() {
                 <tbody>
                   {leadsLoading ? (
                     <tr>
-                      <td colSpan={12} style={{ padding: 16, color: 'var(--color-text-secondary, #64748b)' }}>Cargando leads...</td>
+                      <td colSpan={11} style={{ padding: 16, color: 'var(--color-text-secondary, #64748b)' }}>Cargando leads...</td>
                     </tr>
                   ) : !leads.length ? (
                     <tr>
-                      <td colSpan={12} style={{ padding: 16, color: 'var(--color-text-secondary, #64748b)' }}>Sin leads</td>
+                      <td colSpan={11} style={{ padding: 16, color: 'var(--color-text-secondary, #64748b)' }}>Sin leads</td>
                     </tr>
                   ) : (
                     [...leads].sort((a, b) => {
@@ -838,11 +838,6 @@ export default function CampanasRedesModule() {
                           </td>
                           <td style={{ padding: '10px 12px', color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' }}>
                             {lead.assigned_to_name || '—'}
-                          </td>
-                          <td style={{ padding: '10px 12px', color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' }}>
-                            {lead.created_at
-                              ? new Date(lead.created_at).toLocaleString('es-UY', { timeZone: 'America/Montevideo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-                              : '—'}
                           </td>
                         </tr>
                       );
