@@ -5529,6 +5529,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [agendaListTab, setAgendaListTab] = React.useState('hoy');
       const [agendaTipoTab, setAgendaTipoTab] = React.useState('todas');
       const [agendaSearch, setAgendaSearch] = React.useState('');
+      const [page, setPage] = React.useState(1);
       const [agEstado, setAgEstado] = React.useState('');
       const [agNota, setAgNota] = React.useState('');
       const [agFecha, setAgFecha] = React.useState('');
@@ -5833,6 +5834,19 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         return searched;
       }, [seguimientos, agendaListTab, agendaTipoTab, agendaSearch, todayYmd]);
 
+      const PAGE_SIZE = 5;
+
+      React.useEffect(() => {
+        setPage(1);
+      }, [agendaListTab, agendaTipoTab, agendaSearch]);
+
+      const totalPages = Math.max(1, Math.ceil(agendaVisibleRows.length / PAGE_SIZE));
+      const safePage = Math.min(Math.max(1, page), totalPages);
+      const paginatedRows = React.useMemo(() => {
+        const start = (safePage - 1) * PAGE_SIZE;
+        return agendaVisibleRows.slice(start, start + PAGE_SIZE);
+      }, [agendaVisibleRows, safePage]);
+
       return (
         <div className="view">
           <section className="content-grid">
@@ -6046,6 +6060,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         </div>
                       );
                     })()}
+                    <div style={{ overflow: 'hidden' }}>
                     <table className="agenda-table">
                       <thead>
                         <tr>
@@ -6060,7 +6075,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         </tr>
                       </thead>
                       <tbody>
-                        {agendaVisibleRows.map((row) => {
+                        {paginatedRows.map((row) => {
                           const fechaDt = row.fecha_agenda ? new Date(row.fecha_agenda) : null;
                           const vencida = isRowVencida(row);
                           const diasVencida = agendaListTab === 'vencidas' ? daysVencida(row) : 0;
@@ -6148,7 +6163,15 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                 <span
                                   className="agenda-note"
                                   title={notaText || ''}
-                                  style={{ display: 'block', maxWidth: 300, whiteSpace: 'normal', lineHeight: 1.5 }}
+                                  style={{
+                                    display: '-webkit-box',
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: 'vertical',
+                                    overflow: 'hidden',
+                                    maxWidth: 220,
+                                    lineHeight: 1.5,
+                                    wordBreak: 'break-word'
+                                  }}
                                 >
                                   {notaText || '—'}
                                 </span>
@@ -6158,9 +6181,31 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         })}
                       </tbody>
                     </table>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 0 0 0' }}>
+                      <button
+                        type="button"
+                        disabled={safePage <= 1}
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        style={{ border: '1px solid #e5e7eb', background: '#fff', borderRadius: 8, padding: '6px 10px', cursor: safePage <= 1 ? 'not-allowed' : 'pointer', opacity: safePage <= 1 ? 0.5 : 1 }}
+                      >
+                        ← Anterior
+                      </button>
+                      <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700 }}>
+                        Página {safePage} de {totalPages}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={safePage >= totalPages}
+                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                        style={{ border: '1px solid #e5e7eb', background: '#fff', borderRadius: 8, padding: '6px 10px', cursor: safePage >= totalPages ? 'not-allowed' : 'pointer', opacity: safePage >= totalPages ? 0.5 : 1 }}
+                      >
+                        Siguiente →
+                      </button>
+                    </div>
+                    </div>
 
                     <div className="agenda-cards">
-                      {agendaVisibleRows.map((row) => {
+                      {paginatedRows.map((row) => {
                         const vencida = isRowVencida(row);
                         const diasVencida = agendaListTab === 'vencidas' ? daysVencida(row) : 0;
                         const intentos = row.intentos || 0;
@@ -6229,7 +6274,18 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                               <span
                                 className="agenda-card-note"
                                 title={notaRaw || ''}
-                                style={{ fontSize: 15, fontWeight: 800, color: notaRaw ? 'var(--color-text-danger)' : '#94a3b8', maxWidth: 300, whiteSpace: 'normal', lineHeight: 1.5 }}
+                                style={{
+                                  fontSize: 15,
+                                  fontWeight: 800,
+                                  color: notaRaw ? 'var(--color-text-danger)' : '#94a3b8',
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: 'vertical',
+                                  overflow: 'hidden',
+                                  maxWidth: 220,
+                                  lineHeight: 1.5,
+                                  wordBreak: 'break-word'
+                                }}
                               >
                                 {notaRaw || '—'}
                               </span>
