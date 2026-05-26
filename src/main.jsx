@@ -5847,95 +5847,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 </div>
               ) : (
                 <>
-                  {(() => {
-                    if (agendaListTab === 'hoy') {
-                      return (
-                        <div className="agenda-metrics-grid" style={{
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(2, 1fr)',
-                          gap: 10,
-                          marginBottom: 16
-                        }}>
-                          {[
-                            { label: 'Rellamar hoy', value: agendaCounts.rellamarHoy, color: '#4A90D9', bg: '#F0F7FF' },
-                            { label: 'Seguimiento hoy', value: agendaCounts.seguimientoHoy, color: '#9B59B6', bg: '#F8F0FF' }
-                          ].map(({ label, value, color, bg }) => (
-                            <div key={label} style={{
-                              background: bg,
-                              borderRadius: 10,
-                              padding: '12px 16px',
-                              border: '0.5px solid var(--color-border-tertiary)'
-                            }}>
-                              <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 4 }}>{label}</div>
-                              <div style={{ fontSize: 22, fontWeight: 500, color }}>{value}</div>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    }
-
-                    if (agendaListTab === 'vencidas') {
-                      const vencidasRows = (Array.isArray(seguimientos) ? seguimientos : []).filter((r) => isRowVencida(r));
-                      const days = vencidasRows.map((r) => daysVencida(r)).filter((n) => Number.isFinite(n));
-                      const oldest = days.length ? Math.max(...days) : 0;
-                      const avg = days.length ? Math.round(days.reduce((acc, n) => acc + n, 0) / days.length) : 0;
-                      return (
-                        <div className="agenda-metrics-grid" style={{
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(3, 1fr)',
-                          gap: 10,
-                          marginBottom: 16
-                        }}>
-                          {[
-                            { label: 'Total vencidas', value: vencidasRows.length, color: '#b45309', bg: 'rgba(245,158,11,0.12)' },
-                            { label: 'Más antigua', value: oldest ? `${oldest} días` : '—', color: '#b45309', bg: 'rgba(245,158,11,0.12)' },
-                            { label: 'Promedio', value: avg ? `${avg} días` : '—', color: '#b45309', bg: 'rgba(245,158,11,0.12)' }
-                          ].map(({ label, value, color, bg }) => (
-                            <div key={label} style={{
-                              background: bg,
-                              borderRadius: 10,
-                              padding: '12px 16px',
-                              border: '0.5px solid var(--color-border-tertiary)'
-                            }}>
-                              <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 4 }}>{label}</div>
-                              <div style={{ fontSize: 22, fontWeight: 500, color }}>{value}</div>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    }
-
-                    const totalSeguimientos = agendaCounts.totalSeguimiento;
-                    const totalRellamar = agendaCounts.totalRellamar;
-                    const totalPendientes = (Array.isArray(seguimientos) ? seguimientos : []).length;
-                    const totalVencidas = agendaCounts.vencidas;
-                    return (
-                      <div className="agenda-metrics-grid" style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(4, 1fr)',
-                        gap: 10,
-                        marginBottom: 16
-                      }}>
-                        {[
-                          { label: 'Seguimientos', value: totalSeguimientos, color: '#9B59B6', bg: '#F8F0FF' },
-                          { label: 'Rellamar', value: totalRellamar, color: '#4A90D9', bg: '#F0F7FF' },
-                          { label: 'Pendientes', value: totalPendientes, color: '#475569', bg: 'var(--color-background-secondary)' },
-                          { label: 'Vencidas', value: totalVencidas, color: '#E53E3E', bg: '#FFF3F3' }
-                        ].map(({ label, value, color, bg }) => (
-                          <div key={label} style={{
-                            background: bg,
-                            borderRadius: 10,
-                            padding: '12px 16px',
-                            border: '0.5px solid var(--color-border-tertiary)'
-                          }}>
-                            <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 4 }}>{label}</div>
-                            <div style={{ fontSize: 22, fontWeight: 500, color }}>{value}</div>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
-
                   <div className="table-wrap" style={{ overflowX: 'auto', scrollbarGutter: 'stable' }}>
                     <style>{`
 .agenda-chrome-bar { background: #dfe1e5; display: flex; align-items: flex-end; padding: 8px 8px 0; }
@@ -5943,9 +5854,15 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 .agenda-tab::before, .agenda-tab::after { content: ''; position: absolute; bottom: 0; width: 16px; height: 16px; background: inherit; z-index: -1; }
 .agenda-tab::before { left: -8px; border-radius: 0 0 10px 0; }
 .agenda-tab::after { right: -8px; border-radius: 0 0 0 10px; }
-.agenda-tab.active { background: #ffffff; color: #1f2937; z-index: 3; }
+.agenda-tab.active { background: #ffffff; color: #1f2937; z-index: 3; border-bottom: 2px solid #ffffff; }
 .agenda-tab .tab-favicon { width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; font-weight: 700; color: #fff; flex-shrink: 0; }
 .agenda-tab .tab-badge { font-size: 11px; padding: 1px 7px; border-radius: 10px; font-weight: 700; background: #fecaca; color: #991b1b; }
+.agenda-table { table-layout: fixed; width: 100%; }
+.agenda-cards { display: none; }
+@media (max-width: 600px) {
+  .agenda-table { display: none; }
+  .agenda-cards { display: grid; grid-template-columns: 1fr; gap: 10px; }
+}
                     `}</style>
 
                     <div className="agenda-chrome-bar">
@@ -6019,17 +5936,105 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         </div>
                       )}
                     </div>
+                    {(() => {
+                      if (agendaListTab === 'hoy') {
+                        return (
+                          <div className="agenda-metrics-grid" style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(2, 1fr)',
+                            gap: 10,
+                            margin: '8px 8px 12px 8px'
+                          }}>
+                            {[
+                              { label: 'Rellamar hoy', value: agendaCounts.rellamarHoy, color: '#4A90D9', bg: '#F0F7FF' },
+                              { label: 'Seguimiento hoy', value: agendaCounts.seguimientoHoy, color: '#9B59B6', bg: '#F8F0FF' }
+                            ].map(({ label, value, color, bg }) => (
+                              <div key={label} style={{
+                                background: bg,
+                                borderRadius: 10,
+                                padding: '12px 16px',
+                                border: '0.5px solid var(--color-border-tertiary)'
+                              }}>
+                                <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 4 }}>{label}</div>
+                                <div style={{ fontSize: 22, fontWeight: 500, color }}>{value}</div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      }
+
+                      if (agendaListTab === 'vencidas') {
+                        const vencidasRows = (Array.isArray(seguimientos) ? seguimientos : []).filter((r) => isRowVencida(r));
+                        const days = vencidasRows.map((r) => daysVencida(r)).filter((n) => Number.isFinite(n));
+                        const oldest = days.length ? Math.max(...days) : 0;
+                        const avg = days.length ? Math.round(days.reduce((acc, n) => acc + n, 0) / days.length) : 0;
+                        return (
+                          <div className="agenda-metrics-grid" style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(3, 1fr)',
+                            gap: 10,
+                            margin: '8px 8px 12px 8px'
+                          }}>
+                            {[
+                              { label: 'Total vencidas', value: vencidasRows.length, color: '#b45309', bg: 'rgba(245,158,11,0.12)' },
+                              { label: 'Más antigua', value: oldest ? `${oldest} días` : '—', color: '#b45309', bg: 'rgba(245,158,11,0.12)' },
+                              { label: 'Promedio', value: avg ? `${avg} días` : '—', color: '#b45309', bg: 'rgba(245,158,11,0.12)' }
+                            ].map(({ label, value, color, bg }) => (
+                              <div key={label} style={{
+                                background: bg,
+                                borderRadius: 10,
+                                padding: '12px 16px',
+                                border: '0.5px solid var(--color-border-tertiary)'
+                              }}>
+                                <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 4 }}>{label}</div>
+                                <div style={{ fontSize: 22, fontWeight: 500, color }}>{value}</div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      }
+
+                      const totalSeguimientos = agendaCounts.totalSeguimiento;
+                      const totalRellamar = agendaCounts.totalRellamar;
+                      const totalPendientes = (Array.isArray(seguimientos) ? seguimientos : []).length;
+                      const totalVencidas = agendaCounts.vencidas;
+                      return (
+                        <div className="agenda-metrics-grid" style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(4, 1fr)',
+                          gap: 10,
+                          margin: '8px 8px 12px 8px'
+                        }}>
+                          {[
+                            { label: 'Seguimientos', value: totalSeguimientos, color: '#9B59B6', bg: '#F8F0FF' },
+                            { label: 'Rellamar', value: totalRellamar, color: '#4A90D9', bg: '#F0F7FF' },
+                            { label: 'Pendientes', value: totalPendientes, color: '#475569', bg: 'var(--color-background-secondary)' },
+                            { label: 'Vencidas', value: totalVencidas, color: '#E53E3E', bg: '#FFF3F3' }
+                          ].map(({ label, value, color, bg }) => (
+                            <div key={label} style={{
+                              background: bg,
+                              borderRadius: 10,
+                              padding: '12px 16px',
+                              border: '0.5px solid var(--color-border-tertiary)'
+                            }}>
+                              <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 4 }}>{label}</div>
+                              <div style={{ fontSize: 22, fontWeight: 500, color }}>{value}</div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
                     <table className="agenda-table">
                       <thead>
                         <tr>
-                          <th>Fecha</th>
-                          <th>Hora</th>
-                          {agendaListTab === 'vencidas' ? <th>Días vencida</th> : null}
-                          <th>Tipo</th>
+                          <th style={{ width: 90 }}>Fecha</th>
+                          <th style={{ width: 90 }}>Hora</th>
+                          {agendaListTab === 'vencidas' ? <th style={{ width: 60 }}>Días</th> : null}
+                          <th style={{ width: 110 }}>Tipo</th>
                           <th>Contacto</th>
-                          {(agendaListTab === 'vencidas' || agendaListTab === 'todas') ? <th>Situación</th> : null}
-                          <th>Intentos</th>
-                          <th className="col-nota">Nota</th>
+                          {(agendaListTab === 'vencidas' || agendaListTab === 'todas') ? <th style={{ width: 100 }}>Situación</th> : null}
+                          <th style={{ width: 90 }}>Intentos</th>
+                          <th className="col-nota" style={{ width: 200 }}>Nota</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -6037,7 +6042,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           const fechaDt = row.fecha_agenda ? new Date(row.fecha_agenda) : null;
                           const vencida = isRowVencida(row);
                           const diasVencida = agendaListTab === 'vencidas' ? daysVencida(row) : 0;
-                          const latestGestionAt = row?.ultima_fecha_gestion ? new Date(row.ultima_fecha_gestion) : null;
+                          const latestGestionAt = row?.ultima_fecha_gestion
+                            ? new Date(row.ultima_fecha_gestion)
+                            : (row?.fecha_agenda ? new Date(row.fecha_agenda) : null);
                           const intentos = row.intentos || 0;
                           const intentosLabel = intentos === 1 ? '1 intento' : `${intentos} intentos`;
                           const intentosMeta = intentos >= 3
@@ -6117,7 +6124,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                 <span
                                   className="agenda-note"
                                   title={notaText || ''}
-                                  style={{ display: 'block', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                  style={{ display: 'block', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                                 >
                                   {notaText || '—'}
                                 </span>
@@ -6130,10 +6137,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
                     <div className="agenda-cards">
                       {agendaVisibleRows.map((row) => {
-                        const fechaDt = row.fecha_agenda ? new Date(row.fecha_agenda) : null;
                         const vencida = isRowVencida(row);
                         const diasVencida = agendaListTab === 'vencidas' ? daysVencida(row) : 0;
-                        const latestGestionAt = row?.ultima_fecha_gestion ? new Date(row.ultima_fecha_gestion) : null;
                         const intentos = row.intentos || 0;
                         const intentosLabel = intentos === 1 ? '1 intento' : `${intentos} intentos`;
                         const intentosMeta = intentos >= 3
@@ -6174,14 +6179,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                 {tipoLabel}
                               </span>
                             </div>
-                            <div className="agenda-card-row">
-                              <div style={{ color: '#0f172a', fontWeight: 700 }}>
-                                {fmtGestionFecha(latestGestionAt)}
-                              </div>
-                              <div style={{ color: '#0f172a', fontWeight: 700 }}>
-                                {fmtGestionHora(latestGestionAt)}
-                              </div>
-                            </div>
                             {(agendaListTab === 'vencidas' || agendaListTab === 'todas') && vencida ? (
                               <div className="agenda-card-row" style={{ justifyContent: 'flex-start' }}>
                                 <span style={{
@@ -6208,7 +6205,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                               <span
                                 className="agenda-card-note"
                                 title={notaRaw || ''}
-                                style={{ fontSize: 15, fontWeight: 800, color: notaRaw ? 'var(--color-text-danger)' : '#94a3b8', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                style={{ fontSize: 15, fontWeight: 800, color: notaRaw ? 'var(--color-text-danger)' : '#94a3b8', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                               >
                                 {notaRaw || '—'}
                               </span>
