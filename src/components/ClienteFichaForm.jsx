@@ -216,8 +216,8 @@ const buildDraftFromClient = (client) => {
     apellido: client.apellido || fallbackParts.apellido || '',
     documento: client.documento || '',
     fecha_nacimiento: toDateInput(client.fecha_nacimiento || client.fechaNacimiento || ''),
-    telefono: client.telefono || client.phone || '',
-    celular: client.celular || client.cellphone || client.telefono_celular || client.telefonoCelular || '',
+    telefono: client.telefono || client.phone || client.contact?.telefono || '',
+    celular: client.celular || client.cellphone || client.telefono_celular || client.telefonoCelular || client.contact?.celular || '',
     email: client.email || '',
     direccion: client.direccion || '',
     departamento: client.departamento || '',
@@ -318,8 +318,23 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
 
   if (!open || !client) return null;
 
-  const telefono = pickField(client.phone, client.telefono, client.telefono_principal);
-  const celular = pickField(client.celular, client.cellphone, client.telefonoCelular, client.telefono_celular, client.celularNumero);
+  const telefono = pickField(
+    client.telefono,
+    client.phone,
+    client.telefono_principal,
+    client.contact?.telefono,
+    client.contact?.phone
+  );
+
+  const celular = pickField(
+    client.celular,
+    client.cellphone,
+    client.telefonoCelular,
+    client.telefono_celular,
+    client.celularNumero,
+    client.contact?.celular,
+    client.contact?.cellphone
+  );
   const fechaNacimiento = pickField(client.fechaNacimiento, client.fecha_nacimiento);
   const direccion = pickField(client.direccion, client.address);
   const departamento = pickField(client.departamento, client.state);
