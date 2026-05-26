@@ -5847,9 +5847,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 </div>
               ) : (
                 <>
-                  <div className="table-wrap" style={{ overflowX: 'auto', scrollbarGutter: 'stable' }}>
+                  <div className="table-wrap" style={{ overflowX: 'auto', scrollbarGutter: 'stable', borderRadius: 0, background: 'transparent' }}>
                     <style>{`
 .agenda-chrome-bar { background: #dfe1e5; display: flex; align-items: flex-end; padding: 8px 8px 0; }
+.agenda-chrome-bar { border-bottom: 1px solid rgba(15,23,42,0.10); border-radius: 0; }
 .agenda-tab { position: relative; background: #e8eaed; border-radius: 10px 10px 0 0; margin-right: -8px; padding: 10px 16px; font-size: 13px; font-weight: 500; color: #5f6368; cursor: pointer; z-index: 1; display: flex; align-items: center; gap: 8px; min-width: 140px; }
 .agenda-tab::before, .agenda-tab::after { content: ''; position: absolute; bottom: 0; width: 16px; height: 16px; background: inherit; z-index: -1; }
 .agenda-tab::before { left: -8px; border-radius: 0 0 10px 0; }
@@ -5857,7 +5858,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 .agenda-tab.active { background: #ffffff; color: #1f2937; z-index: 3; border-bottom: 2px solid #ffffff; }
 .agenda-tab .tab-favicon { width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; font-weight: 700; color: #fff; flex-shrink: 0; }
 .agenda-tab .tab-badge { font-size: 11px; padding: 1px 7px; border-radius: 10px; font-weight: 700; background: #fecaca; color: #991b1b; }
-.agenda-table { table-layout: fixed; width: 100%; }
+.agenda-table { table-layout: auto; width: 100%; }
 .agenda-cards { display: none; }
 @media (max-width: 600px) {
   .agenda-table { display: none; }
@@ -6027,14 +6028,14 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     <table className="agenda-table">
                       <thead>
                         <tr>
-                          <th style={{ width: 90 }}>Fecha</th>
-                          <th style={{ width: 90 }}>Hora</th>
-                          {agendaListTab === 'vencidas' ? <th style={{ width: 60 }}>Días</th> : null}
-                          <th style={{ width: 110 }}>Tipo</th>
+                          <th>Fecha</th>
+                          <th>Hora</th>
+                          {agendaListTab === 'vencidas' ? <th>Días</th> : null}
+                          <th>Tipo</th>
                           <th>Contacto</th>
-                          {(agendaListTab === 'vencidas' || agendaListTab === 'todas') ? <th style={{ width: 100 }}>Situación</th> : null}
-                          <th style={{ width: 90 }}>Intentos</th>
-                          <th className="col-nota" style={{ width: 200 }}>Nota</th>
+                          {(agendaListTab === 'vencidas' || agendaListTab === 'todas') ? <th>Situación</th> : null}
+                          <th>Intentos</th>
+                          <th className="col-nota">Nota</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -6093,7 +6094,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                   {tipoLabel}
                                 </span>
                               </td>
-                              <td><strong>{[row.nombre, row.apellido].filter(Boolean).join(' ') || '—'}</strong></td>
+                              <td style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                <strong>{[row.nombre, row.apellido].filter(Boolean).join(' ') || '—'}</strong>
+                              </td>
                               {(agendaListTab === 'vencidas' || agendaListTab === 'todas') ? (
                                 <td>
                                   {vencida ? (
