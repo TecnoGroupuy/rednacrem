@@ -776,9 +776,12 @@ export default function CampanasRedesModule() {
                       return (
                         <tr key={lead.id || idx} style={{ borderTop: '0.5px solid var(--color-border-tertiary, rgba(15,23,42,0.10))' }}>
                           <td style={{ padding: '10px 12px', color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' }}>
-                            {lead.fecha_lead
-                              ? new Date(lead.fecha_lead).toLocaleDateString('es-UY', { timeZone: 'America/Montevideo', day: '2-digit', month: '2-digit', year: 'numeric' })
-                              : '—'}
+                            {(() => {
+                              const fSolicitud = lead.fecha_lead || lead.created_at || null;
+                              return fSolicitud
+                                ? new Date(fSolicitud).toLocaleDateString('es-UY', { timeZone: 'America/Montevideo', day: '2-digit', month: '2-digit', year: 'numeric' })
+                                : '—';
+                            })()}
                           </td>
                           <td style={{ padding: '10px 12px', fontWeight: 800, maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {lead.nombre || '—'} {lead.apellido || ''}
