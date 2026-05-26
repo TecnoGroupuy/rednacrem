@@ -7163,9 +7163,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       <th>Teléfono</th>
                       <th>Vendedor</th>
                       <th>Codificación original</th>
-                      <th>Estado auditoría</th>
-                      <th>Codificación corregida</th>
-                      <th>Supervisor</th>
+                      {auditEstadoTab === 'corregidas' ? <th>Estado</th> : null}
+                      {auditEstadoTab === 'corregidas' ? <th>Codificación corregida</th> : null}
+                      {auditEstadoTab === 'corregidas' ? <th>Supervisor</th> : null}
                       {auditEstadoTab !== 'corregidas' ? <th>Acción</th> : null}
                     </tr>
                   </thead>
@@ -7191,15 +7191,21 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           <td title={originalValue}>
                             <Tag variant={resultadoVariant(originalValueRaw)}>{originalValue}</Tag>
                           </td>
-                          <td>
-                            <Tag variant={badge.variant}>{badge.label}</Tag>
-                          </td>
-                          <td title={correctedValue}>
-                            {correctedValue === '—' ? '—' : <Tag variant={resultadoVariant(correctedValueRaw)}>{correctedValue}</Tag>}
-                          </td>
-                          <td title={supervisorValue}>
-                            <div style={cellEllipsisStyle}>{supervisorValue}</div>
-                          </td>
+                          {auditEstadoTab === 'corregidas' ? (
+                            <td>
+                              <Tag variant={badge.variant}>{badge.label}</Tag>
+                            </td>
+                          ) : null}
+                          {auditEstadoTab === 'corregidas' ? (
+                            <td title={correctedValue}>
+                              {correctedValue === '—' ? '—' : <Tag variant={resultadoVariant(correctedValueRaw)}>{correctedValue}</Tag>}
+                            </td>
+                          ) : null}
+                          {auditEstadoTab === 'corregidas' ? (
+                            <td title={supervisorValue}>
+                              <div style={cellEllipsisStyle}>{supervisorValue}</div>
+                            </td>
+                          ) : null}
                           {auditEstadoTab !== 'corregidas' ? (
                             <td>
                               <div style={{ display: 'flex', gap: 6 }}>
