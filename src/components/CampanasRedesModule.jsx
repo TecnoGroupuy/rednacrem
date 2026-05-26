@@ -749,7 +749,7 @@ export default function CampanasRedesModule() {
                   ) : (
                     [...leads].sort((a, b) => {
                       const getSortTime = (row) => {
-                        const value = row?.fecha_lead || row?.created_at || 0;
+                        const value = row?.created_at || 0;
                         const parsed = new Date(value);
                         const time = parsed.getTime();
                         return Number.isNaN(time) ? 0 : time;
