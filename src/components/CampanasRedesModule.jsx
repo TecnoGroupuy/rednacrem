@@ -217,6 +217,8 @@ export default function CampanasRedesModule() {
       const telefonoValue = String(telefono || '').trim();
       if (telefonoValue) params.set('telefono', telefonoValue);
       if (periodo) params.set('periodo', String(periodo));
+      params.set('sort', 'fecha_lead');
+      params.set('dir', 'desc');
       params.set('page', String(page));
       params.set('limit', String(LEADS_LIMIT));
       const res = await api.get(`/campanas/leads?${params.toString()}`);
@@ -751,15 +753,7 @@ export default function CampanasRedesModule() {
                       <td colSpan={11} style={{ padding: 16, color: 'var(--color-text-secondary, #64748b)' }}>Sin leads</td>
                     </tr>
                   ) : (
-                    [...leads].sort((a, b) => {
-                      const getSortTime = (row) => {
-                        const value = row?.created_at || 0;
-                        const parsed = new Date(value);
-                        const time = parsed.getTime();
-                        return Number.isNaN(time) ? 0 : time;
-                      };
-                      return getSortTime(b) - getSortTime(a);
-                    }).map((lead, idx) => {
+                    leads.map((lead, idx) => {
                       const estado = String(lead.estado || '').toLowerCase();
                       const gestion = String(lead.estado_venta || '').toLowerCase();
                       const estadoColor = estado.includes('convert')
