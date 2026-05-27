@@ -817,7 +817,9 @@ export default function CampanasRedesModule() {
                               ? <span style={{ background: 'rgba(133,79,11,0.12)', color: '#854F0B', borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 900 }}>Duplicado</span>
                               : lead.motivo_bloqueo === 'cliente_existente'
                                 ? <span style={{ background: 'rgba(163,45,45,0.12)', color: '#A32D2D', borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 900 }}>Cliente</span>
-                                : <span style={{ color: 'var(--color-text-tertiary, #94a3b8)' }}>—</span>}
+                                : lead.motivo_bloqueo === 'reemplazado'
+                                  ? <span style={{ background: 'rgba(15,23,42,0.06)', color: 'var(--color-text-secondary, #64748b)', borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 900 }}>{lead.motivo_bloqueo_detalle || 'Reemplazado'}</span>
+                                  : <span style={{ color: 'var(--color-text-tertiary, #94a3b8)' }}>—</span>}
                           </td>
                           <td style={{ padding: '10px 12px' }}>
                             <span style={{
