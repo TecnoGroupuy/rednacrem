@@ -40,6 +40,7 @@ function normalizeOrigenesResponse(res) {
 }
 
 const PERIODOS = [
+  { value: '', label: 'Todos' },
   { value: 'mes', label: 'Este mes' },
   { value: 'semana', label: 'Últimos 7 días' },
   { value: 'dia', label: 'Hoy' }
@@ -97,8 +98,8 @@ function MetricCard({ label, value, valueColor, subtitle }) {
 }
 
 export default function CampanasRedesModule() {
-  const [periodo, setPeriodo] = React.useState('mes');
-  const [origen, setOrigen] = React.useState('Facebook');
+  const [periodo, setPeriodo] = React.useState('');
+  const [origen, setOrigen] = React.useState('todos');
   const [origenes, setOrigenes] = React.useState(() => {
     const fallback = ['Facebook', 'Instagram', 'Referido'];
     return [
@@ -160,6 +161,7 @@ export default function CampanasRedesModule() {
       setOrigenes(nextOptions);
       setOrigen((prev) => {
         const prevLower = String(prev || '').toLowerCase();
+        if (prevLower === 'todos') return 'todos';
         const normalizedOptions = nextOptions.map((o) => ({ value: o.value, lower: String(o.value || '').toLowerCase() }));
         const hasPrev = normalizedOptions.some((o) => o.lower === prevLower);
         if (hasPrev) return normalizedOptions.find((o) => o.lower === prevLower)?.value || prev;
@@ -214,7 +216,7 @@ export default function CampanasRedesModule() {
       if (originValue && originValue.toLowerCase() !== 'todos') params.set('origen_dato', originValue.toLowerCase());
       const telefonoValue = String(telefono || '').trim();
       if (telefonoValue) params.set('telefono', telefonoValue);
-      params.set('periodo', String(periodo || ''));
+      if (periodo) params.set('periodo', String(periodo));
       params.set('page', String(page));
       params.set('limit', String(LEADS_LIMIT));
       const res = await api.get(`/campanas/leads?${params.toString()}`);
@@ -230,11 +232,13 @@ export default function CampanasRedesModule() {
 
   React.useEffect(() => { loadLeads(1); }, [loadLeads]);
 
-  const periodoLabel = periodo === 'dia'
-    ? 'Hoy'
-    : periodo === 'semana'
-      ? 'Últimos 7 días'
-      : 'Este mes';
+  const periodoLabel = !periodo
+    ? 'Todos'
+    : periodo === 'dia'
+      ? 'Hoy'
+      : periodo === 'semana'
+        ? 'Últimos 7 días'
+        : 'Este mes';
 
   return (
     <div className="view">
@@ -253,7 +257,7 @@ export default function CampanasRedesModule() {
                 {PERIODOS.map((p) => (
                   <button
                     key={p.value}
-                    onClick={() => setPeriodo(p.value)}
+                    onClick={() => setPeriodo((prev) => (prev === p.value ? '' : p.value))}
                     style={{
                       padding: '8px 12px',
                       borderRadius: 12,
@@ -749,7 +753,7 @@ export default function CampanasRedesModule() {
                   ) : (
                     [...leads].sort((a, b) => {
                       const getSortTime = (row) => {
-                        const value = row?.fecha_lead || row?.created_at || 0;
+                        const value = row?.created_at || 0;
                         const parsed = new Date(value);
                         const time = parsed.getTime();
                         return Number.isNaN(time) ? 0 : time;
