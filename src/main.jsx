@@ -398,6 +398,30 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const found = (Array.isArray(opciones) ? opciones : []).find((o) => String(o?.valor) === key);
       return found ? found.label : valor;
     }
+
+    function validarTelefonoUY(numero) {
+      if (!numero || numero.trim() === '') return { ok: true };
+      const limpio = numero.replace(/\D/g, '');
+
+      if (/^(\d)\1+$/.test(limpio)) {
+        return { ok: false, msg: 'Número inválido (dígitos repetidos)' };
+      }
+
+      const sec = '01234567890';
+      const secR = '09876543210';
+      if (sec.includes(limpio) || secR.includes(limpio)) {
+        return { ok: false, msg: 'Número inválido (secuencia numérica)' };
+      }
+
+      const fijo = /^[2-4]\d{7}$/.test(limpio);
+      const celular = /^09[1-9]\d{6}$/.test(limpio);
+
+      if (!fijo && !celular) {
+        return { ok: false, msg: 'Número uruguayo válido requerido (fijo: 2xxxxxxx · celular: 09xxxxxxx)' };
+      }
+
+      return { ok: true };
+    }
     const pickCellular = (contact) => (contact?.celular || contact?.cellphone || contact?.telefono_celular || contact?.telefonoCelular || '');
     const pickDireccion = (contact) => (
       contact?.direccion
@@ -12744,31 +12768,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
     function NuevoClienteVendedor({ draft = null, onClose, onSuccess, productsCatalog = [], gestion_id = null, mode = 'nuevo_cliente' }) {
       const { user: authUser } = useAuth();
       const api = getApiClient();
-
-      function validarTelefonoUY(numero) {
-        if (!numero || numero.trim() === '') return { ok: true };
-        const limpio = numero.replace(/\D/g, '');
-
-        if (/^(\d)\1+$/.test(limpio)) {
-          return { ok: false, msg: 'Número inválido (no puede ser dígitos repetidos)' };
-        }
-
-        const sec = '01234567890';
-        const secRev = '09876543210';
-        if (sec.includes(limpio) || secRev.includes(limpio)) {
-          return { ok: false, msg: 'Número inválido (no puede ser secuencial)' };
-        }
-
-        const fijo = /^[2-4]\d{7}$/.test(limpio);
-        const celular = /^09[1-9]\d{6}$/.test(limpio);
-
-        if (!fijo && !celular) {
-          return { ok: false, msg: 'Debe ser un número uruguayo válido (fijo: 2xxxxxxx · celular: 09xxxxxxx)' };
-        }
-
-        return { ok: true };
-      }
-
       const [newClientError, setNewClientError] = React.useState('');
       const [newClientSaving, setNewClientSaving] = React.useState(false);
       const [newClientStep, setNewClientStep] = React.useState(0);

@@ -117,6 +117,30 @@ const pickField = (...values) => {
   return '';
 };
 
+function validarTelefonoUY(numero) {
+  if (!numero || numero.trim() === '') return { ok: true };
+  const limpio = numero.replace(/\D/g, '');
+
+  if (/^(\d)\1+$/.test(limpio)) {
+    return { ok: false, msg: 'Número inválido (dígitos repetidos)' };
+  }
+
+  const sec = '01234567890';
+  const secR = '09876543210';
+  if (sec.includes(limpio) || secR.includes(limpio)) {
+    return { ok: false, msg: 'Número inválido (secuencia numérica)' };
+  }
+
+  const fijo = /^[2-4]\d{7}$/.test(limpio);
+  const celular = /^09[1-9]\d{6}$/.test(limpio);
+
+  if (!fijo && !celular) {
+    return { ok: false, msg: 'Número uruguayo válido requerido (fijo: 2xxxxxxx · celular: 09xxxxxxx)' };
+  }
+
+  return { ok: true };
+}
+
 const ensureNumber = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
 const computeMonthsSince = (value) => {
   if (!value) return 0;
@@ -231,6 +255,8 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
   const [editDraft, setEditDraft] = React.useState(buildDraftFromClient(client || {}));
   const [editError, setEditError] = React.useState('');
   const [saving, setSaving] = React.useState(false);
+  const [telefonoError, setTelefonoError] = React.useState('');
+  const [celularError, setCelularError] = React.useState('');
   const [downloadNotice, setDownloadNotice] = React.useState('');
   const [downloading, setDownloading] = React.useState(false);
   const [familyOpen, setFamilyOpen] = React.useState(true);
@@ -258,6 +284,8 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
     if (!open || !client) return;
     setIsEditing(false);
     setEditError('');
+    setTelefonoError('');
+    setCelularError('');
     setDownloadNotice('');
     setEditDraft(buildDraftFromClient(client));
     setFamilyOpen(true);
@@ -529,6 +557,8 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
   const handleCancelEdit = () => {
     setIsEditing(false);
     setEditError('');
+    setTelefonoError('');
+    setCelularError('');
     setEditDraft(buildDraftFromClient(client));
   };
 
@@ -541,6 +571,11 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
 
   const handleSaveEdit = async () => {
     if (!client?.id || saving) return;
+    const telVal = validarTelefonoUY(editDraft.telefono);
+    const celVal = validarTelefonoUY(editDraft.celular);
+    setTelefonoError(telVal.ok ? '' : telVal.msg);
+    setCelularError(celVal.ok ? '' : celVal.msg);
+    if (!telVal.ok || !celVal.ok) return;
     setSaving(true);
     setEditError('');
     try {
@@ -721,7 +756,22 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
             <div>
               <div style={labelStyle}>Telefono</div>
               {isEditing ? (
-                <input value={editDraft.telefono} onChange={(event) => handleDraftChange('telefono', event.target.value)} style={inputStyle} />
+                <>
+                  <input
+                    value={editDraft.telefono}
+                    onChange={(event) => handleDraftChange('telefono', event.target.value)}
+                    onBlur={(event) => {
+                      const v = validarTelefonoUY(event.target.value);
+                      setTelefonoError(v.ok ? '' : v.msg);
+                    }}
+                    style={inputStyle}
+                  />
+                  {telefonoError ? (
+                    <span style={{ fontSize: 12, color: '#dc2626', marginTop: 4, display: 'block' }}>
+                      ⚠ {telefonoError}
+                    </span>
+                  ) : null}
+                </>
               ) : (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={telefono ? valueStyle : valueEmpty}>{formatField(telefono)}</span>
@@ -736,7 +786,22 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
             <div>
               <div style={labelStyle}>Celular</div>
               {isEditing ? (
-                <input value={editDraft.celular} onChange={(event) => handleDraftChange('celular', event.target.value)} style={inputStyle} />
+                <>
+                  <input
+                    value={editDraft.celular}
+                    onChange={(event) => handleDraftChange('celular', event.target.value)}
+                    onBlur={(event) => {
+                      const v = validarTelefonoUY(event.target.value);
+                      setCelularError(v.ok ? '' : v.msg);
+                    }}
+                    style={inputStyle}
+                  />
+                  {celularError ? (
+                    <span style={{ fontSize: 12, color: '#dc2626', marginTop: 4, display: 'block' }}>
+                      ⚠ {celularError}
+                    </span>
+                  ) : null}
+                </>
               ) : (
                 <div style={celular ? valueStyle : valueEmpty}>{formatField(celular)}</div>
               )}
