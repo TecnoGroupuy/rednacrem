@@ -1,4 +1,4 @@
-/**
+ï»¿/**
  * ContactDetailModal
  * @prop {object} contact - Datos del contacto
  * @prop {function} onClose - Callback para cerrar el modal
@@ -52,7 +52,7 @@ const resolveGestionMeta = (contact) => {
     '';
   const normalized = String(rawStatus || '').toLowerCase();
   if (normalized.includes('venta') || normalized.includes('exito') || normalized.includes('cerrada')) {
-    return { label: 'Éxito', color: '#15803d' };
+    return { label: 'Ã‰xito', color: '#15803d' };
   }
   if (normalized.includes('no_contesta') || normalized.includes('no_contact') || normalized.includes('rech')) {
     return { label: 'No contactado', color: '#be123c' };
@@ -114,7 +114,7 @@ export default function ContactDetailModal({ contact, onClose }) {
                 Detalle del contacto
               </h2>
               <p style={{ fontFamily: 'IBM Plex Sans, sans-serif', fontSize: 12, color: 'var(--muted)', margin: '4px 0 0' }}>
-                Datos completos y última gestión registrada.
+                Datos completos y Ãºltima gestiÃ³n registrada.
               </p>
             </div>
             <button
@@ -166,10 +166,17 @@ export default function ContactDetailModal({ contact, onClose }) {
           <div style={sectionTitleStyle}>Contacto</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 24px' }}>
             {[
-              { label: 'Teléfono', value: contact.telefono },
-              { label: 'Celular', value: contact.celular },
-              { label: 'Correo electrónico', value: contact.correo_electronico, span: 2 },
-              { label: 'Origen del dato', value: contact.origen_dato, span: 2 },
+              { label: 'TelÃ©fono', value: contact.telefono || contact.celular },
+              { label: 'Celular', value: contact.celular || contact.telefono },
+              { label: 'Correo electrÃ³nico', value: contact.correo_electronico, span: 2 },
+              {
+                label: 'Fecha solicitud',
+                value: (contact.fecha_lead || contact.created_at)
+                  ? new Date(contact.fecha_lead || contact.created_at).toLocaleDateString('es-UY', { timeZone: 'America/Montevideo', day: '2-digit', month: '2-digit', year: 'numeric' })
+                  : null,
+                span: 2
+              },
+              { label: 'Origen', value: contact.origen_dato, span: 2 },
               { label: 'Fuente', value: contact.fuente || contact.origen || 'Import', span: 2 }
             ].map((item, idx, arr) => (
               <div key={item.label} style={{ ...fieldContainer(idx === arr.length - 1), gridColumn: item.span ? 'span 2' : 'auto' }}>
@@ -180,13 +187,13 @@ export default function ContactDetailModal({ contact, onClose }) {
           </div>
 
           <hr style={{ border: 'none', borderTop: '1px solid var(--line)', margin: '14px 0 12px' }} />
-          <div style={sectionTitleStyle}>Ubicación</div>
+          <div style={sectionTitleStyle}>UbicaciÃ³n</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 24px' }}>
             {[
-              { label: 'Dirección', value: contact.direccion, span: 2 },
+              { label: 'DirecciÃ³n', value: contact.direccion, span: 2 },
               { label: 'Departamento', value: contact.departamento },
               { label: 'Localidad', value: contact.localidad },
-              { label: 'País', value: contact.pais }
+              { label: 'PaÃ­s', value: contact.pais }
             ].map((item, idx, arr) => (
               <div key={item.label} style={{ ...fieldContainer(idx === arr.length - 1), gridColumn: item.span ? 'span 2' : 'auto' }}>
                 <div style={labelStyle}>{item.label}</div>
@@ -196,7 +203,7 @@ export default function ContactDetailModal({ contact, onClose }) {
           </div>
 
           <hr style={{ border: 'none', borderTop: '1px solid var(--line)', margin: '14px 0 12px' }} />
-          <div style={sectionTitleStyle}>Última gestión</div>
+          <div style={sectionTitleStyle}>Ãšltima gestiÃ³n</div>
           {!gestionTexto && !contact?.proxima_accion ? (
             <div style={{ textAlign: 'center', padding: '28px 16px', background: 'rgba(20,34,53,0.04)', borderRadius: 16, border: '1px dashed var(--line)' }}>
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
@@ -220,12 +227,12 @@ export default function ContactDetailModal({ contact, onClose }) {
                 </span>
               </div>
               <div style={{ fontFamily: 'Manrope, sans-serif', fontSize: 14, marginTop: 10 }}>
-                {gestionTexto || 'Gestión registrada'}
+                {gestionTexto || 'GestiÃ³n registrada'}
               </div>
               {contact?.proxima_accion ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, color: 'var(--info)' }}>
                   <ArrowRight size={14} />
-                  <span style={{ fontFamily: 'IBM Plex Sans, sans-serif', fontSize: 12 }}>Próxima acción: {contact.proxima_accion}</span>
+                  <span style={{ fontFamily: 'IBM Plex Sans, sans-serif', fontSize: 12 }}>PrÃ³xima acciÃ³n: {contact.proxima_accion}</span>
                 </div>
               ) : null}
             </div>
@@ -241,5 +248,6 @@ export default function ContactDetailModal({ contact, onClose }) {
     </div>
   );
 }
+
 
 
