@@ -3239,7 +3239,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             ayerDate.setDate(ayerDate.getDate() - 1);
             const ayer = ayerDate.toLocaleDateString('en-CA');
 
-            const contactosData = await api.get('/leads/assigned?tipo_excluir=recupero&page=1&limit=200&tab=todos');
+            const contactosData = await api.get('/leads/assigned?tipo_excluir=recupero&excluir_bloqueados=true&page=1&limit=200&tab=todos');
             if (contactosData.success || contactosData.ok) {
               setAssignedData({
                 contactos: contactosData.data.contactos || [],
@@ -3768,24 +3768,24 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
       React.useEffect(() => {
         if (isRecupero) {
-          api.get('/leads/assigned?tipo=recupero&tab=nuevos&page=1&limit=1')
+          api.get('/leads/assigned?tipo=recupero&excluir_bloqueados=true&tab=nuevos&page=1&limit=1')
             .then((r) => setTotalRecuperoNuevos(r?.data?.total ?? null))
             .catch(() => {});
-          api.get('/leads/assigned?tipo=recupero&tab=no_contesta&page=1&limit=1')
+          api.get('/leads/assigned?tipo=recupero&excluir_bloqueados=true&tab=no_contesta&page=1&limit=1')
             .then((r) => setTotalRecuperoNoContesta(r?.data?.total ?? null))
             .catch(() => {});
           return;
         }
-        api.get('/leads/assigned?tipo_excluir=recupero&tab=nuevo&page=1&limit=1')
+        api.get('/leads/assigned?tipo_excluir=recupero&excluir_bloqueados=true&tab=nuevo&page=1&limit=1')
           .then((r) => setTotalNuevos(r?.data?.total ?? null))
           .catch(() => {});
-        api.get('/leads/assigned?tipo_excluir=recupero&tab=no_contesta&page=1&limit=1')
+        api.get('/leads/assigned?tipo_excluir=recupero&excluir_bloqueados=true&tab=no_contesta&page=1&limit=1')
           .then((r) => setTotalNoContesta(r?.data?.total ?? null))
           .catch(() => {});
-        api.get('/leads/assigned?tipo_excluir=recupero&tab=rellamar&page=1&limit=1')
+        api.get('/leads/assigned?tipo_excluir=recupero&excluir_bloqueados=true&tab=rellamar&page=1&limit=1')
           .then((r) => setTotalRellamar(r?.data?.total ?? null))
           .catch(() => {});
-        api.get('/leads/assigned?tipo_excluir=recupero&tab=seguimiento&page=1&limit=1')
+        api.get('/leads/assigned?tipo_excluir=recupero&excluir_bloqueados=true&tab=seguimiento&page=1&limit=1')
           .then((r) => setTotalSeguimiento(r?.data?.total ?? null))
           .catch(() => {});
       }, []); // eslint-disable-line react-hooks/exhaustive-deps
