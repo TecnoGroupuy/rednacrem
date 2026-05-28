@@ -14069,19 +14069,23 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
             const formData = new FormData();
             formData.append('file', importFile);
-            formData.append('import_type', 'actualizar_contactos');
 
-            const res = await fetch(buildApiUrl(`/imports/clients?organization_id=${encodeURIComponent(orgId)}`, getApiBaseUrl()), {
+            const res = await fetch(buildApiUrl(`/imports/clients?organization_id=${encodeURIComponent(orgId)}&import_type=actualizar_contactos`, getApiBaseUrl()), {
               method: 'POST',
               headers: { ...buildAuthHeaders(authUser?.accessToken) },
               body: formData
             });
             const data = await res.json().catch(() => ({}));
+            console.log('[import] validacion response:', data);
             if (!res.ok || data?.ok === false) {
               throw new Error(data?.message || 'No se pudo validar el CSV.');
             }
 
             const batchId = data?.batchId || data?.batch_id || data?.data?.batchId || data?.data?.batch_id || data?.id || data?.data?.id || null;
+            if (!batchId) {
+              setImportsError('La validación no devolvió batchId.');
+              return;
+            }
             const summary = data?.summary || data?.data?.summary || data?.preview?.summary || data?.data?.preview?.summary || null;
             const rowErrors = data?.rowErrors || data?.data?.rowErrors || data?.errors || data?.data?.errors || [];
             const skippedEmptyRows = data?.skippedEmptyRows || data?.data?.skippedEmptyRows || 0;
@@ -14110,12 +14114,14 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           });
         } catch (err) {
           console.error('CSV_VALIDATE_ERROR', err);
+          setImportsError(err?.message || 'No se pudo validar el archivo.');
         } finally {
           setPreviewLoading(false);
         }
       };
 
       const confirmImport = async () => {
+        console.log('[import] confirmar clicked, tipo:', importDraft.importType, 'file:', importFile?.name, 'batchId:', resolvedBatchId);
         if (importSubmitting) return;
         setImportSubmitting(true);
         setImportSuccess('');
