@@ -662,13 +662,23 @@ export default function CampanasRedesModule() {
                             </span>
                           </td>
                           <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
-                            {lead.motivo_bloqueo === 'duplicado'
-                              ? <span style={{ background: 'rgba(133,79,11,0.12)', color: '#854F0B', borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 900 }}>Duplicado</span>
-                              : lead.motivo_bloqueo === 'cliente_existente'
-                                ? <span style={{ background: 'rgba(163,45,45,0.12)', color: '#A32D2D', borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 900 }}>Cliente</span>
-                                : lead.motivo_bloqueo === 'reemplazado'
-                                  ? <span style={{ background: 'rgba(15,23,42,0.06)', color: 'var(--color-text-secondary, #64748b)', borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 900 }}>{lead.motivo_bloqueo_detalle || 'Reemplazado'}</span>
-                                  : <span style={{ color: 'var(--color-text-tertiary, #94a3b8)' }}>—</span>}
+                            {(() => {
+                              const rawMotivo = String(lead.motivo_bloqueo || '').trim();
+                              if (!rawMotivo) return <span style={{ color: 'var(--color-text-tertiary, #94a3b8)' }}>—</span>;
+                              const motivo = rawMotivo.toLowerCase();
+
+                              const dangerStyle = { background: 'rgba(163,45,45,0.12)', color: '#A32D2D', borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 900 };
+                              const warningStyle = { background: 'rgba(133,79,11,0.12)', color: '#854F0B', borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 900 };
+                              const neutralStyle = { background: 'rgba(15,23,42,0.06)', color: 'var(--color-text-secondary, #64748b)', borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 900 };
+
+                              if (motivo === 'cliente_existente') return <span style={dangerStyle}>Cliente</span>;
+                              if (motivo === 'duplicado') return <span style={warningStyle}>Duplicado</span>;
+                              if (motivo === 'reemplazado') return <span style={neutralStyle}>{lead.motivo_bloqueo_detalle || 'Reemplazado'}</span>;
+                              if (motivo === 'no_llamar') return <span style={dangerStyle}>No llamar</span>;
+                              if (motivo === 'rechazo') return <span style={dangerStyle}>Rechazo</span>;
+
+                              return <span style={neutralStyle}>{rawMotivo}</span>;
+                            })()}
                           </td>
                           <td style={{ padding: '10px 12px' }}>
                             <span style={{
