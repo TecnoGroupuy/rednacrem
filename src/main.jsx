@@ -13542,10 +13542,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         const [users, setUsers] = React.useState(SUPERADMIN_USERS_SEED);
         const [pauseModal, setPauseModal] = React.useState(null); // { id, nombre, email }
         const [pauseLoading, setPauseLoading] = React.useState(false);
-        const [showImportFlow, setShowImportFlow] = React.useState(false);
+      const [showImportFlow, setShowImportFlow] = React.useState(false);
       const [importDraft, setImportDraft] = React.useState({ fileName: '', csvText: '', importType: 'clientes' });
       const [importFile, setImportFile] = React.useState(null);
-      const [updateContactsSummary, setUpdateContactsSummary] = React.useState(null);
       const [preview, setPreview] = React.useState(null);
       const [previewLoading, setPreviewLoading] = React.useState(false);
       const [previewBatchId, setPreviewBatchId] = React.useState(null);
@@ -13611,11 +13610,14 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         const skippedRows = Number(row.skipped_rows ?? row.rechazados ?? 0);
         const processedRows = Number(row.processed_rows ?? row.procesados ?? insertedRows ?? 0);
         const progressPercent = row.progress_percent ?? row.progressPercent ?? row.pct_progress ?? null;
+        const rawTypeKey = row.import_type || row.tipo || row.importType || '';
+        const typeKey = String(rawTypeKey || '').trim().toLowerCase();
+        const fallbackTypeLabel = IMPORT_TYPES[typeKey]?.label || (typeKey ? typeKey : '—');
         return {
           id: row.id || row.job_id || row.jobId || row.batchId || row.batch_id || row.nombreArchivo || row.file_name,
           fileName: row.file_name || row.nombreArchivo || row.archivo || '—',
-          importType: row.import_type || row.tipo || row.importType || '',
-          importTypeLabel: row.import_type_label || row.importTypeLabel || row.tipo_label || row.tipo || '—',
+          importType: rawTypeKey,
+          importTypeLabel: row.import_type_label || row.importTypeLabel || row.tipo_label || row.tipo || fallbackTypeLabel,
           createdAt: row.created_at || row.fecha || '',
           totalRows,
           insertedRows,
@@ -14009,7 +14011,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const resetImportFlow = () => {
         setImportDraft((prev) => ({ fileName: '', csvText: '', importType: prev?.importType || 'clientes' }));
         setImportFile(null);
-        setUpdateContactsSummary(null);
         setPreview(null);
         setPreviewLoading(false);
         setPreviewBatchId(null);
@@ -14051,6 +14052,53 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         setPreview(null);
         setPreviewLoading(true);
         try {
+          if (importDraft.importType === 'actualizar_contactos') {
+            if (!canUseUpdateContactsCsv) {
+              setImportsError('No tenés permisos para este tipo de importación.');
+              return;
+            }
+            const orgId = getActiveOrganizationId();
+            if (!orgId) {
+              setImportsError('Seleccioná una organización antes de importar.');
+              return;
+            }
+            if (!importFile) {
+              setImportsError('Seleccioná un archivo CSV.');
+              return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', importFile);
+            formData.append('import_type', 'actualizar_contactos');
+
+            const res = await fetch(buildApiUrl(`/imports/clients?organization_id=${encodeURIComponent(orgId)}`, getApiBaseUrl()), {
+              method: 'POST',
+              headers: { ...buildAuthHeaders(authUser?.accessToken) },
+              body: formData
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || data?.ok === false) {
+              throw new Error(data?.message || 'No se pudo validar el CSV.');
+            }
+
+            const batchId = data?.batchId || data?.batch_id || data?.data?.batchId || data?.data?.batch_id || data?.id || data?.data?.id || null;
+            const summary = data?.summary || data?.data?.summary || data?.preview?.summary || data?.data?.preview?.summary || null;
+            const rowErrors = data?.rowErrors || data?.data?.rowErrors || data?.errors || data?.data?.errors || [];
+            const skippedEmptyRows = data?.skippedEmptyRows || data?.data?.skippedEmptyRows || 0;
+
+            setPreview({
+              usesBackend: true,
+              batchId,
+              batch_id: batchId,
+              summary: summary || { total: 0, importados: 0, rechazados: 0 },
+              rowErrors: Array.isArray(rowErrors) ? rowErrors : [],
+              skippedEmptyRows
+            });
+            setPreviewBatchId(batchId);
+            setCreateProductsOnImport(false);
+            return;
+          }
+
           const result = await previewCsvText(importDraft.csvText, { fileName: importDraft.fileName });
           setPreview(result);
           setPreviewBatchId(result?.batchId || result?.batch_id || null);
@@ -14083,58 +14131,26 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               setImportsError('Seleccioná una organización antes de importar.');
               return;
             }
-            if (!importFile) {
-              setImportsError('Seleccioná un archivo CSV.');
+            const batchIdToProcess = resolvedBatchId;
+            if (!batchIdToProcess) {
+              setImportsError('Primero validá el archivo para generar el batch.');
               return;
             }
-            const formData = new FormData();
-            formData.append('file', importFile);
-            const res = await fetch(buildApiUrl(`/contacts/update-batch?organization_id=${encodeURIComponent(orgId)}`, getApiBaseUrl()), {
+
+            const res = await fetch(buildApiUrl(`/imports/clients/${encodeURIComponent(batchIdToProcess)}/process?organization_id=${encodeURIComponent(orgId)}`, getApiBaseUrl()), {
               method: 'POST',
-              headers: { ...buildAuthHeaders(authUser?.accessToken) },
-              body: formData
+              headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(authUser?.accessToken) },
+              body: JSON.stringify({})
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok || data?.ok === false) {
-              throw new Error(data?.message || 'No se pudo procesar el CSV.');
+              throw new Error(data?.message || 'No se pudo procesar la importación.');
             }
 
-            const updated = Number(data?.updated ?? data?.data?.updated ?? 0);
-            const skipped = Number(data?.skipped ?? data?.data?.skipped ?? 0);
-            const notFound = Number(data?.not_found ?? data?.data?.not_found ?? 0);
-            const notFoundList = data?.not_found_list ?? data?.data?.not_found_list ?? [];
-            setUpdateContactsSummary({
-              updated,
-              skipped,
-              notFound,
-              notFoundList: Array.isArray(notFoundList) ? notFoundList : []
-            });
-
-            const createdAt = new Date().toISOString();
-            const statusLabel = notFound > 0 ? 'Con observaciones' : 'Completada';
-            const statusVariant = notFound > 0 ? 'warning' : 'success';
-            const totalRows = updated + skipped + notFound;
-            const syntheticRow = {
-              id: `update_contacts_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
-              fileName: importDraft.fileName || '—',
-              importType: 'actualizar_contactos',
-              importTypeLabel: IMPORT_TYPES.actualizar_contactos?.label || 'CSV Actualizar contactos',
-              createdAt,
-              totalRows,
-              insertedRows: updated,
-              skippedRows: notFound,
-              processedRows: totalRows,
-              progressPercent: 100,
-              statusKey: 'completed',
-              statusLabel,
-              statusVariant,
-              createdBy: [authUser?.nombre, authUser?.apellido].filter(Boolean).join(' ').trim() || authUser?.email || '—',
-              errorMessage: ''
-            };
-            setImports((prev) => [syntheticRow, ...prev]);
-            setImportSuccess('Actualización de contactos completada.');
+            setImportSuccess('Importación registrada correctamente.');
             setShowImportFlow(false);
             resetImportFlow();
+            await loadImports({ silent: true });
             return;
           }
 
@@ -14495,7 +14511,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             onChange={(event) => {
                               const nextType = event.target.value;
                               setImportDraft((prev) => ({ ...prev, importType: nextType }));
-                              setUpdateContactsSummary(null);
                             }}
                             style={{ marginTop: 8 }}
                           >
@@ -14780,62 +14795,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         ).length) ? (
                           <div style={{ padding: 12, color: 'var(--muted)' }}>No hay registros para esta categoría.</div>
                         ) : null}
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-
-                {updateContactsSummary ? (
-                  <div className="lot-wizard-overlay" onClick={() => setUpdateContactsSummary(null)}>
-                    <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 720 }}>
-                      <div className="lot-wizard-header">
-                        <div><h3>Resultado — Actualizar contactos</h3><p>Resumen de la actualización por CSV.</p></div>
-                        <button className="icon-button" style={{ width: 36, height: 36 }} onClick={() => setUpdateContactsSummary(null)}><X size={16} color="#152235" /></button>
-                      </div>
-                      <div className="lot-wizard-content">
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
-                          <div style={{ padding: 12, borderRadius: 12, background: 'rgba(16,185,129,0.12)', color: '#047857', fontWeight: 800 }}>
-                            ✅ Actualizados: {updateContactsSummary.updated}
-                          </div>
-                          <div style={{ padding: 12, borderRadius: 12, background: 'rgba(59,130,246,0.12)', color: '#1d4ed8', fontWeight: 800 }}>
-                            ⏭ Ya tenían datos: {updateContactsSummary.skipped}
-                          </div>
-                          <div style={{ padding: 12, borderRadius: 12, background: 'rgba(239,68,68,0.12)', color: '#b91c1c', fontWeight: 800 }}>
-                            ❌ No encontrados: {updateContactsSummary.notFound}
-                          </div>
-                        </div>
-
-                        {updateContactsSummary.notFoundList.length ? (
-                          <details style={{ marginTop: 14 }}>
-                            <summary style={{ cursor: 'pointer', fontWeight: 800 }}>
-                              Ver no encontrados ({updateContactsSummary.notFoundList.length})
-                            </summary>
-                            <div style={{ marginTop: 10, maxHeight: 240, overflow: 'auto', border: '1px solid rgba(15,23,42,0.12)', borderRadius: 12 }}>
-                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                                <thead>
-                                  <tr style={{ background: 'rgba(15,23,42,0.02)' }}>
-                                    <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: 11, letterSpacing: 0.8, textTransform: 'uppercase', color: 'var(--muted)' }}>Nombre</th>
-                                    <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: 11, letterSpacing: 0.8, textTransform: 'uppercase', color: 'var(--muted)' }}>Apellido</th>
-                                    <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: 11, letterSpacing: 0.8, textTransform: 'uppercase', color: 'var(--muted)' }}>Documento</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {updateContactsSummary.notFoundList.map((row, idx) => (
-                                    <tr key={row.documento || row.doc || idx} style={{ borderTop: '0.5px solid rgba(15,23,42,0.08)' }}>
-                                      <td style={{ padding: '10px 12px' }}>{row.nombre || '—'}</td>
-                                      <td style={{ padding: '10px 12px' }}>{row.apellido || '—'}</td>
-                                      <td style={{ padding: '10px 12px' }}>{row.documento || row.doc || '—'}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          </details>
-                        ) : null}
-
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-                          <Button onClick={() => setUpdateContactsSummary(null)}>Cerrar</Button>
-                        </div>
                       </div>
                     </div>
                   </div>
