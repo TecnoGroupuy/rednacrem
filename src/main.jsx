@@ -7003,20 +7003,26 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           setAuditError('Seleccione una gestión válida.');
           return;
         }
-        if (!auditResultado) {
-          setAuditError('Seleccioná una codificación corregida.');
+        const comentarioTrim = String(auditComentario || '').trim();
+        if (!auditResultado && !comentarioTrim) {
+          setAuditError('Seleccioná una codificación corregida o escribí un comentario.');
           return;
         }
         if (auditResultado && auditItem?.resultado_corregido && auditResultado === auditItem.resultado_corregido) {
           setAuditError('La codificación seleccionada ya está aplicada.');
           return;
         }
+        const resultadoToSend = auditResultado || auditItem?.resultado_corregido || auditItem?.resultado_original || '';
+        if (!resultadoToSend) {
+          setAuditError('No se pudo determinar la codificación a guardar.');
+          return;
+        }
         setAuditSaving(true);
         setAuditError('');
         try {
           await api.post(`/api/codificaciones/${managementId}/correccion`, {
-            resultado_corregido: auditResultado,
-            comentario: auditComentario || ''
+            resultado_corregido: resultadoToSend,
+            motivo: comentarioTrim
           });
           closeAudit();
           loadCodificaciones();
@@ -7298,7 +7304,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       {auditError ? <div style={{ marginTop: 10, color: '#b91c1c' }}>{auditError}</div> : null}
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
                         <Button variant="ghost" onClick={closeAudit}>Cancelar</Button>
-                        <Button disabled={auditSaving || !auditResultado} onClick={saveAudit}>{auditSaving ? 'Guardando...' : 'Guardar corrección'}</Button>
+                        <Button
+                          disabled={auditSaving || (!auditResultado && !String(auditComentario || '').trim())}
+                          onClick={saveAudit}
+                        >
+                          {auditSaving ? 'Guardando...' : 'Guardar corrección'}
+                        </Button>
                       </div>
                     </>
                   )}
