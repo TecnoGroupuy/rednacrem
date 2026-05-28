@@ -12744,9 +12744,36 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
     function NuevoClienteVendedor({ draft = null, onClose, onSuccess, productsCatalog = [], gestion_id = null, mode = 'nuevo_cliente' }) {
       const { user: authUser } = useAuth();
       const api = getApiClient();
+
+      function validarTelefonoUY(numero) {
+        if (!numero || numero.trim() === '') return { ok: true };
+        const limpio = numero.replace(/\D/g, '');
+
+        if (/^(\d)\1+$/.test(limpio)) {
+          return { ok: false, msg: 'Número inválido (no puede ser dígitos repetidos)' };
+        }
+
+        const sec = '01234567890';
+        const secRev = '09876543210';
+        if (sec.includes(limpio) || secRev.includes(limpio)) {
+          return { ok: false, msg: 'Número inválido (no puede ser secuencial)' };
+        }
+
+        const fijo = /^[2-4]\d{7}$/.test(limpio);
+        const celular = /^09[1-9]\d{6}$/.test(limpio);
+
+        if (!fijo && !celular) {
+          return { ok: false, msg: 'Debe ser un número uruguayo válido (fijo: 2xxxxxxx · celular: 09xxxxxxx)' };
+        }
+
+        return { ok: true };
+      }
+
       const [newClientError, setNewClientError] = React.useState('');
       const [newClientSaving, setNewClientSaving] = React.useState(false);
       const [newClientStep, setNewClientStep] = React.useState(0);
+      const [telefonoError, setTelefonoError] = React.useState('');
+      const [celularError, setCelularError] = React.useState('');
       const [paymentMethods, setPaymentMethods] = React.useState([]);
       const [paymentMethodsLoading, setPaymentMethodsLoading] = React.useState(false);
       const [paymentMethodsError, setPaymentMethodsError] = React.useState('');
@@ -12802,6 +12829,25 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           cobranzaDocumento: ''
         }
       });
+
+      const handleSiguiente = () => {
+        if (newClientStep === 0) {
+          const telVal = validarTelefonoUY(newClientDraft.contact.telefono);
+          const celVal = validarTelefonoUY(newClientDraft.contact.celular);
+
+          setTelefonoError(telVal.ok ? '' : telVal.msg);
+          setCelularError(celVal.ok ? '' : celVal.msg);
+
+          if (!telVal.ok || !celVal.ok) return;
+        }
+
+        if (newClientStep < 3) {
+          setNewClientStep((prev) => Math.min(3, prev + 1));
+          return;
+        }
+
+        handleSaveNewClient();
+      };
 
       React.useEffect(() => {
         let cancelled = false;
@@ -13165,6 +13211,16 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           type={type || 'text'}
                           value={newClientDraft.contact[field] || ''}
                           onChange={(event) => handleNewClientContactChange(field, event.target.value)}
+                          onBlur={(event) => {
+                            if (field === 'telefono') {
+                              const v = validarTelefonoUY(event.target.value);
+                              setTelefonoError(v.ok ? '' : v.msg);
+                            }
+                            if (field === 'celular') {
+                              const v = validarTelefonoUY(event.target.value);
+                              setCelularError(v.ok ? '' : v.msg);
+                            }
+                          }}
                           style={{
                             marginTop: 6,
                             width: '100%',
@@ -13173,6 +13229,16 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             border: '1px solid #e5e7eb'
                           }}
                         />
+                        {field === 'telefono' && telefonoError ? (
+                          <span style={{ fontSize: 12, color: 'var(--color-text-danger, #dc2626)', marginTop: 4, display: 'block' }}>
+                            ⚠ {telefonoError}
+                          </span>
+                        ) : null}
+                        {field === 'celular' && celularError ? (
+                          <span style={{ fontSize: 12, color: 'var(--color-text-danger, #dc2626)', marginTop: 4, display: 'block' }}>
+                            ⚠ {celularError}
+                          </span>
+                        ) : null}
                       </label>
                     ))}
                     <label style={{ gridColumn: '1 / -1', fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1 }}>
@@ -13421,13 +13487,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  if (newClientStep < 3) {
-                    setNewClientStep((prev) => Math.min(3, prev + 1));
-                    return;
-                  }
-                  handleSaveNewClient();
-                }}
+                onClick={handleSiguiente}
                 disabled={newClientSaving || (newClientStep === 2 && (!newClientDraft.productsByContact.principal || Object.keys(newClientDraft.productsByContact).length < (1 + newClientDraft.familiares.length)))}
                 className="new-client-action"
                 style={{
