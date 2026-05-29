@@ -13570,12 +13570,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         error: null
       });
       const isDevEnv = Boolean(import.meta?.env?.DEV);
-      const authRoleKey = String(
-        authUser?.role_key || authUser?.roleKey || authUser?.role || authUser?.rol || authUser?.perfil || ''
-      )
-        .trim()
-        .toLowerCase();
-      const canBulkUpdatePhones = !!authUser;
       const [bulkPhonesLoading, setBulkPhonesLoading] = React.useState(false);
       const [bulkPhonesResult, setBulkPhonesResult] = React.useState(null);
       const bulkPhonesDismissRef = React.useRef(null);
@@ -14058,7 +14052,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       }, []);
 
       const openBulkPhonesFilePicker = React.useCallback(() => {
-        if (!canBulkUpdatePhones) return;
         setImportsError('');
         setImportSuccess('');
         if (bulkPhonesDismissRef.current) {
@@ -14093,7 +14086,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           }
         };
         input.click();
-      }, [canBulkUpdatePhones, loadImports]);
+      }, [loadImports]);
+      const handleBulkUpdatePhones = openBulkPhonesFilePicker;
 
       const validatePreview = async () => {
         setPreview(null);
@@ -14254,16 +14248,14 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     >
                       {diffLoading ? 'Analizando...' : 'Analizar diferencias'}
                     </Button>
-                    {canBulkUpdatePhones ? (
-                      <Button
-                        variant="secondary"
-                        icon={<RefreshCw size={16} />}
-                        onClick={openBulkPhonesFilePicker}
-                        disabled={bulkPhonesLoading}
-                      >
-                        {bulkPhonesLoading ? 'Actualizando contactos...' : 'Actualizar teléfonos'}
-                      </Button>
-                    ) : null}
+                    <Button
+                      variant="secondary"
+                      icon={<RefreshCw size={16} />}
+                      onClick={handleBulkUpdatePhones}
+                      disabled={bulkPhonesLoading}
+                    >
+                      {bulkPhonesLoading ? 'Actualizando contactos...' : 'Actualizar teléfonos'}
+                    </Button>
                     <Button icon={<Upload size={16} />} onClick={() => { setShowImportFlow(true); setImportSuccess(''); setImportProgress(null); setImportPolling(false); resetImportFlow(); }}>
                       Importar CSV
                     </Button>
