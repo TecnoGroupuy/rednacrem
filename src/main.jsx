@@ -14253,6 +14253,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       icon={<RefreshCw size={16} />}
                       onClick={handleBulkUpdatePhones}
                       disabled={bulkPhonesLoading}
+                      style={{ backgroundColor: '#dc2626', color: '#fff', borderColor: '#dc2626' }}
                     >
                       {bulkPhonesLoading ? 'Actualizando contactos...' : 'Actualizar teléfonos'}
                     </Button>
