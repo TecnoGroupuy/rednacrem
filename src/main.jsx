@@ -13734,7 +13734,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         pending: Number(importProgress?.progress?.pending || 0)
       };
 
-      const startProgressPolling = React.useCallback((batchId) => {
+      const startProgressPolling = React.useCallback((batchId, { onComplete } = {}) => {
         if (!batchId) return;
         if (importProgressRef.current) {
           clearInterval(importProgressRef.current);
@@ -13751,6 +13751,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               clearInterval(importProgressRef.current);
               importProgressRef.current = null;
               setImportPolling(false);
+              if (typeof onComplete === 'function') {
+                onComplete(data);
+              }
             }
           } catch {
             if (importProgressRef.current) {
@@ -14151,10 +14154,13 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               throw new Error(data?.message || 'No se pudo procesar la importación.');
             }
 
-            setImportSuccess('Importación registrada correctamente.');
-            setShowImportFlow(false);
-            resetImportFlow();
-            await loadImports({ silent: true });
+            setImportSuccess('Importación en proceso...');
+            startProgressPolling(batchIdToProcess, {
+              onComplete: async () => {
+                setImportSuccess('Importación procesada.');
+                await loadImports({ silent: true });
+              }
+            });
             return;
           }
 
@@ -14644,14 +14650,28 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             <div style={{ padding: 10, borderRadius: 10, background: 'rgba(148,163,184,0.2)', color: '#475569', fontWeight: 700 }}>Pendientes: {importProgressStats.pending}</div>
                           </div>
                           {importProgressComplete ? (
-                            <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
-                              <div style={{ padding: 10, borderRadius: 10, background: 'rgba(15,118,110,0.08)', color: '#0f766e', fontWeight: 700 }}>
-                                Vendedores detectados: {importProgress?.report?.vendedoresDetectados ?? 0}
+                            importDraft.importType === 'actualizar_contactos' ? (
+                              <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+                                <div style={{ padding: 10, borderRadius: 10, background: 'rgba(16,185,129,0.12)', color: '#047857', fontWeight: 800 }}>
+                                  ✅ Actualizados: {Number(importProgress?.report?.report_new_contacts ?? importProgress?.report?.updated ?? importProgress?.report?.actualizados ?? importProgressStats.updated ?? 0)}
+                                </div>
+                                <div style={{ padding: 10, borderRadius: 10, background: 'rgba(148,163,184,0.2)', color: '#334155', fontWeight: 800 }}>
+                                  ⏭ Ya tenían datos: {Number(importProgress?.report?.skipped ?? importProgress?.report?.skipped_count ?? importProgress?.report?.ya_tenian_datos ?? importProgress?.progress?.skipped ?? 0)}
+                                </div>
+                                <div style={{ padding: 10, borderRadius: 10, background: 'rgba(239,68,68,0.12)', color: '#b91c1c', fontWeight: 800 }}>
+                                  ❌ No encontrados: {Number(importProgress?.report?.rejected_missing_documento ?? importProgress?.report?.not_found ?? importProgress?.report?.no_encontrados ?? 0)}
+                                </div>
                               </div>
-                              <div style={{ padding: 10, borderRadius: 10, background: 'rgba(30,64,175,0.08)', color: '#1d4ed8', fontWeight: 700 }}>
-                                Productos detectados: {importProgress?.report?.productosDetectados ?? 0}
+                            ) : (
+                              <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+                                <div style={{ padding: 10, borderRadius: 10, background: 'rgba(15,118,110,0.08)', color: '#0f766e', fontWeight: 700 }}>
+                                  Vendedores detectados: {importProgress?.report?.vendedoresDetectados ?? 0}
+                                </div>
+                                <div style={{ padding: 10, borderRadius: 10, background: 'rgba(30,64,175,0.08)', color: '#1d4ed8', fontWeight: 700 }}>
+                                  Productos detectados: {importProgress?.report?.productosDetectados ?? 0}
+                                </div>
                               </div>
-                            </div>
+                            )
                           ) : null}
                         </div>
                       ) : null}
