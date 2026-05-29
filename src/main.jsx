@@ -13572,8 +13572,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const isDevEnv = Boolean(import.meta?.env?.DEV);
       const authRoleKey = String(
         authUser?.role_key || authUser?.roleKey || authUser?.role || authUser?.rol || authUser?.perfil || ''
-      ).trim().toLowerCase();
-      const canBulkUpdatePhones = ['superadministrador', 'superadmin'].includes(authRoleKey);
+      )
+        .trim()
+        .toLowerCase();
+      const canBulkUpdatePhones = authRoleKey.includes('superadmin') || authRoleKey.includes('superadministrador');
       const [bulkPhonesLoading, setBulkPhonesLoading] = React.useState(false);
       const [bulkPhonesResult, setBulkPhonesResult] = React.useState(null);
       const bulkPhonesDismissRef = React.useRef(null);
