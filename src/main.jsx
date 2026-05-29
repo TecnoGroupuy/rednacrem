@@ -14072,7 +14072,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
             const res = await fetch(buildApiUrl(`/imports/clients?organization_id=${encodeURIComponent(orgId)}&import_type=actualizar_contactos`, getApiBaseUrl()), {
               method: 'POST',
-              headers: { ...buildAuthHeaders(authUser?.accessToken) },
+              headers: { ...buildAuthHeaders(authUser?.idToken || authUser?.accessToken) },
               body: formData
             });
             const data = await res.json().catch(() => ({}));
@@ -14145,7 +14145,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
             const res = await fetch(buildApiUrl(`/imports/clients/${encodeURIComponent(batchIdToProcess)}/process?organization_id=${encodeURIComponent(orgId)}`, getApiBaseUrl()), {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(authUser?.accessToken) },
+              headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(authUser?.idToken || authUser?.accessToken) },
               body: JSON.stringify({})
             });
             const data = await res.json().catch(() => ({}));
