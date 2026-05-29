@@ -13570,9 +13570,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         error: null
       });
       const isDevEnv = Boolean(import.meta?.env?.DEV);
-      const canUseUpdateContactsCsv = ['admin', 'superadmin', 'superadministrador'].includes(
-        String(authUser?.role || authUser?.rol || authUser?.perfil || '').trim().toLowerCase()
-      );
+      const isSuperadministrador = String(authUser?.role || authUser?.rol || authUser?.perfil || '').trim().toLowerCase() === 'superadministrador';
+      const [bulkPhonesLoading, setBulkPhonesLoading] = React.useState(false);
+      const [bulkPhonesResult, setBulkPhonesResult] = React.useState(null);
+      const bulkPhonesDismissRef = React.useRef(null);
 
       const resolvedBatchId = previewBatchId || preview?.batchId || preview?.batch_id || null;
       const importPollRef = React.useRef(null);
@@ -14051,60 +14052,48 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           });
       }, []);
 
+      const openBulkPhonesFilePicker = React.useCallback(() => {
+        if (!isSuperadministrador) return;
+        setImportsError('');
+        setImportSuccess('');
+        if (bulkPhonesDismissRef.current) {
+          clearTimeout(bulkPhonesDismissRef.current);
+          bulkPhonesDismissRef.current = null;
+        }
+        setBulkPhonesResult(null);
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.csv';
+        input.onchange = async () => {
+          const file = input.files && input.files[0];
+          if (!file) return;
+          setBulkPhonesLoading(true);
+          setBulkPhonesResult(null);
+          try {
+            const api = getApiClient();
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await api.post('/contacts/bulk-update-phones', formData);
+            const payload = res?.data ?? res;
+            setBulkPhonesResult(payload || {});
+            bulkPhonesDismissRef.current = setTimeout(() => {
+              setBulkPhonesResult(null);
+              bulkPhonesDismissRef.current = null;
+            }, 30000);
+            await loadImports({ silent: true });
+          } catch (err) {
+            setImportsError(err?.message || 'No se pudieron actualizar los contactos.');
+          } finally {
+            setBulkPhonesLoading(false);
+          }
+        };
+        input.click();
+      }, [isSuperadministrador, loadImports]);
+
       const validatePreview = async () => {
         setPreview(null);
         setPreviewLoading(true);
         try {
-          if (importDraft.importType === 'actualizar_contactos') {
-            if (!canUseUpdateContactsCsv) {
-              setImportsError('No tenés permisos para este tipo de importación.');
-              return;
-            }
-            const orgId = getActiveOrganizationId();
-            if (!orgId) {
-              setImportsError('Seleccioná una organización antes de importar.');
-              return;
-            }
-            if (!importFile) {
-              setImportsError('Seleccioná un archivo CSV.');
-              return;
-            }
-
-            const formData = new FormData();
-            formData.append('file', importFile);
-
-            const api = getApiClient();
-            const data = await api.post(
-              `/imports/clients?organization_id=${encodeURIComponent(orgId)}&import_type=actualizar_contactos`,
-              formData
-            );
-            console.log('[import] validacion response:', data);
-            if (data?.ok === false) {
-              throw new Error(data?.message || 'No se pudo validar el CSV.');
-            }
-
-            const batchId = data?.batchId || data?.batch_id || data?.data?.batchId || data?.data?.batch_id || data?.id || data?.data?.id || null;
-            if (!batchId) {
-              setImportsError('La validación no devolvió batchId.');
-              return;
-            }
-            const summary = data?.summary || data?.data?.summary || data?.preview?.summary || data?.data?.preview?.summary || null;
-            const rowErrors = data?.rowErrors || data?.data?.rowErrors || data?.errors || data?.data?.errors || [];
-            const skippedEmptyRows = data?.skippedEmptyRows || data?.data?.skippedEmptyRows || 0;
-
-            setPreview({
-              usesBackend: true,
-              batchId,
-              batch_id: batchId,
-              summary: summary || { total: 0, importados: 0, rechazados: 0 },
-              rowErrors: Array.isArray(rowErrors) ? rowErrors : [],
-              skippedEmptyRows
-            });
-            setPreviewBatchId(batchId);
-            setCreateProductsOnImport(false);
-            return;
-          }
-
           const result = await previewCsvText(importDraft.csvText, { fileName: importDraft.fileName });
           setPreview(result);
           setPreviewBatchId(result?.batchId || result?.batch_id || null);
@@ -14129,41 +14118,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         setImportSuccess('');
         setImportProgress(null);
         try {
-          if (importDraft.importType === 'actualizar_contactos') {
-            if (!canUseUpdateContactsCsv) {
-              setImportsError('No tenés permisos para este tipo de importación.');
-              return;
-            }
-            const orgId = getActiveOrganizationId();
-            if (!orgId) {
-              setImportsError('Seleccioná una organización antes de importar.');
-              return;
-            }
-            const batchIdToProcess = resolvedBatchId;
-            if (!batchIdToProcess) {
-              setImportsError('Primero validá el archivo para generar el batch.');
-              return;
-            }
-
-            const api = getApiClient();
-            const data = await api.post(
-              `/imports/clients/${encodeURIComponent(batchIdToProcess)}/process?organization_id=${encodeURIComponent(orgId)}`,
-              {}
-            );
-            if (data?.ok === false) {
-              throw new Error(data?.message || 'No se pudo procesar la importación.');
-            }
-
-            setImportSuccess('Importación en proceso...');
-            startProgressPolling(batchIdToProcess, {
-              onComplete: async () => {
-                setImportSuccess('Importación procesada.');
-                await loadImports({ silent: true });
-              }
-            });
-            return;
-          }
-
           let batchIdToUse = resolvedBatchId;
           const payload = {
             fileName: importDraft.fileName,
@@ -14295,12 +14249,91 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     >
                       {diffLoading ? 'Analizando...' : 'Analizar diferencias'}
                     </Button>
+                    {isSuperadministrador ? (
+                      <Button
+                        variant="secondary"
+                        icon={<RefreshCw size={16} />}
+                        onClick={openBulkPhonesFilePicker}
+                        disabled={bulkPhonesLoading}
+                      >
+                        {bulkPhonesLoading ? 'Actualizando contactos...' : 'Actualizar teléfonos'}
+                      </Button>
+                    ) : null}
                     <Button icon={<Upload size={16} />} onClick={() => { setShowImportFlow(true); setImportSuccess(''); setImportProgress(null); setImportPolling(false); resetImportFlow(); }}>
                       Importar CSV
                     </Button>
                   </div>
                 }
               >
+                {bulkPhonesResult ? (
+                  <div style={{ marginBottom: 12, padding: 12, borderRadius: 12, border: '1px solid rgba(15,23,42,0.12)', background: 'rgba(248,250,252,0.9)' }}>
+                    <div style={{ fontWeight: 800, marginBottom: 8 }}>Resultado actualización de teléfonos</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8 }}>
+                      <div style={{ padding: 10, borderRadius: 10, background: 'rgba(16,185,129,0.12)', color: '#047857', fontWeight: 800 }}>
+                        ✅ Actualizados: {Number(bulkPhonesResult?.updated ?? 0)}
+                      </div>
+                      <div style={{ padding: 10, borderRadius: 10, background: 'rgba(148,163,184,0.2)', color: '#334155', fontWeight: 800 }}>
+                        ⏭ Ya tenían datos: {Number(bulkPhonesResult?.skipped ?? 0)}
+                      </div>
+                      <div style={{ padding: 10, borderRadius: 10, background: 'rgba(239,68,68,0.12)', color: '#b91c1c', fontWeight: 800 }}>
+                        ❌ No encontrados: {Number(bulkPhonesResult?.not_found ?? bulkPhonesResult?.notFound ?? 0)}
+                      </div>
+                      <div style={{ padding: 10, borderRadius: 10, background: 'rgba(245,158,11,0.14)', color: '#92400e', fontWeight: 800 }}>
+                        ⚠️ Ambiguos: {Number(bulkPhonesResult?.ambiguous ?? 0)}
+                      </div>
+                    </div>
+                    {Array.isArray(bulkPhonesResult?.not_found_list) && bulkPhonesResult.not_found_list.length > 0 ? (
+                      <details style={{ marginTop: 10 }}>
+                        <summary style={{ cursor: 'pointer', fontWeight: 700, color: '#b91c1c' }}>Ver no encontrados ({bulkPhonesResult.not_found_list.length})</summary>
+                        <div style={{ marginTop: 8, maxHeight: 220, overflow: 'auto', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10 }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                              <tr style={{ background: 'rgba(239,68,68,0.08)' }}>
+                                <th style={{ textAlign: 'left', padding: 8, fontSize: 12 }}>Nombre</th>
+                                <th style={{ textAlign: 'left', padding: 8, fontSize: 12 }}>Apellido</th>
+                                <th style={{ textAlign: 'left', padding: 8, fontSize: 12 }}>Documento</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {bulkPhonesResult.not_found_list.map((row, idx) => (
+                                <tr key={row?.documento || `${row?.nombre || ''}-${row?.apellido || ''}-${idx}`}>
+                                  <td style={{ padding: 8, borderTop: '1px solid rgba(15,23,42,0.06)' }}>{row?.nombre || '—'}</td>
+                                  <td style={{ padding: 8, borderTop: '1px solid rgba(15,23,42,0.06)' }}>{row?.apellido || '—'}</td>
+                                  <td style={{ padding: 8, borderTop: '1px solid rgba(15,23,42,0.06)' }}>{row?.documento || '—'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </details>
+                    ) : null}
+                    {Array.isArray(bulkPhonesResult?.ambiguous_list) && bulkPhonesResult.ambiguous_list.length > 0 ? (
+                      <details style={{ marginTop: 10 }}>
+                        <summary style={{ cursor: 'pointer', fontWeight: 700, color: '#92400e' }}>Ver ambiguos ({bulkPhonesResult.ambiguous_list.length})</summary>
+                        <div style={{ marginTop: 8, maxHeight: 220, overflow: 'auto', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 10 }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                              <tr style={{ background: 'rgba(245,158,11,0.08)' }}>
+                                <th style={{ textAlign: 'left', padding: 8, fontSize: 12 }}>Nombre</th>
+                                <th style={{ textAlign: 'left', padding: 8, fontSize: 12 }}>Apellido</th>
+                                <th style={{ textAlign: 'left', padding: 8, fontSize: 12 }}>Coincidencias</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {bulkPhonesResult.ambiguous_list.map((row, idx) => (
+                                <tr key={`${row?.nombre || ''}-${row?.apellido || ''}-${idx}`}>
+                                  <td style={{ padding: 8, borderTop: '1px solid rgba(15,23,42,0.06)' }}>{row?.nombre || '—'}</td>
+                                  <td style={{ padding: 8, borderTop: '1px solid rgba(15,23,42,0.06)' }}>{row?.apellido || '—'}</td>
+                                  <td style={{ padding: 8, borderTop: '1px solid rgba(15,23,42,0.06)' }}>{row?.coincidencias ?? row?.matches ?? '—'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </details>
+                    ) : null}
+                  </div>
+                ) : null}
                   <div className="toolbar" style={{ marginBottom: 12 }}>
                     <div className="searchbox" style={{ maxWidth: 360 }}>
                       <Search size={18} color="#69788d" />
@@ -14317,9 +14350,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       onChange={(event) => { setImportsPage(1); setImportsType(event.target.value); }}
                     >
                       <option value="todos">Todos los tipos</option>
-                      {Object.values(IMPORT_TYPES)
-                        .filter((item) => item.key !== 'actualizar_contactos' || canUseUpdateContactsCsv)
-                        .map((item) => (
+                      {Object.values(IMPORT_TYPES).map((item) => (
                         <option key={item.key} value={item.key}>{item.label}</option>
                       ))}
                     </select>
@@ -14524,9 +14555,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             }}
                             style={{ marginTop: 8 }}
                           >
-                            {Object.values(IMPORT_TYPES)
-                              .filter((item) => item.key !== 'actualizar_contactos' || canUseUpdateContactsCsv)
-                              .map((item) => (
+                            {Object.values(IMPORT_TYPES).map((item) => (
                                 <option key={item.key} value={item.key}>{item.label}</option>
                               ))}
                           </select>
@@ -14650,28 +14679,14 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             <div style={{ padding: 10, borderRadius: 10, background: 'rgba(148,163,184,0.2)', color: '#475569', fontWeight: 700 }}>Pendientes: {importProgressStats.pending}</div>
                           </div>
                           {importProgressComplete ? (
-                            importDraft.importType === 'actualizar_contactos' ? (
-                              <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
-                                <div style={{ padding: 10, borderRadius: 10, background: 'rgba(16,185,129,0.12)', color: '#047857', fontWeight: 800 }}>
-                                  ✅ Actualizados: {Number(importProgress?.report?.report_new_contacts ?? importProgress?.report?.updated ?? importProgress?.report?.actualizados ?? importProgressStats.updated ?? 0)}
-                                </div>
-                                <div style={{ padding: 10, borderRadius: 10, background: 'rgba(148,163,184,0.2)', color: '#334155', fontWeight: 800 }}>
-                                  ⏭ Ya tenían datos: {Number(importProgress?.report?.skipped ?? importProgress?.report?.skipped_count ?? importProgress?.report?.ya_tenian_datos ?? importProgress?.progress?.skipped ?? 0)}
-                                </div>
-                                <div style={{ padding: 10, borderRadius: 10, background: 'rgba(239,68,68,0.12)', color: '#b91c1c', fontWeight: 800 }}>
-                                  ❌ No encontrados: {Number(importProgress?.report?.rejected_missing_documento ?? importProgress?.report?.not_found ?? importProgress?.report?.no_encontrados ?? 0)}
-                                </div>
+                            <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+                              <div style={{ padding: 10, borderRadius: 10, background: 'rgba(15,118,110,0.08)', color: '#0f766e', fontWeight: 700 }}>
+                                Vendedores detectados: {importProgress?.report?.vendedoresDetectados ?? 0}
                               </div>
-                            ) : (
-                              <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
-                                <div style={{ padding: 10, borderRadius: 10, background: 'rgba(15,118,110,0.08)', color: '#0f766e', fontWeight: 700 }}>
-                                  Vendedores detectados: {importProgress?.report?.vendedoresDetectados ?? 0}
-                                </div>
-                                <div style={{ padding: 10, borderRadius: 10, background: 'rgba(30,64,175,0.08)', color: '#1d4ed8', fontWeight: 700 }}>
-                                  Productos detectados: {importProgress?.report?.productosDetectados ?? 0}
-                                </div>
+                              <div style={{ padding: 10, borderRadius: 10, background: 'rgba(30,64,175,0.08)', color: '#1d4ed8', fontWeight: 700 }}>
+                                Productos detectados: {importProgress?.report?.productosDetectados ?? 0}
                               </div>
-                            )
+                            </div>
                           ) : null}
                         </div>
                       ) : null}

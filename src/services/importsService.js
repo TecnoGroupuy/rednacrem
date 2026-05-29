@@ -17,8 +17,7 @@ export const IMPORT_TYPES = {
   clientes: { key: 'clientes', label: 'CSV de clientes' },
   no_llamar: { key: 'no_llamar', label: 'CSV Base No llamar' },
   resultados: { key: 'resultados', label: 'CSV de resultados telefónicos' },
-  datos_para_trabajar: { key: 'datos_para_trabajar', label: 'CSV Datos para trabajar' },
-  actualizar_contactos: { key: 'actualizar_contactos', label: 'CSV Actualizar contactos' }
+  datos_para_trabajar: { key: 'datos_para_trabajar', label: 'CSV Datos para trabajar' }
 };
 
 const normalizeImportType = (value) => {
