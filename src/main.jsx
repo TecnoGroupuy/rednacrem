@@ -14070,14 +14070,13 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             const formData = new FormData();
             formData.append('file', importFile);
 
-            const res = await fetch(buildApiUrl(`/imports/clients?organization_id=${encodeURIComponent(orgId)}&import_type=actualizar_contactos`, getApiBaseUrl()), {
-              method: 'POST',
-              headers: { ...buildAuthHeaders(authUser?.idToken || authUser?.accessToken) },
-              body: formData
-            });
-            const data = await res.json().catch(() => ({}));
+            const api = getApiClient();
+            const data = await api.post(
+              `/imports/clients?organization_id=${encodeURIComponent(orgId)}&import_type=actualizar_contactos`,
+              formData
+            );
             console.log('[import] validacion response:', data);
-            if (!res.ok || data?.ok === false) {
+            if (data?.ok === false) {
               throw new Error(data?.message || 'No se pudo validar el CSV.');
             }
 
@@ -14143,13 +14142,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               return;
             }
 
-            const res = await fetch(buildApiUrl(`/imports/clients/${encodeURIComponent(batchIdToProcess)}/process?organization_id=${encodeURIComponent(orgId)}`, getApiBaseUrl()), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(authUser?.idToken || authUser?.accessToken) },
-              body: JSON.stringify({})
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok || data?.ok === false) {
+            const api = getApiClient();
+            const data = await api.post(
+              `/imports/clients/${encodeURIComponent(batchIdToProcess)}/process?organization_id=${encodeURIComponent(orgId)}`,
+              {}
+            );
+            if (data?.ok === false) {
               throw new Error(data?.message || 'No se pudo procesar la importación.');
             }
 
