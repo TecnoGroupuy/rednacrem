@@ -13570,7 +13570,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         error: null
       });
       const isDevEnv = Boolean(import.meta?.env?.DEV);
-      const isSuperadministrador = String(authUser?.role || authUser?.rol || authUser?.perfil || '').trim().toLowerCase() === 'superadministrador';
+      const authRoleKey = String(
+        authUser?.role_key || authUser?.roleKey || authUser?.role || authUser?.rol || authUser?.perfil || ''
+      ).trim().toLowerCase();
+      const canBulkUpdatePhones = ['superadministrador', 'superadmin'].includes(authRoleKey);
       const [bulkPhonesLoading, setBulkPhonesLoading] = React.useState(false);
       const [bulkPhonesResult, setBulkPhonesResult] = React.useState(null);
       const bulkPhonesDismissRef = React.useRef(null);
@@ -14053,7 +14056,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       }, []);
 
       const openBulkPhonesFilePicker = React.useCallback(() => {
-        if (!isSuperadministrador) return;
+        if (!canBulkUpdatePhones) return;
         setImportsError('');
         setImportSuccess('');
         if (bulkPhonesDismissRef.current) {
@@ -14088,7 +14091,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           }
         };
         input.click();
-      }, [isSuperadministrador, loadImports]);
+      }, [canBulkUpdatePhones, loadImports]);
 
       const validatePreview = async () => {
         setPreview(null);
@@ -14249,7 +14252,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     >
                       {diffLoading ? 'Analizando...' : 'Analizar diferencias'}
                     </Button>
-                    {isSuperadministrador ? (
+                    {canBulkUpdatePhones ? (
                       <Button
                         variant="secondary"
                         icon={<RefreshCw size={16} />}
