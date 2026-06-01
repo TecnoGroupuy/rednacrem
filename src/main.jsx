@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { AuthProvider as OidcAuthProvider, useAuth as useOidcAuth } from 'react-oidc-context';
 import { buildCognitoHostedUiLogoutUrl, cognitoAuthConfig } from './auth/cognitoConfig';
 import {
-  Menu, X, Bell, Search, ChevronDown, Briefcase, Users, UserCheck, Building2, Phone,
+  Menu, X, Bell, Search, ChevronDown, ChevronUp, Briefcase, Users, UserCheck, Building2, Phone,
   Activity, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, AlertTriangle,
   DollarSign, Target, Download, Layers, Eye, Calendar, PhoneCall, CreditCard, FileText,
   Filter, Plus, CheckCircle2, Clock, Settings, Zap, BarChart3, Flame, Edit3, MoreHorizontal, Trash2,
