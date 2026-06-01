@@ -1143,11 +1143,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       };
 
       const cols = {
-        seguimiento: ['Contacto', 'Fecha agendada', 'Antigüedad'],
-        rellamar: ['Contacto', 'Próxima acción', 'Antigüedad'],
-        no_contesta: ['Contacto', 'Intentos', 'Último intento'],
-        ventas: ['Contacto', 'Fecha'],
-        rechazos: ['Contacto', 'Fecha']
+        seguimiento: ['Contacto', 'Teléfono', 'Fecha agendada', 'Antigüedad'],
+        rellamar: ['Contacto', 'Teléfono', 'Próxima acción', 'Antigüedad'],
+        no_contesta: ['Contacto', 'Teléfono', 'Intentos', 'Último intento'],
+        ventas: ['Contacto', 'Teléfono', 'Fecha'],
+        rechazos: ['Contacto', 'Teléfono', 'Fecha']
       };
 
       return (
@@ -1163,9 +1163,21 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             <tbody>
               {(rows || []).map((row, i) => {
                 const ag = antiguedad(row.proxima_accion || row.fecha_gestion);
+                const telefono = (
+                  row.telefono ||
+                  row.celular ||
+                  row.telefono_celular ||
+                  row.telefonoCelular ||
+                  row.phone ||
+                  row.cellphone ||
+                  row.contacto_telefono ||
+                  row.contacto_celular ||
+                  '—'
+                );
                 return (
                   <tr key={i} style={{ borderTop: '0.5px solid var(--color-border-tertiary)' }}>
                     <td style={{ padding: '8px 12px', color: 'var(--color-text-primary)' }}>{row.contacto_nombre || '—'}</td>
+                    <td style={{ padding: '8px 12px', color: 'var(--color-text-secondary)' }}>{telefono}</td>
                     {tipo === 'no_contesta' ? (
                       <>
                         <td style={{ padding: '8px 12px' }}>
