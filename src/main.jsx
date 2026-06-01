@@ -2571,7 +2571,36 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                   {sellersByOriginError ? (
                     <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 600 }}>{sellersByOriginError}</div>
                   ) : null}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div style={{ overflowX: 'auto' }}>
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '220px repeat(10, 1fr)',
+                        gap: 8,
+                        alignItems: 'center',
+                        padding: '8px 12px',
+                        fontSize: 11,
+                        color: '#64748b',
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                        borderBottom: '1px solid rgba(148,163,184,0.25)'
+                      }}
+                    >
+                      <div>Vendedor</div>
+                      <div style={{ textAlign: 'center' }}>Ventas</div>
+                      <div style={{ textAlign: 'center' }}>Seg.</div>
+                      <div style={{ textAlign: 'center' }}>Rellamar</div>
+                      <div style={{ textAlign: 'center' }}>No contesta</div>
+                      <div style={{ textAlign: 'center' }}>Rechazos</div>
+                      <div style={{ textAlign: 'center' }}>Datos err.</div>
+                      <div style={{ textAlign: 'center' }}>Contacto</div>
+                      <div style={{ textAlign: 'center' }}>Efectividad</div>
+                      <div style={{ textAlign: 'center' }}>Asignados</div>
+                      <div style={{ textAlign: 'center' }}>Gestiones</div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 12 }}>
                     {sellersByOrigin.map((seller) => {
                       const sellerId = String(seller?.id || '');
                       const nombre = String(seller?.nombre || '').trim();
@@ -2622,51 +2651,63 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             cursor: 'pointer'
                           }}
                         >
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 220 }}>
-                              <div style={{ width: 34, height: 34, borderRadius: 999, background: 'rgba(15,118,110,0.12)', color: '#0f766e', display: 'grid', placeItems: 'center', fontWeight: 800 }}>
+                          <div
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: '220px repeat(10, 1fr)',
+                              gap: 8,
+                              alignItems: 'center'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                              <div style={{ width: 34, height: 34, borderRadius: 999, background: 'rgba(15,118,110,0.12)', color: '#0f766e', display: 'grid', placeItems: 'center', fontWeight: 800, flexShrink: 0 }}>
                                 {initials || '—'}
                               </div>
-                              <div style={{ lineHeight: 1.15 }}>
-                                <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--color-text-primary)' }}>{`${nombre} ${apellido}`.trim() || '—'}</div>
-                                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{origins.length} orígenes <span style={{ marginLeft: 6 }}><ChevronIcon size={14} /></span></div>
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {`${nombre} ${apellido}`.trim() || '—'}
+                                </div>
                               </div>
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, auto)', gap: 8, alignItems: 'center' }}>
+                            <div style={{ display: 'flex', justifyContent: 'center' }}>
                               <SellerBadge value={Number(totals?.ventas ?? 0)} styleFn={ventasBadgeStyle} />
-                              <span style={{ fontSize: 12, color: '#64748b', fontWeight: 700 }}>Seg.</span>
-                              <span style={{ fontWeight: 700 }}>{Number(totals?.seguimientos ?? 0)}</span>
-                              <span style={{ fontSize: 12, color: '#64748b', fontWeight: 700 }}>Rell.</span>
-                              <span style={{ fontWeight: 700 }}>{Number(totals?.rellamadas ?? 0)}</span>
-                              <span style={{ fontSize: 12, color: '#64748b', fontWeight: 700 }}>NC</span>
-                              <span style={{ fontWeight: 700 }}>{Number(totals?.no_contesta ?? 0)}</span>
+                            </div>
+                            <div style={{ textAlign: 'center', fontWeight: 700 }}>{Number(totals?.seguimientos ?? 0)}</div>
+                            <div style={{ textAlign: 'center', fontWeight: 700 }}>{Number(totals?.rellamadas ?? 0)}</div>
+                            <div style={{ textAlign: 'center', fontWeight: 700 }}>{Number(totals?.no_contesta ?? 0)}</div>
+                            <div style={{ display: 'flex', justifyContent: 'center' }}>
                               <SellerBadge value={Number(totals?.rechazos ?? 0)} styleFn={rechazosBadgeStyle} />
-                              <span style={{ fontSize: 12, color: '#64748b', fontWeight: 700 }}>Err</span>
-                              <span style={{ fontWeight: 700 }}>{Number(totals?.datos_erroneos ?? 0)}</span>
                             </div>
-
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                            <div style={{ textAlign: 'center', fontWeight: 700 }}>{Number(totals?.datos_erroneos ?? 0)}</div>
+                            <div style={{ display: 'flex', justifyContent: 'center' }}>
                               <SellerBadge value={Number(totals?.contacto ?? 0)} styleFn={sellerPercentStyle} suffix="%" />
-                              <SellerBadge value={Number(totals?.efectividad ?? 0)} styleFn={sellerPercentStyle} suffix="%" />
-                              <div style={{ fontSize: 12, color: '#475569' }}>
-                                <strong>{asignados}</strong> asignados · <strong>{gestiones}</strong> gestiones
-                              </div>
                             </div>
+                            <div style={{ display: 'flex', justifyContent: 'center' }}>
+                              <SellerBadge value={Number(totals?.efectividad ?? 0)} styleFn={sellerPercentStyle} suffix="%" />
+                            </div>
+                            <div style={{ textAlign: 'center', fontWeight: 800 }}>{asignados}</div>
+                            <div style={{ textAlign: 'center', fontWeight: 800 }}>{gestiones}</div>
                           </div>
 
-                          <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: 12, color: '#854F0B', fontWeight: 700 }}>Sin gestión: {sinGestion}</span>
-                            <button
-                              type="button"
-                              className="button secondary"
-                              onClick={openSellerReport}
-                              style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
-                            >
-                              <FileText size={16} />
-                              Ver informe
-                              <ChevronRight size={16} />
-                            </button>
+                          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                            <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                              {origins.length} orígenes
+                              <ChevronIcon size={14} />
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: 12, color: '#854F0B', fontWeight: 800 }}>Sin gestión: {sinGestion}</span>
+                              <button
+                                type="button"
+                                className="button secondary"
+                                onClick={openSellerReport}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+                              >
+                                <FileText size={16} />
+                                Ver informe
+                                <ChevronRight size={16} />
+                              </button>
+                            </div>
                           </div>
 
                           <div
@@ -2689,8 +2730,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                     key={`${sellerId}-${originKey}-${idx}`}
                                     style={{
                                       display: 'grid',
-                                      gridTemplateColumns: '220px 1fr auto',
-                                      gap: 12,
+                                      gridTemplateColumns: '220px repeat(10, 1fr)',
+                                      gap: 8,
                                       alignItems: 'center',
                                       padding: '8px 10px',
                                       borderRadius: 12,
@@ -2700,23 +2741,28 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                   >
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                       <span style={{ width: 8, height: 8, borderRadius: 999, background: dotColor }} />
-                                      <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                      <div style={{ fontWeight: 700, fontSize: 12, color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         {originKey}
                                       </div>
                                     </div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, auto)', gap: 10, alignItems: 'center' }}>
-                                      <span style={{ fontWeight: 700 }}>V: {Number(originRow?.ventas ?? 0)}</span>
-                                      <span>Seg: {Number(originRow?.seguimientos ?? 0)}</span>
-                                      <span>Rell: {Number(originRow?.rellamadas ?? 0)}</span>
-                                      <span>NC: {Number(originRow?.no_contesta ?? 0)}</span>
-                                      <span>Rech: {Number(originRow?.rechazos ?? 0)}</span>
-                                      <span>Err: {Number(originRow?.datos_erroneos ?? 0)}</span>
-                                      <span>Contacto: {Number(originRow?.contacto ?? 0)}%</span>
-                                      <span>Efect.: {Number(originRow?.efectividad ?? 0)}%</span>
+                                    <div style={{ textAlign: 'center' }}>
+                                      <SellerBadge value={Number(originRow?.ventas ?? 0)} styleFn={ventasBadgeStyle} />
                                     </div>
-                                    <div style={{ fontSize: 12, color: '#475569', textAlign: 'right' }}>
-                                      <strong>{oAsignados}</strong> asignados · <strong>{oGestiones}</strong> gestiones
+                                    <div style={{ textAlign: 'center', fontSize: 12, color: '#475569', fontWeight: 700 }}>{Number(originRow?.seguimientos ?? 0)}</div>
+                                    <div style={{ textAlign: 'center', fontSize: 12, color: '#475569', fontWeight: 700 }}>{Number(originRow?.rellamadas ?? 0)}</div>
+                                    <div style={{ textAlign: 'center', fontSize: 12, color: '#475569', fontWeight: 700 }}>{Number(originRow?.no_contesta ?? 0)}</div>
+                                    <div style={{ textAlign: 'center' }}>
+                                      <SellerBadge value={Number(originRow?.rechazos ?? 0)} styleFn={rechazosBadgeStyle} />
                                     </div>
+                                    <div style={{ textAlign: 'center', fontSize: 12, color: '#475569', fontWeight: 700 }}>{Number(originRow?.datos_erroneos ?? 0)}</div>
+                                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                      <SellerBadge value={Number(originRow?.contacto ?? 0)} styleFn={sellerPercentStyle} suffix="%" />
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                      <SellerBadge value={Number(originRow?.efectividad ?? 0)} styleFn={sellerPercentStyle} suffix="%" />
+                                    </div>
+                                    <div style={{ textAlign: 'center', fontSize: 12, color: '#475569', fontWeight: 800 }}>{oAsignados}</div>
+                                    <div style={{ textAlign: 'center', fontSize: 12, color: '#475569', fontWeight: 800 }}>{oGestiones}</div>
                                   </div>
                                 );
                               })}
@@ -2725,6 +2771,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         </div>
                       );
                     })}
+                    </div>
                   </div>
                 </Panel>
               ) : (
