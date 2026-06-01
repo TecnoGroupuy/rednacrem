@@ -1372,6 +1372,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [summaryWidgets, setSummaryWidgets] = React.useState({});
       const [summaryRequestId, setSummaryRequestId] = React.useState('');
       const summaryRequestIdRef = React.useRef('');
+      const [sellersByOrigin, setSellersByOrigin] = React.useState([]);
+      const [sellersByOriginLoading, setSellersByOriginLoading] = React.useState(false);
+      const [sellersByOriginError, setSellersByOriginError] = React.useState('');
+      const [expandedSellers, setExpandedSellers] = React.useState({});
       const [detailLoading, setDetailLoading] = React.useState(false);
       const [detailError, setDetailError] = React.useState('');
       const [teamConfig, setTeamConfig] = React.useState(null);
@@ -1783,6 +1787,32 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         const cleanup = fetchAllSummary();
         return () => { if (typeof cleanup === 'function') cleanup(); };
       }, [fetchAllSummary]);
+
+      React.useEffect(() => {
+        const orgId = activeOrgId || getActiveOrganizationId();
+        if (!orgId) return undefined;
+        let active = true;
+        const api = getApiClient();
+        const dateStr = formatDateYmd(selectedDate);
+        setSellersByOriginLoading(true);
+        setSellersByOriginError('');
+        api.get(`/api/supervisor/sellers-summary-by-origin?fecha=${dateStr}&organization_id=${encodeURIComponent(orgId)}`)
+          .then((response) => {
+            if (!active) return;
+            const items = response?.sellers || response?.data?.sellers || response?.data?.items || response?.items || [];
+            setSellersByOrigin(Array.isArray(items) ? items : []);
+          })
+          .catch((err) => {
+            if (!active) return;
+            setSellersByOrigin([]);
+            setSellersByOriginError(err?.message || 'No se pudo cargar el desglose por origen.');
+          })
+          .finally(() => {
+            if (!active) return;
+            setSellersByOriginLoading(false);
+          });
+        return () => { active = false; };
+      }, [activeOrgId, formatDateYmd, selectedDate]);
 
       React.useEffect(() => {
         if (!detailAgent?.id) return () => {};
@@ -2524,6 +2554,168 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 />
               </Panel>
             ) : (
+              (Array.isArray(sellersByOrigin) && sellersByOrigin.length > 0 && !sellersByOriginLoading) ? (
+                <Panel className="span-12" title="Gestiones por vendedor" subtitle="Desglose por origen de datos">
+                  {sellersByOriginError ? (
+                    <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 600 }}>{sellersByOriginError}</div>
+                  ) : null}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    {sellersByOrigin.map((seller) => {
+                      const sellerId = String(seller?.id || '');
+                      const nombre = String(seller?.nombre || '').trim();
+                      const apellido = String(seller?.apellido || '').trim();
+                      const initials = `${nombre[0] || ''}${apellido[0] || ''}`.toUpperCase();
+                      const totals = seller?.totals || {};
+                      const origins = Array.isArray(seller?.origins) ? seller.origins : [];
+                      const isExpanded = Boolean(expandedSellers?.[sellerId]);
+
+                      const asignados = Number(totals?.asignados ?? 0);
+                      const gestiones = Number(totals?.gestiones ?? 0);
+                      const sinGestion = Math.max(0, asignados - gestiones);
+
+                      const openSellerReport = (event) => {
+                        event?.stopPropagation?.();
+                        setDetailAgent({ id: sellerId, nombre, apellido });
+                      };
+
+                      const toggle = () => {
+                        if (!sellerId) return;
+                        setExpandedSellers((prev) => ({ ...(prev || {}), [sellerId]: !prev?.[sellerId] }));
+                      };
+
+                      const ventasBadgeStyle = (value) => (
+                        value > 0
+                          ? { bg: 'rgba(234,179,8,0.18)', color: '#854d0e', dot: '#eab308' }
+                          : { bg: 'rgba(148,163,184,0.18)', color: '#475569', dot: '#94a3b8' }
+                      );
+                      const rechazosBadgeStyle = (value) => (
+                        value > 0
+                          ? { bg: 'rgba(239,68,68,0.18)', color: '#991b1b', dot: '#ef4444' }
+                          : { bg: 'rgba(34,197,94,0.18)', color: '#166534', dot: '#22c55e' }
+                      );
+                      const ChevronIcon = isExpanded ? ChevronUp : ChevronDown;
+
+                      return (
+                        <div
+                          key={sellerId || `${nombre}-${apellido}`}
+                          role="button"
+                          tabIndex={0}
+                          onClick={toggle}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggle(); }}
+                          style={{
+                            background: 'var(--color-background-primary)',
+                            border: '0.5px solid var(--color-border-tertiary)',
+                            borderRadius: 14,
+                            padding: 12,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 220 }}>
+                              <div style={{ width: 34, height: 34, borderRadius: 999, background: 'rgba(15,118,110,0.12)', color: '#0f766e', display: 'grid', placeItems: 'center', fontWeight: 800 }}>
+                                {initials || '—'}
+                              </div>
+                              <div style={{ lineHeight: 1.15 }}>
+                                <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--color-text-primary)' }}>{`${nombre} ${apellido}`.trim() || '—'}</div>
+                                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{origins.length} orígenes <span style={{ marginLeft: 6 }}><ChevronIcon size={14} /></span></div>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, auto)', gap: 8, alignItems: 'center' }}>
+                              <SellerBadge value={Number(totals?.ventas ?? 0)} styleFn={ventasBadgeStyle} />
+                              <span style={{ fontSize: 12, color: '#64748b', fontWeight: 700 }}>Seg.</span>
+                              <span style={{ fontWeight: 700 }}>{Number(totals?.seguimientos ?? 0)}</span>
+                              <span style={{ fontSize: 12, color: '#64748b', fontWeight: 700 }}>Rell.</span>
+                              <span style={{ fontWeight: 700 }}>{Number(totals?.rellamadas ?? 0)}</span>
+                              <span style={{ fontSize: 12, color: '#64748b', fontWeight: 700 }}>NC</span>
+                              <span style={{ fontWeight: 700 }}>{Number(totals?.no_contesta ?? 0)}</span>
+                              <SellerBadge value={Number(totals?.rechazos ?? 0)} styleFn={rechazosBadgeStyle} />
+                              <span style={{ fontSize: 12, color: '#64748b', fontWeight: 700 }}>Err</span>
+                              <span style={{ fontWeight: 700 }}>{Number(totals?.datos_erroneos ?? 0)}</span>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                              <SellerBadge value={Number(totals?.contacto ?? 0)} styleFn={sellerPercentStyle} suffix="%" />
+                              <SellerBadge value={Number(totals?.efectividad ?? 0)} styleFn={sellerPercentStyle} suffix="%" />
+                              <div style={{ fontSize: 12, color: '#475569' }}>
+                                <strong>{asignados}</strong> asignados · <strong>{gestiones}</strong> gestiones
+                              </div>
+                            </div>
+                          </div>
+
+                          <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: 12, color: '#854F0B', fontWeight: 700 }}>Sin gestión: {sinGestion}</span>
+                            <button
+                              type="button"
+                              className="button secondary"
+                              onClick={openSellerReport}
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+                            >
+                              <FileText size={16} />
+                              Ver informe
+                              <ChevronRight size={16} />
+                            </button>
+                          </div>
+
+                          <div
+                            style={{
+                              overflow: 'hidden',
+                              maxHeight: isExpanded ? 520 : 0,
+                              opacity: isExpanded ? 1 : 0,
+                              transition: 'max-height 220ms ease, opacity 180ms ease',
+                              willChange: 'max-height, opacity'
+                            }}
+                          >
+                            <div style={{ marginTop: 12, borderTop: '1px solid rgba(148,163,184,0.25)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                              {origins.map((originRow, idx) => {
+                                const originKey = originRow?.origen_dato || '—';
+                                const oAsignados = Number(originRow?.asignados ?? 0);
+                                const oGestiones = Number(originRow?.gestiones ?? 0);
+                                const dotColor = idx % 3 === 0 ? '#3b82f6' : idx % 3 === 1 ? '#a855f7' : '#f59e0b';
+                                return (
+                                  <div
+                                    key={`${sellerId}-${originKey}-${idx}`}
+                                    style={{
+                                      display: 'grid',
+                                      gridTemplateColumns: '220px 1fr auto',
+                                      gap: 12,
+                                      alignItems: 'center',
+                                      padding: '8px 10px',
+                                      borderRadius: 12,
+                                      background: 'rgba(248,250,252,0.8)',
+                                      border: '1px solid rgba(148,163,184,0.2)'
+                                    }}
+                                  >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                      <span style={{ width: 8, height: 8, borderRadius: 999, background: dotColor }} />
+                                      <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {originKey}
+                                      </div>
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, auto)', gap: 10, alignItems: 'center' }}>
+                                      <span style={{ fontWeight: 700 }}>V: {Number(originRow?.ventas ?? 0)}</span>
+                                      <span>Seg: {Number(originRow?.seguimientos ?? 0)}</span>
+                                      <span>Rell: {Number(originRow?.rellamadas ?? 0)}</span>
+                                      <span>NC: {Number(originRow?.no_contesta ?? 0)}</span>
+                                      <span>Rech: {Number(originRow?.rechazos ?? 0)}</span>
+                                      <span>Err: {Number(originRow?.datos_erroneos ?? 0)}</span>
+                                      <span>Contacto: {Number(originRow?.contacto ?? 0)}%</span>
+                                      <span>Efect.: {Number(originRow?.efectividad ?? 0)}%</span>
+                                    </div>
+                                    <div style={{ fontSize: 12, color: '#475569', textAlign: 'right' }}>
+                                      <strong>{oAsignados}</strong> asignados · <strong>{oGestiones}</strong> gestiones
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Panel>
+              ) : (
               Object.entries(summaryWidgets).map(([tipo, widget]) => {
                 const label = TIPO_LABELS[tipo] || tipo;
                 const rows = (widget?.data || []).map(normalizeSummaryRow);
@@ -2638,6 +2830,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                   </Panel>
                 );
               })
+              )
             )}
           </section>
           <section className="content-grid">
