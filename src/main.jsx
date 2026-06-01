@@ -2608,6 +2608,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       const initials = `${nombre[0] || ''}${apellido[0] || ''}`.toUpperCase();
                       const totals = seller?.totals || {};
                       const origins = Array.isArray(seller?.origins) ? seller.origins : [];
+                      const activeOrigins = origins.filter((o) => Number(o?.gestiones ?? 0) > 0);
                       const isExpanded = Boolean(expandedSellers?.[sellerId]);
 
                       const asignados = Number(totals?.asignados ?? 0);
@@ -2690,9 +2691,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             <div style={{ textAlign: 'center', fontWeight: 800 }}>{gestiones}</div>
                           </div>
 
-                          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                            <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                              {origins.length} orígenes
+                            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                              <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                              {activeOrigins.length} orígenes
                               <ChevronIcon size={14} />
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
@@ -2720,7 +2721,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             }}
                           >
                             <div style={{ marginTop: 12, borderTop: '1px solid rgba(148,163,184,0.25)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                              {origins.map((originRow, idx) => {
+                              {activeOrigins.map((originRow, idx) => {
                                 const originKey = originRow?.origen_dato || '—';
                                 const oAsignados = Number(originRow?.asignados ?? 0);
                                 const oGestiones = Number(originRow?.gestiones ?? 0);
