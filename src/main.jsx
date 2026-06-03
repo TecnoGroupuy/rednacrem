@@ -4,13 +4,13 @@ import { createRoot } from 'react-dom/client';
 import { AuthProvider as OidcAuthProvider, useAuth as useOidcAuth } from 'react-oidc-context';
 import { buildCognitoHostedUiLogoutUrl, cognitoAuthConfig } from './auth/cognitoConfig';
 import {
-  Menu, X, Bell, Search, ChevronDown, ChevronUp, Briefcase, Users, UserCheck, Building2, Phone,
+  Menu, X, Bell, Search, ChevronDown, Briefcase, Users, UserCheck, Building2, Phone,
   Activity, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, AlertTriangle,
   DollarSign, Target, Download, Layers, Eye, Calendar, PhoneCall, CreditCard, FileText,
   Filter, Plus, CheckCircle2, Clock, Settings, Zap, BarChart3, Flame, Edit3, MoreHorizontal, Trash2,
   MessageSquare, Send, Headphones, Bot, User, Hash, Upload, LogOut, Coffee, Bath, PersonStanding,
   PauseCircle, XCircle,
-  Info, Shield, ChevronRight, RefreshCw
+  Info, Shield, ChevronRight
 } from 'lucide-react';
 import {
   ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip,
@@ -397,30 +397,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const key = String(valor);
       const found = (Array.isArray(opciones) ? opciones : []).find((o) => String(o?.valor) === key);
       return found ? found.label : valor;
-    }
-
-    function validarTelefonoUY(numero) {
-      if (!numero || numero.trim() === '') return { ok: true };
-      const limpio = numero.replace(/\D/g, '');
-
-      if (/^(\d)\1+$/.test(limpio)) {
-        return { ok: false, msg: 'Número inválido (dígitos repetidos)' };
-      }
-
-      const sec = '01234567890';
-      const secR = '09876543210';
-      if (sec.includes(limpio) || secR.includes(limpio)) {
-        return { ok: false, msg: 'Número inválido (secuencia numérica)' };
-      }
-
-      const fijo = /^[2-4]\d{7}$/.test(limpio);
-      const celular = /^09[1-9]\d{6}$/.test(limpio);
-
-      if (!fijo && !celular) {
-        return { ok: false, msg: 'Número uruguayo válido requerido (fijo: 2xxxxxxx · celular: 09xxxxxxx)' };
-      }
-
-      return { ok: true };
     }
     const pickCellular = (contact) => (contact?.celular || contact?.cellphone || contact?.telefono_celular || contact?.telefonoCelular || '');
     const pickDireccion = (contact) => (
@@ -1143,11 +1119,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       };
 
       const cols = {
-        seguimiento: ['Contacto', 'Teléfono', 'Fecha agendada', 'Antigüedad'],
-        rellamar: ['Contacto', 'Teléfono', 'Próxima acción', 'Antigüedad'],
-        no_contesta: ['Contacto', 'Teléfono', 'Intentos', 'Último intento'],
-        ventas: ['Contacto', 'Teléfono', 'Fecha'],
-        rechazos: ['Contacto', 'Teléfono', 'Fecha']
+        seguimiento: ['Contacto', 'Fecha agendada', 'Antigüedad'],
+        rellamar: ['Contacto', 'Próxima acción', 'Antigüedad'],
+        no_contesta: ['Contacto', 'Intentos', 'Último intento'],
+        ventas: ['Contacto', 'Fecha'],
+        rechazos: ['Contacto', 'Fecha']
       };
 
       return (
@@ -1163,21 +1139,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             <tbody>
               {(rows || []).map((row, i) => {
                 const ag = antiguedad(row.proxima_accion || row.fecha_gestion);
-                const telefono = (
-                  row.telefono ||
-                  row.celular ||
-                  row.telefono_celular ||
-                  row.telefonoCelular ||
-                  row.phone ||
-                  row.cellphone ||
-                  row.contacto_telefono ||
-                  row.contacto_celular ||
-                  '—'
-                );
                 return (
                   <tr key={i} style={{ borderTop: '0.5px solid var(--color-border-tertiary)' }}>
                     <td style={{ padding: '8px 12px', color: 'var(--color-text-primary)' }}>{row.contacto_nombre || '—'}</td>
-                    <td style={{ padding: '8px 12px', color: 'var(--color-text-secondary)' }}>{telefono}</td>
                     {tipo === 'no_contesta' ? (
                       <>
                         <td style={{ padding: '8px 12px' }}>
@@ -1384,10 +1348,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [summaryWidgets, setSummaryWidgets] = React.useState({});
       const [summaryRequestId, setSummaryRequestId] = React.useState('');
       const summaryRequestIdRef = React.useRef('');
-      const [sellersByOrigin, setSellersByOrigin] = React.useState([]);
-      const [sellersByOriginLoading, setSellersByOriginLoading] = React.useState(false);
-      const [sellersByOriginError, setSellersByOriginError] = React.useState('');
-      const [expandedSellers, setExpandedSellers] = React.useState({});
       const [detailLoading, setDetailLoading] = React.useState(false);
       const [detailError, setDetailError] = React.useState('');
       const [teamConfig, setTeamConfig] = React.useState(null);
@@ -1799,32 +1759,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         const cleanup = fetchAllSummary();
         return () => { if (typeof cleanup === 'function') cleanup(); };
       }, [fetchAllSummary]);
-
-      React.useEffect(() => {
-        const orgId = activeOrgId || getActiveOrganizationId();
-        if (!orgId) return undefined;
-        let active = true;
-        const api = getApiClient();
-        const dateStr = formatDateYmd(selectedDate);
-        setSellersByOriginLoading(true);
-        setSellersByOriginError('');
-        api.get(`/api/supervisor/sellers-summary-by-origin?fecha=${dateStr}&organization_id=${encodeURIComponent(orgId)}`)
-          .then((response) => {
-            if (!active) return;
-            const items = response?.sellers || response?.data?.sellers || response?.data?.items || response?.items || [];
-            setSellersByOrigin(Array.isArray(items) ? items : []);
-          })
-          .catch((err) => {
-            if (!active) return;
-            setSellersByOrigin([]);
-            setSellersByOriginError(err?.message || 'No se pudo cargar el desglose por origen.');
-          })
-          .finally(() => {
-            if (!active) return;
-            setSellersByOriginLoading(false);
-          });
-        return () => { active = false; };
-      }, [activeOrgId, formatDateYmd, selectedDate]);
 
       React.useEffect(() => {
         if (!detailAgent?.id) return () => {};
@@ -2566,216 +2500,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 />
               </Panel>
             ) : (
-              (Array.isArray(sellersByOrigin) && sellersByOrigin.length > 0 && !sellersByOriginLoading) ? (
-                <Panel className="span-12" title="Gestiones por vendedor" subtitle="Desglose por origen de datos">
-                  {sellersByOriginError ? (
-                    <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 600 }}>{sellersByOriginError}</div>
-                  ) : null}
-                  <div style={{ overflowX: 'auto' }}>
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: '220px repeat(10, 1fr)',
-                        gap: 8,
-                        alignItems: 'center',
-                        padding: '8px 12px',
-                        fontSize: 11,
-                        color: '#64748b',
-                        fontWeight: 800,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.04em',
-                        borderBottom: '1px solid rgba(148,163,184,0.25)'
-                      }}
-                    >
-                      <div>Vendedor</div>
-                      <div style={{ textAlign: 'center' }}>Ventas</div>
-                      <div style={{ textAlign: 'center' }}>Seg.</div>
-                      <div style={{ textAlign: 'center' }}>Rellamar</div>
-                      <div style={{ textAlign: 'center' }}>No contesta</div>
-                      <div style={{ textAlign: 'center' }}>Rechazos</div>
-                      <div style={{ textAlign: 'center' }}>Datos err.</div>
-                      <div style={{ textAlign: 'center' }}>Contacto</div>
-                      <div style={{ textAlign: 'center' }}>Efectividad</div>
-                      <div style={{ textAlign: 'center' }}>Asignados</div>
-                      <div style={{ textAlign: 'center' }}>Gestiones</div>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 12 }}>
-                    {sellersByOrigin.map((seller) => {
-                      const sellerId = String(seller?.id || '');
-                      const nombre = String(seller?.nombre || '').trim();
-                      const apellido = String(seller?.apellido || '').trim();
-                      const initials = `${nombre[0] || ''}${apellido[0] || ''}`.toUpperCase();
-                      const totals = seller?.totals || {};
-                      const origins = Array.isArray(seller?.origins) ? seller.origins : [];
-                      const activeOrigins = origins.filter((o) => Number(o?.gestiones ?? 0) > 0);
-                      const isExpanded = Boolean(expandedSellers?.[sellerId]);
-
-                      const asignados = Number(totals?.asignados ?? 0);
-                      const gestiones = Number(totals?.gestiones ?? 0);
-                      const sinGestion = Math.max(0, asignados - gestiones);
-
-                      const openSellerReport = (event) => {
-                        event?.stopPropagation?.();
-                        setDetailAgent({ id: sellerId, nombre, apellido });
-                      };
-
-                      const toggle = () => {
-                        if (!sellerId) return;
-                        setExpandedSellers((prev) => ({ ...(prev || {}), [sellerId]: !prev?.[sellerId] }));
-                      };
-
-                      const ventasBadgeStyle = (value) => (
-                        value > 0
-                          ? { bg: 'rgba(234,179,8,0.18)', color: '#854d0e', dot: '#eab308' }
-                          : { bg: 'rgba(148,163,184,0.18)', color: '#475569', dot: '#94a3b8' }
-                      );
-                      const rechazosBadgeStyle = (value) => (
-                        value > 0
-                          ? { bg: 'rgba(239,68,68,0.18)', color: '#991b1b', dot: '#ef4444' }
-                          : { bg: 'rgba(34,197,94,0.18)', color: '#166534', dot: '#22c55e' }
-                      );
-                      const ChevronIcon = isExpanded ? ChevronUp : ChevronDown;
-
-                      return (
-                        <div
-                          key={sellerId || `${nombre}-${apellido}`}
-                          role="button"
-                          tabIndex={0}
-                          onClick={toggle}
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggle(); }}
-                          style={{
-                            background: 'var(--color-background-primary)',
-                            border: '0.5px solid var(--color-border-tertiary)',
-                            borderRadius: 14,
-                            padding: 12,
-                            cursor: 'pointer'
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: 'grid',
-                              gridTemplateColumns: '220px repeat(10, 1fr)',
-                              gap: 8,
-                              alignItems: 'center'
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                              <div style={{ width: 34, height: 34, borderRadius: 999, background: 'rgba(15,118,110,0.12)', color: '#0f766e', display: 'grid', placeItems: 'center', fontWeight: 800, flexShrink: 0 }}>
-                                {initials || '—'}
-                              </div>
-                              <div style={{ minWidth: 0 }}>
-                                <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                  {`${nombre} ${apellido}`.trim() || '—'}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div style={{ display: 'flex', justifyContent: 'center' }}>
-                              <SellerBadge value={Number(totals?.ventas ?? 0)} styleFn={ventasBadgeStyle} />
-                            </div>
-                            <div style={{ textAlign: 'center', fontWeight: 700 }}>{Number(totals?.seguimientos ?? 0)}</div>
-                            <div style={{ textAlign: 'center', fontWeight: 700 }}>{Number(totals?.rellamadas ?? 0)}</div>
-                            <div style={{ textAlign: 'center', fontWeight: 700 }}>{Number(totals?.no_contesta ?? 0)}</div>
-                            <div style={{ display: 'flex', justifyContent: 'center' }}>
-                              <SellerBadge value={Number(totals?.rechazos ?? 0)} styleFn={rechazosBadgeStyle} />
-                            </div>
-                            <div style={{ textAlign: 'center', fontWeight: 700 }}>{Number(totals?.datos_erroneos ?? 0)}</div>
-                            <div style={{ display: 'flex', justifyContent: 'center' }}>
-                              <SellerBadge value={Number(totals?.contacto ?? 0)} styleFn={sellerPercentStyle} suffix="%" />
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'center' }}>
-                              <SellerBadge value={Number(totals?.efectividad ?? 0)} styleFn={sellerPercentStyle} suffix="%" />
-                            </div>
-                            <div style={{ textAlign: 'center', fontWeight: 800 }}>{asignados}</div>
-                            <div style={{ textAlign: 'center', fontWeight: 800 }}>{gestiones}</div>
-                          </div>
-
-                            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                              <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                              {activeOrigins.length} orígenes
-                              <ChevronIcon size={14} />
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
-                              <span style={{ fontSize: 12, color: '#854F0B', fontWeight: 800 }}>Sin gestión: {sinGestion}</span>
-                              <button
-                                type="button"
-                                className="button secondary"
-                                onClick={openSellerReport}
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
-                              >
-                                <FileText size={16} />
-                                Ver informe
-                                <ChevronRight size={16} />
-                              </button>
-                            </div>
-                          </div>
-
-                          <div
-                            style={{
-                              overflow: 'hidden',
-                              maxHeight: isExpanded ? 520 : 0,
-                              opacity: isExpanded ? 1 : 0,
-                              transition: 'max-height 220ms ease, opacity 180ms ease',
-                              willChange: 'max-height, opacity'
-                            }}
-                          >
-                            <div style={{ marginTop: 12, borderTop: '1px solid rgba(148,163,184,0.25)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                              {activeOrigins.map((originRow, idx) => {
-                                const originKey = originRow?.origen_dato || '—';
-                                const oAsignados = Number(originRow?.asignados ?? 0);
-                                const oGestiones = Number(originRow?.gestiones ?? 0);
-                                const dotColor = idx % 3 === 0 ? '#3b82f6' : idx % 3 === 1 ? '#a855f7' : '#f59e0b';
-                                return (
-                                  <div
-                                    key={`${sellerId}-${originKey}-${idx}`}
-                                    style={{
-                                      display: 'grid',
-                                      gridTemplateColumns: '220px repeat(10, 1fr)',
-                                      gap: 8,
-                                      alignItems: 'center',
-                                      padding: '8px 10px',
-                                      borderRadius: 12,
-                                      background: 'rgba(248,250,252,0.8)',
-                                      border: '1px solid rgba(148,163,184,0.2)'
-                                    }}
-                                  >
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                      <span style={{ width: 8, height: 8, borderRadius: 999, background: dotColor }} />
-                                      <div style={{ fontWeight: 700, fontSize: 12, color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                        {originKey}
-                                      </div>
-                                    </div>
-                                    <div style={{ textAlign: 'center' }}>
-                                      <SellerBadge value={Number(originRow?.ventas ?? 0)} styleFn={ventasBadgeStyle} />
-                                    </div>
-                                    <div style={{ textAlign: 'center', fontSize: 12, color: '#475569', fontWeight: 700 }}>{Number(originRow?.seguimientos ?? 0)}</div>
-                                    <div style={{ textAlign: 'center', fontSize: 12, color: '#475569', fontWeight: 700 }}>{Number(originRow?.rellamadas ?? 0)}</div>
-                                    <div style={{ textAlign: 'center', fontSize: 12, color: '#475569', fontWeight: 700 }}>{Number(originRow?.no_contesta ?? 0)}</div>
-                                    <div style={{ textAlign: 'center' }}>
-                                      <SellerBadge value={Number(originRow?.rechazos ?? 0)} styleFn={rechazosBadgeStyle} />
-                                    </div>
-                                    <div style={{ textAlign: 'center', fontSize: 12, color: '#475569', fontWeight: 700 }}>{Number(originRow?.datos_erroneos ?? 0)}</div>
-                                    <div style={{ display: 'flex', justifyContent: 'center' }}>
-                                      <SellerBadge value={Number(originRow?.contacto ?? 0)} styleFn={sellerPercentStyle} suffix="%" />
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'center' }}>
-                                      <SellerBadge value={Number(originRow?.efectividad ?? 0)} styleFn={sellerPercentStyle} suffix="%" />
-                                    </div>
-                                    <div style={{ textAlign: 'center', fontSize: 12, color: '#475569', fontWeight: 800 }}>{oAsignados}</div>
-                                    <div style={{ textAlign: 'center', fontSize: 12, color: '#475569', fontWeight: 800 }}>{oGestiones}</div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    </div>
-                  </div>
-                </Panel>
-              ) : (
               Object.entries(summaryWidgets).map(([tipo, widget]) => {
                 const label = TIPO_LABELS[tipo] || tipo;
                 const rows = (widget?.data || []).map(normalizeSummaryRow);
@@ -2890,7 +2614,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                   </Panel>
                 );
               })
-              )
             )}
           </section>
           <section className="content-grid">
@@ -3516,7 +3239,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             ayerDate.setDate(ayerDate.getDate() - 1);
             const ayer = ayerDate.toLocaleDateString('en-CA');
 
-            const contactosData = await api.get('/leads/assigned?tipo_excluir=recupero&excluir_bloqueados=true&page=1&limit=200&tab=todos');
+            const contactosData = await api.get('/leads/assigned?tipo_excluir=recupero&page=1&limit=200&tab=todos');
             if (contactosData.success || contactosData.ok) {
               setAssignedData({
                 contactos: contactosData.data.contactos || [],
@@ -3842,9 +3565,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         ]
         : [
           { key: 'nuevo', label: 'Nuevos', dot: '#6ee7b7' },
-          { key: 'no_contesta', label: 'No contesta', dot: '#f97316' },
-          { key: 'rellamar', label: 'Rellamar', dot: '#4A90D9' },
-          { key: 'seguimiento', label: 'Seguimiento', dot: '#9B59B6' }
+          { key: 'no_contesta', label: 'No contesta', dot: '#f97316' }
         ];
       const estadosFinalesGestion = isRecupero ? ['alta', 'rechazo', 'dato_erroneo'] : ESTADOS_FINALES_GESTION;
       const estadosConAgenda = isRecupero ? ['interesado', 'volver_a_llamar'] : ['seguimiento', 'rellamar'];
@@ -3879,8 +3600,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [filtroFechaHasta, setFiltroFechaHasta] = React.useState('');
       const [totalNuevos, setTotalNuevos] = React.useState(null);
       const [totalNoContesta, setTotalNoContesta] = React.useState(null);
-      const [totalRellamar, setTotalRellamar] = React.useState(null);
-      const [totalSeguimiento, setTotalSeguimiento] = React.useState(null);
       const [totalRecuperoNuevos, setTotalRecuperoNuevos] = React.useState(null);
       const [totalRecuperoNoContesta, setTotalRecuperoNoContesta] = React.useState(null);
 
@@ -3981,12 +3700,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               const total = contactosData?.data?.total ?? null;
               if (tabActivo === 'nuevos') setTotalRecuperoNuevos(total);
               if (tabActivo === 'no_contesta') setTotalRecuperoNoContesta(total);
-            } else {
-              const total = contactosData?.data?.total ?? null;
-              if (tabActivo === 'nuevo') setTotalNuevos(total);
-              if (tabActivo === 'no_contesta') setTotalNoContesta(total);
-              if (tabActivo === 'rellamar') setTotalRellamar(total);
-              if (tabActivo === 'seguimiento') setTotalSeguimiento(total);
             }
           }
 
@@ -4029,8 +3742,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               const total = d?.data?.total ?? null;
               if (tabActivo === 'nuevo') setTotalNuevos(total);
               if (tabActivo === 'no_contesta') setTotalNoContesta(total);
-              if (tabActivo === 'rellamar') setTotalRellamar(total);
-              if (tabActivo === 'seguimiento') setTotalSeguimiento(total);
             }
           }
         } catch {
@@ -4045,25 +3756,19 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
       React.useEffect(() => {
         if (isRecupero) {
-          api.get('/leads/assigned?tipo=recupero&excluir_bloqueados=true&tab=nuevos&page=1&limit=1')
+          api.get('/leads/assigned?tipo=recupero&tab=nuevos&page=1&limit=1')
             .then((r) => setTotalRecuperoNuevos(r?.data?.total ?? null))
             .catch(() => {});
-          api.get('/leads/assigned?tipo=recupero&excluir_bloqueados=true&tab=no_contesta&page=1&limit=1')
+          api.get('/leads/assigned?tipo=recupero&tab=no_contesta&page=1&limit=1')
             .then((r) => setTotalRecuperoNoContesta(r?.data?.total ?? null))
             .catch(() => {});
           return;
         }
-        api.get('/leads/assigned?tipo_excluir=recupero&excluir_bloqueados=true&tab=nuevo&page=1&limit=1')
+        api.get('/leads/assigned?tipo_excluir=recupero&tab=nuevo&page=1&limit=1')
           .then((r) => setTotalNuevos(r?.data?.total ?? null))
           .catch(() => {});
-        api.get('/leads/assigned?tipo_excluir=recupero&excluir_bloqueados=true&tab=no_contesta&page=1&limit=1')
+        api.get('/leads/assigned?tipo_excluir=recupero&tab=no_contesta&page=1&limit=1')
           .then((r) => setTotalNoContesta(r?.data?.total ?? null))
-          .catch(() => {});
-        api.get('/leads/assigned?tipo_excluir=recupero&excluir_bloqueados=true&tab=rellamar&page=1&limit=1')
-          .then((r) => setTotalRellamar(r?.data?.total ?? null))
-          .catch(() => {});
-        api.get('/leads/assigned?tipo_excluir=recupero&excluir_bloqueados=true&tab=seguimiento&page=1&limit=1')
-          .then((r) => setTotalSeguimiento(r?.data?.total ?? null))
           .catch(() => {});
       }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -4194,7 +3899,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [nuevoContactoOpen, setNuevoContactoOpen] = React.useState(false);
       const [nuevoContactoError, setNuevoContactoError] = React.useState('');
       const [nuevoContactoSaving, setNuevoContactoSaving] = React.useState(false);
-      const [refreshingNow, setRefreshingNow] = React.useState(false);
       const [nuevoContacto, setNuevoContacto] = React.useState({
         nombre: '',
         apellido: '',
@@ -4209,26 +3913,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         pais: 'Uruguay',
         origen_dato: ''
       });
-
-      const handleManualRefresh = React.useCallback(async () => {
-        if (isRecupero) return;
-        if (vendedorNewClientOpen || drawerOpen || nuevoContactoOpen) return;
-        setRefreshingNow(true);
-        try {
-          await refreshSilencioso();
-        } finally {
-          setRefreshingNow(false);
-        }
-      }, [drawerOpen, isRecupero, nuevoContactoOpen, refreshSilencioso, vendedorNewClientOpen]);
-
-      React.useEffect(() => {
-        if (isRecupero) return undefined;
-        if (vendedorNewClientOpen || drawerOpen || nuevoContactoOpen) return undefined;
-        const intervalId = setInterval(() => {
-          refreshSilencioso();
-        }, 60_000);
-        return () => clearInterval(intervalId);
-      }, [drawerOpen, isRecupero, nuevoContactoOpen, refreshSilencioso, vendedorNewClientOpen]);
 
       React.useEffect(() => {
         const handler = setTimeout(() => {
@@ -4604,31 +4288,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               </div>
               {!isRecupero ? (
                 <button
-                  onClick={handleManualRefresh}
-                  disabled={loadingContacts || refreshingNow || vendedorNewClientOpen || drawerOpen || nuevoContactoOpen}
-                  title={(vendedorNewClientOpen || drawerOpen || nuevoContactoOpen) ? 'Cerrá la gestión para actualizar' : 'Actualizar'}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    background: '#fff',
-                    color: '#64748b',
-                    border: '1px solid rgba(148,163,184,0.55)',
-                    borderRadius: 8,
-                    padding: '8px 12px',
-                    fontWeight: 600,
-                    fontSize: 13,
-                    cursor: (loadingContacts || refreshingNow || vendedorNewClientOpen || drawerOpen || nuevoContactoOpen) ? 'not-allowed' : 'pointer',
-                    opacity: (loadingContacts || refreshingNow || vendedorNewClientOpen || drawerOpen || nuevoContactoOpen) ? 0.6 : 1,
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  <RefreshCw size={16} />
-                  Actualizar
-                </button>
-              ) : null}
-              {!isRecupero ? (
-                <button
                   onClick={openNuevoContacto}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff', color: accentColor, border: `1px solid ${accentColor}`, borderRadius: 8, padding: '8px 14px', fontWeight: 600, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}
                 >
@@ -4949,30 +4608,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       fontWeight: 500
                     }}>
                       {totalNoContesta}
-                    </span>
-                  )}
-                  {tab.key === 'rellamar' && totalRellamar !== null && (
-                    <span style={{
-                      fontSize: 11,
-                      background: isActive ? 'rgba(255,255,255,0.2)' : 'rgba(74,144,217,0.12)',
-                      color: isActive ? '#fff' : '#185FA5',
-                      padding: '1px 7px',
-                      borderRadius: 10,
-                      fontWeight: 500
-                    }}>
-                      {totalRellamar}
-                    </span>
-                  )}
-                  {tab.key === 'seguimiento' && totalSeguimiento !== null && (
-                    <span style={{
-                      fontSize: 11,
-                      background: isActive ? 'rgba(255,255,255,0.2)' : 'rgba(155,89,182,0.12)',
-                      color: isActive ? '#fff' : '#6D28D9',
-                      padding: '1px 7px',
-                      borderRadius: 10,
-                      fontWeight: 500
-                    }}>
-                      {totalSeguimiento}
                     </span>
                   )}
                 </button>
@@ -5803,10 +5438,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [loadingAgenda, setLoadingAgenda] = React.useState(true);
       const [drawerItem, setDrawerItem] = React.useState(null);
       const [agendaTab, setAgendaTab] = React.useState('datos');
-      const [agendaListTab, setAgendaListTab] = React.useState('hoy');
-      const [agendaTipoTab, setAgendaTipoTab] = React.useState('todas');
-      const [agendaSearch, setAgendaSearch] = React.useState('');
-      const [page, setPage] = React.useState(1);
       const [agEstado, setAgEstado] = React.useState('');
       const [agNota, setAgNota] = React.useState('');
       const [agFecha, setAgFecha] = React.useState('');
@@ -5959,170 +5590,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           return new Date(iso).toLocaleString('es-UY', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
         } catch { return iso; }
       };
-
-      const getLatestGestionAt = (row) => {
-        const candidates = [];
-
-        const pushDate = (value) => {
-          if (!value) return;
-          const date = new Date(value);
-          if (Number.isNaN(date.getTime())) return;
-          candidates.push(date);
-        };
-
-        [
-          row?.fecha_gestion,
-          row?.fechaGestion,
-          row?.last_gestion_at,
-          row?.lastGestionAt,
-          row?.updated_at
-        ].forEach(pushDate);
-
-        const historyLike = [
-          row?.lead_management_history,
-          row?.lead_management_histories,
-          row?.leadManagementHistory,
-          row?.management_history,
-          row?.managementHistory,
-          row?.historial_gestion,
-          row?.historialGestion
-        ];
-
-        historyLike.forEach((maybe) => {
-          if (!maybe) return;
-          const items = Array.isArray(maybe) ? maybe : (Array.isArray(maybe?.items) ? maybe.items : null);
-          if (!items) return;
-          items.forEach((item) => {
-            pushDate(item?.fecha_gestion);
-            pushDate(item?.fechaGestion);
-            pushDate(item?.created_at);
-            pushDate(item?.createdAt);
-            pushDate(item?.at);
-            pushDate(item?.fecha);
-          });
-        });
-
-        if (!candidates.length) return null;
-        candidates.sort((a, b) => b.getTime() - a.getTime());
-        return candidates[0];
-      };
-
-      const fmtGestionFecha = (date) => {
-        if (!date || Number.isNaN(date.getTime?.() ?? NaN)) return '—';
-        return date.toLocaleDateString('es-UY', {
-          timeZone: 'America/Montevideo',
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric'
-        });
-      };
-
-      const fmtGestionHora = (date) => {
-        if (!date || Number.isNaN(date.getTime?.() ?? NaN)) return '—';
-        return date.toLocaleTimeString('es-UY', {
-          timeZone: 'America/Montevideo',
-          hour: '2-digit',
-          minute: '2-digit'
-        });
-      };
       const labelPorResultado = (estado) => {
         if (!estado) return '';
         const meta = salesStatusMeta(estado);
         return meta?.label || estado;
       };
-
-      const TZ = 'America/Montevideo';
-      const todayYmd = new Date().toLocaleDateString('en-CA', { timeZone: TZ });
-      const getAgendaYmd = (row) => {
-        if (!row?.fecha_agenda) return '';
-        const parsed = new Date(row.fecha_agenda);
-        if (Number.isNaN(parsed.getTime())) return '';
-        return parsed.toLocaleDateString('en-CA', { timeZone: TZ });
-      };
-
-      const isRowVencida = (row) => {
-        const ymd = getAgendaYmd(row);
-        if (!ymd) return false;
-        return ymd < todayYmd && !row?.cumplida;
-      };
-
-      const daysVencida = (row) => {
-        const ymd = getAgendaYmd(row);
-        if (!ymd || ymd >= todayYmd) return 0;
-        const start = new Date(`${ymd}T00:00:00`);
-        const end = new Date(`${todayYmd}T00:00:00`);
-        const diff = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-        return Math.max(0, diff);
-      };
-
-      const agendaCounts = React.useMemo(() => {
-        const base = Array.isArray(seguimientos) ? seguimientos : [];
-        const totalSeguimiento = base.filter((r) => String(r?.estado_venta || '').toLowerCase() === 'seguimiento').length;
-        const totalRellamar = base.filter((r) => String(r?.estado_venta || '').toLowerCase() === 'rellamar').length;
-        const hoy = base.filter((r) => getAgendaYmd(r) === todayYmd);
-        const seguimientoHoy = hoy.filter((r) => String(r?.estado_venta || '').toLowerCase() === 'seguimiento').length;
-        const rellamarHoy = hoy.filter((r) => String(r?.estado_venta || '').toLowerCase() === 'rellamar').length;
-        const vencidas = base.filter((r) => isRowVencida(r)).length;
-        return {
-          hoy: hoy.length,
-          rellamarHoy,
-          seguimientoHoy,
-          vencidas,
-          todas: base.length,
-          totalSeguimiento,
-          totalRellamar
-        };
-      }, [seguimientos, todayYmd]);
-
-      const agendaVisibleRows = React.useMemo(() => {
-        const base = Array.isArray(seguimientos) ? seguimientos : [];
-        const tabFiltered = base.filter((row) => {
-          const ymd = getAgendaYmd(row);
-          if (agendaListTab === 'hoy') return ymd === todayYmd;
-          if (agendaListTab === 'vencidas') return isRowVencida(row);
-          return true; // todas
-        }).filter((row) => {
-          if (agendaListTab !== 'todas') return true;
-          const estado = String(row?.estado_venta || '').toLowerCase();
-          if (agendaTipoTab === 'seguimiento') return estado === 'seguimiento';
-          if (agendaTipoTab === 'rellamar') return estado === 'rellamar';
-          return true;
-        });
-        const q = String(agendaSearch || '').trim().toLowerCase();
-        const searched = (() => {
-          if (!q) return tabFiltered;
-          const digits = q.replace(/\\D/g, '');
-          return tabFiltered.filter((row) => {
-            const name = [row?.nombre, row?.apellido].filter(Boolean).join(' ').toLowerCase();
-            const phoneRaw = String(row?.celular || row?.telefono || '');
-            const phoneDigits = phoneRaw.replace(/\\D/g, '');
-            if (digits) return phoneDigits.includes(digits) || name.includes(q);
-            return name.includes(q) || phoneRaw.toLowerCase().includes(q);
-          });
-        })();
-
-        if (agendaListTab === 'vencidas') {
-          return [...searched].sort((a, b) => {
-            const aTime = a?.fecha_agenda ? new Date(a.fecha_agenda).getTime() : 0;
-            const bTime = b?.fecha_agenda ? new Date(b.fecha_agenda).getTime() : 0;
-            return bTime - aTime;
-          });
-        }
-        return searched;
-      }, [seguimientos, agendaListTab, agendaTipoTab, agendaSearch, todayYmd]);
-
-      const PAGE_SIZE = 5;
-
-      React.useEffect(() => {
-        setPage(1);
-      }, [agendaListTab, agendaTipoTab, agendaSearch]);
-
-      const totalPages = Math.max(1, Math.ceil(agendaVisibleRows.length / PAGE_SIZE));
-      const safePage = Math.min(Math.max(1, page), totalPages);
-      const paginatedRows = React.useMemo(() => {
-        const start = (safePage - 1) * PAGE_SIZE;
-        return agendaVisibleRows.slice(start, start + PAGE_SIZE);
-      }, [agendaVisibleRows, safePage]);
 
       return (
         <div className="view">
@@ -6138,440 +5610,156 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 </div>
               ) : (
                 <>
-                  <div className="table-wrap">
-                    <style>{`
-.agenda-table { table-layout: auto; width: 100%; }
-.agenda-cards { display: none; }
-.agenda-main-tabs { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 0 16px; }
-@media (max-width: 600px) {
-  .agenda-main-tabs { overflow-x: auto; white-space: nowrap; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; padding: 0 16px; }
-  .agenda-main-tabs > * { flex: 0 0 auto; }
-}
-@media (max-width: 600px) {
-  .agenda-table { display: none; }
-  .agenda-cards { display: grid; grid-template-columns: 1fr; gap: 10px; }
-}
-                    `}</style>
+                  {(() => {
+                    const totalSeguimientos = seguimientos.filter((r) => (r.tipo_agenda || r.estado_venta) === 'seguimiento').length;
+                    const totalRellamar = seguimientos.filter((r) => (r.tipo_agenda || r.estado_venta) === 'rellamar').length;
+                    const totalPendientes = seguimientos.length;
+                    const totalVencidas = seguimientos.filter((r) => r.fecha_agenda && new Date(r.fecha_agenda) < ahora).length;
 
-                    <div style={{ padding: 16, overflow: 'hidden' }}>
-                    <div className="agenda-main-tabs">
-                      {[
-                        { key: 'hoy', label: 'Hoy', value: agendaCounts.hoy },
-                        { key: 'vencidas', label: 'Vencidas', value: agendaCounts.vencidas },
-                        { key: 'todas', label: 'Todas', value: agendaCounts.todas }
-                      ].map((t) => {
-                        const active = agendaListTab === t.key;
-                        return (
-                          <button
-                            key={t.key}
-                            type="button"
-                            onClick={() => setAgendaListTab(t.key)}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 8,
-                              padding: '8px 16px',
-                              borderRadius: 999,
-                              border: `1px solid ${active ? '#1f2937' : '#e5e7eb'}`,
-                              background: active ? '#1f2937' : '#ffffff',
-                              color: active ? '#ffffff' : '#6b7280',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            <span style={{ fontSize: 14, fontWeight: 800 }}>{t.label}</span>
-                            <span style={{
-                              fontSize: 11,
-                              fontWeight: 800,
-                              padding: '2px 8px',
-                              borderRadius: 999,
-                              background: active ? 'rgba(255,255,255,0.2)' : '#f3f4f6',
-                              color: active ? '#ffffff' : '#374151'
-                            }}>
-                              {t.value}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <div style={{ margin: '12px 0' }}>
+                    return (
                       <div style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(4, 1fr)',
                         gap: 10,
-                        background: '#fff',
-                        border: '1px solid rgba(15,23,42,0.10)',
-                        borderRadius: 999,
-                        padding: '10px 14px',
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.06)'
+                        marginBottom: 16
                       }}>
-                        <Search size={16} color="#69788d" />
-                        <input
-                          placeholder="Buscar por nombre o teléfono..."
-                          value={agendaSearch}
-                          onChange={(event) => setAgendaSearch(event.target.value)}
-                          style={{ border: 'none', outline: 'none', width: '100%', fontSize: 14, background: 'transparent' }}
-                        />
-                      </div>
-                    </div>
-
-                    {agendaListTab === 'todas' && (
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
                         {[
-                          { key: 'todas', label: 'Todas', badge: { bg: 'rgba(148,163,184,0.15)', color: '#64748b' }, value: agendaCounts.todas },
-                          { key: 'seguimiento', label: 'Seguimiento', badge: { bg: '#f5f3ff', color: '#6d28d9' }, value: agendaCounts.totalSeguimiento },
-                          { key: 'rellamar', label: 'Rellamar', badge: { bg: '#eff6ff', color: '#1d4ed8' }, value: agendaCounts.totalRellamar }
-                        ].map((t) => {
-                          const active = agendaTipoTab === t.key;
-                          return (
-                            <button
-                              key={`tipo-${t.key}`}
-                              type="button"
-                              onClick={() => setAgendaTipoTab(t.key)}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 8,
-                                padding: '4px 10px',
-                                borderRadius: 999,
-                                border: active ? '1px solid rgba(15,23,42,0.14)' : '1px solid rgba(15,23,42,0.08)',
-                                background: active ? '#fff' : 'rgba(15,23,42,0.02)',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              <span style={{ fontSize: 12, fontWeight: 700, color: active ? '#0f172a' : '#94a3b8' }}>{t.label}</span>
-                              <span style={{ fontSize: 11, fontWeight: 800, padding: '1px 7px', borderRadius: 999, background: t.badge.bg, color: t.badge.color }}>
-                                {t.value}
-                              </span>
-                            </button>
-                          );
-                        })}
+                          { label: 'Seguimientos', value: totalSeguimientos, color: '#9B59B6', bg: '#F8F0FF' },
+                          { label: 'Rellamar', value: totalRellamar, color: '#4A90D9', bg: '#F0F7FF' },
+                          { label: 'Pendientes', value: totalPendientes, color: '#475569', bg: 'var(--color-background-secondary)' },
+                          { label: 'Vencidas', value: totalVencidas, color: '#E53E3E', bg: '#FFF3F3' }
+                        ].map(({ label, value, color, bg }) => (
+                          <div key={label} style={{
+                            background: bg,
+                            borderRadius: 10,
+                            padding: '12px 16px',
+                            border: '0.5px solid var(--color-border-tertiary)'
+                          }}>
+                            <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 4 }}>{label}</div>
+                            <div style={{ fontSize: 22, fontWeight: 500, color }}>{value}</div>
+                          </div>
+                        ))}
                       </div>
-                    )}
-                    {(() => {
-                      if (agendaListTab === 'hoy') {
-                        return (
-                          <div className="agenda-metrics-grid" style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(2, 1fr)',
-                            gap: 10,
-                            margin: '0 0 12px 0'
-                          }}>
-                            {[
-                              { label: 'Rellamar hoy', value: agendaCounts.rellamarHoy, color: '#4A90D9', bg: '#F0F7FF' },
-                              { label: 'Seguimiento hoy', value: agendaCounts.seguimientoHoy, color: '#9B59B6', bg: '#F8F0FF' }
-                            ].map(({ label, value, color, bg }) => (
-                              <div key={label} style={{
-                                background: bg,
-                                borderRadius: 10,
-                                padding: '12px 16px',
-                                border: '0.5px solid var(--color-border-tertiary)'
-                              }}>
-                                <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 4 }}>{label}</div>
-                                <div style={{ fontSize: 22, fontWeight: 500, color }}>{value}</div>
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      }
+                    );
+                  })()}
 
-                      if (agendaListTab === 'vencidas') {
-                        const vencidasRows = (Array.isArray(seguimientos) ? seguimientos : []).filter((r) => isRowVencida(r));
-                        const days = vencidasRows.map((r) => daysVencida(r)).filter((n) => Number.isFinite(n));
-                        const oldest = days.length ? Math.max(...days) : 0;
-                        const avg = days.length ? Math.round(days.reduce((acc, n) => acc + n, 0) / days.length) : 0;
-                        return (
-                          <div className="agenda-metrics-grid" style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(3, 1fr)',
-                            gap: 10,
-                            margin: '0 0 12px 0'
-                          }}>
-                            {[
-                              { label: 'Total vencidas', value: vencidasRows.length, color: '#b45309', bg: 'rgba(245,158,11,0.12)' },
-                              { label: 'Más antigua', value: oldest ? `${oldest} días` : '—', color: '#b45309', bg: 'rgba(245,158,11,0.12)' },
-                              { label: 'Promedio', value: avg ? `${avg} días` : '—', color: '#b45309', bg: 'rgba(245,158,11,0.12)' }
-                            ].map(({ label, value, color, bg }) => (
-                              <div key={label} style={{
-                                background: bg,
-                                borderRadius: 10,
-                                padding: '12px 16px',
-                                border: '0.5px solid var(--color-border-tertiary)'
-                              }}>
-                                <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 4 }}>{label}</div>
-                                <div style={{ fontSize: 22, fontWeight: 500, color }}>{value}</div>
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      }
-
-                      const totalSeguimientos = agendaCounts.totalSeguimiento;
-                      const totalRellamar = agendaCounts.totalRellamar;
-                      const totalPendientes = (Array.isArray(seguimientos) ? seguimientos : []).length;
-                      const totalVencidas = agendaCounts.vencidas;
-                      return (
-                        <div className="agenda-metrics-grid" style={{
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(4, 1fr)',
-                          gap: 10,
-                          margin: '0 0 12px 0'
-                        }}>
-                          {[
-                            { label: 'Seguimientos', value: totalSeguimientos, color: '#9B59B6', bg: '#F8F0FF' },
-                            { label: 'Rellamar', value: totalRellamar, color: '#4A90D9', bg: '#F0F7FF' },
-                            { label: 'Pendientes', value: totalPendientes, color: '#475569', bg: 'var(--color-background-secondary)' },
-                            { label: 'Vencidas', value: totalVencidas, color: '#E53E3E', bg: '#FFF3F3' }
-                          ].map(({ label, value, color, bg }) => (
-                            <div key={label} style={{
-                              background: bg,
-                              borderRadius: 10,
-                              padding: '12px 16px',
-                              border: '0.5px solid var(--color-border-tertiary)'
-                            }}>
-                              <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 4 }}>{label}</div>
-                              <div style={{ fontSize: 22, fontWeight: 500, color }}>{value}</div>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })()}
-                    <div style={{ overflow: 'hidden' }}>
-                    <table className="agenda-table">
+                  <div className="table-wrap">
+                    <table>
                       <thead>
                         <tr>
-                          <th>Fecha</th>
-                          <th>Hora</th>
-                          {agendaListTab === 'vencidas' ? <th>Días</th> : null}
-                          <th>Tipo</th>
-                          <th>Contacto</th>
-                          {(agendaListTab === 'vencidas' || agendaListTab === 'todas') ? <th>Situación</th> : null}
-                          <th>Intentos</th>
-                          <th className="col-nota">Nota</th>
+                          <th>Fecha y hora</th>
+                          <th>Contacto</th><th>Origen</th><th>F. Ingreso</th><th>Intentos</th><th>Nota</th><th>Asignación</th><th>Estado</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {paginatedRows.map((row) => {
+                        {seguimientos.map((row) => {
                           const fechaDt = row.fecha_agenda ? new Date(row.fecha_agenda) : null;
-                          const vencida = isRowVencida(row);
-                          const diasVencida = agendaListTab === 'vencidas' ? daysVencida(row) : 0;
-                          const latestGestionAt = row?.ultima_fecha_gestion
-                            ? new Date(row.ultima_fecha_gestion)
-                            : (row?.fecha_agenda ? new Date(row.fecha_agenda) : null);
+                          const vencida = fechaDt && fechaDt < ahora;
                           const intentos = row.intentos || 0;
-                          const intentosLabel = intentos === 1 ? '1 intento' : `${intentos} intentos`;
                           const intentosMeta = intentos >= 3
-                            ? { bg: '#FDECEA', color: '#E53E3E', label: intentosLabel }
+                            ? { bg: '#FDECEA', color: '#E53E3E', label: `${intentos} intentos` }
                             : intentos === 2
-                            ? { bg: 'rgba(245,166,35,0.15)', color: '#F5A623', label: intentosLabel }
-                            : { bg: 'rgba(158,158,158,0.12)', color: '#9E9E9E', label: intentosLabel };
-                          const notaText = String(row.nota || '').trim();
-                          const tipoFromEstado = String(row.estado_venta || '').toLowerCase();
-                          const tipoLabel = tipoFromEstado === 'seguimiento' ? 'Seguimiento' : 'Rellamar';
-                          const tipoBadge = tipoFromEstado === 'seguimiento'
-                            ? { bg: '#f5f3ff', color: '#6d28d9', border: 'rgba(109,40,217,0.25)' }
-                            : { bg: '#eff6ff', color: '#1d4ed8', border: 'rgba(29,78,216,0.25)' };
+                            ? { bg: 'rgba(245,166,35,0.15)', color: '#F5A623', label: `${intentos} intentos` }
+                            : { bg: 'rgba(158,158,158,0.12)', color: '#9E9E9E', label: `${intentos} intentos` };
+                          const notaText = row.nota ? (row.nota.length > 40 ? row.nota.slice(0, 40) + '"…' : row.nota) : null;
+                          const tipoAgenda = row.tipo_agenda || row.estado_venta;
                           return (
                             <tr
                               key={row.id}
                               onClick={() => abrirDrawer(row)}
-                              style={{ cursor: 'pointer', background: vencida ? '#FEF2F2' : undefined }}
+                              style={{ cursor: 'pointer', background: vencida ? '#FFF8E1' : undefined }}
                             >
                               <td>
-                                <div style={{ color: vencida ? '#b45309' : undefined, fontWeight: vencida ? 700 : undefined }}>
-                                  {fmtGestionFecha(latestGestionAt)}
+                                <div style={{ color: vencida ? '#E53E3E' : undefined, fontWeight: vencida ? 600 : undefined }}>
+                                  {fechaDt ? fmtFechaHora(row.fecha_agenda) : '—'}
                                 </div>
+                                {vencida && (
+                                  <span style={{ display: 'inline-block', marginTop: 2, fontSize: 10, fontWeight: 700, background: '#E53E3E', color: '#fff', borderRadius: 4, padding: '1px 6px' }}>Vencida</span>
+                                )}
                               </td>
-                              <td style={{ color: vencida ? '#b45309' : '#0f172a', fontWeight: vencida ? 800 : 600, whiteSpace: 'nowrap' }}>
-                                {fmtGestionHora(latestGestionAt)}
+                              <td><strong>{[row.nombre, row.apellido].filter(Boolean).join(' ') || '—'}</strong></td>
+                              <td style={{ color: '#475569', fontSize: 12 }}>
+                                {getOrigenLabel(row.origen_dato || row.origen, origenDatoResolvedOptions)}
                               </td>
-                              {agendaListTab === 'vencidas' ? (
-                                <td style={{ whiteSpace: 'nowrap', fontWeight: 800, color: '#b45309' }}>
-                                  {diasVencida ? `${diasVencida}d` : '—'}
-                                </td>
-                              ) : null}
-                              <td>
-                                <span style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  padding: '3px 10px',
-                                  borderRadius: 999,
-                                  fontSize: 12,
-                                  fontWeight: 800,
-                                  background: tipoBadge.bg,
-                                  color: tipoBadge.color,
-                                  border: `1px solid ${tipoBadge.border}`,
-                                  whiteSpace: 'nowrap'
-                                }}>
-                                  {tipoLabel}
-                                </span>
+                              <td style={{ color: '#475569', fontSize: 12, whiteSpace: 'nowrap' }}>
+                                {row.created_at
+                                  ? new Date(row.created_at).toLocaleDateString('es-UY', { timeZone: 'America/Montevideo', day: '2-digit', month: '2-digit', year: 'numeric' })
+                                  : '—'}
                               </td>
-                              <td>
-                                <strong>{[row.nombre, row.apellido].filter(Boolean).join(' ') || '—'}</strong>
-                              </td>
-                              {(agendaListTab === 'vencidas' || agendaListTab === 'todas') ? (
-                                <td>
-                                  {vencida ? (
-                                    <span style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: 6,
-                                      padding: '3px 10px',
-                                      borderRadius: 999,
-                                      background: 'rgba(245,158,11,0.18)',
-                                      color: '#b45309',
-                                      border: '1px solid rgba(245,158,11,0.35)',
-                                      fontSize: 12,
-                                      fontWeight: 900,
-                                      whiteSpace: 'nowrap'
-                                    }}>
-                                      ⚠ Vencida
-                                    </span>
-                                  ) : '—'}
-                                </td>
-                              ) : null}
                               <td>
                                 <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 999, background: intentosMeta.bg, color: intentosMeta.color, fontSize: 12, fontWeight: 600 }}>
                                   {intentosMeta.label}
                                 </span>
                               </td>
-                              <td className="col-nota" style={{ fontSize: 15, fontWeight: 800, color: notaText ? 'var(--color-text-danger)' : '#94a3b8' }}>
-                                <span
-                                  className="agenda-note"
-                                  title={notaText || ''}
-                                  style={{
-                                    display: '-webkit-box',
-                                    WebkitLineClamp: 2,
-                                    WebkitBoxOrient: 'vertical',
-                                    overflow: 'hidden',
-                                    maxWidth: 220,
-                                    lineHeight: 1.5,
-                                    wordBreak: 'break-word'
-                                  }}
-                                >
-                                  {notaText || '—'}
-                                </span>
+                              <td style={{ color: notaText ? '#888' : '#ccc', fontSize: 13 }}>{notaText || '—'}</td>
+                              <td>
+                                {row.reasignado_desde ? (
+                                  <span style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    fontSize: 11,
+                                    fontWeight: 500,
+                                    padding: '3px 8px',
+                                    borderRadius: 20,
+                                    background: '#E6F1FB',
+                                    color: '#185FA5',
+                                    whiteSpace: 'nowrap'
+                                  }}>
+                                    ↗ {row.reasignado_desde.replace('Contacto reasignado desde ', '')}
+                                  </span>
+                                ) : '—'}
+                              </td>
+                              <td>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                  <span style={{
+                                    display: 'inline-block',
+                                    padding: '3px 8px',
+                                    borderRadius: 20,
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    background: tipoAgenda === 'seguimiento'
+                                      ? '#F8F0FF' : '#F0F7FF',
+                                    color: tipoAgenda === 'seguimiento'
+                                      ? '#9B59B6' : '#4A90D9',
+                                    border: `1px solid ${tipoAgenda === 'seguimiento'
+                                      ? '#9B59B640' : '#4A90D940'}`
+                                  }}>
+                                    {tipoAgenda === 'seguimiento' ? '? Seguimiento' : '? Rellamar'}
+                                  </span>
+
+                                  {row.estado_venta && row.estado_venta !== tipoAgenda && (
+                                    <span style={{
+                                      display: 'inline-block',
+                                      padding: '2px 6px',
+                                      borderRadius: 20,
+                                      fontSize: 10,
+                                      fontWeight: 500,
+                                      background: {
+                                        'no_contesta': '#FFF8EE',
+                                        'rellamar': '#F0F7FF',
+                                        'seguimiento': '#F8F0FF',
+                                        'rechazo': '#FFF3F3',
+                                        'venta': '#F0FFF4'
+                                      }[row.estado_venta] || '#F5F5F5',
+                                      color: {
+                                        'no_contesta': '#F5A623',
+                                        'rellamar': '#4A90D9',
+                                        'seguimiento': '#9B59B6',
+                                        'rechazo': '#E53E3E',
+                                        'venta': '#27AE60'
+                                      }[row.estado_venta] || '#888'
+                                    }}>
+                                      {labelPorResultado(row.estado_venta)}
+                                    </span>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           );
                         })}
                       </tbody>
                     </table>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 0 0 0' }}>
-                      <button
-                        type="button"
-                        disabled={safePage <= 1}
-                        onClick={() => setPage((p) => Math.max(1, p - 1))}
-                        style={{ border: '1px solid #e5e7eb', background: '#fff', borderRadius: 8, padding: '6px 10px', cursor: safePage <= 1 ? 'not-allowed' : 'pointer', opacity: safePage <= 1 ? 0.5 : 1 }}
-                      >
-                        ← Anterior
-                      </button>
-                      <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700 }}>
-                        Página {safePage} de {totalPages}
-                      </div>
-                      <button
-                        type="button"
-                        disabled={safePage >= totalPages}
-                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                        style={{ border: '1px solid #e5e7eb', background: '#fff', borderRadius: 8, padding: '6px 10px', cursor: safePage >= totalPages ? 'not-allowed' : 'pointer', opacity: safePage >= totalPages ? 0.5 : 1 }}
-                      >
-                        Siguiente →
-                      </button>
-                    </div>
-                    </div>
-
-                    <div className="agenda-cards">
-                      {paginatedRows.map((row) => {
-                        const vencida = isRowVencida(row);
-                        const diasVencida = agendaListTab === 'vencidas' ? daysVencida(row) : 0;
-                        const intentos = row.intentos || 0;
-                        const intentosLabel = intentos === 1 ? '1 intento' : `${intentos} intentos`;
-                        const intentosMeta = intentos >= 3
-                          ? { bg: '#FDECEA', color: '#E53E3E', label: intentosLabel }
-                          : intentos === 2
-                          ? { bg: 'rgba(245,166,35,0.15)', color: '#F5A623', label: intentosLabel }
-                          : { bg: 'rgba(158,158,158,0.12)', color: '#9E9E9E', label: intentosLabel };
-                        const tipoFromEstado = String(row.estado_venta || '').toLowerCase();
-                        const tipoLabel = tipoFromEstado === 'seguimiento' ? 'Seguimiento' : 'Rellamar';
-                        const tipoBadge = tipoFromEstado === 'seguimiento'
-                          ? { bg: '#f5f3ff', color: '#6d28d9', border: 'rgba(109,40,217,0.25)' }
-                          : { bg: '#eff6ff', color: '#1d4ed8', border: 'rgba(29,78,216,0.25)' };
-                        const notaRaw = String(row.nota || '').trim();
-                        return (
-                          <button
-                            key={row.id}
-                            type="button"
-                            className="agenda-card"
-                            onClick={() => abrirDrawer(row)}
-                            style={{ cursor: 'pointer', textAlign: 'left', background: vencida ? '#FEF2F2' : '#fff' }}
-                          >
-                            <div className="agenda-card-top">
-                              <div style={{ fontWeight: 800, color: '#0f172a' }}>
-                                {[row.nombre, row.apellido].filter(Boolean).join(' ') || '—'}
-                              </div>
-                              <span style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                padding: '3px 10px',
-                                borderRadius: 999,
-                                fontSize: 12,
-                                fontWeight: 800,
-                                background: tipoBadge.bg,
-                                color: tipoBadge.color,
-                                border: `1px solid ${tipoBadge.border}`,
-                                whiteSpace: 'nowrap'
-                              }}>
-                                {tipoLabel}
-                              </span>
-                            </div>
-                            {(agendaListTab === 'vencidas' || agendaListTab === 'todas') && vencida ? (
-                              <div className="agenda-card-row" style={{ justifyContent: 'flex-start' }}>
-                                <span style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 6,
-                                  padding: '3px 10px',
-                                  borderRadius: 999,
-                                  background: 'rgba(245,158,11,0.18)',
-                                  color: '#b45309',
-                                  border: '1px solid rgba(245,158,11,0.35)',
-                                  fontSize: 12,
-                                  fontWeight: 900,
-                                  whiteSpace: 'nowrap'
-                                }}>
-                                  ⚠ Vencida{agendaListTab === 'vencidas' && diasVencida ? ` · ${diasVencida}d` : ''}
-                                </span>
-                              </div>
-                            ) : null}
-                            <div className="agenda-card-row">
-                              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 999, background: intentosMeta.bg, color: intentosMeta.color, fontSize: 12, fontWeight: 700 }}>
-                                {intentosMeta.label}
-                              </span>
-                              <span
-                                className="agenda-card-note"
-                                title={notaRaw || ''}
-                                style={{
-                                  fontSize: 15,
-                                  fontWeight: 800,
-                                  color: notaRaw ? 'var(--color-text-danger)' : '#94a3b8',
-                                  display: '-webkit-box',
-                                  WebkitLineClamp: 2,
-                                  WebkitBoxOrient: 'vertical',
-                                  overflow: 'hidden',
-                                  maxWidth: 220,
-                                  lineHeight: 1.5,
-                                  wordBreak: 'break-word'
-                                }}
-                              >
-                                {notaRaw || '—'}
-                              </span>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    </div>
                   </div>
                 </>
               )}
@@ -6701,7 +5889,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           )}
                         </div>
                       </div>
-                      {(drawerItem.documento || drawerItem.fecha_nacimiento || drawerItem.correo_electronico || drawerItem.nota || drawerItem.origen_dato || drawerItem.origen || drawerItem.created_at || drawerItem.departamento || drawerItem.localidad) && (
+                      {(drawerItem.documento || drawerItem.fecha_nacimiento || drawerItem.departamento || drawerItem.localidad || drawerItem.correo_electronico) && (
                         <>
                           <hr style={{ border: 'none', borderTop: '1px solid #F0F0F0', margin: 0 }} />
                           <div>
@@ -6722,10 +5910,22 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                   </p>
                                 </div>
                               )}
+                              {drawerItem.departamento && (
+                                <div>
+                                  <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Departamento</p>
+                                  <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{drawerItem.departamento}</p>
+                                </div>
+                              )}
                               {drawerItem.nota && (
                                 <div style={{ gridColumn: '1 / -1' }}>
                                   <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Comentarios</p>
                                   <p style={{ fontSize: 13, fontWeight: 500, margin: 0, color: '#475569' }}>{drawerItem.nota}</p>
+                                </div>
+                              )}
+                              {drawerItem.localidad && (
+                                <div>
+                                  <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Localidad</p>
+                                  <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{drawerItem.localidad}</p>
                                 </div>
                               )}
                             </div>
@@ -6734,46 +5934,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                 <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Email</p>
                                 <a href={`mailto:${drawerItem.correo_electronico}`} style={{ fontSize: 13, color: '#1A5C4A', fontWeight: 500 }}>{drawerItem.correo_electronico}</a>
                               </div>
-                            )}
-
-                            {(drawerItem.origen_dato || drawerItem.origen || drawerItem.created_at) && (
-                              <>
-                                <hr style={{ border: 'none', borderTop: '1px solid #F0F0F0', margin: '14px 0' }} />
-                                <p style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px 0' }}>Origen del dato</p>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                                  <div>
-                                    <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Origen</p>
-                                    <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>
-                                      {getOrigenLabel(drawerItem.origen_dato || drawerItem.origen, origenDatoResolvedOptions) || '—'}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Fecha de ingreso</p>
-                                    <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>
-                                      {drawerItem.created_at
-                                        ? new Date(drawerItem.created_at).toLocaleDateString('es-UY', { timeZone: 'America/Montevideo', day: '2-digit', month: '2-digit', year: 'numeric' })
-                                        : '—'}
-                                    </p>
-                                  </div>
-                                </div>
-                              </>
-                            )}
-
-                            {(drawerItem.departamento || drawerItem.localidad) && (
-                              <>
-                                <hr style={{ border: 'none', borderTop: '1px solid #F0F0F0', margin: '14px 0' }} />
-                                <p style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px 0' }}>Ubicación</p>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                                  <div>
-                                    <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Departamento</p>
-                                    <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{drawerItem.departamento || '—'}</p>
-                                  </div>
-                                  <div>
-                                    <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Localidad</p>
-                                    <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>{drawerItem.localidad || '—'}</p>
-                                  </div>
-                                </div>
-                              </>
                             )}
                           </div>
                         </>
@@ -6924,11 +6084,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [selectedSellerIds, setSelectedSellerIds] = React.useState([]);
       const [resultadoOriginal, setResultadoOriginal] = React.useState('');
       const [resultadoCorregido, setResultadoCorregido] = React.useState('');
-      const [estadoAuditoria, setEstadoAuditoria] = React.useState('');
+      const [estadoAuditoria, setEstadoAuditoria] = React.useState('corregida');
       const [fromDate, setFromDate] = React.useState('');
       const [toDate, setToDate] = React.useState('');
-      const [auditEstadoTab, setAuditEstadoTab] = React.useState('todas');
-      const [queryFilters, setQueryFilters] = React.useState(() => ({ _force_list: true }));
+      const [auditEstadoTab, setAuditEstadoTab] = React.useState('corregidas');
+      const [queryFilters, setQueryFilters] = React.useState(() => ({ estado: 'corregida', _force_list: true }));
       const [sellers, setSellers] = React.useState([]);
       const [catalogo, setCatalogo] = React.useState([]);
       const [catalogoLoading, setCatalogoLoading] = React.useState(false);
@@ -7204,12 +6364,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         setSelectedSellerIds([]);
         setResultadoOriginal('');
         setResultadoCorregido('');
-        setEstadoAuditoria('');
+        setEstadoAuditoria('corregida');
         setFromDate('');
         setToDate('');
-        setAuditEstadoTab('todas');
+        setAuditEstadoTab('corregidas');
         setPage(1);
-        setQueryFilters({ _force_list: true });
+        setQueryFilters({ estado: 'corregida', _force_list: true });
       };
 
       const applyAuditEstadoTab = React.useCallback((tab) => {
@@ -7280,26 +6440,20 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           setAuditError('Seleccione una gestión válida.');
           return;
         }
-        const comentarioTrim = String(auditComentario || '').trim();
-        if (!auditResultado && !comentarioTrim) {
-          setAuditError('Seleccioná una codificación corregida o escribí un comentario.');
+        if (!auditResultado) {
+          setAuditError('Seleccioná una codificación corregida.');
           return;
         }
         if (auditResultado && auditItem?.resultado_corregido && auditResultado === auditItem.resultado_corregido) {
           setAuditError('La codificación seleccionada ya está aplicada.');
           return;
         }
-        const resultadoToSend = auditResultado || auditItem?.resultado_corregido || auditItem?.resultado_original || '';
-        if (!resultadoToSend) {
-          setAuditError('No se pudo determinar la codificación a guardar.');
-          return;
-        }
         setAuditSaving(true);
         setAuditError('');
         try {
           await api.post(`/api/codificaciones/${managementId}/correccion`, {
-            resultado_corregido: resultadoToSend,
-            motivo: comentarioTrim
+            resultado_corregido: auditResultado,
+            comentario: auditComentario || ''
           });
           closeAudit();
           loadCodificaciones();
@@ -7344,23 +6498,29 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           <section className="content-grid">
             <Panel
               className="span-12"
-              title="Codifiaciones manuales"
+              title="Codificaciones"
               subtitle="Auditoría de resultados de gestión"
             >
               <div style={{ display: 'grid', gap: 10, marginBottom: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <div className="audit-tabs" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    <Button
-                      variant={auditEstadoTab === 'todas' ? 'secondary' : 'ghost'}
-                      onClick={() => applyAuditEstadoTab('todas')}
-                    >
-                      Gestiones todas
-                    </Button>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <Button
                       variant={auditEstadoTab === 'corregidas' ? 'secondary' : 'ghost'}
                       onClick={() => applyAuditEstadoTab('corregidas')}
                     >
                       Corregidas
+                    </Button>
+                    <Button
+                      variant={auditEstadoTab === 'pendientes' ? 'secondary' : 'ghost'}
+                      onClick={() => applyAuditEstadoTab('pendientes')}
+                    >
+                      Pendientes
+                    </Button>
+                    <Button
+                      variant={auditEstadoTab === 'todas' ? 'secondary' : 'ghost'}
+                      onClick={() => applyAuditEstadoTab('todas')}
+                    >
+                      Todas
                     </Button>
                   </div>
                   <Button
@@ -7446,10 +6606,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       <th>Teléfono</th>
                       <th>Vendedor</th>
                       <th>Codificación original</th>
-                      {auditEstadoTab === 'corregidas' ? <th>Estado</th> : null}
-                      {auditEstadoTab === 'corregidas' ? <th>Codificación corregida</th> : null}
-                      {auditEstadoTab === 'corregidas' ? <th>Supervisor</th> : null}
-                      {auditEstadoTab !== 'corregidas' ? <th>Acción</th> : null}
+                      <th>Estado auditoría</th>
+                      <th>Codificación corregida</th>
+                      <th>Supervisor</th>
+                      <th>Acción</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -7474,31 +6634,21 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           <td title={originalValue}>
                             <Tag variant={resultadoVariant(originalValueRaw)}>{originalValue}</Tag>
                           </td>
-                          {auditEstadoTab === 'corregidas' ? (
-                            <td>
-                              <Tag variant={badge.variant}>{badge.label}</Tag>
-                            </td>
-                          ) : null}
-                          {auditEstadoTab === 'corregidas' ? (
-                            <td title={correctedValue}>
-                              {correctedValue === '—' ? '—' : <Tag variant={resultadoVariant(correctedValueRaw)}>{correctedValue}</Tag>}
-                            </td>
-                          ) : null}
-                          {auditEstadoTab === 'corregidas' ? (
-                            <td title={supervisorValue}>
-                              <div style={cellEllipsisStyle}>{supervisorValue}</div>
-                            </td>
-                          ) : null}
-                          {auditEstadoTab !== 'corregidas' ? (
-                            <td>
-                              <div style={{ display: 'flex', gap: 6 }}>
-                                {!row.resultado_corregido ? (
-                                  <Button variant="secondary" className="audit-action-danger" onClick={() => openAudit(row)}>Codificar</Button>
-                                ) : null}
-                                <Button variant="ghost" onClick={() => openHistory(row)}>Historial</Button>
-                              </div>
-                            </td>
-                          ) : null}
+                          <td>
+                            <Tag variant={badge.variant}>{badge.label}</Tag>
+                          </td>
+                          <td title={correctedValue}>
+                            {correctedValue === '—' ? '—' : <Tag variant={resultadoVariant(correctedValueRaw)}>{correctedValue}</Tag>}
+                          </td>
+                          <td title={supervisorValue}>
+                            <div style={cellEllipsisStyle}>{supervisorValue}</div>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <Button variant="secondary" onClick={() => openAudit(row)}>{row.resultado_corregido ? 'Reauditar' : 'Auditar'}</Button>
+                              <Button variant="ghost" onClick={() => openHistory(row)}>Historial</Button>
+                            </div>
+                          </td>
                         </tr>
                       );
                     })}
@@ -7581,12 +6731,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       {auditError ? <div style={{ marginTop: 10, color: '#b91c1c' }}>{auditError}</div> : null}
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
                         <Button variant="ghost" onClick={closeAudit}>Cancelar</Button>
-                        <Button
-                          disabled={auditSaving || (!auditResultado && !String(auditComentario || '').trim())}
-                          onClick={saveAudit}
-                        >
-                          {auditSaving ? 'Guardando...' : 'Guardar corrección'}
-                        </Button>
+                        <Button disabled={auditSaving || !auditResultado} onClick={saveAudit}>{auditSaving ? 'Guardando...' : 'Guardar corrección'}</Button>
                       </div>
                     </>
                   )}
@@ -7649,10 +6794,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
     }
 
     function SalesClientsView({ onOpenNewClient = null, origenDatoOptions = [] }) {
+      const [ventas, setVentas] = React.useState([]);
       const [allSales, setAllSales] = React.useState([]);
       const [loadingVentas, setLoadingVentas] = React.useState(true);
       const [selectedSale, setSelectedSale] = React.useState(null);
-      const [salesFilter, setSalesFilter] = React.useState('hoy'); // hoy | mes | bajas
       const origenDatoResolvedOptions = (Array.isArray(origenDatoOptions) && origenDatoOptions.length)
         ? normalizeOrigenOptions(origenDatoOptions)
         : ORIGEN_DATO_OPTIONS_DEPRECADO;
@@ -7667,6 +6812,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               const items = data?.items || data?.data?.items || data?.data || [];
               const allItems = Array.isArray(items) ? items : [];
               setAllSales(allItems);
+              const today = new Date().toLocaleDateString('en-CA');
+              const ventasHoy = allItems.filter((item) => {
+                const fecha = item?.fecha_venta || item?.created_at || '';
+                return String(fecha).startsWith(today);
+              });
+              setVentas(ventasHoy);
             }
           } catch (err) {
             console.error('[my-sales] error:', err);
@@ -7693,44 +6844,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       );
       const todayKey = new Date().toLocaleDateString('en-CA');
       const monthKey = todayKey.slice(0, 7);
-      const monthStartKey = `${monthKey}-01`;
       const pickDateKey = (row) => {
-        const value = row?.fecha_venta || row?.created_at || row?.createdAt || '';
+        const value = row?.fecha_venta || row?.created_at || '';
         return String(value).slice(0, 10);
       };
-      const getBajaDateKey = (row) => String(
-        row?.contact_products?.fecha_baja
-        || row?.contact_products?.fechaBaja
-        || row?.contact_products_fecha_baja
-        || row?.fecha_baja
-        || row?.fechaBaja
-        || ''
-      ).slice(0, 10);
-      const getEstadoProducto = (row) => String(
-        row?.contact_products?.estado
-        || row?.contact_products_estado
-        || row?.estado
-        || row?.status
-        || 'alta'
-      ).toLowerCase();
-
-      const filteredSales = React.useMemo(() => {
-        const base = Array.isArray(allSales) ? allSales : [];
-        if (salesFilter === 'hoy') {
-          return base.filter((item) => pickDateKey(item) === todayKey);
-        }
-        if (salesFilter === 'mes') {
-          return base.filter((item) => pickDateKey(item) >= monthStartKey);
-        }
-        if (salesFilter === 'bajas') {
-          return base.filter((item) => {
-            const estado = getEstadoProducto(item);
-            const bajaDate = getBajaDateKey(item);
-            return estado === 'baja' && bajaDate && bajaDate >= monthStartKey;
-          });
-        }
-        return base;
-      }, [allSales, salesFilter, todayKey, monthStartKey]);
       const ventasHoy = allSales
         .filter((item) => {
           const fecha = item?.fecha_venta || item?.created_at || '';
@@ -7747,9 +6864,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           return total + 1 + related;
         }, 0);
       const bajasMes = allSales.filter((item) => {
-        const estado = getEstadoProducto(item);
-        const bajaDate = getBajaDateKey(item);
-        return estado === 'baja' && bajaDate && bajaDate >= monthStartKey;
+        const status = String(item?.estado || item?.status || '').toLowerCase();
+        return pickDateKey(item).startsWith(monthKey) && status === 'baja';
       });
       const getRelatedSales = (row) => {
         const items = row?.related_sales || row?.relatedSales || [];
@@ -7767,62 +6883,26 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               subtitle="Contactos que convertiste en clientes"
             >
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, marginBottom: 16 }}>
-                <button
-                  type="button"
-                  onClick={() => setSalesFilter('hoy')}
-                  style={{
-                    textAlign: 'left',
-                    borderRadius: 14,
-                    border: '1px solid rgba(16,185,129,0.2)',
-                    background: 'rgba(16,185,129,0.08)',
-                    padding: 14,
-                    cursor: 'pointer',
-                    boxShadow: salesFilter === 'hoy' ? '0 0 0 2px #1f2937' : 'none'
-                  }}
-                >
+                <div style={{ borderRadius: 14, border: '1px solid rgba(16,185,129,0.2)', background: 'rgba(16,185,129,0.08)', padding: 14 }}>
                   <div style={{ fontSize: 12, color: '#047857', textTransform: 'uppercase', letterSpacing: 1 }}>Ventas de hoy</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: '#047857' }}>{ventasHoy}</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSalesFilter('mes')}
-                  style={{
-                    textAlign: 'left',
-                    borderRadius: 14,
-                    border: '1px solid rgba(59,130,246,0.2)',
-                    background: 'rgba(59,130,246,0.08)',
-                    padding: 14,
-                    cursor: 'pointer',
-                    boxShadow: salesFilter === 'mes' ? '0 0 0 2px #1f2937' : 'none'
-                  }}
-                >
+                </div>
+                <div style={{ borderRadius: 14, border: '1px solid rgba(59,130,246,0.2)', background: 'rgba(59,130,246,0.08)', padding: 14 }}>
                   <div style={{ fontSize: 12, color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: 1 }}>Ventas del mes</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: '#1d4ed8' }}>{ventasMes}</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSalesFilter('bajas')}
-                  style={{
-                    textAlign: 'left',
-                    borderRadius: 14,
-                    border: '1px solid rgba(239,68,68,0.2)',
-                    background: 'rgba(239,68,68,0.08)',
-                    padding: 14,
-                    cursor: 'pointer',
-                    boxShadow: salesFilter === 'bajas' ? '0 0 0 2px #1f2937' : 'none'
-                  }}
-                >
+                </div>
+                <div style={{ borderRadius: 14, border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.08)', padding: 14 }}>
                   <div style={{ fontSize: 12, color: '#b91c1c', textTransform: 'uppercase', letterSpacing: 1 }}>Bajas del mes</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: '#b91c1c' }}>{bajasMes.length}</div>
-                </button>
+                </div>
               </div>
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>Fecha de venta</th><th>Estado</th><th>Contacto</th></tr></thead>
+                  <thead><tr><th>Estado</th><th>Contacto</th><th>Ubicación</th><th>Origen del dato</th><th>Relacionadas</th><th>Fecha</th></tr></thead>
                   <tbody>
-                    {filteredSales.map((row) => {
-                      const status = getEstadoProducto(row) === 'baja' ? 'baja' : 'alta';
-                      const statusLabel = status === 'baja' ? 'Baja' : 'Alta';
+                    {ventas.map((row) => {
+                      const statusRaw = row.estado || row.status || 'alta';
+                      const status = String(statusRaw).toLowerCase();
                       const statusColor = status === 'alta'
                         ? { bg: 'rgba(16,185,129,0.15)', text: '#047857', border: 'rgba(16,185,129,0.35)' }
                         : status === 'baja'
@@ -7831,19 +6911,21 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       const nombre = [row.nombre, row.apellido].filter(Boolean).join(' ')
                         || [row.contact_nombre, row.contact_apellido].filter(Boolean).join(' ')
                         || '—';
-                      const fechaVenta = row?.fecha_venta || row?.created_at || row?.createdAt || '';
+                      const telefono = row.celular || row.telefono || row.phone || '—';
+                      const ubicacion = row.ubicacion
+                        || [row.departamento, row.localidad].filter(Boolean).join(', ')
+                        || '—';
+                      const origenDato = getOrigenLabel((row.origen_dato && String(row.origen_dato).trim()) ? row.origen_dato : '', origenDatoResolvedOptions);
+                      const relatedCount = getRelatedSales(row).length;
                       return (
                         <tr
-                          key={row.id || row.contacto_id || `${nombre}-${String(fechaVenta)}`}
+                          key={row.id || row.contacto_id || nombre + telefono}
                           style={{ cursor: 'pointer' }}
                           onClick={() => handleOpenSaleDetail(row)}
                         >
                           <td>
-                            {formatFechaVenta(fechaVenta)}
-                          </td>
-                          <td>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 800, background: statusColor.bg, color: statusColor.text, border: `1px solid ${statusColor.border}` }}>
-                              {statusLabel}
+                            <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, background: statusColor.bg, color: statusColor.text, border: `1px solid ${statusColor.border}` }}>
+                              {status || 'alta'}
                             </span>
                           </td>
                           <td>
@@ -7852,12 +6934,22 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                               <strong>{nombre}</strong>
                             </div>
                           </td>
+                          <td>{ubicacion}</td>
+                          <td><span style={{ color: '#666', fontSize: 12 }}>{origenDato}</span></td>
+                          <td>
+                            {relatedCount ? (
+                              <span style={{ fontSize: 12, fontWeight: 700, color: '#0f766e' }}>+{relatedCount}</span>
+                            ) : (
+                              <span style={{ color: '#aaa', fontSize: 12 }}>—</span>
+                            )}
+                          </td>
+                          <td>{formatFechaVenta(row.fecha_venta)}</td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
-                {!loadingVentas && !filteredSales.length ? (
+                {!loadingVentas && !ventas.length ? (
                   <div style={{ textAlign: 'center', padding: '48px', color: '#aaa' }}>
                     <p style={{ fontSize: 14, fontWeight: 600, color: '#333', margin: '0 0 4px 0' }}>
                       Aún no tenés ventas registradas
@@ -11891,9 +10983,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         const [clientsError, setClientsError] = React.useState('');
         const [selectedClient, setSelectedClient] = React.useState(null);
         const [clientDetailError, setClientDetailError] = React.useState('');
-        const [bajaModal, setBajaModal] = React.useState({ open: false });
-        const [bajaSaving, setBajaSaving] = React.useState(false);
-        const [bajaError, setBajaError] = React.useState('');
         const [newClientOpen, setNewClientOpen] = React.useState(false);
         const [newClientError, setNewClientError] = React.useState('');
         const [newClientSaving, setNewClientSaving] = React.useState(false);
@@ -12145,70 +11234,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           setClientsError(message);
         }
       }, [clientPage, clientPageSize, clientSearchDebounced]);
-
-      const openBajaModal = React.useCallback((row) => {
-        const now = new Date();
-        const loggedName = [authUser?.nombre, authUser?.apellido].filter(Boolean).join(' ') || authUser?.email || 'Usuario';
-        setBajaError('');
-        setBajaModal({
-          open: true,
-          contactId: row?.contactId || row?.id || '',
-          productId: row?.productId || '',
-          clientName: row?.name || '',
-          motivo: 'Sin liquidez',
-          observacion: '',
-          fechaHora: now.toISOString(),
-          usuario: loggedName
-        });
-      }, [authUser?.apellido, authUser?.email, authUser?.nombre]);
-
-      const closeBajaModal = React.useCallback(() => {
-        if (bajaSaving) return;
-        setBajaModal({ open: false });
-        setBajaError('');
-      }, [bajaSaving]);
-
-      const confirmBaja = React.useCallback(async () => {
-        const contactId = String(bajaModal?.contactId || '').trim();
-        const productId = String(bajaModal?.productId || '').trim();
-        const motivo = String(bajaModal?.motivo || '').trim();
-        const observacion = String(bajaModal?.observacion || '').trim();
-        if (!contactId || !productId) {
-          setBajaError('No se pudo identificar el cliente o el producto.');
-          return;
-        }
-        if (!motivo) {
-          setBajaError('Seleccioná un motivo.');
-          return;
-        }
-        setBajaSaving(true);
-        setBajaError('');
-        try {
-          const api = getApiClient();
-          await api.post(`/api/contacts/${encodeURIComponent(contactId)}/products/${encodeURIComponent(productId)}/baja`, {
-            motivo_baja_detalle: motivo,
-            observacion
-          });
-          setClientRows((prev) => prev.filter((row) => {
-            const rowContactId = row?.contactId || row?.id || '';
-            const rowProductId = row?.productId || '';
-            if (String(rowContactId) !== String(contactId)) return true;
-            if (String(rowProductId) !== String(productId)) return true;
-            return false;
-          }));
-          setClientTotal((prev) => Math.max(0, Number(prev || 0) - 1));
-          setSelectedClient((prev) => (prev && String(prev.id) === String(contactId) ? { ...prev, status: 'baja' } : prev));
-          setBajaModal({ open: false });
-        } catch (err) {
-          if (Number(err?.status) === 409) {
-            setBajaError('Este producto ya está dado de baja');
-          } else {
-            setBajaError(err?.message || 'No se pudo dar de baja el producto.');
-          }
-        } finally {
-          setBajaSaving(false);
-        }
-      }, [bajaModal?.contactId, bajaModal?.motivo, bajaModal?.observacion, bajaModal?.productId]);
 
         const handleCloseFicha = () => {
           setSelectedClient(null);
@@ -12481,23 +11506,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             <td className="col-accion">
               <div className="clients-actions">
                 <Button className="clients-action-btn" variant="ghost" icon={<Eye size={15} />} onClick={() => handleViewFicha(row.id)}>Ver ficha</Button>
-                {(() => {
-                  const status = String(row.status || '').toLowerCase();
-                  const isBaja = status.includes('baja');
-                  const canBaja = Boolean((row.contactId || row.id) && row.productId);
-                  if (isBaja) return null;
-                  if (!canBaja) return null;
-                  return (
-                    <Button
-                      className="clients-action-btn clients-action-btn--danger-outline"
-                      variant="ghost"
-                      icon={<XCircle size={15} />}
-                      onClick={() => openBajaModal(row)}
-                    >
-                      Dar de baja
-                    </Button>
-                  );
-                })()}
                 {viewerRole === 'superadministrador' ? (
                   <Button className="clients-action-btn clients-action-btn--danger" variant="ghost" icon={<Trash2 size={15} />} onClick={() => handleDeleteClient(row.id, row.name)}>Eliminar</Button>
                 ) : null}
@@ -12571,82 +11579,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             detailError={clientDetailError}
             viewerRole={viewerRole}
           />
-          {bajaModal?.open ? (
-            <div className="lot-wizard-overlay" onClick={closeBajaModal}>
-              <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 520 }}>
-                <div className="lot-wizard-header">
-                  <div style={{ fontWeight: 700 }}>Dar de baja</div>
-                  <button className="close-btn" onClick={closeBajaModal}><X size={16} /></button>
-                </div>
-                <div className="lot-wizard-content">
-                  <div style={{ display: 'grid', gap: 12 }}>
-                    <div style={{ display: 'grid', gap: 4 }}>
-                      <div style={{ fontSize: 12, color: '#64748b' }}>Motivo</div>
-                      <select
-                        className="input"
-                        value={bajaModal?.motivo || ''}
-                        onChange={(e) => setBajaModal((prev) => ({ ...prev, motivo: e.target.value }))}
-                        disabled={bajaSaving}
-                      >
-                        <option value="Sin liquidez">Sin liquidez</option>
-                        <option value="Error en el pago">Error en el pago</option>
-                        <option value="Baja por auditoria">Baja por auditoria</option>
-                        <option value="Cuenta con otro servicio">Cuenta con otro servicio</option>
-                        <option value="Baja">Baja</option>
-                      </select>
-                    </div>
-                    <div style={{ display: 'grid', gap: 4 }}>
-                      <div style={{ fontSize: 12, color: '#64748b' }}>Observación (opcional)</div>
-                      <textarea
-                        className="input"
-                        rows={3}
-                        value={bajaModal?.observacion || ''}
-                        onChange={(e) => setBajaModal((prev) => ({ ...prev, observacion: e.target.value }))}
-                        disabled={bajaSaving}
-                      />
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
-                      <div style={{ display: 'grid', gap: 4 }}>
-                        <div style={{ fontSize: 12, color: '#64748b' }}>Fecha y hora</div>
-                        <div style={{ fontWeight: 600 }}>
-                          {(() => {
-                            try { return new Date(bajaModal?.fechaHora || Date.now()).toLocaleString('es-UY', { timeZone: 'America/Montevideo' }); } catch { return '—'; }
-                          })()}
-                        </div>
-                      </div>
-                      <div style={{ display: 'grid', gap: 4 }}>
-                        <div style={{ fontSize: 12, color: '#64748b' }}>Usuario</div>
-                        <div style={{ fontWeight: 600 }}>{bajaModal?.usuario || 'Usuario'}</div>
-                      </div>
-                    </div>
-                    {bajaError ? (
-                      <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 6, padding: '8px 12px', fontSize: 13, color: '#B91C1C' }}>{bajaError}</div>
-                    ) : null}
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 6 }}>
-                      <Button variant="ghost" onClick={closeBajaModal} disabled={bajaSaving}>Cancelar</Button>
-                      <button
-                        type="button"
-                        onClick={confirmBaja}
-                        disabled={bajaSaving}
-                        className="button"
-                        style={{
-                          borderRadius: 8,
-                          padding: '10px 16px',
-                          background: '#b91c1c',
-                          color: '#fff',
-                          boxShadow: 'none',
-                          cursor: bajaSaving ? 'not-allowed' : 'pointer',
-                          opacity: bajaSaving ? 0.7 : 1
-                        }}
-                      >
-                        {bajaSaving ? 'Confirmando…' : 'Confirmar baja'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : null}
           {newClientOpen && (
             <>
               <div
@@ -13024,8 +11956,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [newClientError, setNewClientError] = React.useState('');
       const [newClientSaving, setNewClientSaving] = React.useState(false);
       const [newClientStep, setNewClientStep] = React.useState(0);
-      const [telefonoError, setTelefonoError] = React.useState('');
-      const [celularError, setCelularError] = React.useState('');
       const [paymentMethods, setPaymentMethods] = React.useState([]);
       const [paymentMethodsLoading, setPaymentMethodsLoading] = React.useState(false);
       const [paymentMethodsError, setPaymentMethodsError] = React.useState('');
@@ -13081,25 +12011,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           cobranzaDocumento: ''
         }
       });
-
-      const handleSiguiente = () => {
-        if (newClientStep === 0) {
-          const telVal = validarTelefonoUY(newClientDraft.contact.telefono);
-          const celVal = validarTelefonoUY(newClientDraft.contact.celular);
-
-          setTelefonoError(telVal.ok ? '' : telVal.msg);
-          setCelularError(celVal.ok ? '' : celVal.msg);
-
-          if (!telVal.ok || !celVal.ok) return;
-        }
-
-        if (newClientStep < 3) {
-          setNewClientStep((prev) => Math.min(3, prev + 1));
-          return;
-        }
-
-        handleSaveNewClient();
-      };
 
       React.useEffect(() => {
         let cancelled = false;
@@ -13348,7 +12259,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           if (status === 409) {
             setNewClientError('Ya existe un contacto con ese documento o email.');
           } else if (status === 422) {
-            setNewClientError(err?.details?.message || 'Hay errores de validación en el formulario.');
+            setNewClientError(
+              err?.message ||
+              err?.details?.message ||
+              'Hay errores de validación en el formulario.'
+            );
           } else {
             setNewClientError(err?.message || 'No se pudo guardar el cliente.');
           }
@@ -13463,16 +12378,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           type={type || 'text'}
                           value={newClientDraft.contact[field] || ''}
                           onChange={(event) => handleNewClientContactChange(field, event.target.value)}
-                          onBlur={(event) => {
-                            if (field === 'telefono') {
-                              const v = validarTelefonoUY(event.target.value);
-                              setTelefonoError(v.ok ? '' : v.msg);
-                            }
-                            if (field === 'celular') {
-                              const v = validarTelefonoUY(event.target.value);
-                              setCelularError(v.ok ? '' : v.msg);
-                            }
-                          }}
                           style={{
                             marginTop: 6,
                             width: '100%',
@@ -13481,16 +12386,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             border: '1px solid #e5e7eb'
                           }}
                         />
-                        {field === 'telefono' && telefonoError ? (
-                          <span style={{ fontSize: 12, color: 'var(--color-text-danger, #dc2626)', marginTop: 4, display: 'block' }}>
-                            ⚠ {telefonoError}
-                          </span>
-                        ) : null}
-                        {field === 'celular' && celularError ? (
-                          <span style={{ fontSize: 12, color: 'var(--color-text-danger, #dc2626)', marginTop: 4, display: 'block' }}>
-                            ⚠ {celularError}
-                          </span>
-                        ) : null}
                       </label>
                     ))}
                     <label style={{ gridColumn: '1 / -1', fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1 }}>
@@ -13739,7 +12634,13 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               </button>
               <button
                 type="button"
-                onClick={handleSiguiente}
+                onClick={() => {
+                  if (newClientStep < 3) {
+                    setNewClientStep((prev) => Math.min(3, prev + 1));
+                    return;
+                  }
+                  handleSaveNewClient();
+                }}
                 disabled={newClientSaving || (newClientStep === 2 && (!newClientDraft.productsByContact.principal || Object.keys(newClientDraft.productsByContact).length < (1 + newClientDraft.familiares.length)))}
                 className="new-client-action"
                 style={{
@@ -13761,7 +12662,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
     }
 
       function SuperadminModule({ route }) {
-        const { user: authUser } = useAuth();
         const [imports, setImports] = React.useState([]);
         const [importsPage, setImportsPage] = React.useState(1);
         const [importsType, setImportsType] = React.useState('todos');
@@ -13795,9 +12695,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         const [users, setUsers] = React.useState(SUPERADMIN_USERS_SEED);
         const [pauseModal, setPauseModal] = React.useState(null); // { id, nombre, email }
         const [pauseLoading, setPauseLoading] = React.useState(false);
-      const [showImportFlow, setShowImportFlow] = React.useState(false);
-      const [importDraft, setImportDraft] = React.useState({ fileName: '', csvText: '', importType: 'clientes' });
-      const [importFile, setImportFile] = React.useState(null);
+        const [showImportFlow, setShowImportFlow] = React.useState(false);
+      const [importDraft, setImportDraft] = React.useState({ fileName: '', csvText: '' });
       const [preview, setPreview] = React.useState(null);
       const [previewLoading, setPreviewLoading] = React.useState(false);
       const [previewBatchId, setPreviewBatchId] = React.useState(null);
@@ -13823,9 +12722,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         error: null
       });
       const isDevEnv = Boolean(import.meta?.env?.DEV);
-      const [bulkPhonesLoading, setBulkPhonesLoading] = React.useState(false);
-      const [bulkPhonesResult, setBulkPhonesResult] = React.useState(null);
-      const bulkPhonesDismissRef = React.useRef(null);
 
       const resolvedBatchId = previewBatchId || preview?.batchId || preview?.batch_id || null;
       const importPollRef = React.useRef(null);
@@ -13863,14 +12759,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         const skippedRows = Number(row.skipped_rows ?? row.rechazados ?? 0);
         const processedRows = Number(row.processed_rows ?? row.procesados ?? insertedRows ?? 0);
         const progressPercent = row.progress_percent ?? row.progressPercent ?? row.pct_progress ?? null;
-        const rawTypeKey = row.import_type || row.tipo || row.importType || '';
-        const typeKey = String(rawTypeKey || '').trim().toLowerCase();
-        const fallbackTypeLabel = IMPORT_TYPES[typeKey]?.label || (typeKey ? typeKey : '—');
         return {
           id: row.id || row.job_id || row.jobId || row.batchId || row.batch_id || row.nombreArchivo || row.file_name,
           fileName: row.file_name || row.nombreArchivo || row.archivo || '—',
-          importType: rawTypeKey,
-          importTypeLabel: row.import_type_label || row.importTypeLabel || row.tipo_label || row.tipo || fallbackTypeLabel,
+          importType: row.import_type || row.tipo || row.importType || '',
+          importTypeLabel: row.import_type_label || row.importTypeLabel || row.tipo_label || row.tipo || '—',
           createdAt: row.created_at || row.fecha || '',
           totalRows,
           insertedRows,
@@ -13987,7 +12880,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         pending: Number(importProgress?.progress?.pending || 0)
       };
 
-      const startProgressPolling = React.useCallback((batchId, { onComplete } = {}) => {
+      const startProgressPolling = React.useCallback((batchId) => {
         if (!batchId) return;
         if (importProgressRef.current) {
           clearInterval(importProgressRef.current);
@@ -14004,9 +12897,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               clearInterval(importProgressRef.current);
               importProgressRef.current = null;
               setImportPolling(false);
-              if (typeof onComplete === 'function') {
-                onComplete(data);
-              }
             }
           } catch {
             if (importProgressRef.current) {
@@ -14265,8 +13155,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       };
 
       const resetImportFlow = () => {
-        setImportDraft((prev) => ({ fileName: '', csvText: '', importType: prev?.importType || 'clientes' }));
-        setImportFile(null);
+        setImportDraft({ fileName: '', csvText: '' });
         setPreview(null);
         setPreviewLoading(false);
         setPreviewBatchId(null);
@@ -14276,10 +13165,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const handleCsvFile = async (event) => {
         const file = event.target.files?.[0];
         if (!file) return;
-        setImportFile(file);
         try {
           const csvText = await file.text();
-          setImportDraft((prev) => ({ ...prev, fileName: file.name, csvText }));
+          setImportDraft({ fileName: file.name, csvText });
           setPreview(null);
           setPreviewBatchId(null);
           setCreateProductsOnImport(false);
@@ -14304,44 +13192,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           });
       }, []);
 
-      const openBulkPhonesFilePicker = React.useCallback(() => {
-        setImportsError('');
-        setImportSuccess('');
-        if (bulkPhonesDismissRef.current) {
-          clearTimeout(bulkPhonesDismissRef.current);
-          bulkPhonesDismissRef.current = null;
-        }
-        setBulkPhonesResult(null);
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.csv';
-        input.onchange = async () => {
-          const file = input.files && input.files[0];
-          if (!file) return;
-          setBulkPhonesLoading(true);
-          setBulkPhonesResult(null);
-          try {
-            const api = getApiClient();
-            const formData = new FormData();
-            formData.append('file', file);
-            const res = await api.post('/contacts/bulk-update-phones', formData);
-            const payload = res?.data ?? res;
-            setBulkPhonesResult(payload || {});
-            bulkPhonesDismissRef.current = setTimeout(() => {
-              setBulkPhonesResult(null);
-              bulkPhonesDismissRef.current = null;
-            }, 30000);
-            await loadImports({ silent: true });
-          } catch (err) {
-            setImportsError(err?.message || 'No se pudieron actualizar los contactos.');
-          } finally {
-            setBulkPhonesLoading(false);
-          }
-        };
-        input.click();
-      }, [loadImports]);
-      const handleBulkUpdatePhones = openBulkPhonesFilePicker;
-
       const validatePreview = async () => {
         setPreview(null);
         setPreviewLoading(true);
@@ -14357,14 +13207,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           });
         } catch (err) {
           console.error('CSV_VALIDATE_ERROR', err);
-          setImportsError(err?.message || 'No se pudo validar el archivo.');
         } finally {
           setPreviewLoading(false);
         }
       };
 
       const confirmImport = async () => {
-        console.log('[import] confirmar clicked, tipo:', importDraft.importType, 'file:', importFile?.name, 'batchId:', resolvedBatchId);
         if (importSubmitting) return;
         setImportSubmitting(true);
         setImportSuccess('');
@@ -14501,90 +13349,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     >
                       {diffLoading ? 'Analizando...' : 'Analizar diferencias'}
                     </Button>
-                    <Button
-                      variant="secondary"
-                      icon={<RefreshCw size={16} />}
-                      onClick={handleBulkUpdatePhones}
-                      disabled={bulkPhonesLoading}
-                      style={{ backgroundColor: '#dc2626', color: '#fff', borderColor: '#dc2626' }}
-                    >
-                      {bulkPhonesLoading ? 'Actualizando contactos...' : 'Actualizar teléfonos'}
-                    </Button>
                     <Button icon={<Upload size={16} />} onClick={() => { setShowImportFlow(true); setImportSuccess(''); setImportProgress(null); setImportPolling(false); resetImportFlow(); }}>
                       Importar CSV
                     </Button>
                   </div>
                 }
               >
-                {bulkPhonesResult ? (
-                  <div style={{ marginBottom: 12, padding: 12, borderRadius: 12, border: '1px solid rgba(15,23,42,0.12)', background: 'rgba(248,250,252,0.9)' }}>
-                    <div style={{ fontWeight: 800, marginBottom: 8 }}>Resultado actualización de teléfonos</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8 }}>
-                      <div style={{ padding: 10, borderRadius: 10, background: 'rgba(16,185,129,0.12)', color: '#047857', fontWeight: 800 }}>
-                        ✅ Actualizados: {Number(bulkPhonesResult?.updated ?? 0)}
-                      </div>
-                      <div style={{ padding: 10, borderRadius: 10, background: 'rgba(148,163,184,0.2)', color: '#334155', fontWeight: 800 }}>
-                        ⏭ Ya tenían datos: {Number(bulkPhonesResult?.skipped ?? 0)}
-                      </div>
-                      <div style={{ padding: 10, borderRadius: 10, background: 'rgba(239,68,68,0.12)', color: '#b91c1c', fontWeight: 800 }}>
-                        ❌ No encontrados: {Number(bulkPhonesResult?.not_found ?? bulkPhonesResult?.notFound ?? 0)}
-                      </div>
-                      <div style={{ padding: 10, borderRadius: 10, background: 'rgba(245,158,11,0.14)', color: '#92400e', fontWeight: 800 }}>
-                        ⚠️ Ambiguos: {Number(bulkPhonesResult?.ambiguous ?? 0)}
-                      </div>
-                    </div>
-                    {Array.isArray(bulkPhonesResult?.not_found_list) && bulkPhonesResult.not_found_list.length > 0 ? (
-                      <details style={{ marginTop: 10 }}>
-                        <summary style={{ cursor: 'pointer', fontWeight: 700, color: '#b91c1c' }}>Ver no encontrados ({bulkPhonesResult.not_found_list.length})</summary>
-                        <div style={{ marginTop: 8, maxHeight: 220, overflow: 'auto', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10 }}>
-                          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                            <thead>
-                              <tr style={{ background: 'rgba(239,68,68,0.08)' }}>
-                                <th style={{ textAlign: 'left', padding: 8, fontSize: 12 }}>Nombre</th>
-                                <th style={{ textAlign: 'left', padding: 8, fontSize: 12 }}>Apellido</th>
-                                <th style={{ textAlign: 'left', padding: 8, fontSize: 12 }}>Documento</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {bulkPhonesResult.not_found_list.map((row, idx) => (
-                                <tr key={row?.documento || `${row?.nombre || ''}-${row?.apellido || ''}-${idx}`}>
-                                  <td style={{ padding: 8, borderTop: '1px solid rgba(15,23,42,0.06)' }}>{row?.nombre || '—'}</td>
-                                  <td style={{ padding: 8, borderTop: '1px solid rgba(15,23,42,0.06)' }}>{row?.apellido || '—'}</td>
-                                  <td style={{ padding: 8, borderTop: '1px solid rgba(15,23,42,0.06)' }}>{row?.documento || '—'}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </details>
-                    ) : null}
-                    {Array.isArray(bulkPhonesResult?.ambiguous_list) && bulkPhonesResult.ambiguous_list.length > 0 ? (
-                      <details style={{ marginTop: 10 }}>
-                        <summary style={{ cursor: 'pointer', fontWeight: 700, color: '#92400e' }}>Ver ambiguos ({bulkPhonesResult.ambiguous_list.length})</summary>
-                        <div style={{ marginTop: 8, maxHeight: 220, overflow: 'auto', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 10 }}>
-                          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                            <thead>
-                              <tr style={{ background: 'rgba(245,158,11,0.08)' }}>
-                                <th style={{ textAlign: 'left', padding: 8, fontSize: 12 }}>Nombre</th>
-                                <th style={{ textAlign: 'left', padding: 8, fontSize: 12 }}>Apellido</th>
-                                <th style={{ textAlign: 'left', padding: 8, fontSize: 12 }}>Coincidencias</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {bulkPhonesResult.ambiguous_list.map((row, idx) => (
-                                <tr key={`${row?.nombre || ''}-${row?.apellido || ''}-${idx}`}>
-                                  <td style={{ padding: 8, borderTop: '1px solid rgba(15,23,42,0.06)' }}>{row?.nombre || '—'}</td>
-                                  <td style={{ padding: 8, borderTop: '1px solid rgba(15,23,42,0.06)' }}>{row?.apellido || '—'}</td>
-                                  <td style={{ padding: 8, borderTop: '1px solid rgba(15,23,42,0.06)' }}>{row?.coincidencias ?? row?.matches ?? '—'}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </details>
-                    ) : null}
-                  </div>
-                ) : null}
                   <div className="toolbar" style={{ marginBottom: 12 }}>
                     <div className="searchbox" style={{ maxWidth: 360 }}>
                       <Search size={18} color="#69788d" />
@@ -14792,25 +13562,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       <div className="lot-wizard-header">
                         <div><h3>Importar clientes</h3><p>Carga, validación previa y confirmación.</p></div>
                         <button className="icon-button" style={{ width: 36, height: 36 }} onClick={() => setShowImportFlow(false)}><X size={16} color="#152235" /></button>
-                      </div>
-                      <div className="lot-step">
-                        <span className="lot-step-index">0</span>
-                        <div style={{ flex: 1 }}>
-                          <h4>Tipo de importación</h4>
-                          <select
-                            className="input"
-                            value={importDraft.importType || 'clientes'}
-                            onChange={(event) => {
-                              const nextType = event.target.value;
-                              setImportDraft((prev) => ({ ...prev, importType: nextType }));
-                            }}
-                            style={{ marginTop: 8 }}
-                          >
-                            {Object.values(IMPORT_TYPES).map((item) => (
-                                <option key={item.key} value={item.key}>{item.label}</option>
-                              ))}
-                          </select>
-                        </div>
                       </div>
                       <div className="lot-step">
                         <span className="lot-step-index">1</span>
@@ -16458,11 +15209,3 @@ createRoot(document.getElementById('root')).render(
     </OidcAuthProvider>
   </React.StrictMode>
 );
-  
-
-
-
-
-
-
-
