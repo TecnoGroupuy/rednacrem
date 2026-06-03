@@ -4333,6 +4333,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         setNuevoContactoError('');
         setTelefonoError('');
         setCelularError('');
+        setTelefonoShake(false);
+        setCelularShake(false);
         setNuevoContacto({
           nombre: '',
           apellido: '',
@@ -6142,6 +6144,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 <>
                   <div className="table-wrap">
                     <style>{`
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-4px); }
+  40%, 80% { transform: translateX(4px); }
+}
+.input-shake { animation: shake 0.3s ease; }
 .agenda-table { table-layout: auto; width: 100%; }
 .agenda-cards { display: none; }
 .agenda-main-tabs { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 0 16px; }
@@ -8326,6 +8334,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [phoneCheckLoading, setPhoneCheckLoading] = React.useState(false);
       const [telefonoError, setTelefonoError] = React.useState('');
       const [celularError, setCelularError] = React.useState('');
+      const [telefonoShake, setTelefonoShake] = React.useState(false);
+      const [celularShake, setCelularShake] = React.useState(false);
+      const telefonoShakeTimerRef = React.useRef(null);
+      const celularShakeTimerRef = React.useRef(null);
 
       const URUGUAY_DEPARTAMENTOS = React.useMemo(() => ([
         'Artigas', 'Canelones', 'Cerro Largo', 'Colonia', 'Durazno', 'Flores', 'Florida',
@@ -8349,6 +8361,18 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         const text = String(value || '').trim();
         if (!text) return '';
         return /^0/.test(text) ? '' : 'El celular debe comenzar con 0';
+      }, []);
+      const triggerShake = React.useCallback((kind) => {
+        const setter = kind === 'telefono' ? setTelefonoShake : setCelularShake;
+        const timerRef = kind === 'telefono' ? telefonoShakeTimerRef : celularShakeTimerRef;
+        if (timerRef.current) clearTimeout(timerRef.current);
+        setter(false);
+        requestAnimationFrame(() => setter(true));
+        timerRef.current = setTimeout(() => setter(false), 300);
+      }, []);
+      React.useEffect(() => () => {
+        if (telefonoShakeTimerRef.current) clearTimeout(telefonoShakeTimerRef.current);
+        if (celularShakeTimerRef.current) clearTimeout(celularShakeTimerRef.current);
       }, []);
       const [wizardError, setWizardError] = React.useState('');
       const [basePage, setBasePage] = React.useState(1);
@@ -9935,15 +9959,17 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       <input className="input" value={nuevoContactoForm.apellido} onChange={(e) => setNuevoContactoForm(p => ({ ...p, apellido: e.target.value }))} />
                     </label>
                     <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
-                      Celular *
+                      <span>Celular * <span style={{ color: '#6b7280', fontSize: 11 }}>(debe comenzar con 0)</span></span>
                       <input
-                        className="input"
+                        className={`input ${celularError && celularShake ? 'input-shake' : ''}`.trim()}
                         style={celularError ? { borderColor: '#e53e3e', boxShadow: '0 0 0 1px #e53e3e' } : undefined}
                         value={nuevoContactoForm.celular}
                         onChange={(e) => {
                           const value = e.target.value;
                           setNuevoContactoForm((p) => ({ ...p, celular: value }));
-                          setCelularError(validateCelularNumber(value));
+                          const nextError = validateCelularNumber(value);
+                          setCelularError(nextError);
+                          if (nextError) triggerShake('celular');
                           if (!value) setPhoneWarnings([]);
                         }}
                         onBlur={(e) => {
@@ -9956,15 +9982,17 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       ) : null}
                     </label>
                     <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
-                      Teléfono fijo
+                      <span>Teléfono fijo <span style={{ color: '#6b7280', fontSize: 11 }}>(debe comenzar con 2 o 4)</span></span>
                       <input
-                        className="input"
+                        className={`input ${telefonoError && telefonoShake ? 'input-shake' : ''}`.trim()}
                         style={telefonoError ? { borderColor: '#e53e3e', boxShadow: '0 0 0 1px #e53e3e' } : undefined}
                         value={nuevoContactoForm.telefono}
                         onChange={(e) => {
                           const value = e.target.value;
                           setNuevoContactoForm((p) => ({ ...p, telefono: value }));
-                          setTelefonoError(validateTelefonoFijo(value));
+                          const nextError = validateTelefonoFijo(value);
+                          setTelefonoError(nextError);
+                          if (nextError) triggerShake('telefono');
                         }}
                         onBlur={(e) => {
                           setTelefonoError(validateTelefonoFijo(e.target.value));
@@ -10168,6 +10196,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         setNuevoContactoError('');
                         setTelefonoError('');
                         setCelularError('');
+                        setTelefonoShake(false);
+                        setCelularShake(false);
                         setPhoneWarnings([]);
                         setNuevoContactoForm({
                           nombre: '', apellido: '', celular: '', telefono: '',
