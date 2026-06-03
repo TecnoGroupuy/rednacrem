@@ -4331,6 +4331,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
       const openNuevoContacto = () => {
         setNuevoContactoError('');
+        setTelefonoError('');
+        setCelularError('');
         setNuevoContacto({
           nombre: '',
           apellido: '',
@@ -8322,6 +8324,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [nuevoContactoError, setNuevoContactoError] = React.useState('');
       const [phoneWarnings, setPhoneWarnings] = React.useState([]);
       const [phoneCheckLoading, setPhoneCheckLoading] = React.useState(false);
+      const [telefonoError, setTelefonoError] = React.useState('');
+      const [celularError, setCelularError] = React.useState('');
 
       const URUGUAY_DEPARTAMENTOS = React.useMemo(() => ([
         'Artigas', 'Canelones', 'Cerro Largo', 'Colonia', 'Durazno', 'Flores', 'Florida',
@@ -8335,6 +8339,16 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         const month = String(value.getMonth() + 1).padStart(2, '0');
         const day = String(value.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
+      }, []);
+      const validateTelefonoFijo = React.useCallback((value) => {
+        const text = String(value || '').trim();
+        if (!text) return '';
+        return /^[24]/.test(text) ? '' : 'El teléfono fijo debe comenzar con 2 o 4';
+      }, []);
+      const validateCelularNumber = React.useCallback((value) => {
+        const text = String(value || '').trim();
+        if (!text) return '';
+        return /^0/.test(text) ? '' : 'El celular debe comenzar con 0';
       }, []);
       const [wizardError, setWizardError] = React.useState('');
       const [basePage, setBasePage] = React.useState(1);
@@ -8663,6 +8677,18 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       };
 
       async function handleGuardarNuevoContacto() {
+        const batchId = selectedLot?.id;
+        if (!batchId) {
+          setNuevoContactoError('No hay lote activo seleccionado');
+          return;
+        }
+        const nextTelefonoError = validateTelefonoFijo(nuevoContactoForm.telefono);
+        const nextCelularError = validateCelularNumber(nuevoContactoForm.celular);
+        setTelefonoError(nextTelefonoError);
+        setCelularError(nextCelularError);
+        if (nextTelefonoError || nextCelularError) {
+          return;
+        }
         if (!nuevoContactoForm.nombre.trim() ||
             !nuevoContactoForm.apellido.trim() ||
             !nuevoContactoForm.celular.trim()) {
@@ -8677,7 +8703,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         setNuevoContactoError('');
         try {
           const res = await api.post(
-            `/lead-batches/${selectedLot.id}/contacts/manual`,
+            `/lead-batches/${batchId}/contacts/manual`,
             nuevoContactoForm
           );
           if (res?.ok) {
@@ -9131,7 +9157,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             style={{ fontSize: 11, fontWeight: 500, color: '#185FA5', background: '#E6F1FB', border: '1px solid #85B7EB', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
                           >+ Agregar datos</button>
                           <button
-                            onClick={() => { setNuevoContactoError(''); setShowNuevoContactoModal(true); }}
+                            onClick={() => {
+                              setNuevoContactoError('');
+                              setTelefonoError('');
+                              setCelularError('');
+                              setShowNuevoContactoModal(true);
+                            }}
                             style={{ fontSize: 11, fontWeight: 500, color: '#185FA5', background: '#E6F1FB', border: '1px solid #85B7EB', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
                           >+ Nuevo contacto</button>
                           <button
@@ -9907,22 +9938,42 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       Celular *
                       <input
                         className="input"
+                        style={celularError ? { borderColor: '#e53e3e', boxShadow: '0 0 0 1px #e53e3e' } : undefined}
                         value={nuevoContactoForm.celular}
                         onChange={(e) => {
-                          setNuevoContactoForm((p) => ({ ...p, celular: e.target.value }));
-                          if (!e.target.value) setPhoneWarnings([]);
+                          const value = e.target.value;
+                          setNuevoContactoForm((p) => ({ ...p, celular: value }));
+                          setCelularError(validateCelularNumber(value));
+                          if (!value) setPhoneWarnings([]);
                         }}
-                        onBlur={(e) => checkPhone(e.target.value)}
+                        onBlur={(e) => {
+                          setCelularError(validateCelularNumber(e.target.value));
+                          checkPhone(e.target.value);
+                        }}
                       />
+                      {celularError ? (
+                        <span style={{ color: '#e53e3e', fontSize: 12 }}>{celularError}</span>
+                      ) : null}
                     </label>
                     <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
                       Teléfono fijo
                       <input
                         className="input"
+                        style={telefonoError ? { borderColor: '#e53e3e', boxShadow: '0 0 0 1px #e53e3e' } : undefined}
                         value={nuevoContactoForm.telefono}
-                        onChange={(e) => setNuevoContactoForm((p) => ({ ...p, telefono: e.target.value }))}
-                        onBlur={(e) => { if (e.target.value) checkPhone(e.target.value); }}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setNuevoContactoForm((p) => ({ ...p, telefono: value }));
+                          setTelefonoError(validateTelefonoFijo(value));
+                        }}
+                        onBlur={(e) => {
+                          setTelefonoError(validateTelefonoFijo(e.target.value));
+                          if (e.target.value) checkPhone(e.target.value);
+                        }}
                       />
+                      {telefonoError ? (
+                        <span style={{ color: '#e53e3e', fontSize: 12 }}>{telefonoError}</span>
+                      ) : null}
                     </label>
 
                     <div style={{ gridColumn: '1 / -1', display: 'grid', gap: 8 }}>
@@ -10115,6 +10166,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       onClick={() => {
                         setShowNuevoContactoModal(false);
                         setNuevoContactoError('');
+                        setTelefonoError('');
+                        setCelularError('');
                         setPhoneWarnings([]);
                         setNuevoContactoForm({
                           nombre: '', apellido: '', celular: '', telefono: '',
