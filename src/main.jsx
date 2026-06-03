@@ -13348,7 +13348,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           if (status === 409) {
             setNewClientError('Ya existe un contacto con ese documento o email.');
           } else if (status === 422) {
-            setNewClientError(err?.details?.message || 'Hay errores de validación en el formulario.');
+            setNewClientError(
+              err?.message ||
+              err?.details?.message ||
+              'Hay errores de validación en el formulario.'
+            );
           } else {
             setNewClientError(err?.message || 'No se pudo guardar el cliente.');
           }
