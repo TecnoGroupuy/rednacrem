@@ -3812,6 +3812,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       }
     };
 
+    const isLeadCaliente = (row) => {
+      const fechaLead = row?.fecha_lead || row?.created_at;
+      return Boolean(fechaLead)
+        && (Date.now() - new Date(fechaLead).getTime()) < 48 * 60 * 60 * 1000;
+    };
+
     const normalizeAssignedContact = (raw) => ({
       ...raw,
       name: [raw.nombre, raw.apellido].filter(Boolean).join(' ').trim() || raw.nombre || '',
@@ -5140,6 +5146,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 {visibleContacts.map((contact) => {
                   const statusRaw = contact.estado_venta || contact.resultado || contact.status || '';
                   const isRechazo = String(statusRaw).toLowerCase() === 'rechazo';
+                  const isCaliente = isLeadCaliente(contact);
                   return (
                     <tr
                       key={contact.id}
@@ -5229,7 +5236,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           <td>
                             <div className="person">
                               <div className="person-badge">{initials(contact.name)}</div>
-                              <strong>{contact.name}</strong>
+                              <strong>
+                                {isCaliente ? (
+                                  <span title="Dato reciente (menos de 48hs)" style={{ marginRight: 6, fontSize: 12 }}>🔥</span>
+                                ) : null}
+                                {contact.name}
+                              </strong>
                             </div>
                           </td>
                           <td>{contact.city}</td>
@@ -6451,6 +6463,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             ? { bg: 'rgba(245,166,35,0.15)', color: '#F5A623', label: intentosLabel }
                             : { bg: 'rgba(158,158,158,0.12)', color: '#9E9E9E', label: intentosLabel };
                           const notaText = String(row.nota || '').trim();
+                          const isCaliente = isLeadCaliente(row);
                         const tipoFromEstado = String(row.estado_venta || '').toLowerCase();
                         const tipoLabel = tipoFromEstado === 'seguimiento' ? 'Seguimiento' : 'Rellamar';
                         const tipoBadge = tipoFromEstado === 'seguimiento'
@@ -6493,7 +6506,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                 </span>
                               </td>
                               <td>
-                                <strong>{[row.nombre, row.apellido].filter(Boolean).join(' ') || '—'}</strong>
+                                <strong>
+                                  {isCaliente ? (
+                                    <span title="Dato reciente (menos de 48hs)" style={{ marginRight: 6, fontSize: 12 }}>🔥</span>
+                                  ) : null}
+                                  {[row.nombre, row.apellido].filter(Boolean).join(' ') || '—'}
+                                </strong>
                               </td>
                               {(agendaListTab === 'vencidas' || agendaListTab === 'todas') ? (
                                 <td>
@@ -6584,6 +6602,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           : { bg: '#eff6ff', color: '#1d4ed8', border: 'rgba(29,78,216,0.25)' };
                         const notaRaw = String(row.nota || '').trim();
                         const rowDisabled = ESTADOS_FINALES_GESTION.includes(tipoFromEstado);
+                        const isCaliente = isLeadCaliente(row);
                         return (
                           <button
                             key={row.id}
@@ -6594,6 +6613,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           >
                             <div className="agenda-card-top">
                               <div style={{ fontWeight: 800, color: '#0f172a' }}>
+                                {isCaliente ? (
+                                  <span title="Dato reciente (menos de 48hs)" style={{ marginRight: 6, fontSize: 12 }}>🔥</span>
+                                ) : null}
                                 {[row.nombre, row.apellido].filter(Boolean).join(' ') || '—'}
                               </div>
                               <span style={{
