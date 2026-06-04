@@ -4209,6 +4209,61 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         pais: 'Uruguay',
         origen_dato: ''
       });
+      const [phoneWarnings, setPhoneWarnings] = React.useState([]);
+      const [phoneCheckLoading, setPhoneCheckLoading] = React.useState(false);
+      const [telefonoError, setTelefonoError] = React.useState('');
+      const [celularError, setCelularError] = React.useState('');
+      const [telefonoShake, setTelefonoShake] = React.useState(false);
+      const [celularShake, setCelularShake] = React.useState(false);
+      const telefonoShakeTimerRef = React.useRef(null);
+      const celularShakeTimerRef = React.useRef(null);
+
+      const validateTelefonoFijo = React.useCallback((value) => {
+        const text = String(value || '').trim();
+        if (!text) return '';
+        return /^[24]/.test(text) ? '' : 'El teléfono fijo debe comenzar con 2 o 4';
+      }, []);
+
+      const validateCelularNumber = React.useCallback((value) => {
+        const text = String(value || '').trim();
+        if (!text) return '';
+        return /^0/.test(text) ? '' : 'El celular debe comenzar con 0';
+      }, []);
+
+      const triggerShake = React.useCallback((kind) => {
+        const setter = kind === 'telefono' ? setTelefonoShake : setCelularShake;
+        const timerRef = kind === 'telefono' ? telefonoShakeTimerRef : celularShakeTimerRef;
+        if (timerRef.current) clearTimeout(timerRef.current);
+        setter(false);
+        requestAnimationFrame(() => setter(true));
+        timerRef.current = setTimeout(() => setter(false), 300);
+      }, []);
+
+      React.useEffect(() => () => {
+        if (telefonoShakeTimerRef.current) clearTimeout(telefonoShakeTimerRef.current);
+        if (celularShakeTimerRef.current) clearTimeout(celularShakeTimerRef.current);
+      }, []);
+
+      async function checkPhone(telefono) {
+        const tel = String(telefono || '').replace(/[\s\-]/g, '').trim();
+        if (tel.length < 6) {
+          setPhoneWarnings([]);
+          return;
+        }
+        setPhoneCheckLoading(true);
+        try {
+          const res = await api.get(
+            `/lead-batches/contacts/check-phone?telefono=${encodeURIComponent(tel)}`
+          );
+          if (res?.ok) {
+            setPhoneWarnings(res.advertencias || []);
+          }
+        } catch {
+          // silencioso — no bloquear el formulario si falla la verificación
+        } finally {
+          setPhoneCheckLoading(false);
+        }
+      }
 
       const handleManualRefresh = React.useCallback(async () => {
         if (isRecupero) return;
