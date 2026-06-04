@@ -3462,6 +3462,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         volver_a_llamar: { label: 'Rellamar', bg: 'rgba(74,144,217,0.12)', color: '#4A90D9', border: 'rgba(74,144,217,0.3)' },
         seguimiento:  { label: 'Seguimiento',  bg: 'rgba(155,89,182,0.12)', color: '#9B59B6', border: 'rgba(155,89,182,0.3)'  },
         interesado:   { label: 'Seguimiento',   bg: 'rgba(155,89,182,0.12)', color: '#9B59B6', border: 'rgba(155,89,182,0.3)'  },
+        venta_pendiente: { label: 'Venta pendiente', bg: '#fef3c7', color: '#b45309', border: 'rgba(180,83,9,0.3)' },
         rechazo:      { label: 'Rechazo',      bg: 'rgba(229,62,62,0.12)',  color: '#E53E3E', border: 'rgba(229,62,62,0.3)'   },
         dato_erroneo: { label: 'Dato erroneo', bg: 'rgba(230,126,34,0.12)', color: '#E67E22', border: 'rgba(230,126,34,0.3)'  },
         venta:        { label: 'Venta',        bg: 'rgba(39,174,96,0.12)',  color: '#27AE60', border: 'rgba(39,174,96,0.3)'   },
@@ -3798,7 +3799,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       );
     }
 
-    const ESTADOS_FINALES_GESTION = ['venta', 'rechazo', 'dato_erroneo'];
+    const ESTADOS_FINALES_GESTION = ['venta', 'venta_pendiente', 'rechazo', 'dato_erroneo'];
 
     const formatLastGestion = (isoStr) => {
       if (!isoStr) return '';
@@ -6446,17 +6447,18 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             ? { bg: 'rgba(245,166,35,0.15)', color: '#F5A623', label: intentosLabel }
                             : { bg: 'rgba(158,158,158,0.12)', color: '#9E9E9E', label: intentosLabel };
                           const notaText = String(row.nota || '').trim();
-                          const tipoFromEstado = String(row.estado_venta || '').toLowerCase();
-                          const tipoLabel = tipoFromEstado === 'seguimiento' ? 'Seguimiento' : 'Rellamar';
-                          const tipoBadge = tipoFromEstado === 'seguimiento'
-                            ? { bg: '#f5f3ff', color: '#6d28d9', border: 'rgba(109,40,217,0.25)' }
-                            : { bg: '#eff6ff', color: '#1d4ed8', border: 'rgba(29,78,216,0.25)' };
-                          return (
-                            <tr
-                              key={row.id}
-                              onClick={() => abrirDrawer(row)}
-                              style={{ cursor: 'pointer', background: vencida ? '#FEF2F2' : undefined }}
-                            >
+                        const tipoFromEstado = String(row.estado_venta || '').toLowerCase();
+                        const tipoLabel = tipoFromEstado === 'seguimiento' ? 'Seguimiento' : 'Rellamar';
+                        const tipoBadge = tipoFromEstado === 'seguimiento'
+                          ? { bg: '#f5f3ff', color: '#6d28d9', border: 'rgba(109,40,217,0.25)' }
+                          : { bg: '#eff6ff', color: '#1d4ed8', border: 'rgba(29,78,216,0.25)' };
+                        const rowDisabled = ESTADOS_FINALES_GESTION.includes(tipoFromEstado);
+                        return (
+                          <tr
+                            key={row.id}
+                            onClick={() => { if (!rowDisabled) abrirDrawer(row); }}
+                            style={{ cursor: rowDisabled ? 'not-allowed' : 'pointer', background: vencida ? '#FEF2F2' : undefined, opacity: rowDisabled ? 0.75 : 1 }}
+                          >
                               <td>
                                 <div style={{ color: vencida ? '#b45309' : undefined, fontWeight: vencida ? 700 : undefined }}>
                                   {fmtGestionFecha(latestGestionAt)}
@@ -6577,13 +6579,14 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           ? { bg: '#f5f3ff', color: '#6d28d9', border: 'rgba(109,40,217,0.25)' }
                           : { bg: '#eff6ff', color: '#1d4ed8', border: 'rgba(29,78,216,0.25)' };
                         const notaRaw = String(row.nota || '').trim();
+                        const rowDisabled = ESTADOS_FINALES_GESTION.includes(tipoFromEstado);
                         return (
                           <button
                             key={row.id}
                             type="button"
                             className="agenda-card"
-                            onClick={() => abrirDrawer(row)}
-                            style={{ cursor: 'pointer', textAlign: 'left', background: vencida ? '#FEF2F2' : '#fff' }}
+                            onClick={() => { if (!rowDisabled) abrirDrawer(row); }}
+                            style={{ cursor: rowDisabled ? 'not-allowed' : 'pointer', textAlign: 'left', background: vencida ? '#FEF2F2' : '#fff', opacity: rowDisabled ? 0.75 : 1 }}
                           >
                             <div className="agenda-card-top">
                               <div style={{ fontWeight: 800, color: '#0f172a' }}>
@@ -6876,6 +6879,32 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           );
                         })
                       )}
+                    </div>
+                  ) : drawerItem.estado_venta === 'venta_pendiente' ? (
+                    <div style={{ textAlign: 'center', padding: '32px 16px', color: '#92400e' }}>
+                      <p style={{ fontSize: 14, fontWeight: 700, color: '#92400e', margin: '0 0 4px 0' }}>
+                        Venta en curso
+                      </p>
+                      <p style={{ fontSize: 12, margin: '0 0 14px 0' }}>
+                        Completá el formulario de venta para confirmar.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => onOpenNewClient && onOpenNewClient(buildVentaDraft(drawerItem), gestion_id ?? null, null, 'registrar_venta')}
+                        style={{
+                          width: '100%',
+                          padding: 10,
+                          background: '#f59e0b',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: 8,
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Continuar venta
+                      </button>
                     </div>
                   ) : ESTADOS_FINALES_GESTION.includes(drawerItem.estado_venta) ? (
                     <div style={{ textAlign: 'center', padding: '32px 16px', color: '#aaa' }}>
