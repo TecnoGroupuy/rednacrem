@@ -4213,6 +4213,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [phoneCheckLoading, setPhoneCheckLoading] = React.useState(false);
       const [telefonoError, setTelefonoError] = React.useState('');
       const [celularError, setCelularError] = React.useState('');
+      const [origenDatoError, setOrigenDatoError] = React.useState('');
       const [telefonoShake, setTelefonoShake] = React.useState(false);
       const [celularShake, setCelularShake] = React.useState(false);
       const telefonoShakeTimerRef = React.useRef(null);
@@ -4415,6 +4416,15 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         }
         if (!nuevoContacto.nombre.trim() || !nuevoContacto.apellido.trim()) {
           setNuevoContactoError('Ingresa nombre y apellido.');
+          return;
+        }
+        const nextTelefonoError = validateTelefonoFijo(nuevoContacto.telefono);
+        const nextCelularError = validateCelularNumber(nuevoContacto.celular);
+        const nextOrigenDatoError = nuevoContacto.origen_dato ? '' : 'Seleccioná un origen de dato para continuar.';
+        setTelefonoError(nextTelefonoError);
+        setCelularError(nextCelularError);
+        setOrigenDatoError(nextOrigenDatoError);
+        if (nextTelefonoError || nextCelularError || nextOrigenDatoError) {
           return;
         }
         const payload = {
@@ -8401,6 +8411,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         setNuevoContactoError('');
         setTelefonoError('');
         setCelularError('');
+        setOrigenDatoError('');
         setTelefonoShake(false);
         setCelularShake(false);
       }, []);
@@ -10221,12 +10232,23 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
                     <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
                       Origen del dato *
-                      <select className="input" value={nuevoContactoForm.origen_dato} onChange={(e) => setNuevoContactoForm(p => ({ ...p, origen_dato: e.target.value }))}>
+                      <select
+                        className="input"
+                        value={nuevoContactoForm.origen_dato}
+                        onChange={(e) => {
+                          setNuevoContactoForm(p => ({ ...p, origen_dato: e.target.value }));
+                          if (e.target.value) setOrigenDatoError('');
+                        }}
+                        style={origenDatoError ? { borderColor: '#e53e3e', boxShadow: '0 0 0 1px #e53e3e' } : undefined}
+                      >
                         <option value="" disabled>Seleccioná...</option>
                         {origenDatoResolvedOptions.map((o) => (
                           <option key={o.valor} value={o.valor}>{o.label}</option>
                         ))}
                       </select>
+                      {origenDatoError ? (
+                        <span style={{ color: '#e53e3e', fontSize: 12 }}>{origenDatoError}</span>
+                      ) : null}
                     </label>
 
                     <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
@@ -10259,6 +10281,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         setShowNuevoContactoModal(false);
                         resetNuevoContactoValidation();
                         setPhoneWarnings([]);
+                        setOrigenDatoError('');
                         setNuevoContactoForm({
                           nombre: '', apellido: '', celular: '', telefono: '',
                           documento: '', correo_electronico: '', departamento: '',
