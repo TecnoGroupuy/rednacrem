@@ -8436,6 +8436,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [phoneCheckLoading, setPhoneCheckLoading] = React.useState(false);
       const [telefonoError, setTelefonoError] = React.useState('');
       const [celularError, setCelularError] = React.useState('');
+      const [origenDatoError, setOrigenDatoError] = React.useState('');
       const [telefonoShake, setTelefonoShake] = React.useState(false);
       const [celularShake, setCelularShake] = React.useState(false);
       const telefonoShakeTimerRef = React.useRef(null);
