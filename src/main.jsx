@@ -8342,6 +8342,13 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [celularShake, setCelularShake] = React.useState(false);
       const telefonoShakeTimerRef = React.useRef(null);
       const celularShakeTimerRef = React.useRef(null);
+      const resetNuevoContactoValidation = React.useCallback(() => {
+        setNuevoContactoError('');
+        setTelefonoError('');
+        setCelularError('');
+        setTelefonoShake(false);
+        setCelularShake(false);
+      }, []);
 
       const URUGUAY_DEPARTAMENTOS = React.useMemo(() => ([
         'Artigas', 'Canelones', 'Cerro Largo', 'Colonia', 'Durazno', 'Flores', 'Florida',
@@ -9186,9 +9193,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           >+ Agregar datos</button>
                           <button
                             onClick={() => {
-                              setNuevoContactoError('');
-                              setTelefonoError('');
-                              setCelularError('');
+                              resetNuevoContactoValidation();
                               setShowNuevoContactoModal(true);
                             }}
                             style={{ fontSize: 11, fontWeight: 500, color: '#185FA5', background: '#E6F1FB', border: '1px solid #85B7EB', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
@@ -10197,11 +10202,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       variant="secondary"
                       onClick={() => {
                         setShowNuevoContactoModal(false);
-                        setNuevoContactoError('');
-                        setTelefonoError('');
-                        setCelularError('');
-                        setTelefonoShake(false);
-                        setCelularShake(false);
+                        resetNuevoContactoValidation();
                         setPhoneWarnings([]);
                         setNuevoContactoForm({
                           nombre: '', apellido: '', celular: '', telefono: '',
