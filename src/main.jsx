@@ -4452,7 +4452,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           setNuevoContactoOpen(false);
           await refreshSilencioso();
         } catch (err) {
-          setNuevoContactoError(err?.message || 'No se pudo crear el contacto.');
+          if (Number(err?.status) === 409) {
+            setNuevoContactoError('Este contacto ya existe. Consultá con tu supervisor.');
+          } else {
+            setNuevoContactoError(err?.message || 'No se pudo crear el contacto.');
+          }
         } finally {
           setNuevoContactoSaving(false);
         }
