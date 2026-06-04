@@ -5950,7 +5950,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             cargarAgenda();
           }
         } catch (err) {
-          setAgError(err?.message || 'No se pudo guardar la gestión.');
+          if (Number(err?.status) === 409 && err?.details?.error?.estado_actual === 'venta') {
+            setAgError('Este contacto ya registra una venta. Consultá con tu supervisor.');
+          } else {
+            setAgError(err?.message || 'No se pudo guardar la gestión.');
+          }
         } finally {
           setAgGuardando(false);
         }
