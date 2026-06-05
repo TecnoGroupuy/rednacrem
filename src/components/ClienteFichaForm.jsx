@@ -1,8 +1,9 @@
-﻿import React, { useEffect } from 'react';
-import { X, Phone, Check, XCircle, Edit3, FileDown, ChevronDown, Pencil } from 'lucide-react';
+﻿import React, { useEffect, useState } from 'react';
+import { X, Phone, Check, XCircle, Edit3, FileDown, ChevronDown, Pencil, AlertTriangle } from 'lucide-react';
 import { updateContact, downloadClientDocument, notifyClientDocumentSent } from '../services/clientsService.js';
 import { getApiClient } from '../services/apiClient.js';
 import { fetchClientDetail } from '../services/clientDetailService.js';
+import { useAuth } from '../auth/AuthProvider.jsx';
 
 const overlayStyle = {
   position: 'fixed',
@@ -251,6 +252,7 @@ const buildDraftFromClient = (client) => {
 
 export default function ClienteFichaForm({ open, client, onClose, onUpdated, detailError = '', viewerRole = '' }) {
   const api = getApiClient();
+  const { user: authUser } = useAuth();
   const [isEditing, setIsEditing] = React.useState(false);
   const [editDraft, setEditDraft] = React.useState(buildDraftFromClient(client || {}));
   const [editError, setEditError] = React.useState('');
@@ -266,6 +268,12 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
   const [availableProducts, setAvailableProducts] = React.useState([]);
   const [editingProducto, setEditingProducto] = React.useState(false);
   const [newProductId, setNewProductId] = React.useState('');
+  const [showBajaModal, setShowBajaModal] = useState(false);
+  const [bajaMotivoSelected, setBajaMotivoSelected] = useState('');
+  const [bajaDetalle, setBajaDetalle] = useState('');
+  const [bajaLoading, setBajaLoading] = useState(false);
+  const [bajaError, setBajaError] = useState('');
+  const [localBajaConfirmed, setLocalBajaConfirmed] = useState(false);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -293,6 +301,11 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
     setNewMedioPago('');
     setEditingProducto(false);
     setNewProductId('');
+    setShowBajaModal(false);
+    setBajaMotivoSelected('');
+    setBajaDetalle('');
+    setBajaError('');
+    setLocalBajaConfirmed(false);
   }, [open, client?.id]);
 
   useEffect(() => {
@@ -453,6 +466,13 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
     client.product?.product_id,
     client.producto?.product_id
   );
+  const bajaProductId = pickField(
+    primaryProduct?.id,
+    primaryProduct?.contactProductId,
+    primaryProduct?.contact_product_id,
+    primaryProduct?.contactProduct?.id,
+    currentProductId
+  );
   const primaryKey = primaryProduct
     ? [
       primaryProduct.id || '',
@@ -526,11 +546,11 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
     client.fechaBaja,
     client.fecha_baja
   );
-  const isBaja = String(productStatus || '').toLowerCase() === 'baja';
+  const isBaja = localBajaConfirmed || String(productStatus || '').toLowerCase().includes('baja');
   const statusBadgeStyle = isBaja
     ? { ...statusBadge, background: '#fee2e2', color: '#b91c1c' }
     : statusBadge;
-  const statusLabel = productStatus || client.status;
+  const statusLabel = localBajaConfirmed ? 'En baja' : (productStatus || client.status);
   const feeRaw = pickField(
     primaryProduct?.precio,
     client.fee,
@@ -624,6 +644,49 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
     await api.patch(`/clients/${client.id}/producto`, { product_id: newProductId });
     setEditingProducto(false);
     await refreshFicha();
+  };
+
+  const supervisorName = [authUser?.nombre, authUser?.apellido].filter(Boolean).join(' ') || authUser?.name || authUser?.email || 'Usuario';
+  const canBajarServicio = ['supervisor', 'superadministrador'].includes(viewerRole) && !isBaja && Boolean(client?.id && bajaProductId);
+  const bajaMotivos = ['Auditoría', 'Medio de pago', 'Voluntaria', 'Antel', 'BPS', 'Fallecido', 'Administrativa', 'Deuda'];
+
+  const openBajaServicioModal = () => {
+    setBajaMotivoSelected('');
+    setBajaDetalle('');
+    setBajaError('');
+    setShowBajaModal(true);
+  };
+
+  const closeBajaServicioModal = () => {
+    if (bajaLoading) return;
+    setShowBajaModal(false);
+    setBajaError('');
+  };
+
+  const handleConfirmBajaServicio = async () => {
+    if (!bajaMotivoSelected) {
+      setBajaError('Seleccioná el motivo de la baja.');
+      return;
+    }
+    if (!client?.id || !bajaProductId) {
+      setBajaError('No se pudo identificar el cliente o el producto.');
+      return;
+    }
+    setBajaLoading(true);
+    setBajaError('');
+    try {
+      await api.post(`/api/contacts/${encodeURIComponent(client.id)}/products/${encodeURIComponent(bajaProductId)}/baja`, {
+        motivo_baja: bajaMotivoSelected,
+        motivo_baja_detalle: bajaDetalle.trim()
+      });
+      setLocalBajaConfirmed(true);
+      setShowBajaModal(false);
+      await refreshFicha();
+    } catch (err) {
+      setBajaError(err?.message || 'No se pudo dar de baja el servicio.');
+    } finally {
+      setBajaLoading(false);
+    }
   };
 
   const handleDownloadPdf = async () => {
@@ -918,6 +981,16 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
                         <Pencil size={13} />
                       </button>
                     )}
+                    {canBajarServicio ? (
+                      <button
+                        type="button"
+                        className="button"
+                        onClick={openBajaServicioModal}
+                        style={{ padding: '7px 10px', borderRadius: 8, background: '#b91c1c', color: '#fff', boxShadow: 'none' }}
+                      >
+                        Bajar servicio
+                      </button>
+                    ) : null}
                   </div>
                 )}
                 <div style={{ marginTop: 4, fontSize: 13, color: '#64748b' }}>{formatField(planName)}</div>
@@ -1103,6 +1176,48 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
           </section>
         ) : null}
       </aside>
+      {showBajaModal ? (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 70, background: 'rgba(15,23,42,0.55)', display: 'grid', placeItems: 'center', padding: 18 }} onClick={closeBajaServicioModal}>
+          <div style={{ width: 'min(520px, 100%)', borderRadius: 16, background: '#fff', boxShadow: '0 24px 70px rgba(15,23,42,0.28)', overflow: 'hidden' }} onClick={(event) => event.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '16px 18px', borderBottom: '1px solid #e5e7eb' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, color: '#991b1b' }}>
+                <AlertTriangle size={20} />
+                Baja de servicio
+              </div>
+              <button type="button" className="close-btn" onClick={closeBajaServicioModal} disabled={bajaLoading}><X size={16} /></button>
+            </div>
+            <div style={{ padding: 18, display: 'grid', gap: 14 }}>
+              <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, padding: 12, background: '#f8fafc', display: 'grid', gap: 8 }}>
+                <div><strong>Producto:</strong> {formatField(productName)}</div>
+                <div><strong>Fecha de alta:</strong> {formatField(formatDateDisplay(fechaVenta))}</div>
+                <div><strong>Medio de pago:</strong> {medioPago ? formatField(medioPagoLabel) : 'Sin dato'}</div>
+              </div>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span style={labelStyle}>Motivo de la baja</span>
+                <select className="input" value={bajaMotivoSelected} onChange={(event) => setBajaMotivoSelected(event.target.value)} disabled={bajaLoading} required>
+                  <option value="">Seleccionar motivo...</option>
+                  {bajaMotivos.map((motivo) => <option key={motivo} value={motivo}>{motivo}</option>)}
+                </select>
+              </label>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span style={labelStyle}>Detalles</span>
+                <textarea className="input" rows={3} placeholder="Agregar información adicional..." value={bajaDetalle} onChange={(event) => setBajaDetalle(event.target.value)} disabled={bajaLoading} />
+              </label>
+              <div style={{ border: '1px solid #fecaca', background: '#fef2f2', color: '#991b1b', borderRadius: 10, padding: '10px 12px', fontWeight: 700 }}>
+                Al dar de baja este producto no se puede volver a activar.
+              </div>
+              {bajaError ? <div style={{ color: '#b91c1c', fontWeight: 700 }}>{bajaError}</div> : null}
+              <div style={{ fontSize: 13, color: '#64748b' }}>Gestionado por: {supervisorName}</div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '14px 18px', borderTop: '1px solid #e5e7eb' }}>
+              <button type="button" className="button ghost" onClick={closeBajaServicioModal} disabled={bajaLoading}>Cancelar</button>
+              <button type="button" className="button" onClick={handleConfirmBajaServicio} disabled={bajaLoading} style={{ background: '#b91c1c', color: '#fff', boxShadow: 'none' }}>
+                {bajaLoading ? 'Confirmando...' : 'Confirmar baja'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
