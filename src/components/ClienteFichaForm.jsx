@@ -273,6 +273,8 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
   const [bajaDetalle, setBajaDetalle] = useState('');
   const [bajaLoading, setBajaLoading] = useState(false);
   const [bajaError, setBajaError] = useState('');
+  const [bajaMotivos, setBajaMotivos] = useState([]);
+  const [bajaMotivosLoading, setBajaMotivosLoading] = useState(false);
   const [localBajaConfirmed, setLocalBajaConfirmed] = useState(false);
 
   useEffect(() => {
@@ -305,6 +307,8 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
     setBajaMotivoSelected('');
     setBajaDetalle('');
     setBajaError('');
+    setBajaMotivos([]);
+    setBajaMotivosLoading(false);
     setLocalBajaConfirmed(false);
   }, [open, client?.id]);
 
@@ -648,13 +652,23 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
 
   const supervisorName = [authUser?.nombre, authUser?.apellido].filter(Boolean).join(' ') || authUser?.name || authUser?.email || 'Usuario';
   const canBajarServicio = ['supervisor', 'superadministrador'].includes(viewerRole) && !isBaja && Boolean(client?.id && bajaProductId);
-  const bajaMotivos = ['Auditoría', 'Medio de pago', 'Voluntaria', 'Antel', 'BPS', 'Fallecido', 'Administrativa', 'Deuda'];
 
-  const openBajaServicioModal = () => {
+  const openBajaServicioModal = async () => {
     setBajaMotivoSelected('');
     setBajaDetalle('');
     setBajaError('');
+    setBajaMotivos([]);
     setShowBajaModal(true);
+    setBajaMotivosLoading(true);
+    try {
+      const response = await api.get('/api/clients/baja-motivos');
+      const data = response?.data || response || {};
+      setBajaMotivos(Array.isArray(data.motivos) ? data.motivos : []);
+    } catch (err) {
+      setBajaError(err?.message || 'No se pudieron cargar los motivos de baja.');
+    } finally {
+      setBajaMotivosLoading(false);
+    }
   };
 
   const closeBajaServicioModal = () => {
@@ -1194,8 +1208,8 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
               </div>
               <label style={{ display: 'grid', gap: 6 }}>
                 <span style={labelStyle}>Motivo de la baja</span>
-                <select className="input" value={bajaMotivoSelected} onChange={(event) => setBajaMotivoSelected(event.target.value)} disabled={bajaLoading} required>
-                  <option value="">Seleccionar motivo...</option>
+                <select className="input" value={bajaMotivoSelected} onChange={(event) => setBajaMotivoSelected(event.target.value)} disabled={bajaLoading || bajaMotivosLoading || !bajaMotivos.length} required>
+                  <option value="">{bajaMotivosLoading ? 'Cargando motivos...' : 'Seleccionar motivo...'}</option>
                   {bajaMotivos.map((motivo) => <option key={motivo} value={motivo}>{motivo}</option>)}
                 </select>
               </label>
