@@ -550,6 +550,18 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
     client.fechaBaja,
     client.fecha_baja
   );
+  const motivoBaja = pickField(
+    primaryProduct?.motivo_baja,
+    primaryProduct?.motivoBaja,
+    primaryProduct?.motivoBajaNombre,
+    primaryProduct?.motivo_baja_nombre,
+    client.product?.motivo_baja,
+    client.product?.motivoBaja,
+    client.producto?.motivo_baja,
+    client.producto?.motivoBaja,
+    client.motivo_baja,
+    client.motivoBaja
+  );
   const isBaja = localBajaConfirmed || String(productStatus || '').toLowerCase().includes('baja');
   const statusBadgeStyle = isBaja
     ? { ...statusBadge, background: '#fee2e2', color: '#b91c1c' }
@@ -1043,6 +1055,11 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
             {isBaja ? (
               <div style={{ marginTop: 8, fontSize: 12, fontWeight: 700, color: '#b91c1c' }}>
                 Fecha de baja: {formatField(formatDateDisplay(fechaBaja))}
+                {motivoBaja ? (
+                  <div style={{ marginTop: 4 }}>
+                    Motivo de baja: {formatField(motivoBaja)}
+                  </div>
+                ) : null}
               </div>
             ) : null}
             {null}
