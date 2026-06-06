@@ -1013,16 +1013,6 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
                         <Pencil size={13} />
                       </button>
                     )}
-                    {canBajarServicio ? (
-                      <button
-                        type="button"
-                        className="button"
-                        onClick={openBajaServicioModal}
-                        style={{ padding: '7px 10px', borderRadius: 8, background: '#b91c1c', color: '#fff', boxShadow: 'none' }}
-                      >
-                        Bajar servicio
-                      </button>
-                    ) : null}
                   </div>
                 )}
                 <div style={{ marginTop: 4, fontSize: 13, color: '#64748b' }}>{formatField(planName)}</div>
@@ -1066,6 +1056,34 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
                     Motivo de baja: {formatField(motivoBaja)}
                   </div>
                 ) : null}
+              </div>
+            ) : null}
+            {canBajarServicio ? (
+              <div style={{ borderTop: '0.5px solid #e5e7eb', paddingTop: '1rem', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={openBajaServicioModal}
+                  style={{
+                    width: '100%',
+                    background: 'transparent',
+                    border: '1.5px solid #b91c1c',
+                    color: '#b91c1c',
+                    borderRadius: 8,
+                    padding: '10px',
+                    fontSize: 14,
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8
+                  }}
+                  onMouseOver={e => e.currentTarget.style.background = '#fef2f2'}
+                  onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  <XCircle size={16} />
+                  Iniciar baja de servicio
+                </button>
               </div>
             ) : null}
             {null}
