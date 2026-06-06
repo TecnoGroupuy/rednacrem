@@ -270,6 +270,7 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
   const [newProductId, setNewProductId] = React.useState('');
   const [showBajaModal, setShowBajaModal] = useState(false);
   const [bajaMotivoSelected, setBajaMotivoSelected] = useState('');
+  const [bajaFecha, setBajaFecha] = useState('');
   const [bajaDetalle, setBajaDetalle] = useState('');
   const [bajaLoading, setBajaLoading] = useState(false);
   const [bajaError, setBajaError] = useState('');
@@ -305,6 +306,7 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
     setNewProductId('');
     setShowBajaModal(false);
     setBajaMotivoSelected('');
+    setBajaFecha('');
     setBajaDetalle('');
     setBajaError('');
     setBajaMotivos([]);
@@ -667,6 +669,7 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
 
   const openBajaServicioModal = async () => {
     setBajaMotivoSelected('');
+    setBajaFecha('');
     setBajaDetalle('');
     setBajaError('');
     setBajaMotivos([]);
@@ -686,6 +689,7 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
   const closeBajaServicioModal = () => {
     if (bajaLoading) return;
     setShowBajaModal(false);
+    setBajaFecha('');
     setBajaError('');
   };
 
@@ -701,10 +705,12 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
     setBajaLoading(true);
     setBajaError('');
     try {
-      await api.post(`/api/contacts/${encodeURIComponent(client.id)}/products/${encodeURIComponent(bajaProductId)}/baja`, {
+      const payload = {
         motivo_baja: bajaMotivoSelected,
         motivo_baja_detalle: bajaDetalle.trim()
-      });
+      };
+      if (bajaFecha) payload.fecha_baja = bajaFecha;
+      await api.post(`/api/contacts/${encodeURIComponent(client.id)}/products/${encodeURIComponent(bajaProductId)}/baja`, payload);
       setLocalBajaConfirmed(true);
       setShowBajaModal(false);
       await refreshFicha();
@@ -1229,6 +1235,10 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
                   <option value="">{bajaMotivosLoading ? 'Cargando motivos...' : 'Seleccionar motivo...'}</option>
                   {bajaMotivos.map((motivo) => <option key={motivo} value={motivo}>{motivo}</option>)}
                 </select>
+              </label>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span style={labelStyle}>Fecha de baja (opcional)</span>
+                <input className="input" type="date" value={bajaFecha} onChange={(event) => setBajaFecha(event.target.value)} disabled={bajaLoading} />
               </label>
               <label style={{ display: 'grid', gap: 6 }}>
                 <span style={labelStyle}>Detalles</span>
