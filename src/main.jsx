@@ -9,7 +9,7 @@ import {
   DollarSign, Target, Download, Layers, Eye, Calendar, PhoneCall, CreditCard, FileText,
   Filter, Plus, CheckCircle2, Clock, Settings, Zap, BarChart3, Flame, Edit3, MoreHorizontal, Trash2,
   MessageSquare, Send, Headphones, Bot, User, Hash, Upload, LogOut, Coffee, Bath, PersonStanding,
-  PauseCircle, XCircle,
+  PauseCircle, XCircle, Webhook,
   Info, Shield, ChevronRight, RefreshCw
 } from 'lucide-react';
 import {
@@ -189,7 +189,7 @@ const ROLE_NAV = [
       { path: 'sa_logs_actividad', label: 'Logs y actividad', caption: 'Monitoreo e inactividad', roles: ['superadministrador'], icon: Zap },
       { path: 'sa_estado_modulos', label: 'Estado de módulos', caption: 'Visibilidad por rol', roles: ['superadministrador'], icon: Layers },
       { path: 'sa_configuracion', label: 'Configuración', caption: 'Identidad y parámetros', roles: ['superadministrador'], icon: Settings },
-      { path: 'sa_conexiones', label: 'Conexiones', caption: 'Webhooks externos', roles: ['superadministrador'], icon: 'ti-webhook' },
+      { path: 'sa_conexiones', label: 'Conexiones', caption: 'Webhooks externos', roles: ['superadministrador'], icon: Webhook },
       { path: 'dashboard', label: 'Monitor', caption: 'Resumen principal', roles: ['director', 'supervisor', 'vendedor', 'operaciones'], icon: Activity },
       { path: 'contactos', label: 'Contacto', caption: 'Base comercial', roles: ['director', 'vendedor'], icon: Users },
       { path: 'soporte', label: 'Atención al cliente', caption: 'Tickets y llamadas', roles: ['atencion_cliente'], icon: Headphones, badge: 12 },
@@ -16549,7 +16549,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 <div className="nav-list">
                   {navItems.map((item) => {
                     const NavIcon = item.icon;
-                    const isTablerIcon = typeof NavIcon === 'string';
                     return (
                       <button
                         key={item.path}
@@ -16557,9 +16556,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         onClick={() => { setRoute(item.path); if (!isDesktop) setMenuOpen(false); }}
                         title=""
                       >
-                        <div className="nav-icon">
-                          {isTablerIcon ? <i className={`ti ${NavIcon}`} style={{ fontSize: 18 }} /> : <NavIcon size={18} />}
-                        </div>
+                        <div className="nav-icon"><NavIcon size={18} /></div>
                         <div className="nav-meta"><div className="nav-title">{item.label}</div><div className="nav-caption">{item.caption}</div></div>
                         {item.badge ? <div className="nav-badge">{item.badge}</div> : null}
                       </button>
