@@ -14,6 +14,7 @@ const emptyDraft = {
 
 const normalizeItems = (response) => {
   if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.connections)) return response.connections;
   if (Array.isArray(response?.items)) return response.items;
   if (Array.isArray(response?.data)) return response.data;
   if (Array.isArray(response?.data?.items)) return response.data.items;
@@ -143,13 +144,13 @@ export default function Conexiones({ Button, Panel, Tag }) {
     }
   };
 
-  const deleteConnection = async () => {
-    if (!editingConnection?.id) return;
+  const deleteConnection = async (connection = editingConnection) => {
+    if (!connection?.id) return;
     if (!window.confirm('¿Eliminar esta conexión?')) return;
     setSaving(true);
     try {
-      await api.del(`/api/connections/${encodeURIComponent(editingConnection.id)}`);
-      setFormOpen(false);
+      await api.del(`/api/connections/${encodeURIComponent(connection.id)}`);
+      if (editingConnection?.id === connection.id) setFormOpen(false);
       await loadConnections();
     } catch (err) {
       setFormError(err?.message || 'No se pudo eliminar la conexión.');
@@ -234,6 +235,15 @@ export default function Conexiones({ Button, Panel, Tag }) {
                   <div className="toolbar" style={{ marginTop: 12 }}>
                     <Button variant="ghost" onClick={() => openLogs(connection)}>Ver log</Button>
                     <Button variant="secondary" onClick={() => openEdit(connection)}>Editar</Button>
+                    <button
+                      type="button"
+                      className="button"
+                      onClick={() => deleteConnection(connection)}
+                      disabled={saving}
+                      style={{ background: 'transparent', border: '1px solid #b91c1c', color: '#b91c1c', boxShadow: 'none' }}
+                    >
+                      Eliminar
+                    </button>
                     <Button variant="secondary" onClick={() => toggleConnectionStatus(connection)}>{active ? 'Pausar' : 'Activar'}</Button>
                   </div>
                 </div>
