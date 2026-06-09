@@ -95,7 +95,7 @@ export default function Conexiones({ Button, Panel, Tag }) {
       url: connection.url || '',
       apiKey: '',
       activa: connection.activa ?? connection.active ?? true,
-      todosProductos: connection.todosProductos ?? connection.todos_productos ?? enabledProducts.length === 0,
+      todosProductos: Boolean(connection.todos_productos ?? connection.todosProductos ?? true),
       productos: enabledProducts
     });
     setShowApiKey(false);
@@ -130,6 +130,7 @@ export default function Conexiones({ Button, Panel, Tag }) {
     };
     if (draft.apiKey.trim()) payload.api_key = draft.apiKey.trim();
     try {
+      console.log('[conexiones] saving payload:', JSON.stringify(payload));
       if (editingConnection?.id) {
         await api.put(`/api/connections/${encodeURIComponent(editingConnection.id)}`, payload);
       } else {
