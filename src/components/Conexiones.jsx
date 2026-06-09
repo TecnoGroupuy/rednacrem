@@ -85,9 +85,11 @@ export default function Conexiones({ Button, Panel, Tag }) {
   };
 
   const openEdit = (connection) => {
-    const enabledProducts = Array.isArray(connection.productos)
-      ? connection.productos.map((item) => String(item?.id || item?.product_id || item)).filter(Boolean)
-      : [];
+    const enabledProducts = Array.isArray(connection.product_ids)
+      ? connection.product_ids.map((item) => String(item?.id || item?.product_id || item)).filter(Boolean)
+      : Array.isArray(connection.productos)
+        ? connection.productos.map((item) => String(item?.id || item?.product_id || item)).filter(Boolean)
+        : [];
     setEditingConnection(connection);
     setDraft({
       id: connection.id || '',
@@ -221,7 +223,7 @@ export default function Conexiones({ Button, Panel, Tag }) {
                     <Tag variant={active ? 'success' : 'info'}>{active ? 'Activa' : 'Pausada'}</Tag>
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
-                    {(connection.todos_productos || connection.todosProductos || !enabledProducts.length) ? (
+                    {(connection.todos_productos === true || connection.todosProductos === true) ? (
                       <span className="pill">Todos los productos</span>
                     ) : enabledProducts.map((item) => {
                       const id = String(item?.id || item?.product_id || item);
