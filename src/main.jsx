@@ -13368,6 +13368,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [newClientStep, setNewClientStep] = React.useState(0);
       const [telefonoError, setTelefonoError] = React.useState('');
       const [celularError, setCelularError] = React.useState('');
+      const [documentoError, setDocumentoError] = React.useState('');
       const [paymentMethods, setPaymentMethods] = React.useState([]);
       const [paymentMethodsLoading, setPaymentMethodsLoading] = React.useState(false);
       const [paymentMethodsError, setPaymentMethodsError] = React.useState('');
@@ -13428,11 +13429,13 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         if (newClientStep === 0) {
           const telVal = validarTelefonoUY(newClientDraft.contact.telefono);
           const celVal = validarTelefonoUY(newClientDraft.contact.celular);
+          const documentoVal = String(newClientDraft.contact.documento || '').trim();
 
           setTelefonoError(telVal.ok ? '' : telVal.msg);
           setCelularError(celVal.ok ? '' : celVal.msg);
+          setDocumentoError(documentoVal ? '' : 'El documento es obligatorio.');
 
-          if (!telVal.ok || !celVal.ok) return;
+          if (!telVal.ok || !celVal.ok || !documentoVal) return;
         }
 
         if (newClientStep < 3) {
@@ -13719,7 +13722,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           if (onSuccess) onSuccess();
         } catch (err) {
           const status = err?.status;
-          if (status === 409) {
+          const rawMessage = err?.message || err?.details?.message || err?.details?.error?.message || '';
+          if (status === 400 && /documento/i.test(rawMessage)) {
+            setNewClientError(rawMessage);
+          } else if (status === 409) {
             setNewClientError('Ya existe un contacto con ese documento o email.');
           } else if (status === 422) {
             setNewClientError(
@@ -13826,7 +13832,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     {[
                       { label: 'Nombre', field: 'nombre' },
                       { label: 'Apellido', field: 'apellido' },
-                      { label: 'Documento', field: 'documento' },
+                      { label: 'Documento', field: 'documento', required: true },
                       { label: 'Fecha de nacimiento', field: 'fecha_nacimiento', type: 'date' },
                       { label: 'Teléfono', field: 'telefono' },
                       { label: 'Celular', field: 'celular' },
@@ -13834,13 +13840,16 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       { label: 'Dirección', field: 'direccion', full: true },
                       { label: 'Departamento', field: 'departamento' },
                       { label: 'País', field: 'pais' }
-                    ].map(({ label, field, type, full }) => (
+                    ].map(({ label, field, type, full, required }) => (
                       <label key={field} style={{ fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, gridColumn: full ? '1 / -1' : 'auto' }}>
-                        {label}
+                        {label}{required ? <span style={{ color: 'var(--color-text-danger, #dc2626)' }}> *</span> : null}
                         <input
                           type={type || 'text'}
                           value={newClientDraft.contact[field] || ''}
-                          onChange={(event) => handleNewClientContactChange(field, event.target.value)}
+                          onChange={(event) => {
+                            handleNewClientContactChange(field, event.target.value);
+                            if (field === 'documento' && event.target.value.trim()) setDocumentoError('');
+                          }}
                           onBlur={(event) => {
                             if (field === 'telefono') {
                               const v = validarTelefonoUY(event.target.value);
@@ -13849,6 +13858,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             if (field === 'celular') {
                               const v = validarTelefonoUY(event.target.value);
                               setCelularError(v.ok ? '' : v.msg);
+                            }
+                            if (field === 'documento') {
+                              setDocumentoError(event.target.value.trim() ? '' : 'El documento es obligatorio.');
                             }
                           }}
                           style={{
@@ -13859,6 +13871,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             border: '1px solid #e5e7eb'
                           }}
                         />
+                        {field === 'documento' && documentoError ? (
+                          <span style={{ fontSize: 12, color: 'var(--color-text-danger, #dc2626)', marginTop: 4, display: 'block' }}>
+                            ⚠ {documentoError}
+                          </span>
+                        ) : null}
                         {field === 'telefono' && telefonoError ? (
                           <span style={{ fontSize: 12, color: 'var(--color-text-danger, #dc2626)', marginTop: 4, display: 'block' }}>
                             ⚠ {telefonoError}
