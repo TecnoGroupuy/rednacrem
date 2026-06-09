@@ -7914,16 +7914,17 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
       React.useEffect(() => {
         const cargarHistorico = async () => {
-          if (!selectedTab?.type || !selectedTab?.month || !selectedTab?.year) return;
+          if (!selectedTab?.type) return;
+          if (selectedTab.type === 'ventas' && (!selectedTab?.month || !selectedTab?.year)) return;
           setLoading(true);
           try {
             const api = getApiClient();
-            const params = new URLSearchParams({
-              type: selectedTab.type,
+            const params = new URLSearchParams({ type: selectedTab.type });
+            if (selectedTab.type === 'ventas') {
               // El backend espera month en 1-12 (igual que ventas-meses).
-              month: String(selectedTab.month),
-              year: String(selectedTab.year)
-            });
+              params.set('month', String(selectedTab.month));
+              params.set('year', String(selectedTab.year));
+            }
             const data = await api.get(`/api/seller/ventas-historicas?${params.toString()}`);
             const items = Array.isArray(data)
               ? data
@@ -8047,7 +8048,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
                   <button
                     type="button"
-                    onClick={() => setSelectedTab({ type: 'bajas', month: currentDate.getMonth() + 1, year: currentDate.getFullYear() })}
+                    onClick={() => setSelectedTab({ type: 'bajas' })}
                     style={{
                       borderRadius: 999,
                       padding: '8px 14px',
