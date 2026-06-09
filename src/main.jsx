@@ -8043,7 +8043,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         const bajaDate = getBajaDateKey(item);
         return estado === 'baja' && bajaDate && bajaDate >= monthStartKey;
       });
-      const saldoNeto = ventasMes - bajasMes.length;
       const getRelatedSales = (row) => {
         const items = row?.related_sales || row?.relatedSales || [];
         return Array.isArray(items) ? items : [];
@@ -8059,7 +8058,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               title="Mis ventas"
               subtitle="Contactos que convertiste en clientes"
             >
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12, marginBottom: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, marginBottom: 16 }}>
                 <div style={{ textAlign: 'left', borderRadius: 14, border: '1px solid rgba(16,185,129,0.2)', background: 'rgba(16,185,129,0.08)', padding: 14 }}>
                   <div style={{ fontSize: 12, color: '#047857', textTransform: 'uppercase', letterSpacing: 1 }}>Ventas de hoy</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: '#047857' }}>{ventasHoy}</div>
@@ -8071,12 +8070,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 <div style={{ textAlign: 'left', borderRadius: 14, border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.08)', padding: 14 }}>
                   <div style={{ fontSize: 12, color: '#b91c1c', textTransform: 'uppercase', letterSpacing: 1 }}>Bajas del mes</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: '#b91c1c' }}>{bajasMes.length}</div>
-                </div>
-                <div style={{ textAlign: 'left', borderRadius: 14, border: '1px solid rgba(139,92,246,0.2)', background: 'rgba(139,92,246,0.08)', padding: 14 }}>
-                  <div style={{ fontSize: 12, color: '#6d28d9', textTransform: 'uppercase', letterSpacing: 1 }}>Saldo neto</div>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: saldoNeto >= 0 ? '#6d28d9' : '#b91c1c' }}>
-                    {saldoNeto >= 0 ? '+' : ''}{saldoNeto}
-                  </div>
                 </div>
               </div>
 
