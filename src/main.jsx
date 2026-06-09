@@ -7820,6 +7820,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [selectedSale, setSelectedSale] = React.useState(null);
       const currentDate = React.useMemo(() => new Date(), []);
       const [months, setMonths] = React.useState([]);
+      const [bajaMotivos, setBajaMotivos] = React.useState([]);
       const [tabOffset, setTabOffset] = React.useState(0);
       const [selectedTab, setSelectedTab] = React.useState({
         type: 'ventas',
@@ -7828,6 +7829,16 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       });
       const [ventas, setVentas] = React.useState([]);
       const [loading, setLoading] = React.useState(false);
+      const BADGE_PALETTE = [
+        { background: 'rgba(239,68,68,0.12)', color: '#b91c1c', border: '1px solid rgba(239,68,68,0.3)' },
+        { background: 'rgba(245,158,11,0.12)', color: '#92400e', border: '1px solid rgba(245,158,11,0.3)' },
+        { background: 'rgba(59,130,246,0.12)', color: '#1d4ed8', border: '1px solid rgba(59,130,246,0.3)' },
+        { background: 'rgba(16,185,129,0.12)', color: '#047857', border: '1px solid rgba(16,185,129,0.3)' },
+        { background: 'rgba(139,92,246,0.12)', color: '#6d28d9', border: '1px solid rgba(139,92,246,0.3)' },
+        { background: 'rgba(249,115,22,0.12)', color: '#c2410c', border: '1px solid rgba(249,115,22,0.3)' },
+        { background: 'rgba(100,116,139,0.12)', color: '#334155', border: '1px solid rgba(100,116,139,0.3)' },
+        { background: 'rgba(236,72,153,0.12)', color: '#9d174d', border: '1px solid rgba(236,72,153,0.3)' }
+      ];
       const origenDatoResolvedOptions = (Array.isArray(origenDatoOptions) && origenDatoOptions.length)
         ? normalizeOrigenOptions(origenDatoOptions)
         : ORIGEN_DATO_OPTIONS_DEPRECADO;
@@ -7850,6 +7861,20 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           }
         };
         cargar();
+      }, []);
+
+      React.useEffect(() => {
+        const cargarBajaMotivos = async () => {
+          try {
+            const api = getApiClient();
+            const response = await api.get('/clients/baja-motivos');
+            const data = response?.data || response || {};
+            setBajaMotivos(Array.isArray(data.motivos) ? data.motivos : []);
+          } catch (err) {
+            console.error('[baja-motivos] error:', err);
+          }
+        };
+        cargarBajaMotivos();
       }, []);
 
       React.useEffect(() => {
@@ -7990,6 +8015,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       ).toLowerCase();
 
       const visibleMonths = months.slice(tabOffset, tabOffset + 3);
+      const motivoBadgeStyle = (motivo, motivosList) => {
+        const idx = motivosList.indexOf(motivo);
+        return idx >= 0 ? BADGE_PALETTE[idx % BADGE_PALETTE.length] : BADGE_PALETTE[0];
+      };
       const monthLabel = (month, year) => {
         try {
           return new Date(year, month - 1, 1).toLocaleDateString('es-UY', { month: 'short', year: 'numeric' });
@@ -8014,6 +8043,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         const bajaDate = getBajaDateKey(item);
         return estado === 'baja' && bajaDate && bajaDate >= monthStartKey;
       });
+      const saldoNeto = ventasMes - bajasMes.length;
       const getRelatedSales = (row) => {
         const items = row?.related_sales || row?.relatedSales || [];
         return Array.isArray(items) ? items : [];
@@ -8029,7 +8059,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               title="Mis ventas"
               subtitle="Contactos que convertiste en clientes"
             >
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, marginBottom: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12, marginBottom: 16 }}>
                 <div style={{ textAlign: 'left', borderRadius: 14, border: '1px solid rgba(16,185,129,0.2)', background: 'rgba(16,185,129,0.08)', padding: 14 }}>
                   <div style={{ fontSize: 12, color: '#047857', textTransform: 'uppercase', letterSpacing: 1 }}>Ventas de hoy</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: '#047857' }}>{ventasHoy}</div>
@@ -8042,38 +8072,65 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                   <div style={{ fontSize: 12, color: '#b91c1c', textTransform: 'uppercase', letterSpacing: 1 }}>Bajas del mes</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: '#b91c1c' }}>{bajasMes.length}</div>
                 </div>
+                <div style={{ textAlign: 'left', borderRadius: 14, border: '1px solid rgba(139,92,246,0.2)', background: 'rgba(139,92,246,0.08)', padding: 14 }}>
+                  <div style={{ fontSize: 12, color: '#6d28d9', textTransform: 'uppercase', letterSpacing: 1 }}>Saldo neto</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: saldoNeto >= 0 ? '#6d28d9' : '#b91c1c' }}>
+                    {saldoNeto >= 0 ? '+' : ''}{saldoNeto}
+                  </div>
+                </div>
               </div>
+
+              <div style={{ display: 'flex', borderBottom: '1px solid rgba(148,163,184,0.2)', marginBottom: 16 }}>
+                <button
+                  type="button"
+                  onClick={() => setSelectedTab((prev) => ({ ...prev, type: 'ventas' }))}
+                  style={{
+                    flex: 1, padding: '10px 0', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                    background: 'none', border: 'none',
+                    borderBottom: selectedTab.type === 'ventas' ? '2px solid #1d4ed8' : '2px solid transparent',
+                    color: selectedTab.type === 'ventas' ? '#1d4ed8' : '#64748b'
+                  }}
+                >
+                  Mis Ventas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedTab((prev) => ({ ...prev, type: 'bajas' }))}
+                  style={{
+                    flex: 1, padding: '10px 0', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                    background: 'none', border: 'none',
+                    borderBottom: selectedTab.type === 'bajas' ? '2px solid #b91c1c' : '2px solid transparent',
+                    color: selectedTab.type === 'bajas' ? '#b91c1c' : '#64748b'
+                  }}
+                >
+                  Mis Bajas {bajasMes.length > 0 && (
+                    <span style={{ marginLeft: 6, background: 'rgba(239,68,68,0.12)', color: '#b91c1c', borderRadius: 999, fontSize: 11, padding: '1px 7px', fontWeight: 800 }}>
+                      {bajasMes.length}
+                    </span>
+                  )}
+                </button>
+              </div>
+
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
                 <Button variant="ghost" disabled={tabOffset <= 0} onClick={() => setTabOffset((prev) => Math.max(0, prev - 1))}>‹</Button>
                 <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedTab({ type: 'bajas' })}
-                    style={{
-                      borderRadius: 999,
-                      padding: '8px 14px',
-                      border: selectedTab.type === 'bajas' ? '1px solid #b91c1c' : '1px solid rgba(239,68,68,0.25)',
-                      background: selectedTab.type === 'bajas' ? '#b91c1c' : '#fff',
-                      color: selectedTab.type === 'bajas' ? '#fff' : '#b91c1c',
-                      fontWeight: 800,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Bajas
-                  </button>
                   {visibleMonths.map((item) => {
-                    const active = selectedTab.type === 'ventas' && selectedTab.month === item.month && selectedTab.year === item.year;
+                    const active = selectedTab.month === item.month && selectedTab.year === item.year;
+                    const activeColor = selectedTab.type === 'bajas' ? '#b91c1c' : '#1d4ed8';
+                    const activeBorder = selectedTab.type === 'bajas' ? '#b91c1c' : '#1d4ed8';
+                    const inactiveBorder = selectedTab.type === 'bajas' ? 'rgba(239,68,68,0.25)' : 'rgba(148,163,184,0.35)';
+                    const inactiveColor = selectedTab.type === 'bajas' ? '#b91c1c' : '#334155';
                     return (
                       <button
                         key={`${item.year}-${item.month}`}
                         type="button"
-                        onClick={() => setSelectedTab({ type: 'ventas', month: item.month, year: item.year })}
+                        onClick={() => setSelectedTab((prev) => ({ ...prev, month: item.month, year: item.year }))}
                         style={{
                           borderRadius: 999,
                           padding: '8px 14px',
-                          border: active ? '1px solid #1d4ed8' : '1px solid rgba(148,163,184,0.35)',
-                          background: active ? '#1d4ed8' : '#fff',
-                          color: active ? '#fff' : '#334155',
+                          border: active ? `1px solid ${activeBorder}` : `1px solid ${inactiveBorder}`,
+                          background: active ? activeColor : '#fff',
+                          color: active ? '#fff' : inactiveColor,
                           fontWeight: 800,
                           cursor: 'pointer',
                           textTransform: 'capitalize'
@@ -8086,6 +8143,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 </div>
                 <Button variant="ghost" disabled={tabOffset + 3 >= months.length} onClick={() => setTabOffset((prev) => Math.min(Math.max(0, months.length - 3), prev + 1))}>›</Button>
               </div>
+              {ventas.length > 0 && (
+                <div style={{ fontSize: 12, color: '#64748b', marginBottom: 8, textAlign: 'right' }}>
+                  Mostrando <strong>{ventas.length}</strong> registros
+                </div>
+              )}
               <div className="table-wrap">
                 <table>
                   <thead>
@@ -8130,7 +8192,19 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           <td>{producto}</td>
                           <td>{precio}</td>
                           {selectedTab.type === 'bajas' ? (
-                            <td>{motivo}</td>
+                            <td>
+                              <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                padding: '3px 10px',
+                                borderRadius: 999,
+                                fontSize: 12,
+                                fontWeight: 700,
+                                ...motivoBadgeStyle(motivo, bajaMotivos)
+                              }}>
+                                {motivo || '—'}
+                              </span>
+                            </td>
                           ) : (
                             <td>
                               <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 800, background: statusColor.bg, color: statusColor.text, border: `1px solid ${statusColor.border}` }}>
