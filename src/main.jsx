@@ -4198,6 +4198,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [savingDireccion, setSavingDireccion] = React.useState(false);
       const [familiares, setFamiliares] = React.useState([]);
       const [familiaresLoading, setFamiliaresLoading] = React.useState(false);
+      const [familiaresLoaded, setFamiliaresLoaded] = React.useState(false);
       const [draftDireccion, setDraftDireccion] = React.useState('');
       const [nuevoContactoOpen, setNuevoContactoOpen] = React.useState(false);
       const [nuevoContactoError, setNuevoContactoError] = React.useState('');
@@ -4508,31 +4509,34 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         onSelect(c.id || null);
       };
 
+      // Reset al cambiar de contacto. El GET /familiares NO se dispara automáticamente
+      // al abrir el drawer ni al seleccionar venta: se difiere hasta que el usuario
+      // abra explícitamente la sección "Familiar".
       React.useEffect(() => {
-        let active = true;
+        setFamiliares([]);
+        setFamiliaresLoaded(false);
+        setFamiliaresLoading(false);
+      }, [drawerContact?.id]);
+
+      const cargarFamiliares = React.useCallback(() => {
         const contactId = drawerContact?.id;
-        if (!contactId) {
-          setFamiliares([]);
-          return () => {};
-        }
+        if (!contactId || familiaresLoaded || familiaresLoading) return;
         const api = getApiClient();
         setFamiliaresLoading(true);
         api.get(`/leads/${contactId}/familiares`)
           .then((response) => {
-            if (!active) return;
             const items = response?.items || response?.data?.items || [];
             setFamiliares(Array.isArray(items) ? items : []);
+            setFamiliaresLoaded(true);
           })
           .catch(() => {
-            if (!active) return;
             setFamiliares([]);
+            setFamiliaresLoaded(true);
           })
           .finally(() => {
-            if (!active) return;
             setFamiliaresLoading(false);
           });
-        return () => { active = false; };
-      }, [drawerContact?.id]);
+      }, [drawerContact?.id, familiaresLoaded, familiaresLoading]);
 
       const closeDrawer = () => {
         if (!estadoGestion) {
@@ -4588,9 +4592,33 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             fecha_agenda
           };
 
+          const contactId = dc.id;
+          const isVentaFlow = (isRecupero && estadoGestion === 'alta') ||
+                              (!isRecupero && estadoGestion === 'venta');
+
+          // En venta NO finalizamos la gestión todavía: marcar el lead como 'venta'
+          // aquí lo dejaría inalcanzable antes de enviar los datos completos.
+          // La gestión 'venta' se registra recién al guardar el modal
+          // (POST /leads/:id/management con contacto + productos). Acá solo
+          // abrimos el modal con el contacto pre-cargado y refrescamos al cerrar OK.
+          if (isVentaFlow) {
+            try {
+              localStorage.setItem('cliente_pendiente_alta',
+                JSON.stringify(buildVentaDraft(dc)));
+            } catch {}
+
+            closeDrawer();
+
+            if (onOpenNewClient) {
+              onOpenNewClient(buildVentaDraft(dc), null, refreshSilencioso, 'registrar_venta');
+            } else if (onVentaCerrada) {
+              onVentaCerrada(dc, null);
+            }
+            return;
+          }
+
           const { gestion_id } = await registerCommercialManagement(dc.id, gestionPayload);
 
-          const contactId = dc.id;
           const ahora = new Date().toISOString();
           const applyUpdate = (c) => ({
             ...c,
@@ -4615,27 +4643,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
           if (estadosConAgenda.includes(estadoGestion)) {
             try { localStorage.setItem('agenda_needs_refresh', 'true'); } catch {}
-          }
-
-          const isVentaFlow = (isRecupero && estadoGestion === 'alta') ||
-                              (!isRecupero && estadoGestion === 'venta');
-
-          if (isVentaFlow) {
-            try {
-              localStorage.setItem('cliente_pendiente_alta',
-                JSON.stringify(buildVentaDraft(dc)));
-            } catch {}
-
-            closeDrawer();
-
-            if (onOpenNewClient) {
-              onOpenNewClient(buildVentaDraft(dc), gestion_id ?? null, null, 'registrar_venta');
-            } else if (onVentaCerrada) {
-              onVentaCerrada(dc, gestion_id ?? null);
-            }
-
-            await refreshSilencioso();
-            return;
           }
 
           closeDrawer();
@@ -5731,7 +5738,15 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         <hr style={{ border: 'none', borderTop: '1px solid #F0F0F0', margin: 0 }} />
                         <div style={{ paddingTop: 12 }}>
                           <p style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px 0' }}>Familiar</p>
-                          {familiaresLoading ? (
+                          {!familiaresLoaded && !familiaresLoading ? (
+                            <button
+                              type="button"
+                              onClick={cargarFamiliares}
+                              style={{ fontSize: 12, fontWeight: 600, color: accentColor, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                            >
+                              Ver familiares
+                            </button>
+                          ) : familiaresLoading ? (
                             <div style={{ fontSize: 12, color: 'var(--muted)' }}>Cargando familiares...</div>
                           ) : familiares.length ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -5997,21 +6012,15 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             }
             fecha_agenda = `${fecha}T${hora}:00`;
           }
-          const { gestion_id } = await registerCommercialManagement(
-            drawerItem.contact_id,
-            {
-              status: agEstado,
-              note: agNota.trim() || undefined,
-              nextAction: fecha_agenda,
-              fecha_agenda
-            }
-          );
           const itemGuardado = drawerItem;
-          cerrarDrawer();
-          if (ESTADOS_FINALES_GESTION.includes(agEstado)) {
-            await agendaApi.patch(`/agenda/${itemGuardado.id}/complete`, {}).catch(() => {});
-            setSeguimientos((prev) => prev.filter((s) => s.id !== itemGuardado.id));
-            if (agEstado === 'venta' && onVentaCerrada) {
+
+          // En venta NO finalizamos la gestión todavía: marcar el lead como 'venta'
+          // aquí lo dejaría inalcanzable antes de enviar los datos completos. La venta
+          // se registra recién al guardar el modal (POST /leads/:id/management con
+          // contacto + productos). Tampoco completamos el ítem de agenda hasta entonces.
+          if (agEstado === 'venta') {
+            cerrarDrawer();
+            if (onVentaCerrada) {
               try {
                 const borrador = {
                   contacto_id: String(itemGuardado.contact_id),
@@ -6027,8 +6036,30 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 };
                 localStorage.setItem('cliente_pendiente_alta', JSON.stringify(borrador));
               } catch {}
-              onVentaCerrada(itemGuardado, gestion_id);
+              // Al cerrarse la venta con éxito en el modal, completamos el ítem de
+              // agenda y lo quitamos de la lista (recién acá, no antes de enviar los datos).
+              const completarItemAgenda = async () => {
+                await agendaApi.patch(`/agenda/${itemGuardado.id}/complete`, {}).catch(() => {});
+                setSeguimientos((prev) => prev.filter((s) => s.id !== itemGuardado.id));
+              };
+              onVentaCerrada(itemGuardado, null, completarItemAgenda);
             }
+            return;
+          }
+
+          await registerCommercialManagement(
+            drawerItem.contact_id,
+            {
+              status: agEstado,
+              note: agNota.trim() || undefined,
+              nextAction: fecha_agenda,
+              fecha_agenda
+            }
+          );
+          cerrarDrawer();
+          if (ESTADOS_FINALES_GESTION.includes(agEstado)) {
+            await agendaApi.patch(`/agenda/${itemGuardado.id}/complete`, {}).catch(() => {});
+            setSeguimientos((prev) => prev.filter((s) => s.id !== itemGuardado.id));
           } else {
             cargarAgenda();
           }
@@ -16536,7 +16567,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         if (route === 'agenda') {
           if (role === 'vendedor') return (
             <SalesAgendaView
-              onVentaCerrada={(contactData, gestion_id = null) => handleOpenVendedorNewClient(contactData, gestion_id)}
+              onVentaCerrada={(contactData, gestion_id = null, onSuccessCb = null) => handleOpenVendedorNewClient(contactData, gestion_id, onSuccessCb)}
               origenDatoOptions={origenDatoOptions}
             />
           );
