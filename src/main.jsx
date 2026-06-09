@@ -7889,7 +7889,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               .map((item) => {
                 const key = `${item.year}-${item.month}`;
                 return { ...item, count: countByKey.has(key) ? countByKey.get(key) : (item.count ?? null) };
-              });
+              })
+              // Solo mostrar meses con al menos 1 venta (total_ventas > 0).
+              .filter((item) => Number(item.count) > 0);
             setMonths(normalizedMonths);
           } catch (err) {
             console.error('[ventas-meses] error:', err);
@@ -7899,6 +7901,17 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         cargarMeses();
       }, [currentDate]);
 
+      // Si el mes seleccionado quedó fuera de la lista (p. ej. el mes actual sin ventas),
+      // seleccionar el mes más reciente con ventas para no mostrar una tabla vacía.
+      React.useEffect(() => {
+        if (selectedTab.type !== 'ventas' || !months.length) return;
+        const stillVisible = months.some((m) => m.month === selectedTab.month && m.year === selectedTab.year);
+        if (!stillVisible) {
+          const first = months[0];
+          setSelectedTab({ type: 'ventas', month: first.month, year: first.year });
+        }
+      }, [months]);
+
       React.useEffect(() => {
         const cargarHistorico = async () => {
           if (!selectedTab?.type || !selectedTab?.month || !selectedTab?.year) return;
@@ -7907,8 +7920,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             const api = getApiClient();
             const params = new URLSearchParams({
               type: selectedTab.type,
-              // El endpoint espera month en 0-11; selectedTab.month es 1-12.
-              month: String(selectedTab.month - 1),
+              // El backend espera month en 1-12 (igual que ventas-meses).
+              month: String(selectedTab.month),
               year: String(selectedTab.year)
             });
             const data = await api.get(`/api/seller/ventas-historicas?${params.toString()}`);
