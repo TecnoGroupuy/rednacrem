@@ -212,6 +212,13 @@ export const listCommercialContactsAsync = async () => {
         documento: item.documento || '',
         email: item.email || '',
         direccion: item.direccion || '',
+        nombre: item.nombre || '',
+        apellido: item.apellido || '',
+        telefono: item.telefono || '',
+        celular: item.celular || '',
+        fecha_nacimiento: item.fecha_nacimiento || item.fechaNacimiento || '',
+        departamento: item.departamento || '',
+        pais: item.pais || item.country || 'Uruguay',
         source: 'import',
         productId: '',
         assignedTo: item.assigned_to_name || item.vendedor_nombre || '',
@@ -258,6 +265,13 @@ export const getCommercialContactById = async (id) => {
       documento: lead.documento || '',
       email: lead.email || '',
       direccion: lead.direccion || '',
+      nombre: lead.nombre || '',
+      apellido: lead.apellido || '',
+      telefono: lead.telefono || '',
+      celular: lead.celular || '',
+      fecha_nacimiento: lead.fecha_nacimiento || lead.fechaNacimiento || '',
+      departamento: lead.departamento || '',
+      pais: lead.pais || lead.country || 'Uruguay',
       source: 'import',
       productId: '',
       assignedTo: lead.assigned_to_name || '',
@@ -349,14 +363,23 @@ export const registerCommercialManagement = async (contactId, payload, { sellerN
 
 export const updateCommercialContactProfile = async (contactId, patch) => {
   if (hasApiConfigured()) {
+    // PUT /leads reemplaza el registro completo: para no pisar con null los campos
+    // que el usuario no tocó (p. ej. edición inline de celular/dirección), partimos
+    // del contacto actual y aplicamos el patch encima, enviando los 10 campos.
+    // ?? sólo cae al valor actual ante null/undefined, así un '' explícito
+    // (usuario que borra un campo) se respeta.
+    const current = await getCommercialContactById(contactId);
     await api.put(`/leads/${contactId}`, {
-      nombre: patch.name,
-      telefono: patch.phone,
-      celular: patch.celular,
-      departamento: patch.city,
-      documento: patch.documento,
-      email: patch.email,
-      direccion: patch.direccion
+      nombre: patch.nombre ?? patch.name ?? current.nombre ?? '',
+      apellido: patch.apellido ?? current.apellido ?? '',
+      telefono: patch.telefono ?? patch.phone ?? current.telefono ?? '',
+      celular: patch.celular ?? current.celular ?? '',
+      fecha_nacimiento: patch.fecha_nacimiento ?? current.fecha_nacimiento ?? '',
+      departamento: patch.departamento ?? patch.city ?? current.departamento ?? '',
+      documento: patch.documento ?? current.documento ?? '',
+      email: patch.email ?? current.email ?? '',
+      direccion: patch.direccion ?? current.direccion ?? '',
+      pais: patch.pais ?? current.pais ?? 'Uruguay'
     });
     return getCommercialContactById(contactId);
   }
