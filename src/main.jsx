@@ -7840,14 +7840,22 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               })
               .filter(Boolean)
               .sort((a, b) => (b.year - a.year) || (b.month - a.month));
-            setMonths(parsedMonths);
+            const currentMonth = { month: currentDate.getMonth() + 1, year: currentDate.getFullYear() };
+            const seenMonths = new Set();
+            const normalizedMonths = [currentMonth, ...parsedMonths].filter((item) => {
+              const key = `${item.year}-${item.month}`;
+              if (seenMonths.has(key)) return false;
+              seenMonths.add(key);
+              return true;
+            });
+            setMonths(normalizedMonths);
           } catch (err) {
             console.error('[ventas-meses] error:', err);
-            setMonths([]);
+            setMonths([{ month: currentDate.getMonth() + 1, year: currentDate.getFullYear() }]);
           }
         };
         cargarMeses();
-      }, []);
+      }, [currentDate]);
 
       React.useEffect(() => {
         const cargarHistorico = async () => {
@@ -7971,9 +7979,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                   <div style={{ fontSize: 20, fontWeight: 700, color: '#b91c1c' }}>{bajasMes.length}</div>
                 </div>
               </div>
-              <div className="toolbar" style={{ justifyContent: 'space-between', marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
                 <Button variant="ghost" disabled={tabOffset <= 0} onClick={() => setTabOffset((prev) => Math.max(0, prev - 1))}>‹</Button>
-                <div style={{ display: 'flex', gap: 8, flex: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
                   <button
                     type="button"
                     onClick={() => setSelectedTab({ type: 'bajas', month: currentDate.getMonth() + 1, year: currentDate.getFullYear() })}
@@ -7981,8 +7989,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       borderRadius: 999,
                       padding: '8px 14px',
                       border: selectedTab.type === 'bajas' ? '1px solid #b91c1c' : '1px solid rgba(239,68,68,0.25)',
-                      background: selectedTab.type === 'bajas' ? '#fee2e2' : '#fff',
-                      color: '#b91c1c',
+                      background: selectedTab.type === 'bajas' ? '#b91c1c' : '#fff',
+                      color: selectedTab.type === 'bajas' ? '#fff' : '#b91c1c',
                       fontWeight: 800,
                       cursor: 'pointer'
                     }}
@@ -8000,8 +8008,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           borderRadius: 999,
                           padding: '8px 14px',
                           border: active ? '1px solid #1d4ed8' : '1px solid rgba(148,163,184,0.35)',
-                          background: active ? 'rgba(59,130,246,0.1)' : '#fff',
-                          color: active ? '#1d4ed8' : '#334155',
+                          background: active ? '#1d4ed8' : '#fff',
+                          color: active ? '#fff' : '#334155',
                           fontWeight: 800,
                           cursor: 'pointer',
                           textTransform: 'capitalize'
