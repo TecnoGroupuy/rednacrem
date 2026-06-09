@@ -8015,6 +8015,20 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       ).toLowerCase();
 
       const visibleMonths = months.slice(tabOffset, tabOffset + 3);
+      const bajaCountByMonth = React.useMemo(() => {
+        const map = new Map();
+        allSales.forEach((item) => {
+          const estado = getEstadoProducto(item);
+          if (estado !== 'baja') return;
+          const fechaBaja = item?.fecha_baja || item?.fechaBaja || item?.fecha || '';
+          if (!fechaBaja) return;
+          const d = new Date(fechaBaja);
+          if (isNaN(d)) return;
+          const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
+          map.set(key, (map.get(key) || 0) + 1);
+        });
+        return map;
+      }, [allSales]);
       const motivoBadgeStyle = (motivo, motivosList) => {
         const idx = motivosList.indexOf(motivo);
         return idx >= 0 ? BADGE_PALETTE[idx % BADGE_PALETTE.length] : BADGE_PALETTE[0];
@@ -8136,7 +8150,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           textTransform: 'capitalize'
                         }}
                       >
-                        {monthLabel(item.month, item.year)}{item.count != null ? ` (${item.count})` : ''}
+                        {(() => {
+                          const count = selectedTab.type === 'bajas'
+                            ? (bajaCountByMonth.get(`${item.year}-${item.month}`) ?? 0)
+                            : item.count;
+                          return `${monthLabel(item.month, item.year)}${count != null && count > 0 ? ` (${count})` : ''}`;
+                        })()}
                       </button>
                     );
                   })}
