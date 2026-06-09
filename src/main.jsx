@@ -7787,7 +7787,16 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [allSales, setAllSales] = React.useState([]);
       const [loadingVentas, setLoadingVentas] = React.useState(true);
       const [selectedSale, setSelectedSale] = React.useState(null);
-      const [salesFilter, setSalesFilter] = React.useState('hoy'); // hoy | mes | bajas
+      const currentDate = React.useMemo(() => new Date(), []);
+      const [months, setMonths] = React.useState([]);
+      const [tabOffset, setTabOffset] = React.useState(0);
+      const [selectedTab, setSelectedTab] = React.useState({
+        type: 'ventas',
+        month: currentDate.getMonth() + 1,
+        year: currentDate.getFullYear()
+      });
+      const [ventas, setVentas] = React.useState([]);
+      const [loading, setLoading] = React.useState(false);
       const origenDatoResolvedOptions = (Array.isArray(origenDatoOptions) && origenDatoOptions.length)
         ? normalizeOrigenOptions(origenDatoOptions)
         : ORIGEN_DATO_OPTIONS_DEPRECADO;
@@ -7811,6 +7820,62 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         };
         cargar();
       }, []);
+
+      React.useEffect(() => {
+        const cargarMeses = async () => {
+          try {
+            const api = getApiClient();
+            const data = await api.get('/api/seller/ventas-meses');
+            const rawItems = Array.isArray(data)
+              ? data
+              : (Array.isArray(data?.months) ? data.months
+                : (Array.isArray(data?.meses) ? data.meses
+                  : (Array.isArray(data?.items) ? data.items : [])));
+            const parsedMonths = rawItems
+              .map((item) => {
+                const month = Number(item?.month ?? item?.mes ?? String(item).slice(5, 7));
+                const year = Number(item?.year ?? item?.anio ?? item?.año ?? String(item).slice(0, 4));
+                if (!month || !year) return null;
+                return { month, year };
+              })
+              .filter(Boolean)
+              .sort((a, b) => (b.year - a.year) || (b.month - a.month));
+            setMonths(parsedMonths);
+          } catch (err) {
+            console.error('[ventas-meses] error:', err);
+            setMonths([]);
+          }
+        };
+        cargarMeses();
+      }, []);
+
+      React.useEffect(() => {
+        const cargarHistorico = async () => {
+          if (!selectedTab?.type || !selectedTab?.month || !selectedTab?.year) return;
+          setLoading(true);
+          try {
+            const api = getApiClient();
+            const params = new URLSearchParams({
+              type: selectedTab.type,
+              month: String(selectedTab.month),
+              year: String(selectedTab.year)
+            });
+            const data = await api.get(`/api/seller/ventas-historicas?${params.toString()}`);
+            const items = Array.isArray(data)
+              ? data
+              : (Array.isArray(data?.ventas) ? data.ventas
+                : (Array.isArray(data?.items) ? data.items
+                  : (Array.isArray(data?.data) ? data.data : [])));
+            setVentas(items);
+          } catch (err) {
+            console.error('[ventas-historicas] error:', err);
+            setVentas([]);
+          } finally {
+            setLoading(false);
+          }
+        };
+        cargarHistorico();
+      }, [selectedTab]);
 
       const formatFechaVenta = (raw) => formatDate(raw);
       const pickValue = (row, keys, fallback = '—') => {
@@ -7849,23 +7914,14 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         || 'alta'
       ).toLowerCase();
 
-      const filteredSales = React.useMemo(() => {
-        const base = Array.isArray(allSales) ? allSales : [];
-        if (salesFilter === 'hoy') {
-          return base.filter((item) => pickDateKey(item) === todayKey);
+      const visibleMonths = months.slice(tabOffset, tabOffset + 3);
+      const monthLabel = (month, year) => {
+        try {
+          return new Date(year, month - 1, 1).toLocaleDateString('es-UY', { month: 'short', year: 'numeric' });
+        } catch {
+          return `${month}/${year}`;
         }
-        if (salesFilter === 'mes') {
-          return base.filter((item) => pickDateKey(item) >= monthStartKey);
-        }
-        if (salesFilter === 'bajas') {
-          return base.filter((item) => {
-            const estado = getEstadoProducto(item);
-            const bajaDate = getBajaDateKey(item);
-            return estado === 'baja' && bajaDate && bajaDate >= monthStartKey;
-          });
-        }
-        return base;
-      }, [allSales, salesFilter, todayKey, monthStartKey]);
+      };
       const ventasHoy = allSales
         .filter((item) => {
           const fecha = item?.fecha_venta || item?.created_at || '';
@@ -7902,60 +7958,73 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               subtitle="Contactos que convertiste en clientes"
             >
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, marginBottom: 16 }}>
-                <button
-                  type="button"
-                  onClick={() => setSalesFilter('hoy')}
-                  style={{
-                    textAlign: 'left',
-                    borderRadius: 14,
-                    border: '1px solid rgba(16,185,129,0.2)',
-                    background: 'rgba(16,185,129,0.08)',
-                    padding: 14,
-                    cursor: 'pointer',
-                    boxShadow: salesFilter === 'hoy' ? '0 0 0 2px #1f2937' : 'none'
-                  }}
-                >
+                <div style={{ textAlign: 'left', borderRadius: 14, border: '1px solid rgba(16,185,129,0.2)', background: 'rgba(16,185,129,0.08)', padding: 14 }}>
                   <div style={{ fontSize: 12, color: '#047857', textTransform: 'uppercase', letterSpacing: 1 }}>Ventas de hoy</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: '#047857' }}>{ventasHoy}</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSalesFilter('mes')}
-                  style={{
-                    textAlign: 'left',
-                    borderRadius: 14,
-                    border: '1px solid rgba(59,130,246,0.2)',
-                    background: 'rgba(59,130,246,0.08)',
-                    padding: 14,
-                    cursor: 'pointer',
-                    boxShadow: salesFilter === 'mes' ? '0 0 0 2px #1f2937' : 'none'
-                  }}
-                >
+                </div>
+                <div style={{ textAlign: 'left', borderRadius: 14, border: '1px solid rgba(59,130,246,0.2)', background: 'rgba(59,130,246,0.08)', padding: 14 }}>
                   <div style={{ fontSize: 12, color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: 1 }}>Ventas del mes</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: '#1d4ed8' }}>{ventasMes}</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSalesFilter('bajas')}
-                  style={{
-                    textAlign: 'left',
-                    borderRadius: 14,
-                    border: '1px solid rgba(239,68,68,0.2)',
-                    background: 'rgba(239,68,68,0.08)',
-                    padding: 14,
-                    cursor: 'pointer',
-                    boxShadow: salesFilter === 'bajas' ? '0 0 0 2px #1f2937' : 'none'
-                  }}
-                >
+                </div>
+                <div style={{ textAlign: 'left', borderRadius: 14, border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.08)', padding: 14 }}>
                   <div style={{ fontSize: 12, color: '#b91c1c', textTransform: 'uppercase', letterSpacing: 1 }}>Bajas del mes</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: '#b91c1c' }}>{bajasMes.length}</div>
-                </button>
+                </div>
+              </div>
+              <div className="toolbar" style={{ justifyContent: 'space-between', marginBottom: 12 }}>
+                <Button variant="ghost" disabled={tabOffset <= 0} onClick={() => setTabOffset((prev) => Math.max(0, prev - 1))}>‹</Button>
+                <div style={{ display: 'flex', gap: 8, flex: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTab({ type: 'bajas', month: currentDate.getMonth() + 1, year: currentDate.getFullYear() })}
+                    style={{
+                      borderRadius: 999,
+                      padding: '8px 14px',
+                      border: selectedTab.type === 'bajas' ? '1px solid #b91c1c' : '1px solid rgba(239,68,68,0.25)',
+                      background: selectedTab.type === 'bajas' ? '#fee2e2' : '#fff',
+                      color: '#b91c1c',
+                      fontWeight: 800,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Bajas
+                  </button>
+                  {visibleMonths.map((item) => {
+                    const active = selectedTab.type === 'ventas' && selectedTab.month === item.month && selectedTab.year === item.year;
+                    return (
+                      <button
+                        key={`${item.year}-${item.month}`}
+                        type="button"
+                        onClick={() => setSelectedTab({ type: 'ventas', month: item.month, year: item.year })}
+                        style={{
+                          borderRadius: 999,
+                          padding: '8px 14px',
+                          border: active ? '1px solid #1d4ed8' : '1px solid rgba(148,163,184,0.35)',
+                          background: active ? 'rgba(59,130,246,0.1)' : '#fff',
+                          color: active ? '#1d4ed8' : '#334155',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          textTransform: 'capitalize'
+                        }}
+                      >
+                        {monthLabel(item.month, item.year)}
+                      </button>
+                    );
+                  })}
+                </div>
+                <Button variant="ghost" disabled={tabOffset + 3 >= months.length} onClick={() => setTabOffset((prev) => Math.min(Math.max(0, months.length - 3), prev + 1))}>›</Button>
               </div>
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>Fecha de venta</th><th>Estado</th><th>Contacto</th></tr></thead>
+                  <thead>
+                    {selectedTab.type === 'bajas' ? (
+                      <tr><th>Fecha baja</th><th>Cliente</th><th>Producto</th><th>Precio</th><th>Motivo</th></tr>
+                    ) : (
+                      <tr><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Precio</th><th>Estado</th></tr>
+                    )}
+                  </thead>
                   <tbody>
-                    {filteredSales.map((row) => {
+                    {ventas.map((row) => {
                       const status = getEstadoProducto(row) === 'baja' ? 'baja' : 'alta';
                       const statusLabel = status === 'baja' ? 'Baja' : 'Alta';
                       const statusColor = status === 'alta'
@@ -7965,37 +8034,48 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           : { bg: 'rgba(148,163,184,0.2)', text: '#64748b', border: 'rgba(148,163,184,0.4)' };
                       const nombre = [row.nombre, row.apellido].filter(Boolean).join(' ')
                         || [row.contact_nombre, row.contact_apellido].filter(Boolean).join(' ')
+                        || row.cliente
+                        || row.cliente_nombre
                         || '—';
-                      const fechaVenta = row?.fecha_venta || row?.created_at || row?.createdAt || '';
+                      const fechaVenta = row?.fecha_venta || row?.fecha || row?.created_at || row?.createdAt || '';
+                      const fechaBaja = row?.fecha_baja || row?.fechaBaja || row?.fecha || '';
+                      const producto = pickValue(row, ['nombre_producto', 'producto', 'producto_nombre', 'servicio']);
+                      const precio = pickValue(row, ['precio', 'monto', 'cuota']);
+                      const motivo = pickValue(row, ['motivo_baja', 'motivoBaja', 'motivo', 'motivo_baja_detalle']);
                       return (
                         <tr
                           key={row.id || row.contacto_id || `${nombre}-${String(fechaVenta)}`}
                           style={{ cursor: 'pointer' }}
                           onClick={() => handleOpenSaleDetail(row)}
                         >
-                          <td>
-                            {formatFechaVenta(fechaVenta)}
-                          </td>
-                          <td>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 800, background: statusColor.bg, color: statusColor.text, border: `1px solid ${statusColor.border}` }}>
-                              {statusLabel}
-                            </span>
-                          </td>
+                          <td>{selectedTab.type === 'bajas' ? formatFechaVenta(fechaBaja) : formatFechaVenta(fechaVenta)}</td>
                           <td>
                             <div className="person">
                               <div className="person-badge">{initials(nombre)}</div>
                               <strong>{nombre}</strong>
                             </div>
                           </td>
+                          <td>{producto}</td>
+                          <td>{precio}</td>
+                          {selectedTab.type === 'bajas' ? (
+                            <td>{motivo}</td>
+                          ) : (
+                            <td>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 800, background: statusColor.bg, color: statusColor.text, border: `1px solid ${statusColor.border}` }}>
+                                {statusLabel}
+                              </span>
+                            </td>
+                          )}
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
-                {!loadingVentas && !filteredSales.length ? (
+                {loading ? <div style={{ padding: 16, color: 'var(--muted)' }}>Cargando histórico...</div> : null}
+                {!loading && !ventas.length ? (
                   <div style={{ textAlign: 'center', padding: '48px', color: '#aaa' }}>
                     <p style={{ fontSize: 14, fontWeight: 600, color: '#333', margin: '0 0 4px 0' }}>
-                      Aún no tenés ventas registradas
+                      No hay registros para esta selección
                     </p>
                     <p style={{ fontSize: 12, margin: 0 }}>
                       Cuando cerrés una venta aparecerá acá
