@@ -13640,18 +13640,50 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           familySales,
           gestion_id: gestion_id ?? null
         };
+        const leadIdForManagement = String(
+          draft?.contacto_id
+          || draft?.contact_id
+          || draft?.principal_contact_id
+          || principalContactId
+          || ''
+        ).trim();
         setNewClientSaving(true);
         setNewClientError('');
         try {
-          console.log('[contacts payload]', payload);
-          const result = await createContactWithProducts(payload);
-
-          console.log('[contacts response] id:', result?.id);
-          console.log('[contacts response] management:', JSON.stringify(result?.management, null, 2));
-
-          const failed = result?.management?.filter((m) => !m.ok || !m.created) || [];
-          if (failed.length > 0) {
-            console.warn('[contacts response] gestiones NO creadas:', JSON.stringify(failed, null, 2));
+          let result;
+          if (leadIdForManagement) {
+            // Cualquier contacto existente registra la venta a través de la gestión:
+            // se envían contacto + productos + familySales en el body del POST de management.
+            const managementPayload = { status: 'venta', ...payload };
+            console.log('[management payload]', managementPayload);
+            try {
+              result = await api.post(
+                `/leads/${encodeURIComponent(leadIdForManagement)}/management`,
+                managementPayload
+              );
+              console.log('[management response]', result);
+            } catch (err) {
+              // La gestión previa pudo dejar estado_venta = 'venta'. En ese caso el backend
+              // responde 409: lo toleramos como éxito (la venta ya quedó registrada / se actualiza).
+              const status = Number(err?.status || err?.statusCode);
+              const estadoActual = err?.details?.error?.estado_actual
+                ?? err?.details?.data?.estado_actual
+                ?? null;
+              const isDuplicateVenta = status === 409
+                && (estadoActual === 'venta'
+                  || String(err?.message || '').toLowerCase().includes('estado final'));
+              if (!isDuplicateVenta) throw err;
+              console.warn('[management response] venta ya registrada para el contacto, se continúa.', { estadoActual });
+            }
+          } else {
+            console.log('[contacts payload]', payload);
+            result = await createContactWithProducts(payload);
+            console.log('[contacts response] id:', result?.id);
+            console.log('[contacts response] management:', JSON.stringify(result?.management, null, 2));
+            const failed = result?.management?.filter((m) => !m.ok || !m.created) || [];
+            if (failed.length > 0) {
+              console.warn('[contacts response] gestiones NO creadas:', JSON.stringify(failed, null, 2));
+            }
           }
           if (onSuccess) onSuccess();
         } catch (err) {
