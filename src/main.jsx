@@ -8015,20 +8015,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       ).toLowerCase();
 
       const visibleMonths = months.slice(tabOffset, tabOffset + 3);
-      const bajaCountByMonth = React.useMemo(() => {
-        const map = new Map();
-        allSales.forEach((item) => {
-          const estado = getEstadoProducto(item);
-          if (estado !== 'baja') return;
-          const fechaBaja = item?.fecha_baja || item?.fechaBaja || item?.fecha || '';
-          if (!fechaBaja) return;
-          const d = new Date(fechaBaja);
-          if (isNaN(d)) return;
-          const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
-          map.set(key, (map.get(key) || 0) + 1);
-        });
-        return map;
-      }, [allSales]);
+      const allBajas = React.useMemo(
+        () => allSales.filter((item) => getEstadoProducto(item) === 'baja'),
+        [allSales]
+      );
+      const displayedVentas = selectedTab.type === 'bajas' ? allBajas : ventas;
       const motivoBadgeStyle = (motivo, motivosList) => {
         const idx = motivosList.indexOf(motivo);
         return idx >= 0 ? BADGE_PALETTE[idx % BADGE_PALETTE.length] : BADGE_PALETTE[0];
@@ -8125,7 +8116,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 </button>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+              {selectedTab.type !== 'bajas' ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
                 <Button variant="ghost" disabled={tabOffset <= 0} onClick={() => setTabOffset((prev) => Math.max(0, prev - 1))}>‹</Button>
                 <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
                   {visibleMonths.map((item) => {
@@ -8150,21 +8141,16 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           textTransform: 'capitalize'
                         }}
                       >
-                        {(() => {
-                          const count = selectedTab.type === 'bajas'
-                            ? (bajaCountByMonth.get(`${item.year}-${item.month}`) ?? 0)
-                            : item.count;
-                          return `${monthLabel(item.month, item.year)}${count != null && count > 0 ? ` (${count})` : ''}`;
-                        })()}
+                        {monthLabel(item.month, item.year)}{item.count != null ? ` (${item.count})` : ''}
                       </button>
                     );
                   })}
                 </div>
                 <Button variant="ghost" disabled={tabOffset + 3 >= months.length} onClick={() => setTabOffset((prev) => Math.min(Math.max(0, months.length - 3), prev + 1))}>›</Button>
-              </div>
-              {ventas.length > 0 && (
+              </div> : null}
+              {displayedVentas.length > 0 && (
                 <div style={{ fontSize: 12, color: '#64748b', marginBottom: 8, textAlign: 'right' }}>
-                  Mostrando <strong>{ventas.length}</strong> registros
+                  Mostrando <strong>{displayedVentas.length}</strong> registros
                 </div>
               )}
               <div className="table-wrap">
@@ -8177,7 +8163,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     )}
                   </thead>
                   <tbody>
-                    {ventas.map((row) => {
+                    {displayedVentas.map((row) => {
                       const status = getEstadoProducto(row) === 'baja' ? 'baja' : 'alta';
                       const statusLabel = status === 'baja' ? 'Baja' : 'Alta';
                       const statusColor = status === 'alta'
@@ -8237,7 +8223,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                   </tbody>
                 </table>
                 {loading ? <div style={{ padding: 16, color: 'var(--muted)' }}>Cargando histórico...</div> : null}
-                {!loading && !ventas.length ? (
+                {!loading && !displayedVentas.length ? (
                   <div style={{ textAlign: 'center', padding: '48px', color: '#aaa' }}>
                     <p style={{ fontSize: 14, fontWeight: 600, color: '#333', margin: '0 0 4px 0' }}>
                       No hay registros para esta selección
