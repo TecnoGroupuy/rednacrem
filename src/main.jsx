@@ -7867,22 +7867,33 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 const month = Number(item?.month ?? item?.mes ?? String(item).slice(5, 7));
                 const year = Number(item?.year ?? item?.anio ?? item?.año ?? String(item).slice(0, 4));
                 if (!month || !year) return null;
-                return { month, year };
+                const countRaw = item?.total_ventas ?? null;
+                const count = countRaw == null ? null : Number(countRaw);
+                return { month, year, count: Number.isFinite(count) ? count : null };
               })
               .filter(Boolean)
               .sort((a, b) => (b.year - a.year) || (b.month - a.month));
-            const currentMonth = { month: currentDate.getMonth() + 1, year: currentDate.getFullYear() };
-            const seenMonths = new Set();
-            const normalizedMonths = [currentMonth, ...parsedMonths].filter((item) => {
-              const key = `${item.year}-${item.month}`;
-              if (seenMonths.has(key)) return false;
-              seenMonths.add(key);
-              return true;
+            const countByKey = new Map();
+            parsedMonths.forEach((m) => {
+              if (m.count != null) countByKey.set(`${m.year}-${m.month}`, m.count);
             });
+            const currentMonth = { month: currentDate.getMonth() + 1, year: currentDate.getFullYear(), count: null };
+            const seenMonths = new Set();
+            const normalizedMonths = [currentMonth, ...parsedMonths]
+              .filter((item) => {
+                const key = `${item.year}-${item.month}`;
+                if (seenMonths.has(key)) return false;
+                seenMonths.add(key);
+                return true;
+              })
+              .map((item) => {
+                const key = `${item.year}-${item.month}`;
+                return { ...item, count: countByKey.has(key) ? countByKey.get(key) : (item.count ?? null) };
+              });
             setMonths(normalizedMonths);
           } catch (err) {
             console.error('[ventas-meses] error:', err);
-            setMonths([{ month: currentDate.getMonth() + 1, year: currentDate.getFullYear() }]);
+            setMonths([{ month: currentDate.getMonth() + 1, year: currentDate.getFullYear(), count: null }]);
           }
         };
         cargarMeses();
@@ -7896,7 +7907,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             const api = getApiClient();
             const params = new URLSearchParams({
               type: selectedTab.type,
-              month: String(selectedTab.month),
+              // El endpoint espera month en 0-11; selectedTab.month es 1-12.
+              month: String(selectedTab.month - 1),
               year: String(selectedTab.year)
             });
             const data = await api.get(`/api/seller/ventas-historicas?${params.toString()}`);
@@ -7930,13 +7942,23 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           <div style={{ fontWeight: 600 }}>{value || '—'}</div>
         </div>
       );
-      const todayKey = new Date().toLocaleDateString('en-CA');
+      // Fechas en horario de Uruguay (UTC-3). El backend suele mandar timestamps UTC;
+      // comparar por fecha local uruguaya evita que "Ventas de hoy" dé 0 de noche
+      // o cuando el navegador corre en otra zona horaria.
+      const UY_TZ = 'America/Montevideo';
+      const toUyDateKey = (value) => {
+        if (!value) return '';
+        const text = String(value);
+        // Fecha sin hora ya es local: no reinterpretar como UTC.
+        if (!text.includes('T') && !text.includes(' ')) return text.slice(0, 10);
+        const parsed = new Date(text);
+        if (Number.isNaN(parsed.getTime())) return text.slice(0, 10);
+        return parsed.toLocaleDateString('en-CA', { timeZone: UY_TZ });
+      };
+      const todayKey = new Date().toLocaleDateString('en-CA', { timeZone: UY_TZ });
       const monthKey = todayKey.slice(0, 7);
       const monthStartKey = `${monthKey}-01`;
-      const pickDateKey = (row) => {
-        const value = row?.fecha_venta || row?.created_at || row?.createdAt || '';
-        return String(value).slice(0, 10);
-      };
+      const pickDateKey = (row) => toUyDateKey(row?.fecha_venta || row?.created_at || row?.createdAt || '');
       const getBajaDateKey = (row) => String(
         row?.contact_products?.fecha_baja
         || row?.contact_products?.fechaBaja
@@ -7962,10 +7984,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         }
       };
       const ventasHoy = allSales
-        .filter((item) => {
-          const fecha = item?.fecha_venta || item?.created_at || '';
-          return String(fecha).startsWith(todayKey);
-        })
+        .filter((item) => toUyDateKey(item?.fecha_venta || item?.created_at || '') === todayKey)
         .reduce((total, item) => {
           const related = item?.related_sales?.length || 0;
           return total + 1 + related;
@@ -8046,7 +8065,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           textTransform: 'capitalize'
                         }}
                       >
-                        {monthLabel(item.month, item.year)}
+                        {monthLabel(item.month, item.year)}{item.count != null ? ` (${item.count})` : ''}
                       </button>
                     );
                   })}
