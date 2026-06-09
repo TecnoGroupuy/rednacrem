@@ -8015,11 +8015,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       ).toLowerCase();
 
       const visibleMonths = months.slice(tabOffset, tabOffset + 3);
-      const allBajas = React.useMemo(
-        () => allSales.filter((item) => getEstadoProducto(item) === 'baja'),
-        [allSales]
-      );
-      const displayedVentas = selectedTab.type === 'bajas' ? allBajas : ventas;
       const motivoBadgeStyle = (motivo, motivosList) => {
         const idx = motivosList.indexOf(motivo);
         return idx >= 0 ? BADGE_PALETTE[idx % BADGE_PALETTE.length] : BADGE_PALETTE[0];
@@ -8148,9 +8143,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 </div>
                 <Button variant="ghost" disabled={tabOffset + 3 >= months.length} onClick={() => setTabOffset((prev) => Math.min(Math.max(0, months.length - 3), prev + 1))}>›</Button>
               </div> : null}
-              {displayedVentas.length > 0 && (
+              {ventas.length > 0 && (
                 <div style={{ fontSize: 12, color: '#64748b', marginBottom: 8, textAlign: 'right' }}>
-                  Mostrando <strong>{displayedVentas.length}</strong> registros
+                  Mostrando <strong>{ventas.length}</strong> registros
                 </div>
               )}
               <div className="table-wrap">
@@ -8163,7 +8158,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     )}
                   </thead>
                   <tbody>
-                    {displayedVentas.map((row) => {
+                    {ventas.map((row) => {
                       const status = getEstadoProducto(row) === 'baja' ? 'baja' : 'alta';
                       const statusLabel = status === 'baja' ? 'Baja' : 'Alta';
                       const statusColor = status === 'alta'
@@ -8223,7 +8218,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                   </tbody>
                 </table>
                 {loading ? <div style={{ padding: 16, color: 'var(--muted)' }}>Cargando histórico...</div> : null}
-                {!loading && !displayedVentas.length ? (
+                {!loading && !ventas.length ? (
                   <div style={{ textAlign: 'center', padding: '48px', color: '#aaa' }}>
                     <p style={{ fontSize: 14, fontWeight: 600, color: '#333', margin: '0 0 4px 0' }}>
                       No hay registros para esta selección
