@@ -9202,9 +9202,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           return;
         }
         if (!nuevoContactoForm.nombre.trim() ||
-            !nuevoContactoForm.apellido.trim() ||
-            !nuevoContactoForm.celular.trim()) {
-          setNuevoContactoError('Nombre, apellido y celular son requeridos');
+            !nuevoContactoForm.apellido.trim()) {
+          setNuevoContactoError('Nombre y apellido son requeridos');
+          return;
+        }
+        if (!nuevoContactoForm.celular.trim() && !nuevoContactoForm.telefono.trim()) {
+          setNuevoContactoError('Ingresá al menos un número de contacto (celular o teléfono fijo).');
           return;
         }
         if (!nuevoContactoForm.origen_dato) {
