@@ -4879,6 +4879,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       <button
                         type="button"
                         onClick={() => {
+                          phoneCheckTokenRef.current++;
+                          setPhoneCheckLoading(false);
                           const w = phoneWarnings[0];
                           setReactivarData(w);
                           setNuevoContacto(prev => ({
@@ -10579,8 +10581,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           <button
                             type="button"
                             onClick={() => {
+                              phoneCheckTokenRef.current++;
+                              setPhoneCheckLoading(false);
                               const w = phoneWarnings[0];
-                              setPhoneWarnings([]);
                               setReactivarData(w);
                               setNuevoContactoForm(prev => ({
                                 ...prev,
@@ -10592,6 +10595,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                 direccion: w.direccion || prev.direccion,
                                 localidad: w.localidad || prev.localidad,
                               }));
+                              setPhoneWarnings([]);
                               setPhoneVerified(true);
                             }}
                             style={{
