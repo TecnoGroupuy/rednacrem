@@ -8786,6 +8786,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [showNuevoContactoModal, setShowNuevoContactoModal] = React.useState(false);
       const [duplicateWarning, setDuplicateWarning] = React.useState(false);
       const [phoneVerified, setPhoneVerified] = React.useState(false);
+      const phoneCheckTokenRef = React.useRef(0);
       const [reactivarData, setReactivarData] = React.useState(null);
       const [nuevoContactoForm, setNuevoContactoForm] = React.useState({
         nombre: '', apellido: '', celular: '', telefono: '',
@@ -9273,11 +9274,13 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           setReactivarData(null);
           return;
         }
+        const token = ++phoneCheckTokenRef.current;
         setPhoneCheckLoading(true);
         try {
           const res = await api.get(
             `/lead-batches/contacts/check-phone?telefono=${encodeURIComponent(tel)}`
           );
+          if (token !== phoneCheckTokenRef.current) return;
           if (res?.ok) {
             setPhoneWarnings(res.advertencias || []);
             if (!res.advertencias || res.advertencias.length === 0) {
@@ -9290,7 +9293,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         } catch {
           // silencioso — no bloquear el formulario si falla la verificación
         } finally {
-          setPhoneCheckLoading(false);
+          if (token === phoneCheckTokenRef.current) {
+            setPhoneCheckLoading(false);
+          }
         }
       }
 
@@ -9699,6 +9704,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           >+ Agregar datos</button>
                           <button
                             onClick={() => {
+                              phoneCheckTokenRef.current++;
+                              setPhoneVerified(false);
+                              setReactivarData(null);
+                              setPhoneWarnings([]);
                               resetNuevoContactoValidation();
                               setShowNuevoContactoModal(true);
                             }}
@@ -10585,6 +10594,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             type="button"
                             onClick={() => {
                               const w = phoneWarnings[0];
+                              setPhoneWarnings([]);
                               setReactivarData(w);
                               setNuevoContactoForm(prev => ({
                                 ...prev,
@@ -10597,7 +10607,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                 localidad: w.localidad || prev.localidad,
                               }));
                               setPhoneVerified(true);
-                              setPhoneWarnings([]);
                             }}
                             style={{
                               border: 'none', background: '#f59e0b', color: '#fff',
@@ -10724,6 +10733,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     <Button
                       variant="secondary"
                       onClick={() => {
+                        phoneCheckTokenRef.current++;
                         setShowNuevoContactoModal(false);
                         setPhoneVerified(false);
                         setReactivarData(null);
