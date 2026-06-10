@@ -4359,10 +4359,35 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           return true;
         });
       }, [localContacts, filtroEstado, filtroUbicacion, filtroFechaDesde, filtroFechaHasta]);
-      const visibleContacts = React.useMemo(
-        () => filteredContacts.filter((contact) => (isRecupero ? true : contact.estado_venta !== 'dato_erroneo')),
-        [filteredContacts, isRecupero]
-      );
+      const visibleContacts = React.useMemo(() => {
+        const items = filteredContacts.filter((contact) => (isRecupero ? true : contact.estado_venta !== 'dato_erroneo'));
+        const hasActiveFilters = Boolean(
+          searchDebounced
+          || filtroEstado
+          || filtroOrigen
+          || filtroUbicacion
+          || filtroFechaDesde
+          || filtroFechaHasta
+        );
+        if (hasActiveFilters) return items;
+        return [...items].sort((a, b) => {
+          const timeA = new Date(a?.created_at || a?.fecha_lead || a?.loadedAt || 0).getTime();
+          const timeB = new Date(b?.created_at || b?.fecha_lead || b?.loadedAt || 0).getTime();
+          if (timeA !== timeB) return timeB - timeA;
+          const idA = Number(a?.id || a?.contact_id || a?.contactId || 0);
+          const idB = Number(b?.id || b?.contact_id || b?.contactId || 0);
+          return idB - idA;
+        });
+      }, [
+        filteredContacts,
+        isRecupero,
+        searchDebounced,
+        filtroEstado,
+        filtroOrigen,
+        filtroUbicacion,
+        filtroFechaDesde,
+        filtroFechaHasta
+      ]);
 
       const resetForm = () => {
         setActiveTab('datos');
