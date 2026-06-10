@@ -8785,6 +8785,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
       const [showNuevoContactoModal, setShowNuevoContactoModal] = React.useState(false);
       const [duplicateWarning, setDuplicateWarning] = React.useState(false);
+      const [phoneVerified, setPhoneVerified] = React.useState(false);
+      const [reactivarData, setReactivarData] = React.useState(null);
       const [nuevoContactoForm, setNuevoContactoForm] = React.useState({
         nombre: '', apellido: '', celular: '', telefono: '',
         documento: '', correo_electronico: '', departamento: '',
@@ -8809,6 +8811,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         setTelefonoShake(false);
         setCelularShake(false);
       }, []);
+      const blockedFieldProps = !phoneVerified
+        ? { disabled: true, style: { opacity: 0.4, pointerEvents: 'none' } }
+        : {};
 
       const URUGUAY_DEPARTAMENTOS = React.useMemo(() => ([
         'Artigas', 'Canelones', 'Cerro Largo', 'Colonia', 'Durazno', 'Flores', 'Florida',
@@ -9200,7 +9205,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         try {
           const res = await api.post(
             `/lead-batches/${batchId}/contacts/manual`,
-            nuevoContactoForm
+            {
+              ...nuevoContactoForm,
+              reactivar: !!reactivarData
+            }
           );
           if (res?.created === false) {
             setDuplicateWarning(true);
@@ -9215,6 +9223,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             });
             setNuevoContactoError('');
             setPhoneWarnings([]);
+            setPhoneVerified(false);
+            setReactivarData(null);
             const lotId = selectedLot.id;
             setSelectedLotOverride(null);
             // Forzar refresco del contador y vendedores del lote
@@ -9236,6 +9246,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         const tel = String(telefono || '').replace(/[\s\-]/g, '').trim();
         if (tel.length < 6) {
           setPhoneWarnings([]);
+          setPhoneVerified(false);
+          setReactivarData(null);
           return;
         }
         setPhoneCheckLoading(true);
@@ -9245,6 +9257,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           );
           if (res?.ok) {
             setPhoneWarnings(res.advertencias || []);
+            if (!res.advertencias || res.advertencias.length === 0) {
+              setPhoneVerified(true);
+              setReactivarData(null);
+            } else {
+              setPhoneVerified(false);
+            }
           }
         } catch {
           // silencioso — no bloquear el formulario si falla la verificación
@@ -10445,11 +10463,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                     <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
                       Nombre *
-                      <input className="input" value={nuevoContactoForm.nombre} onChange={(e) => setNuevoContactoForm(p => ({ ...p, nombre: e.target.value }))} />
+                      <input className="input" value={nuevoContactoForm.nombre} onChange={(e) => setNuevoContactoForm(p => ({ ...p, nombre: e.target.value }))} {...blockedFieldProps} />
                     </label>
                     <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
                       Apellido *
-                      <input className="input" value={nuevoContactoForm.apellido} onChange={(e) => setNuevoContactoForm(p => ({ ...p, apellido: e.target.value }))} />
+                      <input className="input" value={nuevoContactoForm.apellido} onChange={(e) => setNuevoContactoForm(p => ({ ...p, apellido: e.target.value }))} {...blockedFieldProps} />
                     </label>
                     <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
                       <span>Celular * <span style={{ color: '#6b7280', fontSize: 11 }}>(debe comenzar con 0)</span></span>
@@ -10460,6 +10478,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         onChange={(e) => {
                           const value = e.target.value;
                           setNuevoContactoForm((p) => ({ ...p, celular: value }));
+                          setPhoneVerified(false);
+                          setReactivarData(null);
                           const nextError = validateCelularNumber(value);
                           setCelularError(nextError);
                           if (nextError) triggerShake('celular');
@@ -10483,6 +10503,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         onChange={(e) => {
                           const value = e.target.value;
                           setNuevoContactoForm((p) => ({ ...p, telefono: value }));
+                          setPhoneVerified(false);
+                          setReactivarData(null);
                           const nextError = validateTelefonoFijo(value);
                           setTelefonoError(nextError);
                           if (nextError) triggerShake('telefono');
@@ -10498,132 +10520,64 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     </label>
 
                     <div style={{ gridColumn: '1 / -1', display: 'grid', gap: 8 }}>
-                      {phoneWarnings.length > 0 && (
-                        <div style={{
-                          borderRadius: 8,
-                          border: '1px solid #f59e0b',
-                          background: '#fffbeb',
-                          padding: '12px 14px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 10,
-                          margin: '4px 0'
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <i className="ti ti-alert-triangle"
-                              style={{ fontSize: 16, color: '#b45309' }} />
-                            <span style={{ fontSize: 13, fontWeight: 500, color: '#b45309' }}>
-                              Se encontraron coincidencias para este número
-                            </span>
-                          </div>
-
-                          {phoneWarnings.map((w, i) => (
-                            <div key={i} style={{
-                              background: '#ffffff',
-                              borderRadius: 8,
-                              border: '1px solid #f59e0b',
-                              padding: '10px 12px',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: 4
+                      {phoneWarnings.length > 0 ? (
+                        <div style={{ display: 'grid', gap: 8, marginTop: 4 }}>
+                          {phoneWarnings.map((w, idx) => (
+                            <div key={idx} style={{
+                              fontSize: 12, color: '#92400e', background: '#fffbeb',
+                              border: '1px solid #fde68a', borderRadius: 8, padding: '8px 10px'
                             }}>
-                              {w.tipo === 'no_llamar' && (<>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                  <i className="ti ti-phone-off"
-                                    style={{ fontSize: 14, color: '#b45309' }} />
-                                  <span style={{ fontSize: 13, fontWeight: 500, color: '#b45309' }}>
-                                    Lista no llamar
-                                  </span>
-                                </div>
-                                <div style={{ paddingLeft: 20, display: 'flex',
-                                  flexDirection: 'column', gap: 2 }}>
-                                  <span style={{ fontSize: 12, color: '#6b7280' }}>
-                                    Motivo: <span style={{ color: '#111827' }}>
-                                      {w.motivo || 'Sin motivo registrado'}
-                                    </span>
-                                  </span>
-                                  {w.fecha_carga && (
-                                    <span style={{ fontSize: 12, color: '#6b7280' }}>
-                                      Cargado: <span style={{ color: '#111827' }}>
-                                        {new Date(w.fecha_carga).toLocaleDateString('es-UY')}
-                                      </span>
-                                    </span>
-                                  )}
-                                </div>
-                              </>)}
-
-                              {w.tipo === 'datos_para_trabajar' && (<>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                  <i className="ti ti-users"
-                                    style={{ fontSize: 14, color: '#b45309' }} />
-                                  <span style={{ fontSize: 13, fontWeight: 500, color: '#b45309' }}>
-                                    Datos para trabajar
-                                  </span>
-                                </div>
-                                <div style={{ paddingLeft: 20, display: 'flex',
-                                  flexDirection: 'column', gap: 2 }}>
-                                  {w.lote_nombre && (
-                                    <span style={{ fontSize: 12, color: '#6b7280' }}>
-                                      Lote: <span style={{ color: '#111827' }}>{w.lote_nombre}</span>
-                                    </span>
-                                  )}
-                                  {w.vendedor_nombre && (
-                                    <span style={{ fontSize: 12, color: '#6b7280' }}>
-                                      Asignado a: <span style={{ color: '#111827' }}>
-                                        {w.vendedor_nombre} {w.vendedor_apellido}
-                                      </span>
-                                    </span>
-                                  )}
-                                  <span style={{ fontSize: 12, color: '#6b7280' }}>
-                                    Último resultado: <span style={{ color: '#111827' }}>
-                                      {w.ultimo_resultado || 'Sin gestiones'}
-                                      {w.ultima_gestion
-                                        ? ` · ${new Date(w.ultima_gestion)
-                                            .toLocaleDateString('es-UY')}`
-                                        : ''}
-                                    </span>
-                                  </span>
-                                </div>
-                              </>)}
-
-                              {w.tipo === 'cliente' && (<>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                  <i className="ti ti-user-check"
-                                    style={{ fontSize: 14, color: '#b45309' }} />
-                                  <span style={{ fontSize: 13, fontWeight: 500, color: '#b45309' }}>
-                                    {w.estado === 'activo' ? 'Cliente activo' : 'Cliente en baja'}
-                                  </span>
-                                </div>
-                                <div style={{ paddingLeft: 20, display: 'flex',
-                                  flexDirection: 'column', gap: 2 }}>
-                                  <span style={{ fontSize: 12, color: '#6b7280' }}>
-                                    Nombre: <span style={{ color: '#111827' }}>
-                                      {w.nombre} {w.apellido}
-                                    </span>
-                                  </span>
-                                  <span style={{ fontSize: 12, color: '#6b7280' }}>
-                                    Producto: <span style={{ color: '#111827' }}>
-                                      {w.nombre_producto}{w.plan ? ` — ${w.plan}` : ''}
-                                      {w.fecha_alta
-                                        ? ` · Alta: ${new Date(w.fecha_alta)
-                                            .toLocaleDateString('es-UY')}`
-                                        : ''}
-                                      {w.fecha_baja
-                                        ? ` · Baja: ${new Date(w.fecha_baja)
-                                            .toLocaleDateString('es-UY')}`
-                                        : ''}
-                                    </span>
-                                  </span>
-                                </div>
-                              </>)}
+                              <div style={{ fontWeight: 700, marginBottom: 2 }}>
+                                Se encontró un contacto existente
+                              </div>
+                              <div>Lote: {w.lote || w.lote_nombre || '—'}</div>
+                              <div>Asignado a: {w.asignado_a || [w.vendedor_nombre, w.vendedor_apellido].filter(Boolean).join(' ') || '—'}</div>
+                              <div>Último resultado: {w.motivo || w.ultimo_resultado || '—'}</div>
                             </div>
                           ))}
-
-                          <p style={{ margin: 0, fontSize: 12, color: '#92400e' }}>
-                            Podés continuar si el contacto dio su consentimiento.
-                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const w = phoneWarnings[0];
+                              setReactivarData(w);
+                              setNuevoContactoForm(prev => ({
+                                ...prev,
+                                nombre: w.nombre || prev.nombre,
+                                apellido: w.apellido || prev.apellido,
+                                documento: w.documento || prev.documento,
+                                correo_electronico: w.correo_electronico || prev.correo_electronico,
+                                departamento: w.departamento || prev.departamento,
+                                direccion: w.direccion || prev.direccion,
+                                localidad: w.localidad || prev.localidad,
+                              }));
+                              setPhoneVerified(true);
+                              setPhoneWarnings([]);
+                            }}
+                            style={{
+                              border: 'none', background: '#f59e0b', color: '#fff',
+                              padding: '10px 16px', borderRadius: 8, fontWeight: 700,
+                              cursor: 'pointer', fontSize: 13, width: '100%'
+                            }}
+                          >
+                            Volver a gestionar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPhoneVerified(true);
+                              setReactivarData(null);
+                              setPhoneWarnings([]);
+                            }}
+                            style={{
+                              border: '1px solid #e2e8f0', background: '#fff', color: '#475569',
+                              padding: '8px 16px', borderRadius: 8, cursor: 'pointer',
+                              fontSize: 13, width: '100%'
+                            }}
+                          >
+                            Es un contacto nuevo, continuar
+                          </button>
                         </div>
-                      )}
+                      ) : null}
 
                       {phoneCheckLoading && (
                         <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', margin: 0 }}>
@@ -10633,16 +10587,16 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     </div>
                     <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
                       Email
-                      <input className="input" value={nuevoContactoForm.correo_electronico} onChange={(e) => setNuevoContactoForm(p => ({ ...p, correo_electronico: e.target.value }))} />
+                      <input className="input" value={nuevoContactoForm.correo_electronico} onChange={(e) => setNuevoContactoForm(p => ({ ...p, correo_electronico: e.target.value }))} {...blockedFieldProps} />
                     </label>
                     <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
                       Documento
-                      <input className="input" value={nuevoContactoForm.documento} onChange={(e) => setNuevoContactoForm(p => ({ ...p, documento: e.target.value }))} />
+                      <input className="input" value={nuevoContactoForm.documento} onChange={(e) => setNuevoContactoForm(p => ({ ...p, documento: e.target.value }))} {...blockedFieldProps} />
                     </label>
 
                     <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
                       Departamento
-                      <select className="input" value={nuevoContactoForm.departamento} onChange={(e) => setNuevoContactoForm(p => ({ ...p, departamento: e.target.value }))}>
+                      <select className="input" value={nuevoContactoForm.departamento} onChange={(e) => setNuevoContactoForm(p => ({ ...p, departamento: e.target.value }))} {...blockedFieldProps}>
                         <option value="">Seleccioná...</option>
                         {URUGUAY_DEPARTAMENTOS.map((d) => <option key={d} value={d}>{d}</option>)}
                       </select>
@@ -10657,7 +10611,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           setNuevoContactoForm(p => ({ ...p, origen_dato: e.target.value }));
                           if (e.target.value) setOrigenDatoError('');
                         }}
-                        style={origenDatoError ? { borderColor: '#e53e3e', boxShadow: '0 0 0 1px #e53e3e' } : undefined}
+                        style={{
+                          ...(origenDatoError ? { borderColor: '#e53e3e', boxShadow: '0 0 0 1px #e53e3e' } : {}),
+                          ...(!phoneVerified ? { opacity: 0.4, pointerEvents: 'none' } : {})
+                        }}
+                        disabled={!phoneVerified}
                       >
                         <option value="" disabled>Seleccioná...</option>
                         {origenDatoResolvedOptions.map((o) => (
@@ -10671,7 +10629,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
                     <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
                       Asignar a
-                      <select className="input" value={nuevoContactoForm.seller_id} onChange={(e) => setNuevoContactoForm(p => ({ ...p, seller_id: e.target.value }))}>
+                      <select className="input" value={nuevoContactoForm.seller_id} onChange={(e) => setNuevoContactoForm(p => ({ ...p, seller_id: e.target.value }))} {...blockedFieldProps}>
                         <option value="">Asignación automática</option>
                         {(selectedLot?.vendedores || []).map((v) => {
                           const label = `${v.nombre || ''} ${v.apellido || ''}`.trim() || v.id;
@@ -10682,7 +10640,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
                     <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569', gridColumn: '1 / -1' }}>
                       Mensaje
-                      <textarea className="input" rows={3} value={nuevoContactoForm.mensaje} onChange={(e) => setNuevoContactoForm(p => ({ ...p, mensaje: e.target.value }))} />
+                      <textarea className="input" rows={3} value={nuevoContactoForm.mensaje} onChange={(e) => setNuevoContactoForm(p => ({ ...p, mensaje: e.target.value }))} {...blockedFieldProps} />
                     </label>
                   </div>
 
@@ -10697,6 +10655,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       variant="secondary"
                       onClick={() => {
                         setShowNuevoContactoModal(false);
+                        setPhoneVerified(false);
+                        setReactivarData(null);
                         resetNuevoContactoValidation();
                         setPhoneWarnings([]);
                         setOrigenDatoError('');
