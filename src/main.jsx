@@ -8667,6 +8667,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [wizardGroupSellers, setWizardGroupSellers] = React.useState([]);
 
       const [showNuevoContactoModal, setShowNuevoContactoModal] = React.useState(false);
+      const [duplicateWarning, setDuplicateWarning] = React.useState(false);
       const [nuevoContactoForm, setNuevoContactoForm] = React.useState({
         nombre: '', apellido: '', celular: '', telefono: '',
         documento: '', correo_electronico: '', departamento: '',
@@ -9078,11 +9079,16 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         }
         setNuevoContactoLoading(true);
         setNuevoContactoError('');
+        setDuplicateWarning(false);
         try {
           const res = await api.post(
             `/lead-batches/${batchId}/contacts/manual`,
             nuevoContactoForm
           );
+          if (res?.created === false) {
+            setDuplicateWarning(true);
+            return;
+          }
           if (res?.ok) {
             setShowNuevoContactoModal(false);
             setNuevoContactoForm({
@@ -10291,6 +10297,25 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                   width: 480, maxWidth: '90vw', maxHeight: '90vh',
                   overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14
                 }}>
+                  {duplicateWarning ? (
+                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', display: 'grid', placeItems: 'center', zIndex: 80 }}>
+                      <div style={{ width: 'min(460px, calc(100% - 32px))', background: '#fff', borderRadius: 14, padding: 24, boxShadow: '0 24px 60px rgba(15, 23, 42, 0.25)' }}>
+                        <div style={{ fontSize: 32, lineHeight: 1, color: '#f59e0b', marginBottom: 12 }}>⚠</div>
+                        <div style={{ color: '#334155', fontSize: 15, lineHeight: 1.5, marginBottom: 18 }}>
+                          Este dato ya está ingresado en el sistema, no cargar información para evitar duplicados. Contacte al supervisor para solucionar.
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                          <button
+                            type="button"
+                            onClick={() => setDuplicateWarning(false)}
+                            style={{ border: 'none', backgroundColor: '#059669', color: '#fff', padding: '10px 22px', borderRadius: 999, cursor: 'pointer', fontWeight: 700 }}
+                          >
+                            Entendido
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
                   <div>
                     <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>
                       Nuevo contacto
@@ -12336,6 +12361,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         const [bajaModal, setBajaModal] = React.useState({ open: false });
         const [bajaSaving, setBajaSaving] = React.useState(false);
         const [bajaError, setBajaError] = React.useState('');
+        const [duplicateWarning, setDuplicateWarning] = React.useState(false);
         const [newClientOpen, setNewClientOpen] = React.useState(false);
         const [newClientError, setNewClientError] = React.useState('');
         const [newClientSaving, setNewClientSaving] = React.useState(false);
@@ -12750,9 +12776,14 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           };
           setNewClientSaving(true);
           setNewClientError('');
+          setDuplicateWarning(false);
         try {
           console.log('[contacts payload]', payload);
-          await createContactWithProducts(payload);
+          const result = await createContactWithProducts(payload);
+          if (result?.created === false) {
+            setDuplicateWarning(true);
+            return;
+          }
           const [directory, metrics] = await Promise.all([
             fetchClientsDirectory({ page: clientPage, limit: clientPageSize, search: clientSearchDebounced }),
             fetchClientsMetrics()
@@ -13100,6 +13131,25 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 }}
                 onClick={() => handleCloseNewClient()}
               />
+              {duplicateWarning ? (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', display: 'grid', placeItems: 'center', zIndex: 80 }}>
+                  <div style={{ width: 'min(460px, calc(100% - 32px))', background: '#fff', borderRadius: 14, padding: 24, boxShadow: '0 24px 60px rgba(15, 23, 42, 0.25)' }}>
+                    <div style={{ fontSize: 32, lineHeight: 1, color: '#f59e0b', marginBottom: 12 }}>⚠</div>
+                    <div style={{ color: '#334155', fontSize: 15, lineHeight: 1.5, marginBottom: 18 }}>
+                      Este dato ya está ingresado en el sistema, no cargar información para evitar duplicados. Contacte al supervisor para solucionar.
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <button
+                        type="button"
+                        onClick={() => setDuplicateWarning(false)}
+                        style={{ border: 'none', backgroundColor: '#059669', color: '#fff', padding: '10px 22px', borderRadius: 999, cursor: 'pointer', fontWeight: 700 }}
+                      >
+                        Entendido
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
               <div
                 style={{
                   position: 'fixed',
@@ -13465,6 +13515,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const api = getApiClient();
       const [newClientError, setNewClientError] = React.useState('');
       const [newClientSaving, setNewClientSaving] = React.useState(false);
+      const [duplicateWarning, setDuplicateWarning] = React.useState(false);
       const [newClientStep, setNewClientStep] = React.useState(0);
       const [telefonoError, setTelefonoError] = React.useState('');
       const [celularError, setCelularError] = React.useState('');
@@ -13783,6 +13834,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         ).trim();
         setNewClientSaving(true);
         setNewClientError('');
+        setDuplicateWarning(false);
         try {
           let result;
           if (leadIdForManagement) {
@@ -13812,6 +13864,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           } else {
             console.log('[contacts payload]', payload);
             result = await createContactWithProducts(payload);
+            if (result?.created === false) {
+              setDuplicateWarning(true);
+              return;
+            }
             console.log('[contacts response] id:', result?.id);
             console.log('[contacts response] management:', JSON.stringify(result?.management, null, 2));
             const failed = result?.management?.filter((m) => !m.ok || !m.created) || [];
@@ -13844,6 +13900,30 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const modalTitle = mode === 'registrar_venta' ? 'Registrar venta' : 'Nuevo cliente';
       return (
         <>
+          {duplicateWarning ? (
+            <div
+              style={{
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(15,23,42,0.55)',
+                display: 'grid',
+                placeItems: 'center',
+                zIndex: 90
+              }}
+            >
+              <div style={{ width: 'min(460px, calc(100% - 32px))', background: '#fff', borderRadius: 14, padding: 24, boxShadow: '0 24px 60px rgba(15, 23, 42, 0.25)' }}>
+                <div style={{ fontSize: 32, lineHeight: 1, color: '#f59e0b', marginBottom: 12 }}>⚠</div>
+                <div style={{ color: '#334155', fontSize: 15, lineHeight: 1.5, marginBottom: 18 }}>
+                  Este dato ya está ingresado en el sistema, no cargar información para evitar duplicados. Contacte al supervisor para solucionar.
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button type="button" onClick={() => setDuplicateWarning(false)} style={{ border: 'none', backgroundColor: '#059669', color: '#fff', padding: '10px 22px', borderRadius: 999, cursor: 'pointer', fontWeight: 700 }}>
+                    Entendido
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
           <div
             style={{
               position: 'fixed',
