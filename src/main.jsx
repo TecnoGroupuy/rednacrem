@@ -8811,9 +8811,32 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         setTelefonoShake(false);
         setCelularShake(false);
       }, []);
+      const modalFieldStyle = React.useCallback((options = {}) => {
+        const { disabled = false, error = false } = options;
+        if (error) {
+          return {
+            borderColor: '#e53e3e',
+            borderWidth: 1.5,
+            borderStyle: 'solid',
+            boxShadow: '0 0 0 1px #e53e3e',
+            background: disabled ? '#f3f4f6' : '#fff',
+            color: disabled ? '#94a3b8' : '#0f172a'
+          };
+        }
+        return {
+          borderColor: disabled ? '#cbd5e1' : '#dbe4ee',
+          borderWidth: 1.5,
+          borderStyle: 'solid',
+          background: disabled ? '#f3f4f6' : '#fff',
+          color: disabled ? '#94a3b8' : '#0f172a',
+          boxShadow: disabled
+            ? 'inset 0 0 0 1px rgba(203, 213, 225, 0.35)'
+            : '0 1px 2px rgba(15, 23, 42, 0.04)'
+        };
+      }, []);
       const blockedFieldProps = !phoneVerified
-        ? { disabled: true, style: { opacity: 0.4, pointerEvents: 'none' } }
-        : {};
+        ? { disabled: true, style: modalFieldStyle({ disabled: true }) }
+        : { style: modalFieldStyle() };
 
       const URUGUAY_DEPARTAMENTOS = React.useMemo(() => ([
         'Artigas', 'Canelones', 'Cerro Largo', 'Colonia', 'Durazno', 'Flores', 'Florida',
@@ -10473,7 +10496,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       <span>Celular * <span style={{ color: '#6b7280', fontSize: 11 }}>(debe comenzar con 0)</span></span>
                       <input
                         className={`input ${celularError && celularShake ? 'input-shake' : ''}`.trim()}
-                        style={celularError ? { borderColor: '#e53e3e', boxShadow: '0 0 0 1px #e53e3e' } : undefined}
+                        style={modalFieldStyle({ disabled: false, error: !!celularError })}
                         value={nuevoContactoForm.celular}
                         onChange={(e) => {
                           const value = e.target.value;
@@ -10498,7 +10521,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       <span>Teléfono fijo <span style={{ color: '#6b7280', fontSize: 11 }}>(debe comenzar con 2 o 4)</span></span>
                       <input
                         className={`input ${telefonoError && telefonoShake ? 'input-shake' : ''}`.trim()}
-                        style={telefonoError ? { borderColor: '#e53e3e', boxShadow: '0 0 0 1px #e53e3e' } : undefined}
+                        style={modalFieldStyle({ disabled: false, error: !!telefonoError })}
                         value={nuevoContactoForm.telefono}
                         onChange={(e) => {
                           const value = e.target.value;
@@ -10611,10 +10634,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           setNuevoContactoForm(p => ({ ...p, origen_dato: e.target.value }));
                           if (e.target.value) setOrigenDatoError('');
                         }}
-                        style={{
-                          ...(origenDatoError ? { borderColor: '#e53e3e', boxShadow: '0 0 0 1px #e53e3e' } : {}),
-                          ...(!phoneVerified ? { opacity: 0.4, pointerEvents: 'none' } : {})
-                        }}
+                        style={modalFieldStyle({ disabled: !phoneVerified, error: !!origenDatoError })}
                         disabled={!phoneVerified}
                       >
                         <option value="" disabled>Seleccioná...</option>
