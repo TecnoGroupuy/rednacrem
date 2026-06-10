@@ -10501,16 +10501,27 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         onChange={(e) => {
                           const value = e.target.value;
                           setNuevoContactoForm((p) => ({ ...p, celular: value }));
-                          setPhoneVerified(false);
-                          setReactivarData(null);
+                          if (value !== nuevoContactoForm.celular) {
+                            setPhoneVerified(false);
+                            setReactivarData(null);
+                          }
                           const nextError = validateCelularNumber(value);
                           setCelularError(nextError);
                           if (nextError) triggerShake('celular');
-                          if (!value) setPhoneWarnings([]);
+                          if (!value) {
+                            setPhoneWarnings([]);
+                            return;
+                          }
+                          if (!nextError && value.length >= 6) {
+                            checkPhone(value);
+                          }
                         }}
                         onBlur={(e) => {
-                          setCelularError(validateCelularNumber(e.target.value));
-                          checkPhone(e.target.value);
+                          const value = e.target.value;
+                          setCelularError(validateCelularNumber(value));
+                          if (value && value.length >= 6) {
+                            checkPhone(value);
+                          }
                         }}
                       />
                       {celularError ? (
@@ -10526,15 +10537,27 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         onChange={(e) => {
                           const value = e.target.value;
                           setNuevoContactoForm((p) => ({ ...p, telefono: value }));
-                          setPhoneVerified(false);
-                          setReactivarData(null);
+                          if (value !== nuevoContactoForm.telefono) {
+                            setPhoneVerified(false);
+                            setReactivarData(null);
+                          }
                           const nextError = validateTelefonoFijo(value);
                           setTelefonoError(nextError);
                           if (nextError) triggerShake('telefono');
+                          if (!value) {
+                            setPhoneWarnings([]);
+                            return;
+                          }
+                          if (!nextError && value.length >= 6) {
+                            checkPhone(value);
+                          }
                         }}
                         onBlur={(e) => {
-                          setTelefonoError(validateTelefonoFijo(e.target.value));
-                          if (e.target.value) checkPhone(e.target.value);
+                          const value = e.target.value;
+                          setTelefonoError(validateTelefonoFijo(value));
+                          if (value && value.length >= 6) {
+                            checkPhone(value);
+                          }
                         }}
                       />
                       {telefonoError ? (
@@ -10603,9 +10626,36 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       ) : null}
 
                       {phoneCheckLoading && (
-                        <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', margin: 0 }}>
-                          Verificando número...
-                        </p>
+                        <>
+                          <style>{'@keyframes lotsPhoneSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }'}</style>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 10,
+                            padding: '10px 12px',
+                            borderRadius: 10,
+                            background: 'linear-gradient(135deg, rgba(14,116,144,0.08), rgba(16,185,129,0.08))',
+                            border: '1px solid rgba(148,163,184,0.22)'
+                          }}>
+                            <div style={{
+                              width: 18,
+                              height: 18,
+                              borderRadius: '50%',
+                              border: '2px solid rgba(14,116,144,0.18)',
+                              borderTopColor: '#0f766e',
+                              animation: 'lotsPhoneSpin 0.8s linear infinite',
+                              flexShrink: 0
+                            }} />
+                            <div style={{ display: 'grid', gap: 2 }}>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>
+                                Verificando número
+                              </span>
+                              <span style={{ fontSize: 11, color: '#64748b' }}>
+                                Buscando coincidencias y datos previos...
+                              </span>
+                            </div>
+                          </div>
+                        </>
                       )}
                     </div>
                     <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
