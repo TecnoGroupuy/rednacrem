@@ -4902,20 +4902,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       >
                         Volver a gestionar
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPhoneVerified(true);
-                          setPhoneWarnings([]);
-                        }}
-                        style={{
-                          border: '1px solid #e2e8f0', background: '#fff', color: '#475569',
-                          padding: '8px 16px', borderRadius: 8, cursor: 'pointer',
-                          fontSize: 13, width: '100%'
-                        }}
-                      >
-                        Es un contacto nuevo, continuar
-                      </button>
                     </div>
                   ) : null}
                 </div>
@@ -10615,21 +10601,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             }}
                           >
                             Volver a gestionar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPhoneVerified(true);
-                              setReactivarData(null);
-                              setPhoneWarnings([]);
-                            }}
-                            style={{
-                              border: '1px solid #e2e8f0', background: '#fff', color: '#475569',
-                              padding: '8px 16px', borderRadius: 8, cursor: 'pointer',
-                              fontSize: 13, width: '100%'
-                            }}
-                          >
-                            Es un contacto nuevo, continuar
                           </button>
                         </div>
                       ) : null}
