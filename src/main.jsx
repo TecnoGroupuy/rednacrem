@@ -9222,7 +9222,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               reactivar: !!reactivarData
             }
           );
-          if (res?.created === false) {
+          if (res?.created === false && !res?.reactivated) {
             setDuplicateWarning(true);
             return;
           }
