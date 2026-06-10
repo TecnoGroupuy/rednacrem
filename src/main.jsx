@@ -4201,6 +4201,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [familiaresLoaded, setFamiliaresLoaded] = React.useState(false);
       const [draftDireccion, setDraftDireccion] = React.useState('');
       const [nuevoContactoOpen, setNuevoContactoOpen] = React.useState(false);
+      const [phoneVerified, setPhoneVerified] = React.useState(false);
+      const [reactivarData, setReactivarData] = React.useState(null);
       const [nuevoContactoError, setNuevoContactoError] = React.useState('');
       const [nuevoContactoSaving, setNuevoContactoSaving] = React.useState(false);
       const [refreshingNow, setRefreshingNow] = React.useState(false);
@@ -4267,6 +4269,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           );
           if (res?.ok) {
             setPhoneWarnings(res.advertencias || []);
+            if (!res.advertencias || res.advertencias.length === 0) {
+              setPhoneVerified(true);
+            }
           }
         } catch {
           // silencioso — no bloquear el formulario si falla la verificación
@@ -4421,6 +4426,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
       const openNuevoContacto = () => {
         setNuevoContactoError('');
+        setPhoneVerified(false);
+        setReactivarData(null);
+        setPhoneWarnings([]);
         setTelefonoError('');
         setCelularError('');
         setTelefonoShake(false);
@@ -4476,12 +4484,16 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             localidad: nuevoContacto.localidad || '',
             pais: nuevoContacto.pais || 'Uruguay',
             origen_dato: nuevoContacto.origen_dato || ''
-          }
+          },
+          reactivar: !!reactivarData
         };
         setNuevoContactoSaving(true);
         setNuevoContactoError('');
         try {
           await api.post('/leads/new', payload);
+          setPhoneVerified(false);
+          setReactivarData(null);
+          setPhoneWarnings([]);
           setNuevoContactoOpen(false);
           await refreshSilencioso();
         } catch (err) {
@@ -4755,14 +4767,24 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
           {nuevoContactoOpen ? (
             <>
-              <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.45)', zIndex: 140 }} onClick={() => setNuevoContactoOpen(false)} />
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.45)', zIndex: 140 }} onClick={() => {
+                setPhoneVerified(false);
+                setReactivarData(null);
+                setPhoneWarnings([]);
+                setNuevoContactoOpen(false);
+              }} />
               <div style={{ position: 'fixed', right: 24, top: 32, bottom: 32, width: 'min(560px, calc(100% - 48px))', background: '#fff', borderRadius: 24, boxShadow: '0 24px 60px rgba(15, 23, 42, 0.25)', padding: 24, zIndex: 141, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'hidden' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
                     <p style={{ fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: '#6b7280' }}>Nuevo contacto</p>
                     <h3 style={{ margin: '6px 0', fontSize: 20, fontWeight: 700 }}>Agregar al lote</h3>
                   </div>
-                  <button type="button" onClick={() => setNuevoContactoOpen(false)} style={{ border: 'none', background: '#f3f4f6', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer' }}>
+                  <button type="button" onClick={() => {
+                    setPhoneVerified(false);
+                    setReactivarData(null);
+                    setPhoneWarnings([]);
+                    setNuevoContactoOpen(false);
+                  }} style={{ border: 'none', background: '#f3f4f6', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer' }}>
                     <X size={16} color="#475569" />
                   </button>
                 </div>
@@ -4776,19 +4798,19 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, overflowY: 'auto', paddingRight: 4 }}>
                   <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
                     Nombre
-                    <input className="input" value={nuevoContacto.nombre} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, nombre: e.target.value }))} />
+                    <input className="input" value={nuevoContacto.nombre} disabled={!phoneVerified} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, nombre: e.target.value }))} style={!phoneVerified ? { opacity: 0.4, pointerEvents: 'none' } : undefined} />
                   </label>
                   <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
                     Apellido
-                    <input className="input" value={nuevoContacto.apellido} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, apellido: e.target.value }))} />
+                    <input className="input" value={nuevoContacto.apellido} disabled={!phoneVerified} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, apellido: e.target.value }))} style={!phoneVerified ? { opacity: 0.4, pointerEvents: 'none' } : undefined} />
                   </label>
                   <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
                     Documento
-                    <input className="input" value={nuevoContacto.documento} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, documento: e.target.value }))} />
+                    <input className="input" value={nuevoContacto.documento} disabled={!phoneVerified} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, documento: e.target.value }))} style={!phoneVerified ? { opacity: 0.4, pointerEvents: 'none' } : undefined} />
                   </label>
                   <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
                     Fecha de nacimiento
-                    <input className="input" type="date" value={nuevoContacto.fecha_nacimiento} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, fecha_nacimiento: e.target.value }))} />
+                    <input className="input" type="date" value={nuevoContacto.fecha_nacimiento} disabled={!phoneVerified} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, fecha_nacimiento: e.target.value }))} style={!phoneVerified ? { opacity: 0.4, pointerEvents: 'none' } : undefined} />
                   </label>
                   <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
                     Teléfono
@@ -4796,34 +4818,42 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                   </label>
                   <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
                     Celular
-                    <input className="input" value={nuevoContacto.celular} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, celular: e.target.value }))} />
+                    <input className="input" value={nuevoContacto.celular} onChange={(e) => {
+                      const v = e.target.value;
+                      setNuevoContacto((prev) => ({ ...prev, celular: v }));
+                      setPhoneVerified(false);
+                      setReactivarData(null);
+                      checkPhone(v);
+                    }} />
                   </label>
                   <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569', gridColumn: '1 / -1' }}>
                     Email
-                    <input className="input" value={nuevoContacto.correo_electronico} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, correo_electronico: e.target.value }))} />
+                    <input className="input" value={nuevoContacto.correo_electronico} disabled={!phoneVerified} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, correo_electronico: e.target.value }))} style={!phoneVerified ? { opacity: 0.4, pointerEvents: 'none' } : undefined} />
                   </label>
                   <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569', gridColumn: '1 / -1' }}>
                     Dirección
-                    <input className="input" value={nuevoContacto.direccion} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, direccion: e.target.value }))} />
+                    <input className="input" value={nuevoContacto.direccion} disabled={!phoneVerified} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, direccion: e.target.value }))} style={!phoneVerified ? { opacity: 0.4, pointerEvents: 'none' } : undefined} />
                   </label>
                   <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
                     Departamento
-                    <input className="input" value={nuevoContacto.departamento} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, departamento: e.target.value }))} />
+                    <input className="input" value={nuevoContacto.departamento} disabled={!phoneVerified} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, departamento: e.target.value }))} style={!phoneVerified ? { opacity: 0.4, pointerEvents: 'none' } : undefined} />
                   </label>
                   <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
                     Localidad
-                    <input className="input" value={nuevoContacto.localidad} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, localidad: e.target.value }))} />
+                    <input className="input" value={nuevoContacto.localidad} disabled={!phoneVerified} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, localidad: e.target.value }))} style={!phoneVerified ? { opacity: 0.4, pointerEvents: 'none' } : undefined} />
                   </label>
                   <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569' }}>
                     País
-                    <input className="input" value={nuevoContacto.pais} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, pais: e.target.value }))} />
+                    <input className="input" value={nuevoContacto.pais} disabled={!phoneVerified} onChange={(e) => setNuevoContacto((prev) => ({ ...prev, pais: e.target.value }))} style={!phoneVerified ? { opacity: 0.4, pointerEvents: 'none' } : undefined} />
                   </label>
                   <label style={{ display: 'grid', gap: 6, fontSize: 12, color: '#475569', gridColumn: '1 / -1' }}>
                     Origen del dato
                     <select
                       className="input"
                       value={nuevoContacto.origen_dato || ''}
+                      disabled={!phoneVerified}
                       onChange={(e) => setNuevoContacto((prev) => ({ ...prev, origen_dato: e.target.value }))}
+                      style={!phoneVerified ? { opacity: 0.4, pointerEvents: 'none' } : undefined}
                     >
                       <option value="">Seleccioná...</option>
                       {origenDatoResolvedOptions.map((o) => (
@@ -4831,10 +4861,72 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       ))}
                     </select>
                   </label>
+                  {phoneWarnings.length > 0 ? (
+                    <div style={{ display: 'grid', gap: 8, marginTop: 4, gridColumn: '1 / -1' }}>
+                      {phoneWarnings.map((w, idx) => (
+                        <div key={idx} style={{
+                          fontSize: 12, color: '#92400e', background: '#fffbeb',
+                          border: '1px solid #fde68a', borderRadius: 8, padding: '8px 10px'
+                        }}>
+                          <div style={{ fontWeight: 700, marginBottom: 2 }}>
+                            Se encontró un contacto existente
+                          </div>
+                          <div>Lote: {w.lote || '—'}</div>
+                          <div>Asignado a: {w.asignado_a || '—'}</div>
+                          <div>Último resultado: {w.motivo || '—'}</div>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const w = phoneWarnings[0];
+                          setReactivarData(w);
+                          setNuevoContacto(prev => ({
+                            ...prev,
+                            nombre: w.nombre || prev.nombre,
+                            apellido: w.apellido || prev.apellido,
+                            documento: w.documento || prev.documento,
+                            correo_electronico: w.correo_electronico || prev.correo_electronico,
+                            departamento: w.departamento || prev.departamento,
+                            direccion: w.direccion || prev.direccion,
+                            localidad: w.localidad || prev.localidad,
+                          }));
+                          setPhoneVerified(true);
+                          setPhoneWarnings([]);
+                        }}
+                        style={{
+                          border: 'none', background: '#f59e0b', color: '#fff',
+                          padding: '10px 16px', borderRadius: 8, fontWeight: 700,
+                          cursor: 'pointer', fontSize: 13, width: '100%'
+                        }}
+                      >
+                        Volver a gestionar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPhoneVerified(true);
+                          setPhoneWarnings([]);
+                        }}
+                        style={{
+                          border: '1px solid #e2e8f0', background: '#fff', color: '#475569',
+                          padding: '8px 16px', borderRadius: 8, cursor: 'pointer',
+                          fontSize: 13, width: '100%'
+                        }}
+                      >
+                        Es un contacto nuevo, continuar
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-                  <button className="button secondary" onClick={() => setNuevoContactoOpen(false)} style={{ padding: '8px 16px' }}>Cancelar</button>
+                  <button className="button secondary" onClick={() => {
+                    setPhoneVerified(false);
+                    setReactivarData(null);
+                    setPhoneWarnings([]);
+                    setNuevoContactoOpen(false);
+                  }} style={{ padding: '8px 16px' }}>Cancelar</button>
                   <button className="button" onClick={handleGuardarNuevoContacto} disabled={nuevoContactoSaving} style={{ padding: '8px 16px', background: accentColor, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600 }}>
                     {nuevoContactoSaving ? 'Guardando...' : 'Guardar contacto'}
                   </button>
