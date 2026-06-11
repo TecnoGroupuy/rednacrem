@@ -40,6 +40,12 @@ export default function EquipoVentaModule({
   const [desactivarModal, setDesactivarModal] = React.useState(null); // { id, nombre }
   const [desactivarStep, setDesactivarStep] = React.useState('analisis'); // 'analisis' | 'confirmar'
   const [desactivarData, setDesactivarData] = React.useState(null);
+  const [pausarModal, setPausarModal] = React.useState(null);
+  const [pausarStep, setPausarStep] = React.useState('analisis'); // 'analisis' | 'confirmar'
+  const [pausarData, setPausarData] = React.useState(null);
+  const [pausarMotivo, setPausarMotivo] = React.useState('');
+  const [pausarLoading, setPausarLoading] = React.useState(false);
+  const [pausarError, setPausarError] = React.useState('');
   const [desactivarLoading, setDesactivarLoading] = React.useState(false);
   const [desactivarError, setDesactivarError] = React.useState('');
 
@@ -444,6 +450,37 @@ export default function EquipoVentaModule({
                     Ver análisis de desempeño
                   </Button>
                   {selectedVendedor?.status !== 'baja' && selectedVendedor?.status !== 'inactive' && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const api = getApiClient();
+                        setPausarModal({
+                          id: selectedVendedor.id,
+                          nombre: [selectedVendedor.nombre, selectedVendedor.apellido].filter(Boolean).join(' ')
+                        });
+                        setPausarStep('analisis');
+                        setPausarData(null);
+                        setPausarMotivo('');
+                        setPausarError('');
+                        setPausarLoading(true);
+                        try {
+                          const params = new URLSearchParams({ seller_id: String(selectedVendedor.id) });
+                          if (activeOrgId) params.set('organization_id', String(activeOrgId));
+                          const res = await api.get(`/api/supervisor/seller-detail?${params.toString()}`);
+                          const payload = res?.data ?? res;
+                          setPausarData(payload?.data ?? payload);
+                        } catch {
+                          setPausarError('No se pudo cargar el análisis.');
+                        } finally {
+                          setPausarLoading(false);
+                        }
+                      }}
+                      style={{ width: '100%', padding: '10px 16px', borderRadius: 8, border: '1px solid #f59e0b', background: '#fffbeb', color: '#92400e', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}
+                    >
+                      ⏸ Pausar vendedor
+                    </button>
+                  )}
+                  {selectedVendedor?.status !== 'baja' && selectedVendedor?.status !== 'inactive' && (
                     <Button
                       variant="ghost"
                       icon={<UserX size={14} />}
@@ -722,6 +759,124 @@ export default function EquipoVentaModule({
                   >
                     Confirmar desactivación
                   </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {pausarModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', display: 'grid', placeItems: 'center', zIndex: 80 }}>
+          <div style={{ width: 'min(520px, calc(100% - 32px))', background: '#fff', borderRadius: 14, padding: 24, boxShadow: '0 24px 60px rgba(15,23,42,0.25)', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>⏸ Pausar vendedor</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setPausarModal(null);
+                  setPausarData(null);
+                  setPausarMotivo('');
+                  setPausarError('');
+                  setPausarStep('analisis');
+                }}
+                style={{ border: 'none', background: '#f3f4f6', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ fontSize: 14, color: '#475569' }}>
+              Estás por pausar a <strong>{pausarModal.nombre}</strong>. Sus datos serán redistribuidos entre los vendedores activos del lote.
+            </div>
+
+            {pausarStep === 'analisis' && (
+              <>
+                {pausarLoading && <div style={{ color: '#64748b', fontSize: 13 }}>Cargando análisis...</div>}
+                {pausarError && <div style={{ color: '#dc2626', fontSize: 13 }}>{pausarError}</div>}
+                {pausarData && (
+                  <div style={{ background: '#f8fafc', borderRadius: 8, padding: 16, display: 'grid', gap: 8 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
+                      Datos pendientes para redistribuir
+                    </div>
+                    {[
+                      { label: 'Nuevos', key: 'nuevo' },
+                      { label: 'No contesta', key: 'no_contesta' },
+                      { label: 'Rellamar', key: 'rellamar' },
+                      { label: 'Seguimiento', key: 'seguimientos' },
+                    ].map(({ label, key }) => (
+                      <div key={key} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                        <span style={{ color: '#64748b' }}>{label}</span>
+                        <strong>{pausarData?.pendientes?.[key] ?? pausarData?.resumen?.[key] ?? 0}</strong>
+                      </div>
+                    ))}
+                    <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 8, display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700 }}>
+                      <span>Total a redistribuir</span>
+                      <span>{
+                        ['nuevo', 'no_contesta', 'rellamar', 'seguimientos']
+                          .reduce((sum, key) => sum + (pausarData?.pendientes?.[key] ?? pausarData?.resumen?.[key] ?? 0), 0)
+                      }</span>
+                    </div>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setPausarStep('confirmar')}
+                  disabled={pausarLoading}
+                  style={{ border: 'none', background: '#f59e0b', color: '#fff', padding: '10px 16px', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: 13 }}
+                >
+                  Continuar
+                </button>
+              </>
+            )}
+
+            {pausarStep === 'confirmar' && (
+              <>
+                <label style={{ display: 'grid', gap: 6, fontSize: 13, color: '#475569' }}>
+                  Motivo de la pausa *
+                  <select className="input" value={pausarMotivo} onChange={(e) => setPausarMotivo(e.target.value)}>
+                    <option value="">Seleccioná un motivo...</option>
+                    <option value="enfermedad">Enfermedad</option>
+                    <option value="suspendido">Suspendido</option>
+                    <option value="se_retira_antes">Se retira antes</option>
+                    <option value="no_se_presento">No se presentó</option>
+                  </select>
+                </label>
+
+                {pausarError && <div style={{ color: '#dc2626', fontSize: 13 }}>{pausarError}</div>}
+
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  <button
+                    type="button"
+                    onClick={() => setPausarStep('analisis')}
+                    style={{ border: '1px solid #e2e8f0', background: '#fff', color: '#475569', padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}
+                  >
+                    Volver
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!pausarMotivo || pausarLoading}
+                    onClick={async () => {
+                      setPausarLoading(true);
+                      setPausarError('');
+                      try {
+                        const api = getApiClient();
+                        await api.patch(`/users/${pausarModal.id}/pausar`, { motivo_pausa: pausarMotivo });
+                        setPausarModal(null);
+                        setPausarData(null);
+                        setPausarMotivo('');
+                        await loadVendedores(mostrarInactivos);
+                        setSelectedVendedor(null);
+                      } catch (err) {
+                        setPausarError(err?.message || 'No se pudo pausar al vendedor.');
+                      } finally {
+                        setPausarLoading(false);
+                      }
+                    }}
+                    style={{ border: 'none', background: '#f59e0b', color: '#fff', padding: '10px 16px', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: 13, opacity: (!pausarMotivo || pausarLoading) ? 0.5 : 1 }}
+                  >
+                    {pausarLoading ? 'Pausando...' : 'Confirmar pausa'}
+                  </button>
                 </div>
               </>
             )}
