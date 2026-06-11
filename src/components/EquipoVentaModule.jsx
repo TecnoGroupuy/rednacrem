@@ -148,6 +148,30 @@ export default function EquipoVentaModule({
     setFormSuccess('');
   };
 
+  const openPausarModal = React.useCallback(async (vendedor) => {
+    const api = getApiClient();
+    setPausarModal({
+      id: vendedor.id,
+      nombre: [vendedor.nombre, vendedor.apellido].filter(Boolean).join(' ')
+    });
+    setPausarStep('analisis');
+    setPausarData(null);
+    setPausarMotivo('');
+    setPausarError('');
+    setPausarLoading(true);
+    try {
+      const params = new URLSearchParams({ seller_id: String(vendedor.id) });
+      if (activeOrgId) params.set('organization_id', String(activeOrgId));
+      const res = await api.get(`/api/supervisor/seller-detail?${params.toString()}`);
+      const payload = res?.data ?? res;
+      setPausarData(payload?.data ?? payload);
+    } catch {
+      setPausarError('No se pudo cargar el análisis.');
+    } finally {
+      setPausarLoading(false);
+    }
+  }, [activeOrgId]);
+
   return (
     <div className="view">
       {canManage && (
@@ -293,6 +317,25 @@ export default function EquipoVentaModule({
 
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
                               <Tag variant={statusVariant}>{statusLabel}</Tag>
+                              {v.status !== 'baja' && v.status !== 'inactive' && (
+                                <button
+                                  type="button"
+                                  onClick={() => openPausarModal(v)}
+                                  style={{
+                                    padding: '7px 12px',
+                                    borderRadius: 8,
+                                    border: '1px solid #f59e0b',
+                                    background: '#fffbeb',
+                                    color: '#92400e',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    fontSize: 12,
+                                    flexShrink: 0
+                                  }}
+                                >
+                                  ⏸ Pausar
+                                </button>
+                              )}
                               <button
                                 onClick={() => setSelectedVendedor({ ...v, stats })}
                                 style={{
@@ -370,26 +413,6 @@ export default function EquipoVentaModule({
               </div>
 
               <div style={{ flex: 1, overflowY: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
-                {selectedVendedor?.status !== 'baja' && selectedVendedor?.status !== 'inactive' && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                    {[
-                      { label: 'Ventas hoy', value: selectedVendedor.stats?.sales ?? 0, color: '#15803d' },
-                      { label: 'Contactos hoy', value: selectedVendedor.stats?.calls ?? 0, color: 'var(--text)' },
-                      { label: 'Efectividad', value: `${selectedVendedor.stats?.conversion ?? 0}%`, color: '#2563eb' },
-                      { label: 'Pausas', value: selectedVendedor.stats?.pausesCount ?? 0, color: 'var(--muted)' }
-                    ].map((item) => (
-                      <div key={item.label} style={{
-                        padding: '14px 16px', borderRadius: 12,
-                        border: '1px solid var(--line)',
-                        background: 'var(--surface)'
-                      }}>
-                        <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>{item.label}</div>
-                        <div style={{ fontSize: 24, fontWeight: 700, color: item.color }}>{item.value}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
                 <div style={{ borderRadius: 12, border: '1px solid var(--line)', overflow: 'hidden' }}>
                   {[
                     { label: 'Telefono', value: selectedVendedor.telefono || '-' },
@@ -449,37 +472,6 @@ export default function EquipoVentaModule({
                   >
                     Ver análisis de desempeño
                   </Button>
-                  {selectedVendedor?.status !== 'baja' && selectedVendedor?.status !== 'inactive' && (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const api = getApiClient();
-                        setPausarModal({
-                          id: selectedVendedor.id,
-                          nombre: [selectedVendedor.nombre, selectedVendedor.apellido].filter(Boolean).join(' ')
-                        });
-                        setPausarStep('analisis');
-                        setPausarData(null);
-                        setPausarMotivo('');
-                        setPausarError('');
-                        setPausarLoading(true);
-                        try {
-                          const params = new URLSearchParams({ seller_id: String(selectedVendedor.id) });
-                          if (activeOrgId) params.set('organization_id', String(activeOrgId));
-                          const res = await api.get(`/api/supervisor/seller-detail?${params.toString()}`);
-                          const payload = res?.data ?? res;
-                          setPausarData(payload?.data ?? payload);
-                        } catch {
-                          setPausarError('No se pudo cargar el análisis.');
-                        } finally {
-                          setPausarLoading(false);
-                        }
-                      }}
-                      style={{ width: '100%', padding: '10px 16px', borderRadius: 8, border: '1px solid #f59e0b', background: '#fffbeb', color: '#92400e', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}
-                    >
-                      ⏸ Pausar vendedor
-                    </button>
-                  )}
                   {selectedVendedor?.status !== 'baja' && selectedVendedor?.status !== 'inactive' && (
                     <Button
                       variant="ghost"
