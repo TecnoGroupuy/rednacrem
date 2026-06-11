@@ -3850,9 +3850,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         ]
         : [
           { key: 'nuevo', label: 'Nuevos', dot: '#6ee7b7' },
-          { key: 'no_contesta', label: 'No contesta', dot: '#f97316' },
-          { key: 'rellamar', label: 'Rellamar', dot: '#4A90D9' },
-          { key: 'seguimiento', label: 'Seguimiento', dot: '#9B59B6' }
+          { key: 'no_contesta', label: 'No contesta', dot: '#f97316' }
         ];
       const estadosFinalesGestion = isRecupero ? ['alta', 'rechazo', 'dato_erroneo'] : ESTADOS_FINALES_GESTION;
       const estadosConAgenda = isRecupero ? ['interesado', 'volver_a_llamar'] : ['seguimiento', 'rellamar'];
@@ -3887,8 +3885,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [filtroFechaHasta, setFiltroFechaHasta] = React.useState('');
       const [totalNuevos, setTotalNuevos] = React.useState(null);
       const [totalNoContesta, setTotalNoContesta] = React.useState(null);
-      const [totalRellamar, setTotalRellamar] = React.useState(null);
-      const [totalSeguimiento, setTotalSeguimiento] = React.useState(null);
       const [totalRecuperoNuevos, setTotalRecuperoNuevos] = React.useState(null);
       const [totalRecuperoNoContesta, setTotalRecuperoNoContesta] = React.useState(null);
 
@@ -3993,8 +3989,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               const total = contactosData?.data?.total ?? null;
               if (tabActivo === 'nuevo') setTotalNuevos(total);
               if (tabActivo === 'no_contesta') setTotalNoContesta(total);
-              if (tabActivo === 'rellamar') setTotalRellamar(total);
-              if (tabActivo === 'seguimiento') setTotalSeguimiento(total);
             }
           }
 
@@ -4037,8 +4031,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               const total = d?.data?.total ?? null;
               if (tabActivo === 'nuevo') setTotalNuevos(total);
               if (tabActivo === 'no_contesta') setTotalNoContesta(total);
-              if (tabActivo === 'rellamar') setTotalRellamar(total);
-              if (tabActivo === 'seguimiento') setTotalSeguimiento(total);
             }
           }
         } catch {
@@ -4066,12 +4058,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           .catch(() => {});
         api.get('/leads/assigned?tipo_excluir=recupero&excluir_bloqueados=true&tab=no_contesta&page=1&limit=1')
           .then((r) => setTotalNoContesta(r?.data?.total ?? null))
-          .catch(() => {});
-        api.get('/leads/assigned?tipo_excluir=recupero&excluir_bloqueados=true&tab=rellamar&page=1&limit=1')
-          .then((r) => setTotalRellamar(r?.data?.total ?? null))
-          .catch(() => {});
-        api.get('/leads/assigned?tipo_excluir=recupero&excluir_bloqueados=true&tab=seguimiento&page=1&limit=1')
-          .then((r) => setTotalSeguimiento(r?.data?.total ?? null))
           .catch(() => {});
       }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
