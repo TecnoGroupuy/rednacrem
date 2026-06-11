@@ -795,18 +795,18 @@ export default function EquipoVentaModule({
                       { label: 'Nuevos', key: 'nuevo' },
                       { label: 'No contesta', key: 'no_contesta' },
                       { label: 'Rellamar', key: 'rellamar' },
-                      { label: 'Seguimiento', key: 'seguimientos' },
+                      { label: 'Seguimiento', key: 'seguimiento' },
                     ].map(({ label, key }) => (
                       <div key={key} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
                         <span style={{ color: '#64748b' }}>{label}</span>
-                        <strong>{pausarData?.pendientes?.[key] ?? pausarData?.resumen?.[key] ?? 0}</strong>
+                        <strong>{pausarData?.pendientes_by_estado?.[key] ?? 0}</strong>
                       </div>
                     ))}
                     <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 8, display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700 }}>
                       <span>Total a redistribuir</span>
                       <span>{
-                        ['nuevo', 'no_contesta', 'rellamar', 'seguimientos']
-                          .reduce((sum, key) => sum + (pausarData?.pendientes?.[key] ?? pausarData?.resumen?.[key] ?? 0), 0)
+                        ['nuevo', 'no_contesta', 'rellamar', 'seguimiento']
+                          .reduce((sum, key) => sum + (pausarData?.pendientes_by_estado?.[key] ?? 0), 0)
                       }</span>
                     </div>
                   </div>
