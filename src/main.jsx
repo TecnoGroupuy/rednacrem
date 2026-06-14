@@ -353,19 +353,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
     };
     const initials = (name) => name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase();
 
-    // DEPRECADO: fallback de orígenes hardcodeados. Se mantiene mientras confirmamos el fetch a /origen-dato/list en producción.
-    const ORIGEN_DATO_OPTIONS_DEPRECADO = [
-      { valor: 'facebook', label: 'Facebook' },
-      { valor: 'instagram', label: 'Instagram' },
-      { valor: 'correo', label: 'Correo' },
-      { valor: 'whatsapp', label: 'WhatsApp' },
-      { valor: 'guia_telefonica', label: 'Guía telefónica' },
-      { valor: 'referido', label: 'Referido' },
-      { valor: 'captacion', label: 'Captación' },
-      { valor: 'recupero', label: 'Recupero' },
-      { valor: 'sitio_web', label: 'Sitio web' }
-    ];
-
     function normalizeOrigenOptions(input) {
       const raw = Array.isArray(input) ? input : [];
       const mapped = raw
@@ -3830,9 +3817,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
     function SalesContactsView({ contacts, selectedId, onSelect, onRegister, salesRecords, products, onAssignFamilySale, onUpdateContact, onVentaCerrada, onOpenNewClient, mode = 'contactos', vendedorNewClientOpen = false, origenDatoOptions = [] }) {
       const api = getApiClient();
-      const origenDatoResolvedOptions = (Array.isArray(origenDatoOptions) && origenDatoOptions.length)
-        ? normalizeOrigenOptions(origenDatoOptions)
-        : ORIGEN_DATO_OPTIONS_DEPRECADO;
+      const origenDatoResolvedOptions = normalizeOrigenOptions(origenDatoOptions);
       const isRecupero = mode === 'recupero';
       const contactsEndpoint = '/leads/assigned';
       const accentColor = isRecupero ? '#f97316' : '#1A5C4A';
@@ -5161,20 +5146,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
           <div style={{ display: 'flex', gap: 8, padding: '12px 0', flexWrap: 'wrap', alignItems: 'center' }}>
             <select
-              value={filtroEstado}
-              onChange={(e) => setFiltroEstado(e.target.value)}
-              style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12, color: '#475569' }}
-            >
-              <option value="">Todos los estados</option>
-              <option value="nuevo">Nuevo</option>
-              <option value="no_contesta">No contesta</option>
-              <option value="seguimiento">Seguimiento</option>
-              <option value="rellamar">Rellamar</option>
-              <option value="rechazo">Rechazo</option>
-              <option value="venta">Venta</option>
-            </select>
-
-            <select
               value={filtroOrigen}
               onChange={(e) => setFiltroOrigen(e.target.value)}
               style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12, color: '#475569' }}
@@ -5184,14 +5155,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 <option key={o.valor} value={o.valor}>{o.label}</option>
               ))}
             </select>
-
-            <input
-              type="text"
-              placeholder="Filtrar ubicación..."
-              value={filtroUbicacion}
-              onChange={(e) => setFiltroUbicacion(e.target.value)}
-              style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12, color: '#475569', width: 150 }}
-            />
 
             <input
               type="date"
@@ -5989,9 +5952,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
     function SalesAgendaView({ onVentaCerrada, origenDatoOptions = [] }) {
       const agendaApi = getApiClient();
-      const origenDatoResolvedOptions = (Array.isArray(origenDatoOptions) && origenDatoOptions.length)
-        ? normalizeOrigenOptions(origenDatoOptions)
-        : ORIGEN_DATO_OPTIONS_DEPRECADO;
+      const origenDatoResolvedOptions = normalizeOrigenOptions(origenDatoOptions);
       const [seguimientos, setSeguimientos] = React.useState([]);
       const [loadingAgenda, setLoadingAgenda] = React.useState(true);
       const [drawerItem, setDrawerItem] = React.useState(null);
@@ -7930,9 +7891,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         { background: 'rgba(100,116,139,0.12)', color: '#334155', border: '1px solid rgba(100,116,139,0.3)' },
         { background: 'rgba(236,72,153,0.12)', color: '#9d174d', border: '1px solid rgba(236,72,153,0.3)' }
       ];
-      const origenDatoResolvedOptions = (Array.isArray(origenDatoOptions) && origenDatoOptions.length)
-        ? normalizeOrigenOptions(origenDatoOptions)
-        : ORIGEN_DATO_OPTIONS_DEPRECADO;
+      const origenDatoResolvedOptions = normalizeOrigenOptions(origenDatoOptions);
 
       React.useEffect(() => {
         const cargar = async () => {
@@ -8704,9 +8663,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
     function SupervisorModule({ route, contacts, lots, accessToken, activeOrgId, onBulkAssignContacts, onCreateLot, onAssignLotSeller, onCloseLot, onReactivateError, onOpenRoute, origenDatoOptions = [], fetchLots = null }) {
       const api = React.useMemo(() => getApiClient(), []);
-      const origenDatoResolvedOptions = (Array.isArray(origenDatoOptions) && origenDatoOptions.length)
-        ? normalizeOrigenOptions(origenDatoOptions)
-        : ORIGEN_DATO_OPTIONS_DEPRECADO;
+      const origenDatoResolvedOptions = normalizeOrigenOptions(origenDatoOptions);
       const [search, setSearch] = React.useState('');
       const [sourceFilter, setSourceFilter] = React.useState('todos');
       const [cityFilter, setCityFilter] = React.useState('todos');
@@ -12465,9 +12422,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
     function ClientsView({ productsCatalog = [], prefillContact = null, onPrefillUsed = null, viewerRole = '', origenDatoOptions = [] }) {
         const { user: authUser } = useAuth();
-        const origenDatoResolvedOptions = (Array.isArray(origenDatoOptions) && origenDatoOptions.length)
-          ? normalizeOrigenOptions(origenDatoOptions)
-          : ORIGEN_DATO_OPTIONS_DEPRECADO;
+        const origenDatoResolvedOptions = normalizeOrigenOptions(origenDatoOptions);
         const [clientMetrics, setClientMetrics] = React.useState(() => buildClientMetricCards());
         const [clientRows, setClientRows] = React.useState([]);
         const [clientSearch, setClientSearch] = React.useState('');
