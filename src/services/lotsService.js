@@ -23,7 +23,7 @@ export const listLots = () => lotsStore.map(toUiLot);
 
 export const listLotsAsync = async () => {
   if (hasApiConfigured()) {
-    const response = await api.get('/lead-batches');
+    const response = await api.get('/lead-batches?tipo_excluir=recupero');
     return (response?.items || []).map((item) => ({
       id: String(item.id || ''),
       name: item.nombre,

@@ -4380,13 +4380,17 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         setDraftDireccion('');
       };
 
-      const resolvePrincipalContactId = React.useCallback(() => {
-        const selected = localContacts.find((c) => String(c.id) === String(selectedId))
+      const resolveBaseAssignedContact = React.useCallback(() => (
+        localContacts.find((c) => String(c.id) === String(selectedId))
           || localContacts[0]
-          || null;
+          || null
+      ), [localContacts, selectedId]);
+
+      const resolvePrincipalContactId = React.useCallback(() => {
+        const selected = resolveBaseAssignedContact();
         if (!selected) return '';
         return selected.contact_id || selected.contactId || selected.contacto_id || selected.id || '';
-      }, [localContacts, selectedId]);
+      }, [resolveBaseAssignedContact]);
 
       React.useEffect(() => {
         if (!selectedId) return;
@@ -4422,6 +4426,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       };
 
       const handleGuardarNuevoContacto = async () => {
+        const baseAssignedContact = resolveBaseAssignedContact();
         const principalContactId = resolvePrincipalContactId();
         if (!principalContactId) {
           setNuevoContactoError('No se pudo determinar el contacto principal del lote.');
@@ -4442,6 +4447,15 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         }
         const payload = {
           principal_contact_id: principalContactId,
+          tipo: 'captacion',
+          batch_id: baseAssignedContact?.batch_id || baseAssignedContact?.lotId || '',
+          seller_id: baseAssignedContact?.seller_id
+            || baseAssignedContact?.sellerId
+            || baseAssignedContact?.vendedor_id
+            || baseAssignedContact?.vendedorId
+            || baseAssignedContact?.assigned_to
+            || baseAssignedContact?.assignedTo
+            || '',
           contact: {
             nombre: nuevoContacto.nombre,
             apellido: nuevoContacto.apellido,
