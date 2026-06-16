@@ -2004,7 +2004,10 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
               />
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '1 1 180px', minWidth: 180, position: 'relative' }}>
+            <div
+              data-filter-popover
+              style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '1 1 180px', minWidth: 180, position: 'relative' }}
+            >
               <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Motivo de baja
               </label>
