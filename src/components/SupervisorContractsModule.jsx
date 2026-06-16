@@ -1964,26 +1964,24 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
 
           <div style={{
             display: 'flex',
-            gap: 10,
+            gap: 12,
             flexWrap: 'wrap',
             alignItems: 'flex-end',
             marginBottom: 12,
-            padding: '12px 14px',
-            background: 'var(--color-background-secondary)',
+            padding: '12px 16px',
+            background: '#F8F7F4',
             borderRadius: 10,
             border: '0.5px solid var(--color-border-tertiary)'
           }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 200, flex: '1 1 200px' }}>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)' }}>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '2 1 200px', minWidth: 180 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Nombre o teléfono
               </label>
               <input
                 type="text"
                 value={columnFiltersDraft.contacto || ''}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setColumnFiltersDraft((prev) => ({ ...prev, contacto: val }));
-                }}
+                onChange={(e) => setColumnFiltersDraft((prev) => ({ ...prev, contacto: e.target.value }))}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     const errors = validateColumnFilters(columnFiltersDraft);
@@ -1996,54 +1994,111 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                 }}
                 placeholder="Buscar..."
                 style={{
-                  padding: '7px 10px',
-                  borderRadius: 8,
-                  border: '0.5px solid var(--color-border-tertiary)',
-                  fontSize: 13,
-                  background: '#fff'
-                }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 180, flex: '1 1 180px' }}>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)' }}>
-                Motivo de baja
-              </label>
-              <select
-                multiple
-                value={columnFiltersDraft.motivo_baja || []}
-                onChange={(e) => {
-                  const selected = Array.from(e.target.selectedOptions).map((o) => o.value);
-                  setColumnFiltersDraft((prev) => ({ ...prev, motivo_baja: selected }));
-                }}
-                style={{
-                  padding: '6px 8px',
+                  padding: '8px 12px',
                   borderRadius: 8,
                   border: '0.5px solid var(--color-border-tertiary)',
                   fontSize: 13,
                   background: '#fff',
-                  minHeight: 72,
-                  maxHeight: 100
+                  outline: 'none'
                 }}
-              >
-                {(filterOptions.motivos?.length
-                  ? filterOptions.motivos
-                  : Object.entries(MOTIVO_LABELS).map(([k, v]) => ({ value: k, label: v.label }))
-                ).map((m) => {
-                  const val = typeof m === 'string' ? m : (m.value ?? m.id ?? m);
-                  const lbl = typeof m === 'string' ? m : (m.label ?? m.nombre ?? val);
-                  return (
-                    <option key={val} value={val}>{lbl}</option>
-                  );
-                })}
-              </select>
-              <span style={{ fontSize: 10, color: 'var(--color-text-secondary)' }}>
-                Ctrl+clic para seleccionar varios
-              </span>
+              />
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 140 }}>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '1 1 180px', minWidth: 180, position: 'relative' }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Motivo de baja
+              </label>
+              <div style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  onClick={() => setOpenFilterColumn((prev) => (prev === 'motivo_baja' ? '' : 'motivo_baja'))}
+                  style={{
+                    width: '100%',
+                    padding: '8px 32px 8px 12px',
+                    borderRadius: 8,
+                    border: '0.5px solid var(--color-border-tertiary)',
+                    background: '#fff',
+                    fontSize: 13,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    color: columnFiltersDraft.motivo_baja?.length ? '#0F766E' : 'var(--color-text-secondary)',
+                    fontWeight: columnFiltersDraft.motivo_baja?.length ? 600 : 400,
+                    position: 'relative'
+                  }}
+                >
+                  {columnFiltersDraft.motivo_baja?.length
+                    ? `${columnFiltersDraft.motivo_baja.length} seleccionado${columnFiltersDraft.motivo_baja.length > 1 ? 's' : ''}`
+                    : 'Todos los motivos'}
+                  <ChevronDown size={14} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-secondary)' }} />
+                </button>
+
+                {openFilterColumn === 'motivo_baja' && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 4px)',
+                    left: 0,
+                    zIndex: 100,
+                    background: '#fff',
+                    border: '0.5px solid var(--color-border-tertiary)',
+                    borderRadius: 10,
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
+                    minWidth: 220,
+                    maxHeight: 260,
+                    overflowY: 'auto',
+                    padding: '6px 0'
+                  }}>
+                    <label style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '8px 14px', cursor: 'pointer', fontSize: 13,
+                      borderBottom: '0.5px solid var(--color-border-tertiary)',
+                      fontWeight: 600
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={!columnFiltersDraft.motivo_baja?.length}
+                        onChange={() => setColumnFiltersDraft((prev) => ({ ...prev, motivo_baja: [] }))}
+                      />
+                      Todos los motivos
+                    </label>
+                    {(filterOptions.motivos?.length
+                      ? filterOptions.motivos
+                      : Object.entries(MOTIVO_LABELS).map(([k, v]) => ({ value: k, label: v.label }))
+                    ).map((m) => {
+                      const val = typeof m === 'string' ? m : (m.value ?? m);
+                      const lbl = typeof m === 'string' ? m : (m.label ?? val);
+                      const checked = (columnFiltersDraft.motivo_baja || []).includes(val);
+                      return (
+                        <label key={val} style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          padding: '8px 14px', cursor: 'pointer', fontSize: 13,
+                          background: checked ? 'rgba(15,118,110,0.06)' : 'transparent'
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              setColumnFiltersDraft((prev) => {
+                                const current = prev.motivo_baja || [];
+                                return {
+                                  ...prev,
+                                  motivo_baja: checked
+                                    ? current.filter((v) => v !== val)
+                                    : [...current, val]
+                                };
+                              });
+                            }}
+                          />
+                          {lbl}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '1 1 150px', minWidth: 150 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Fecha baja desde
               </label>
               <input
@@ -2051,7 +2106,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                 value={columnFiltersDraft.fecha_baja_desde || ''}
                 onChange={(e) => setColumnFiltersDraft((prev) => ({ ...prev, fecha_baja_desde: e.target.value }))}
                 style={{
-                  padding: '7px 10px',
+                  padding: '8px 12px',
                   borderRadius: 8,
                   border: '0.5px solid var(--color-border-tertiary)',
                   fontSize: 13,
@@ -2059,8 +2114,9 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                 }}
               />
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 140 }}>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)' }}>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '1 1 150px', minWidth: 150 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Fecha baja hasta
               </label>
               <input
@@ -2068,7 +2124,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                 value={columnFiltersDraft.fecha_baja_hasta || ''}
                 onChange={(e) => setColumnFiltersDraft((prev) => ({ ...prev, fecha_baja_hasta: e.target.value }))}
                 style={{
-                  padding: '7px 10px',
+                  padding: '8px 12px',
                   borderRadius: 8,
                   border: '0.5px solid var(--color-border-tertiary)',
                   fontSize: 13,
@@ -2080,10 +2136,11 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
               )}
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', paddingBottom: 0 }}>
               <button
                 type="button"
                 onClick={() => {
+                  if (openFilterColumn === 'motivo_baja') setOpenFilterColumn('');
                   const errors = validateColumnFilters(columnFiltersDraft);
                   setFilterErrors(errors);
                   if (!Object.keys(errors).length) {
@@ -2092,14 +2149,15 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                   }
                 }}
                 style={{
-                  padding: '7px 16px',
+                  padding: '8px 20px',
                   borderRadius: 8,
                   border: 'none',
                   background: '#0F766E',
                   color: '#fff',
                   fontWeight: 700,
                   fontSize: 13,
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap'
                 }}
               >
                 Aplicar
@@ -2110,22 +2168,25 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                   setColumnFiltersDraft({ ...COLUMN_FILTERS_INITIAL });
                   setColumnFiltersApplied({ ...COLUMN_FILTERS_INITIAL });
                   setFilterErrors({});
+                  setOpenFilterColumn('');
                   setPage(1);
                 }}
                 style={{
-                  padding: '7px 16px',
+                  padding: '8px 16px',
                   borderRadius: 8,
                   border: '0.5px solid var(--color-border-tertiary)',
                   background: '#fff',
                   color: 'var(--color-text-secondary)',
                   fontWeight: 600,
                   fontSize: 13,
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap'
                 }}
               >
                 Limpiar
               </button>
             </div>
+
           </div>
 
           {activeChips.length ? (
