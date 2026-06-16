@@ -1962,6 +1962,172 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
             )}
             </div>
 
+          <div style={{
+            display: 'flex',
+            gap: 10,
+            flexWrap: 'wrap',
+            alignItems: 'flex-end',
+            marginBottom: 12,
+            padding: '12px 14px',
+            background: 'var(--color-background-secondary)',
+            borderRadius: 10,
+            border: '0.5px solid var(--color-border-tertiary)'
+          }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 200, flex: '1 1 200px' }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)' }}>
+                Nombre o teléfono
+              </label>
+              <input
+                type="text"
+                value={columnFiltersDraft.contacto || ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setColumnFiltersDraft((prev) => ({ ...prev, contacto: val }));
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const errors = validateColumnFilters(columnFiltersDraft);
+                    setFilterErrors(errors);
+                    if (!Object.keys(errors).length) {
+                      setColumnFiltersApplied({ ...columnFiltersDraft });
+                      setPage(1);
+                    }
+                  }
+                }}
+                placeholder="Buscar..."
+                style={{
+                  padding: '7px 10px',
+                  borderRadius: 8,
+                  border: '0.5px solid var(--color-border-tertiary)',
+                  fontSize: 13,
+                  background: '#fff'
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 180, flex: '1 1 180px' }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)' }}>
+                Motivo de baja
+              </label>
+              <select
+                multiple
+                value={columnFiltersDraft.motivo_baja || []}
+                onChange={(e) => {
+                  const selected = Array.from(e.target.selectedOptions).map((o) => o.value);
+                  setColumnFiltersDraft((prev) => ({ ...prev, motivo_baja: selected }));
+                }}
+                style={{
+                  padding: '6px 8px',
+                  borderRadius: 8,
+                  border: '0.5px solid var(--color-border-tertiary)',
+                  fontSize: 13,
+                  background: '#fff',
+                  minHeight: 72,
+                  maxHeight: 100
+                }}
+              >
+                {(filterOptions.motivos?.length
+                  ? filterOptions.motivos
+                  : Object.entries(MOTIVO_LABELS).map(([k, v]) => ({ value: k, label: v.label }))
+                ).map((m) => {
+                  const val = typeof m === 'string' ? m : (m.value ?? m.id ?? m);
+                  const lbl = typeof m === 'string' ? m : (m.label ?? m.nombre ?? val);
+                  return (
+                    <option key={val} value={val}>{lbl}</option>
+                  );
+                })}
+              </select>
+              <span style={{ fontSize: 10, color: 'var(--color-text-secondary)' }}>
+                Ctrl+clic para seleccionar varios
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 140 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)' }}>
+                Fecha baja desde
+              </label>
+              <input
+                type="date"
+                value={columnFiltersDraft.fecha_baja_desde || ''}
+                onChange={(e) => setColumnFiltersDraft((prev) => ({ ...prev, fecha_baja_desde: e.target.value }))}
+                style={{
+                  padding: '7px 10px',
+                  borderRadius: 8,
+                  border: '0.5px solid var(--color-border-tertiary)',
+                  fontSize: 13,
+                  background: '#fff'
+                }}
+              />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 140 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)' }}>
+                Fecha baja hasta
+              </label>
+              <input
+                type="date"
+                value={columnFiltersDraft.fecha_baja_hasta || ''}
+                onChange={(e) => setColumnFiltersDraft((prev) => ({ ...prev, fecha_baja_hasta: e.target.value }))}
+                style={{
+                  padding: '7px 10px',
+                  borderRadius: 8,
+                  border: '0.5px solid var(--color-border-tertiary)',
+                  fontSize: 13,
+                  background: '#fff'
+                }}
+              />
+              {filterErrors.fecha_baja && (
+                <span style={{ fontSize: 11, color: '#b91c1c' }}>{filterErrors.fecha_baja}</span>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  const errors = validateColumnFilters(columnFiltersDraft);
+                  setFilterErrors(errors);
+                  if (!Object.keys(errors).length) {
+                    setColumnFiltersApplied({ ...columnFiltersDraft });
+                    setPage(1);
+                  }
+                }}
+                style={{
+                  padding: '7px 16px',
+                  borderRadius: 8,
+                  border: 'none',
+                  background: '#0F766E',
+                  color: '#fff',
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: 'pointer'
+                }}
+              >
+                Aplicar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setColumnFiltersDraft({ ...COLUMN_FILTERS_INITIAL });
+                  setColumnFiltersApplied({ ...COLUMN_FILTERS_INITIAL });
+                  setFilterErrors({});
+                  setPage(1);
+                }}
+                style={{
+                  padding: '7px 16px',
+                  borderRadius: 8,
+                  border: '0.5px solid var(--color-border-tertiary)',
+                  background: '#fff',
+                  color: 'var(--color-text-secondary)',
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: 'pointer'
+                }}
+              >
+                Limpiar
+              </button>
+            </div>
+          </div>
+
           {activeChips.length ? (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
               {activeChips.map((chip) => (
