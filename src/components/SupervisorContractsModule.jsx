@@ -1269,7 +1269,12 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     setImportFile(file);
     const reader = new FileReader();
     reader.onload = () => {
-      const text = String(reader.result || '').replace(/^\uFEFF/, '');
+      const buffer = reader.result;
+      let text = new TextDecoder('utf-8').decode(buffer);
+      if (text.includes('\ufffd') || /Ã[©±³¡­\u009a\u00ba]/.test(text)) {
+        text = new TextDecoder('windows-1252').decode(buffer);
+      }
+      text = text.replace(/^\uFEFF/, '');
       const lines = text.split(/\r?\n/).filter(Boolean);
       if (lines.length < 2) {
         setImportErrors(['El archivo está vacío o no tiene filas de datos.']);
@@ -1316,7 +1321,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       setImportErrors([]);
       setImportSummary({ total: rows.length });
     };
-    reader.readAsText(file, 'utf-8');
+    reader.readAsArrayBuffer(file);
   };
 
   const handleImportCsv = async () => {
