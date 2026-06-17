@@ -2808,7 +2808,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
 
       {showImportModal && (
         <div className="lot-wizard-overlay" onClick={() => { resetImportState(); setShowImportModal(false); }}>
-          <div className="lot-wizard" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 680 }}>
+          <div className="lot-wizard" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 900, width: '95vw' }}>
 
             <div className="lot-wizard-header">
               <div>
@@ -2952,8 +2952,8 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                   <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     Vista previa — primeras filas
                   </div>
-                  <div style={{ border: '0.5px solid var(--color-border-tertiary)', borderRadius: 8, overflow: 'auto', maxHeight: 220 }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' }}>
+                  <div style={{ border: '0.5px solid var(--color-border-tertiary)', borderRadius: 8, overflowX: 'auto', overflowY: 'auto', maxHeight: 220 }}>
+                    <table style={{ width: '100%', minWidth: 700, borderCollapse: 'collapse', fontSize: 12 }}>
                       <thead>
                         <tr style={{ background: 'var(--color-background-secondary)' }}>
                           {['Documento', 'Nombre', 'Apellido', 'Teléfono', 'Plan', 'Precio', 'Motivo baja', 'Fecha baja'].map((h) => (
