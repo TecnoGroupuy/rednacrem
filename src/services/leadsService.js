@@ -361,6 +361,26 @@ export const registerCommercialManagement = async (contactId, payload, { sellerN
   return toUiLead(leadsStore[idx]);
 };
 
+export const registerRecuperoManagement = async (candidatoId, payload) => {
+  if (hasApiConfigured()) {
+    try {
+      const response = await api.post(`/api/recupero/candidatos/${candidatoId}/gestionar`, {
+        status: payload.status,
+        note: payload.note,
+        fecha_agenda: payload.fecha_agenda
+      });
+      const gestionId = response?.data?.data?.gestion_id
+        ?? response?.data?.gestion_id
+        ?? null;
+      return { gestion_id: gestionId };
+    } catch (err) {
+      throw err;
+    }
+  }
+  await delay(130);
+  return { gestion_id: null };
+};
+
 export const updateCommercialContactProfile = async (contactId, patch) => {
   if (hasApiConfigured()) {
     // PUT /leads reemplaza el registro completo: para no pisar con null los campos

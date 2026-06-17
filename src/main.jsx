@@ -29,6 +29,7 @@ import {
   isContactBlockedForNoCall,
   isLotFinalizableFromContacts,
   registerCommercialManagement,
+  registerRecuperoManagement,
   updateCommercialContactProfile,
   bulkAssignCommercialContacts,
   assignSellerByLot,
@@ -3837,16 +3838,16 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           { key: 'nuevo', label: 'Nuevos', dot: '#6ee7b7' },
           { key: 'no_contesta', label: 'No contesta', dot: '#f97316' }
         ];
-      const estadosFinalesGestion = isRecupero ? ['alta', 'rechazo', 'dato_erroneo'] : ESTADOS_FINALES_GESTION;
-      const estadosConAgenda = isRecupero ? ['interesado', 'volver_a_llamar'] : ['seguimiento', 'rellamar'];
+      const estadosFinalesGestion = isRecupero ? ['venta', 'rechazo', 'dato_erroneo'] : ESTADOS_FINALES_GESTION;
+      const estadosConAgenda = ['seguimiento', 'rellamar'];
       const opcionesGestion = isRecupero
         ? [
           { value: 'no_contesta', label: 'No contesta' },
-          { value: 'volver_a_llamar', label: 'Rellamar' },
-          { value: 'interesado', label: 'Seguimiento' },
+          { value: 'rellamar', label: 'Rellamar' },
+          { value: 'seguimiento', label: 'Seguimiento' },
           { value: 'rechazo', label: 'Rechazo' },
           { value: 'dato_erroneo', label: 'Dato erróneo' },
-          { value: 'alta', label: 'Venta' }
+          { value: 'venta', label: 'Venta' }
         ]
         : [
           { value: 'no_contesta', label: 'No contesta' },
@@ -4615,8 +4616,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           };
 
           const contactId = dc.id;
-          const isVentaFlow = (isRecupero && estadoGestion === 'alta') ||
-                              (!isRecupero && estadoGestion === 'venta');
+          const isVentaFlow = estadoGestion === 'venta';
 
           // En venta NO finalizamos la gestión todavía: marcar el lead como 'venta'
           // aquí lo dejaría inalcanzable antes de enviar los datos completos.
@@ -4639,7 +4639,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             return;
           }
 
-          const { gestion_id } = await registerCommercialManagement(dc.id, gestionPayload);
+          const { gestion_id } = isRecupero
+            ? await registerRecuperoManagement(dc.id, gestionPayload)
+            : await registerCommercialManagement(dc.id, gestionPayload);
 
           const ahora = new Date().toISOString();
           const applyUpdate = (c) => ({
@@ -4693,7 +4695,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const drawerEstado = dc ? (statusOverrides[dc.id] || dc.status || dc.estado_venta || 'nuevo') : 'nuevo';
       const headerTitle = isRecupero ? 'Recupero' : 'Contactos asignados';
       const headerSubtitle = isRecupero ? 'Gestiona tu cartera de clientes en baja' : 'Gestiona solo tu lote operativo';
-      const isVentaFlow = (isRecupero && estadoGestion === 'alta') || (!isRecupero && estadoGestion === 'venta');
+      const isVentaFlow = estadoGestion === 'venta';
 
       return (
         <div className="view sales-contacts-view">
