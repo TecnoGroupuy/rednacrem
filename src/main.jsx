@@ -3819,7 +3819,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const api = getApiClient();
       const origenDatoResolvedOptions = normalizeOrigenOptions(origenDatoOptions);
       const isRecupero = mode === 'recupero';
-      const contactsEndpoint = '/leads/assigned';
+      const contactsEndpoint = isRecupero ? '/api/recupero/mis-candidatos' : '/leads/assigned';
       const accentColor = isRecupero ? '#f97316' : '#1A5C4A';
       const accentSoft = isRecupero ? 'rgba(249,115,22,0.12)' : '#F0FAF6';
       const accentText = isRecupero ? '#9a3412' : '#1A5C4A';
@@ -3949,29 +3949,29 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           const hoy = getTodayYmdLocal();
           const params = new URLSearchParams({
             page: String(page),
-            limit: String(LIMIT),
-            tab: tabActivo
+            limit: String(LIMIT)
           });
-          if (isRecupero) params.set('tipo', 'recupero');
-          else params.set('tipo_excluir', 'recupero');
+          if (isRecupero) {
+            params.set('tab', tabActivo === 'nuevos' ? 'en_gestion' : tabActivo);
+          } else {
+            params.set('tab', tabActivo);
+            params.set('tipo_excluir', 'recupero');
+          }
           if (searchDebounced) params.set('search', searchDebounced);
           if (filtroOrigen) params.set('origen_dato', filtroOrigen);
           const contactosData = await api.get(`${contactsEndpoint}?${params}`);
-          if (contactosData?.success || contactosData?.ok) {
-            const items = contactosData?.data?.contactos
-              || contactosData?.data?.items
-              || contactosData?.items
-              || contactosData?.data
-              || [];
+          if (contactosData?.ok) {
+            const items = isRecupero
+              ? (contactosData?.items || [])
+              : (contactosData?.data?.contactos || contactosData?.data?.items || contactosData?.items || contactosData?.data || []);
             setLocalContacts(items.map(normalizeAssignedContact));
-            setTotalPages(contactosData?.data?.totalPages || 1);
-            setTotalContactos(contactosData?.data?.total || 0);
+            const total = isRecupero ? (contactosData?.total ?? 0) : (contactosData?.data?.total ?? 0);
+            setTotalPages(isRecupero ? 1 : (contactosData?.data?.totalPages || 1));
+            setTotalContactos(total);
             if (isRecupero) {
-              const total = contactosData?.data?.total ?? null;
               if (tabActivo === 'nuevos') setTotalRecuperoNuevos(total);
               if (tabActivo === 'no_contesta') setTotalRecuperoNoContesta(total);
             } else {
-              const total = contactosData?.data?.total ?? null;
               if (tabActivo === 'nuevo') setTotalNuevos(total);
               if (tabActivo === 'no_contesta') setTotalNoContesta(total);
             }
@@ -3990,30 +3990,30 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         try {
           const params = new URLSearchParams({
             page: String(page),
-            limit: String(LIMIT),
-            tab: tabActivo
+            limit: String(LIMIT)
           });
-          if (isRecupero) params.set('tipo', 'recupero');
-          else params.set('tipo_excluir', 'recupero');
+          if (isRecupero) {
+            params.set('tab', tabActivo === 'nuevos' ? 'en_gestion' : tabActivo);
+          } else {
+            params.set('tab', tabActivo);
+            params.set('tipo_excluir', 'recupero');
+          }
           if (searchDebounced) params.set('search', searchDebounced);
           if (filtroOrigen) params.set('origen_dato', filtroOrigen);
           const d = await api.get(`${contactsEndpoint}?${params}`);
           console.log('[assigned] params:', params.toString(), 'resp:', d);
-          if (d?.success || d?.ok) {
-            const items = d?.data?.contactos
-              || d?.data?.items
-              || d?.items
-              || d?.data
-              || [];
+          if (d?.ok) {
+            const items = isRecupero
+              ? (d?.items || [])
+              : (d?.data?.contactos || d?.data?.items || d?.items || d?.data || []);
             setLocalContacts(items.map(normalizeAssignedContact));
-            setTotalPages(d?.data?.totalPages || 1);
-            setTotalContactos(d?.data?.total || 0);
+            const total = isRecupero ? (d?.total ?? 0) : (d?.data?.total ?? 0);
+            setTotalPages(isRecupero ? 1 : (d?.data?.totalPages || 1));
+            setTotalContactos(total);
             if (isRecupero) {
-              const total = d?.data?.total ?? null;
               if (tabActivo === 'nuevos') setTotalRecuperoNuevos(total);
               if (tabActivo === 'no_contesta') setTotalRecuperoNoContesta(total);
             } else {
-              const total = d?.data?.total ?? null;
               if (tabActivo === 'nuevo') setTotalNuevos(total);
               if (tabActivo === 'no_contesta') setTotalNoContesta(total);
             }
