@@ -1337,12 +1337,15 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
             const status = await api.get(`/api/recupero/importaciones/${jobId}`);
             const s = status?.status || status?.data?.status;
             if (s === 'done' || s === 'failed') {
+              const errores = status?.errores || status?.data?.errores || [];
+              const activosExcluidos = errores.filter((e) => e.code === 'CLIENTE_ACTIVO');
               setImportStats({
-                total: status?.total_rows || status?.data?.total_rows || 0,
-                nuevos: status?.updated_rows || status?.data?.updated_rows || 0,
-                yaEnRecupero: status?.duplicate_rows || status?.data?.duplicate_rows || 0,
-                activos: status?.not_found_rows || status?.data?.not_found_rows || 0,
-                errores: status?.error_rows || status?.data?.error_rows || 0,
+                total: status?.summary?.total || status?.data?.summary?.total || 0,
+                nuevos: status?.summary?.actualizadas || status?.data?.summary?.actualizadas || 0,
+                yaEnRecupero: status?.summary?.duplicadas || status?.data?.summary?.duplicadas || 0,
+                activos: activosExcluidos.length,
+                errores: status?.summary?.invalidas || status?.data?.summary?.invalidas || 0,
+                activosDetalle: activosExcluidos,
               });
               setImportStep(3);
               loadRecupero({ force: true });
@@ -3028,18 +3031,64 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                   </div>
 
                   {importStats && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-                      {[
-                        { label: 'Importados', value: importStats.nuevos, color: '#0F6E56' },
-                        { label: 'Ya en recupero', value: importStats.yaEnRecupero, color: '#854F0B' },
-                        { label: 'Clientes activos', value: importStats.activos, color: '#185FA5' },
-                        { label: 'Errores de formato', value: importStats.errores, color: '#993C1D' },
-                      ].map(({ label, value, color }) => (
-                        <div key={label} style={{ background: 'var(--color-background-secondary)', borderRadius: 8, padding: '10px 12px', textAlign: 'center' }}>
-                          <div style={{ fontSize: 20, fontWeight: 500, color }}>{value ?? '—'}</div>
-                          <div style={{ fontSize: 10, color: 'var(--color-text-secondary)', marginTop: 2 }}>{label}</div>
+                    <div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                        {[
+                          { label: 'Importados', value: importStats.nuevos, color: '#0F6E56' },
+                          { label: 'Ya en recupero', value: importStats.yaEnRecupero, color: '#854F0B' },
+                          { label: 'Clientes activos', value: importStats.activos, color: '#185FA5' },
+                          { label: 'Errores de formato', value: importStats.errores, color: '#993C1D' },
+                        ].map(({ label, value, color }) => (
+                          <div key={label} style={{ background: 'var(--color-background-secondary)', borderRadius: 8, padding: '10px 12px', textAlign: 'center' }}>
+                            <div style={{ fontSize: 20, fontWeight: 500, color }}>{value ?? '—'}</div>
+                            <div style={{ fontSize: 10, color: 'var(--color-text-secondary)', marginTop: 2 }}>{label}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {importStats?.activosDetalle?.length > 0 && (
+                        <div style={{ marginTop: 4 }}>
+                          <div style={{
+                            padding: '10px 14px',
+                            borderRadius: 8,
+                            background: '#E6F1FB',
+                            border: '0.5px solid #B5D4F4',
+                            marginBottom: 8
+                          }}>
+                            <div style={{ fontSize: 13, fontWeight: 500, color: '#185FA5', marginBottom: 4 }}>
+                              {importStats.activosDetalle.length} contacto{importStats.activosDetalle.length > 1 ? 's' : ''} excluido{importStats.activosDetalle.length > 1 ? 's' : ''} por ser cliente activo
+                            </div>
+                            <div style={{ fontSize: 12, color: '#185FA5' }}>
+                              Estos contactos ya tienen un producto activo en el sistema y no fueron cargados como candidatos a recupero.
+                            </div>
+                          </div>
+                          <div style={{
+                            border: '0.5px solid var(--color-border-tertiary)',
+                            borderRadius: 8,
+                            overflow: 'auto',
+                            maxHeight: 200
+                          }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                              <thead>
+                                <tr style={{ background: 'var(--color-background-secondary)' }}>
+                                  <th style={{ textAlign: 'left', padding: '6px 10px', fontWeight: 500, color: 'var(--color-text-secondary)', borderBottom: '0.5px solid var(--color-border-tertiary)' }}>Fila</th>
+                                  <th style={{ textAlign: 'left', padding: '6px 10px', fontWeight: 500, color: 'var(--color-text-secondary)', borderBottom: '0.5px solid var(--color-border-tertiary)' }}>Documento</th>
+                                  <th style={{ textAlign: 'left', padding: '6px 10px', fontWeight: 500, color: 'var(--color-text-secondary)', borderBottom: '0.5px solid var(--color-border-tertiary)' }}>Motivo</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {importStats.activosDetalle.map((e, i) => (
+                                  <tr key={i} style={{ borderTop: '0.5px solid var(--color-border-tertiary)' }}>
+                                    <td style={{ padding: '6px 10px', color: 'var(--color-text-secondary)' }}>{e.row}</td>
+                                    <td style={{ padding: '6px 10px', fontWeight: 500 }}>{e.documento || '-'}</td>
+                                    <td style={{ padding: '6px 10px', color: '#185FA5' }}>Cliente activo</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
-                      ))}
+                      )}
                     </div>
                   )}
 
