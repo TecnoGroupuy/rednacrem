@@ -1999,6 +1999,49 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
             ))}
           </div>
 
+          <style>{`
+            @keyframes recuperoImportPulse {
+              0%, 100% {
+                box-shadow: 0 0 0 rgba(56, 189, 248, 0.0), 0 10px 24px rgba(14, 116, 144, 0.20);
+                transform: translateY(0);
+              }
+              50% {
+                box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.12), 0 16px 30px rgba(37, 99, 235, 0.30);
+                transform: translateY(-1px);
+              }
+            }
+            @keyframes recuperoImportSheen {
+              0% { transform: translateX(-140%) skewX(-18deg); opacity: 0; }
+              20% { opacity: 0.32; }
+              60% { opacity: 0.18; }
+              100% { transform: translateX(220%) skewX(-18deg); opacity: 0; }
+            }
+            .button.recupero-import-btn {
+              position: relative;
+              overflow: hidden;
+              border: 1px solid rgba(125, 211, 252, 0.55) !important;
+              background: linear-gradient(135deg, #0f4c81 0%, #2563eb 45%, #38bdf8 100%) !important;
+              color: #f8fbff !important;
+              box-shadow: 0 10px 24px rgba(14, 116, 144, 0.20);
+              animation: recuperoImportPulse 2.8s ease-in-out infinite;
+            }
+            .button.recupero-import-btn svg {
+              color: #dbeafe !important;
+            }
+            .button.recupero-import-btn::before {
+              content: '';
+              position: absolute;
+              inset: 0;
+              background: linear-gradient(100deg, transparent 20%, rgba(255,255,255,0.42) 50%, transparent 80%);
+              animation: recuperoImportSheen 2.6s linear infinite;
+              pointer-events: none;
+            }
+            .button.recupero-import-btn:hover {
+              filter: brightness(1.05);
+              transform: translateY(-1px);
+            }
+          `}</style>
+
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: 12, flexWrap: 'wrap' }}>
             <div className="toolbar" style={{ gap: 10, marginBottom: 0, alignItems: 'center', flexWrap: 'wrap' }}>
               {activeFilterCount > 0 && (
@@ -2010,7 +2053,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                 Columnas
               </Button>
               <Button variant="ghost" icon={<RefreshCw size={16} />} onClick={() => loadRecupero({ force: true })}>Actualizar</Button>
-              <Button variant="secondary" icon={<Upload size={16} />} onClick={() => { resetImportState(); setShowImportModal(true); }}>
+              <Button className="recupero-import-btn" variant="secondary" icon={<Upload size={16} />} onClick={() => { resetImportState(); setShowImportModal(true); }}>
                 Importar CSV
               </Button>
             </div>
