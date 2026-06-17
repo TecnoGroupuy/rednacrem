@@ -96,6 +96,8 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const [importSummary, setImportSummary] = React.useState(null);
   const [importLoading, setImportLoading] = React.useState(false);
   const [importResult, setImportResult] = React.useState(null);
+  const [importStep, setImportStep] = React.useState(1);
+  const [importStats, setImportStats] = React.useState(null);
   const lastPayloadRef = React.useRef('');
   const requestIdRef = React.useRef('');
   const lastInputAtRef = React.useRef(0);
@@ -757,6 +759,8 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     setImportSummary(null);
     setImportLoading(false);
     setImportResult(null);
+    setImportStep(1);
+    setImportStats(null);
   };
 
   const applyColumnFilters = () => {
@@ -1253,13 +1257,12 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     };
   };
 
-  const handleFileChange = (event) => {
-    const file = event.target.files?.[0];
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
     setImportResult(null);
-    if (!file) {
-      resetImportState();
-      return;
-    }
+    setImportStats(null);
+    setImportStep(1);
+    if (!file) { resetImportState(); return; }
     if (!file.name.toLowerCase().endsWith('.csv')) {
       setImportErrors(['El archivo debe ser .csv']);
       setImportFile(null);
@@ -1273,12 +1276,53 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     setImportFile(file);
     const reader = new FileReader();
     reader.onload = () => {
-      const result = parseCsvPreview(String(reader.result || ''));
-      setImportRows(result.rows || []);
-      setImportErrors(result.errors || []);
-      setImportSummary(result.summary || null);
+      const text = String(reader.result || '').replace(/^\uFEFF/, '');
+      const lines = text.split(/\r?\n/).filter(Boolean);
+      if (lines.length < 2) {
+        setImportErrors(['El archivo está vacío o no tiene filas de datos.']);
+        setImportRows([]);
+        setImportSummary(null);
+        return;
+      }
+      const delimiter = text.includes(';') ? ';' : ',';
+      const headers = lines[0].split(delimiter).map((h) => h.trim().toLowerCase());
+      const idxNombre = headers.findIndex((h) => h === 'nombres' || h === 'nombre');
+      const idxApellido = headers.findIndex((h) => h === 'apellidos' || h === 'apellido');
+      const idxDoc = headers.findIndex((h) => h === 'documento');
+      const idxTel = headers.findIndex((h) => h === 'telefono' || h === 'teléfono');
+      const idxEstado = headers.findIndex((h) => h === 'estado' || h === 'ultimo estado' || h === 'último estado');
+      const idxFechaBaja = headers.findIndex((h) => h === 'fecha de baja');
+      const idxPlan = headers.findIndex((h) => h === 'plan contratado' || h === 'plan');
+      const idxPrecio = headers.findIndex((h) => h === 'precio');
+      if (idxNombre === -1 || idxApellido === -1 || (idxDoc === -1 && idxTel === -1)) {
+        setImportErrors(['El CSV debe tener columnas: Nombres, Apellidos y al menos Documento o Teléfono.']);
+        setImportRows([]);
+        setImportSummary(null);
+        return;
+      }
+      const get = (cells, idx) => idx >= 0 ? (cells[idx] || '').trim() : '';
+      const rows = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cells = lines[i].split(delimiter);
+        const nombre = get(cells, idxNombre);
+        const apellido = get(cells, idxApellido);
+        if (!nombre && !apellido) continue;
+        rows.push({
+          nombre,
+          apellido,
+          documento: get(cells, idxDoc),
+          telefono: get(cells, idxTel),
+          estado: get(cells, idxEstado),
+          fecha_baja: get(cells, idxFechaBaja),
+          plan: get(cells, idxPlan),
+          precio: get(cells, idxPrecio),
+        });
+      }
+      setImportRows(rows);
+      setImportErrors([]);
+      setImportSummary({ total: rows.length });
     };
-    reader.readAsText(file);
+    reader.readAsText(file, 'utf-8');
   };
 
   const handleImportCsv = async () => {
@@ -1288,12 +1332,36 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     try {
       const formData = new FormData();
       formData.append('file', importFile);
-      for (const [k, v] of formData.entries()) {
-        console.log(k, v);
-      }
       const response = await api.post('/api/recupero/importaciones', formData);
       setImportResult(response);
-      loadRecupero({ force: true });
+      const jobId = response?.job_id;
+      if (jobId) {
+        let attempts = 0;
+        const poll = async () => {
+          attempts += 1;
+          try {
+            const status = await api.get(`/api/recupero/importaciones/${jobId}`);
+            const s = status?.status || status?.data?.status;
+            if (s === 'done' || s === 'failed') {
+              setImportStats({
+                total: status?.total_rows || status?.data?.total_rows || 0,
+                nuevos: status?.updated_rows || status?.data?.updated_rows || 0,
+                yaEnRecupero: status?.duplicate_rows || status?.data?.duplicate_rows || 0,
+                activos: status?.not_found_rows || status?.data?.not_found_rows || 0,
+                errores: status?.error_rows || status?.data?.error_rows || 0,
+              });
+              setImportStep(3);
+              loadRecupero({ force: true });
+            } else if (attempts < 30) {
+              setTimeout(poll, 2000);
+            }
+          } catch {}
+        };
+        setTimeout(poll, 1500);
+      } else {
+        setImportStep(3);
+        loadRecupero({ force: true });
+      }
     } catch (err) {
       setImportResult({ ok: false, message: err?.message || 'No se pudo importar el archivo.' });
     } finally {
@@ -2726,65 +2794,209 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       )}
 
       {showImportModal && (
-        <div className="lot-wizard-overlay" onClick={() => setShowImportModal(false)}>
-          <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 640 }}>
+        <div className="lot-wizard-overlay" onClick={() => { resetImportState(); setShowImportModal(false); }}>
+          <div className="lot-wizard" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 680 }}>
+
             <div className="lot-wizard-header">
-              <div style={{ fontWeight: 700 }}>Importar CSV</div>
-              <button className="close-btn" onClick={() => setShowImportModal(false)}><X size={16} /></button>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>Importar candidatos a recupero</div>
+                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 2 }}>
+                  {importStep === 1 && 'Paso 1 de 3 — Cargar archivo'}
+                  {importStep === 2 && 'Paso 2 de 3 — Validación y vista previa'}
+                  {importStep === 3 && 'Paso 3 de 3 — Resultado'}
+                </div>
+              </div>
+              <button className="close-btn" onClick={() => { resetImportState(); setShowImportModal(false); }}><X size={16} /></button>
             </div>
+
+            <div style={{ display: 'flex', gap: 4, padding: '0 24px', marginBottom: 20 }}>
+              {[1, 2, 3].map((s) => (
+                <div key={s} style={{
+                  flex: 1, height: 4, borderRadius: 2,
+                  background: s < importStep ? '#9FE1CB' : s === importStep ? '#0F766E' : 'var(--color-border-tertiary)'
+                }} />
+              ))}
+            </div>
+
             <div className="lot-wizard-content">
-              <p style={{ marginTop: 0, color: 'var(--color-text-secondary)', fontSize: 13 }}>
-                Subí un CSV con las columnas: Documento, Motivo de la baja, Último estado.
-              </p>
-              <input type="file" accept=".csv" onChange={handleFileChange} />
-              {importErrors.length ? (
-                <div style={{ marginTop: 10, color: '#b91c1c', fontSize: 13 }}>
-                  {importErrors.map((err) => <div key={err}>{err}</div>)}
-                </div>
-              ) : null}
-              {importSummary?.duplicates ? (
-                <div style={{ marginTop: 8, color: '#b45309', fontSize: 12 }}>
-                  Duplicados: se usa la última fila del CSV (last_wins).
-                </div>
-              ) : null}
-              {importSummary ? (
-                <div style={{ marginTop: 12, fontSize: 12, color: '#555' }}>
-                  Total filas: {importSummary.total} · Duplicados: {importSummary.duplicates}
-                </div>
-              ) : null}
-              {importRows.length ? (
-                <div style={{ marginTop: 12, maxHeight: 180, overflow: 'auto', border: '1px solid #eee', borderRadius: 8 }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr>
-                        <th style={{ textAlign: 'left', padding: '6px 8px', fontSize: 12 }}>Documento</th>
-                        <th style={{ textAlign: 'left', padding: '6px 8px', fontSize: 12 }}>Motivo de baja</th>
-                        <th style={{ textAlign: 'left', padding: '6px 8px', fontSize: 12 }}>Último estado</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {importRows.slice(0, 10).map((row, idx) => (
-                        <tr key={`${row.documento}-${idx}`}>
-                          <td style={{ padding: '6px 8px', fontSize: 12 }}>{row.documento || '—'}</td>
-                          <td style={{ padding: '6px 8px', fontSize: 12 }}>{row.motivo_baja || '—'}</td>
-                          <td style={{ padding: '6px 8px', fontSize: 12 }}>{row.ultimo_estado || '—'}</td>
-                        </tr>
+
+              {importStep === 1 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <label
+                    htmlFor="import-file-input"
+                    style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                      gap: 10, padding: '2rem 1rem', borderRadius: 10,
+                      border: importFile ? '1.5px solid #0F766E' : '1.5px dashed var(--color-border-secondary)',
+                      background: importFile ? '#E1F5EE' : 'var(--color-background-secondary)',
+                      cursor: 'pointer', textAlign: 'center'
+                    }}
+                  >
+                    <Upload size={28} color={importFile ? '#0F766E' : 'var(--color-text-secondary)'} />
+                    {importFile ? (
+                      <>
+                        <div style={{ fontSize: 14, fontWeight: 500, color: '#0F6E56' }}>{importFile.name}</div>
+                        <div style={{ fontSize: 12, color: '#0F6E56' }}>
+                          {importRows.length} filas detectadas · {(importFile.size / 1024).toFixed(0)} KB
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: 14, fontWeight: 500 }}>Arrastrá tu archivo CSV aquí</div>
+                        <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>o hacé clic para seleccionar desde tu carpeta</div>
+                        <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 4 }}>
+                          Formato CSV con separador ; o , · Máx. 5 MB
+                        </div>
+                      </>
+                    )}
+                    <input id="import-file-input" type="file" accept=".csv" onChange={handleFileChange} style={{ display: 'none' }} />
+                  </label>
+
+                  {importErrors.length > 0 && (
+                    <div style={{ padding: '10px 12px', borderRadius: 8, background: '#FEF2F2', color: '#B91C1C', fontSize: 13 }}>
+                      {importErrors.map((err, i) => <div key={i}>{err}</div>)}
+                    </div>
+                  )}
+
+                  <div style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--color-background-secondary)', fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                    <div style={{ fontWeight: 500, marginBottom: 6, color: 'var(--color-text-primary)' }}>Columnas requeridas</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {['Nombres', 'Apellidos', 'Documento', 'Teléfono', 'ESTADO', 'FECHA DE BAJA', 'Plan contratado', 'Precio'].map((c) => (
+                        <span key={c} style={{ padding: '2px 8px', borderRadius: 999, background: '#E6F1FB', color: '#185FA5', fontSize: 11, fontWeight: 500 }}>{c}</span>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : null}
-              {importResult && (
-                <div style={{ marginTop: 12, fontSize: 13, color: isImportSuccess(importResult) ? '#166534' : '#b91c1c' }}>
-                  {getImportMessage(importResult)}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                    <Button variant="ghost" onClick={() => { resetImportState(); setShowImportModal(false); }}>Cancelar</Button>
+                    <Button disabled={!importFile || importErrors.length > 0} onClick={() => setImportStep(2)}>
+                      Continuar →
+                    </Button>
+                  </div>
                 </div>
               )}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-                <Button variant="ghost" onClick={() => setShowImportModal(false)}>Cancelar</Button>
-                <Button disabled={!importFile || importLoading || isImportSuccess(importResult)} onClick={handleImportCsv}>
-                  {importLoading ? 'Procesando…' : 'Importar'}
-                </Button>
-              </div>
+
+              {importStep === 2 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>{importFile?.name}</div>
+                    <span style={{ padding: '2px 8px', borderRadius: 999, background: '#E1F5EE', color: '#0F6E56', fontSize: 11, fontWeight: 500 }}>
+                      {importRows.length} filas leídas
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+                    {[
+                      { label: 'Total filas', value: importRows.length, color: 'var(--color-text-primary)' },
+                      { label: 'Listos para importar', value: importRows.length, color: '#0F6E56' },
+                    ].map(({ label, value, color }) => (
+                      <div key={label} style={{ background: 'var(--color-background-secondary)', borderRadius: 8, padding: '10px 14px' }}>
+                        <div style={{ fontSize: 20, fontWeight: 500, color }}>{value}</div>
+                        <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 2 }}>{label}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Vista previa — primeras filas
+                  </div>
+                  <div style={{ border: '0.5px solid var(--color-border-tertiary)', borderRadius: 8, overflow: 'auto', maxHeight: 220 }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' }}>
+                      <thead>
+                        <tr style={{ background: 'var(--color-background-secondary)' }}>
+                          {['Documento', 'Nombre', 'Apellido', 'Teléfono', 'Plan', 'Precio', 'Motivo baja', 'Fecha baja'].map((h) => (
+                            <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: 11, fontWeight: 500, color: 'var(--color-text-secondary)', borderBottom: '0.5px solid var(--color-border-tertiary)' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {importRows.slice(0, 8).map((row, idx) => (
+                          <tr key={idx} style={{ borderTop: '0.5px solid var(--color-border-tertiary)' }}>
+                            <td style={{ padding: '6px 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.documento || '—'}</td>
+                            <td style={{ padding: '6px 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.nombre || '—'}</td>
+                            <td style={{ padding: '6px 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.apellido || '—'}</td>
+                            <td style={{ padding: '6px 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.telefono || '—'}</td>
+                            <td style={{ padding: '6px 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.plan || '—'}</td>
+                            <td style={{ padding: '6px 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.precio ? `$${row.precio}` : '—'}</td>
+                            <td style={{ padding: '6px 8px' }}>
+                              <span style={{ padding: '2px 6px', borderRadius: 999, background: '#FAEEDA', color: '#854F0B', fontSize: 10, fontWeight: 500 }}>
+                                {row.estado || '—'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '6px 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.fecha_baja || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div style={{ padding: '10px 12px', borderRadius: 8, background: '#FAEEDA44', border: '0.5px solid #FAC77566', fontSize: 12, color: '#854F0B' }}>
+                    Los duplicados y clientes activos serán excluidos automáticamente durante la importación.
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                    <Button variant="ghost" onClick={() => setImportStep(1)}>← Volver</Button>
+                    <Button disabled={importLoading} onClick={handleImportCsv}>
+                      {importLoading ? 'Importando…' : 'Confirmar e importar →'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {importStep === 3 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div style={{ textAlign: 'center', padding: '1.5rem 0' }}>
+                    <div style={{
+                      width: 52, height: 52, borderRadius: '50%',
+                      background: isImportSuccess(importResult) ? '#E1F5EE' : '#FEF2F2',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px'
+                    }}>
+                      {isImportSuccess(importResult)
+                        ? <span style={{ fontSize: 24, color: '#0F6E56' }}>✓</span>
+                        : <span style={{ fontSize: 24, color: '#B91C1C' }}>✕</span>}
+                    </div>
+                    <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 6 }}>
+                      {isImportSuccess(importResult) ? 'Importación completada' : 'Error en la importación'}
+                    </div>
+                    <div style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                      {getImportMessage(importResult)}
+                    </div>
+                  </div>
+
+                  {importStats && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                      {[
+                        { label: 'Importados', value: importStats.nuevos, color: '#0F6E56' },
+                        { label: 'Ya en recupero', value: importStats.yaEnRecupero, color: '#854F0B' },
+                        { label: 'Clientes activos', value: importStats.activos, color: '#185FA5' },
+                        { label: 'Errores de formato', value: importStats.errores, color: '#993C1D' },
+                      ].map(({ label, value, color }) => (
+                        <div key={label} style={{ background: 'var(--color-background-secondary)', borderRadius: 8, padding: '10px 12px', textAlign: 'center' }}>
+                          <div style={{ fontSize: 20, fontWeight: 500, color }}>{value ?? '—'}</div>
+                          <div style={{ fontSize: 10, color: 'var(--color-text-secondary)', marginTop: 2 }}>{label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {importLoading && (
+                    <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--color-text-secondary)', padding: '8px 0' }}>
+                      Procesando archivo en segundo plano…
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                    <Button variant="ghost" onClick={() => { resetImportState(); }}>
+                      Importar otro archivo
+                    </Button>
+                    <Button onClick={() => { resetImportState(); setShowImportModal(false); }}>
+                      Cerrar
+                    </Button>
+                  </div>
+                </div>
+              )}
+
             </div>
           </div>
         </div>
