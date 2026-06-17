@@ -1282,7 +1282,8 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       const idxNombre = headers.findIndex((h) => h === 'nombres' || h === 'nombre');
       const idxApellido = headers.findIndex((h) => h === 'apellidos' || h === 'apellido');
       const idxDoc = headers.findIndex((h) => h === 'documento');
-      const idxTel = headers.findIndex((h) => h === 'telefono' || h === 'teléfono');
+      const idxTel = headers.findIndex((h) => h === 'telefono' || h === 'teléfono' || h === 'tel\u00e9fono' || h.includes('tel'));
+      const idxCelular = headers.findIndex((h) => h === 'celular' || h.includes('celular'));
       const idxEstado = headers.findIndex((h) => h === 'estado' || h === 'ultimo estado' || h === 'último estado');
       const idxFechaBaja = headers.findIndex((h) => h === 'fecha de baja');
       const idxPlan = headers.findIndex((h) => h === 'plan contratado' || h === 'plan');
@@ -1304,7 +1305,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
           nombre,
           apellido,
           documento: get(cells, idxDoc),
-          telefono: get(cells, idxTel),
+          telefono: get(cells, idxTel) || get(cells, idxCelular),
           estado: get(cells, idxEstado),
           fecha_baja: get(cells, idxFechaBaja),
           plan: get(cells, idxPlan),
@@ -2808,7 +2809,13 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
 
       {showImportModal && (
         <div className="lot-wizard-overlay" onClick={() => { resetImportState(); setShowImportModal(false); }}>
-          <div className="lot-wizard" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 900, width: '95vw' }}>
+          <div className="lot-wizard" onClick={(e) => e.stopPropagation()} style={{
+            maxWidth: 960,
+            width: '95vw',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
 
             <div className="lot-wizard-header">
               <div>
@@ -2832,7 +2839,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
               ))}
             </div>
 
-            <div className="lot-wizard-content">
+            <div className="lot-wizard-content" style={{ overflowY: 'auto', flex: 1 }}>
 
               {importStep === 1 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
