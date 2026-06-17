@@ -2924,12 +2924,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
-                    <Button variant="ghost" onClick={() => { resetImportState(); setShowImportModal(false); }}>Cancelar</Button>
-                    <Button disabled={!importFile || importErrors.length > 0} onClick={() => setImportStep(2)}>
-                      Continuar →
-                    </Button>
-                  </div>
                 </div>
               )}
 
@@ -2997,12 +2991,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                     Los duplicados y clientes activos serán excluidos automáticamente durante la importación.
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                    <Button variant="ghost" onClick={() => setImportStep(1)}>← Volver</Button>
-                    <Button disabled={importLoading} onClick={handleImportCsv}>
-                      {importLoading ? 'Importando…' : 'Confirmar e importar →'}
-                    </Button>
-                  </div>
                 </div>
               )}
 
@@ -3094,17 +3082,48 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                     </div>
                   )}
 
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                    <Button variant="ghost" onClick={() => { resetImportState(); }}>
-                      Importar otro archivo
-                    </Button>
-                    <Button onClick={() => { resetImportState(); setShowImportModal(false); }}>
-                      Cerrar
-                    </Button>
-                  </div>
                 </div>
               )}
 
+            </div>
+
+            <div style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: 8,
+              padding: '16px 24px 24px',
+              borderTop: '0.5px solid var(--color-border-tertiary)',
+              background: 'var(--color-background-primary)',
+              flexShrink: 0
+            }}>
+              {importStep === 1 && (
+                <>
+                  <Button variant="ghost" onClick={() => { resetImportState(); setShowImportModal(false); }}>Cancelar</Button>
+                  <Button disabled={!importFile || importErrors.length > 0} onClick={() => setImportStep(2)}>
+                    Continuar →
+                  </Button>
+                </>
+              )}
+
+              {importStep === 2 && (
+                <>
+                  <Button variant="ghost" onClick={() => setImportStep(1)}>← Volver</Button>
+                  <Button disabled={importLoading} onClick={handleImportCsv}>
+                    {importLoading ? 'Importando…' : 'Confirmar e importar →'}
+                  </Button>
+                </>
+              )}
+
+              {importStep === 3 && (
+                <>
+                  <Button variant="ghost" onClick={() => { resetImportState(); }}>
+                    Importar otro archivo
+                  </Button>
+                  <Button onClick={() => { resetImportState(); setShowImportModal(false); }}>
+                    Cerrar
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>
