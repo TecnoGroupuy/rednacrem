@@ -841,15 +841,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
 
   // Saved views removed for simplified filtering UX
 
-  React.useEffect(() => {
-    if (!showImportModal) return;
-    if (!isImportSuccess(importResult)) return;
-    setShowImportModal(false);
-    resetImportState();
-  }, [importResult, showImportModal]);
-
-  
-
   const getOptionLabel = (options, value) => {
     if (!options || value === undefined || value === null || value === '') return '';
     if (Array.isArray(options)) {
