@@ -2852,11 +2852,12 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
               <button className="close-btn" onClick={() => { resetImportState(); setShowImportModal(false); }}><X size={16} /></button>
             </div>
 
-            <div style={{ display: 'flex', gap: 4, padding: '0 24px', marginBottom: 20 }}>
+            <div style={{ display: 'flex', gap: 6, padding: '0 24px', marginBottom: 24 }}>
               {[1, 2, 3].map((s) => (
                 <div key={s} style={{
-                  flex: 1, height: 4, borderRadius: 2,
-                  background: s < importStep ? '#9FE1CB' : s === importStep ? '#0F766E' : 'var(--color-border-tertiary)'
+                  flex: 1, height: 5, borderRadius: 3,
+                  background: s < importStep ? '#5DCAA5' : s === importStep ? '#0F766E' : 'var(--color-border-tertiary)',
+                  transition: 'background 0.2s'
                 }} />
               ))}
             </div>
@@ -2868,49 +2869,86 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                   <label
                     htmlFor="import-file-input"
                     style={{
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                      gap: 10, padding: '2rem 1rem', borderRadius: 10,
-                      border: importFile ? '1.5px solid #0F766E' : '1.5px dashed var(--color-border-secondary)',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center',
+                      justifyContent: 'center', gap: 12, padding: '2.5rem 1.5rem',
+                      borderRadius: 12,
+                      border: importFile
+                        ? '2px solid #0F766E'
+                        : '2px dashed rgba(148,163,184,0.5)',
                       background: importFile ? '#E1F5EE' : 'var(--color-background-secondary)',
-                      cursor: 'pointer', textAlign: 'center'
+                      cursor: 'pointer', textAlign: 'center', transition: 'all 0.15s'
                     }}
                   >
-                    <Upload size={28} color={importFile ? '#0F766E' : 'var(--color-text-secondary)'} />
+                    <div style={{
+                      width: 56, height: 56, borderRadius: '50%',
+                      background: importFile ? '#9FE1CB' : 'var(--color-background-primary)',
+                      border: '0.5px solid var(--color-border-secondary)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                      <Upload size={24} color={importFile ? '#0F6E56' : '#0F766E'} />
+                    </div>
                     {importFile ? (
                       <>
-                        <div style={{ fontSize: 14, fontWeight: 500, color: '#0F6E56' }}>{importFile.name}</div>
+                        <div style={{ fontSize: 14, fontWeight: 500, color: '#0F6E56' }}>
+                          {importFile.name}
+                        </div>
                         <div style={{ fontSize: 12, color: '#0F6E56' }}>
                           {importRows.length} filas detectadas · {(importFile.size / 1024).toFixed(0)} KB
                         </div>
                       </>
                     ) : (
                       <>
-                        <div style={{ fontSize: 14, fontWeight: 500 }}>Arrastrá tu archivo CSV aquí</div>
-                        <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>o hacé clic para seleccionar desde tu carpeta</div>
-                        <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 4 }}>
+                        <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-text-primary)' }}>
+                          Arrastrá tu archivo CSV aquí
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                          o hacé clic para seleccionar desde tu carpeta
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 2 }}>
                           Formato CSV con separador ; o , · Máx. 5 MB
                         </div>
                       </>
                     )}
-                    <input id="import-file-input" type="file" accept=".csv" onChange={handleFileChange} style={{ display: 'none' }} />
+                    <input
+                      id="import-file-input"
+                      type="file"
+                      accept=".csv"
+                      onChange={handleFileChange}
+                      style={{ display: 'none' }}
+                    />
                   </label>
 
                   {importErrors.length > 0 && (
-                    <div style={{ padding: '10px 12px', borderRadius: 8, background: '#FEF2F2', color: '#B91C1C', fontSize: 13 }}>
+                    <div style={{
+                      padding: '10px 12px', borderRadius: 8,
+                      background: '#FEF2F2', color: '#B91C1C', fontSize: 13
+                    }}>
                       {importErrors.map((err, i) => <div key={i}>{err}</div>)}
                     </div>
                   )}
 
-                  <div style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--color-background-secondary)', fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                    <div style={{ fontWeight: 500, marginBottom: 6, color: 'var(--color-text-primary)' }}>Columnas requeridas</div>
+                  <div style={{
+                    padding: '12px 14px', borderRadius: 10,
+                    background: 'var(--color-background-secondary)',
+                    border: '0.5px solid var(--color-border-tertiary)'
+                  }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                      Columnas requeridas
+                    </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                       {['Nombres', 'Apellidos', 'Documento', 'Teléfono', 'ESTADO', 'FECHA DE BAJA', 'Plan contratado', 'Precio'].map((c) => (
-                        <span key={c} style={{ padding: '2px 8px', borderRadius: 999, background: '#E6F1FB', color: '#185FA5', fontSize: 11, fontWeight: 500 }}>{c}</span>
+                        <span key={c} style={{
+                          padding: '3px 10px', borderRadius: 999,
+                          background: '#E6F1FB', color: '#185FA5',
+                          fontSize: 11, fontWeight: 600
+                        }}>
+                          {c}
+                        </span>
                       ))}
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
                     <Button variant="ghost" onClick={() => { resetImportState(); setShowImportModal(false); }}>Cancelar</Button>
                     <Button disabled={!importFile || importErrors.length > 0} onClick={() => setImportStep(2)}>
                       Continuar →
