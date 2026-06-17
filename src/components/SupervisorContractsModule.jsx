@@ -481,19 +481,12 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   ), []);
 
   const getEstadoBadge = React.useCallback((row) => {
-    const vendedorAsignado = getVendedorAsignado(row);
-    const ultimoEstadoGestion = getUltimoEstado(row);
-    const estadoNorm = String(ultimoEstadoGestion || '').trim().toLowerCase();
-    if (estadoNorm === 'rechazo' || estadoNorm === 'rechazado') {
-      return { label: 'Rechazado', bg: '#FAECE7', color: '#993C1D' };
-    }
-    if (estadoNorm === 'recuperado' || estadoNorm === 'alta' || estadoNorm === 'venta') {
-      return { label: 'Recuperado', bg: '#BBF7D0', color: '#166534' };
-    }
-    if (vendedorAsignado) {
-      return { label: 'En gestión', bg: '#E1F5EE', color: '#0F6E56' };
-    }
-    return { label: 'Sin asignar', bg: '#FFF8E1', color: '#BA7517' };
+    const estado = String(row.estado || '').trim().toLowerCase();
+    if (estado === 'recuperado') return { label: 'Recuperado', bg: '#BBF7D0', color: '#166534' };
+    if (estado === 'rechazado') return { label: 'Rechazado', bg: '#FAECE7', color: '#993C1D' };
+    if (estado === 'en_gestion') return { label: 'En gestión', bg: '#E1F5EE', color: '#0F6E56' };
+    if (estado === 'fallecido') return { label: 'Fallecido', bg: '#F1EFE8', color: '#5F5E5A' };
+    return { label: 'Disponible', bg: '#FFF8E1', color: '#BA7517' };
   }, []);
 
   const detectActiveProduct = (row) => Boolean(
@@ -2447,9 +2440,10 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                     />
                   </th>
                   <th style={{ textAlign: 'left' }}>Contacto</th>
+                  <th style={{ textAlign: 'left' }}>Producto anterior</th>
                   <th style={{ textAlign: 'left' }}>Motivo de baja</th>
-                  <th style={{ textAlign: 'left' }}>Producto</th>
-                  <th style={{ textAlign: 'left' }}>Antigüedad</th>
+                  <th style={{ textAlign: 'left' }}>Fecha de baja</th>
+                  <th style={{ textAlign: 'left' }}>Vendedor origen</th>
                   <th style={{ textAlign: 'left' }}>Estado</th>
                   <th style={{ textAlign: 'left' }}>Acciones</th>
                 </tr>
@@ -2460,18 +2454,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                   const initials = nombre.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
                   const motivoInfo = getMotivoInfo(row);
                   const estadoBadge = getEstadoBadge(row);
-                  const producto = row.producto || row.producto_anterior || row.nombre_producto || '—';
                   const fechaBaja = row.fecha_baja || row.fechaBaja || null;
-                  const fechaBajaDate = fechaBaja ? new Date(fechaBaja) : null;
-                  const hoy = new Date();
-                  const dias = (fechaBajaDate && Number.isFinite(fechaBajaDate.getTime()))
-                    ? Math.max(0, Math.floor((hoy - fechaBajaDate) / 86400000))
-                    : null;
-                  const diasColor = dias === null
-                    ? 'var(--color-text-secondary)'
-                    : (dias > 180 ? '#DC2626' : (dias >= 90 ? '#92400E' : '#15803D'));
-                  const subContacto = [row.edad ? `${row.edad} años` : null, row.departamento || row.depto || null].filter(Boolean).join(' · ') || '—';
-                  const hasActiveProduct = detectActiveProduct(row);
                   const isExpanded = String(expandedRowId) === String(row.id);
                   const toggleExpand = () => setExpandedRowId((prev) => (String(prev) === String(row.id) ? null : row.id));
                   return (
@@ -2507,49 +2490,36 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                               <button
                                 type="button"
                                 onClick={toggleExpand}
-                                style={{ border: 'none', background: 'transparent', padding: 0, margin: 0, cursor: 'pointer', textAlign: 'left' }}
+                                style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', textAlign: 'left' }}
                               >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                  <span style={{ fontWeight: 700, color: 'var(--color-text-primary)' }}>{nombre}</span>
-                                  {hasActiveProduct && (
-                                    <span style={{
-                                      fontSize: 11,
-                                      fontWeight: 700,
-                                      background: 'rgba(249,115,22,0.14)',
-                                      color: '#9a3412',
-                                      padding: '2px 8px',
-                                      borderRadius: 999,
-                                      border: '1px solid rgba(249,115,22,0.25)'
-                                    }}>
-                                      Producto activo
-                                    </span>
-                                  )}
-                                </div>
-                                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  {subContacto}
+                                <div style={{ fontWeight: 700, color: 'var(--color-text-primary)' }}>{nombre}</div>
+                                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                                  {[row.telefono, row.celular].filter(Boolean).join(' · ') || '—'}
                                 </div>
                               </button>
                             </div>
                           </div>
                         </td>
                         <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <i className="ti ti-clipboard-text" style={{ fontSize: 14, color: 'var(--color-text-secondary)' }} />
-                            <span style={{ color: motivoInfo.color, fontSize: 12, fontWeight: 500 }}>
-                              {motivoInfo.label}
-                            </span>
+                          <div style={{ fontWeight: 600, color: 'var(--color-text-primary)', fontSize: 13 }}>
+                            {row.nombre_producto || row.producto_anterior || '—'}
                           </div>
-                        </td>
-                        <td style={{ fontWeight: 600, color: 'var(--color-text-primary)', maxWidth: 280, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {producto}
+                          {row.precio && (
+                            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                              ${Number(row.precio).toLocaleString('es-UY')}
+                            </div>
+                          )}
                         </td>
                         <td>
-                          <div style={{ fontSize: 18, fontWeight: 800, color: diasColor, lineHeight: 1 }}>
-                            {dias === null ? '—' : `${dias}d`}
-                          </div>
-                          <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 2 }}>
-                            {fechaBaja ? formatDate(fechaBaja) : '—'}
-                          </div>
+                          <span style={{ color: motivoInfo.color, fontSize: 12, fontWeight: 500 }}>
+                            {motivoInfo.label}
+                          </span>
+                        </td>
+                        <td style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                          {row.fecha_baja ? formatDate(row.fecha_baja) : '—'}
+                        </td>
+                        <td style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                          {row.vendedor_origen || '—'}
                         </td>
                         <td>
                           <span style={{
