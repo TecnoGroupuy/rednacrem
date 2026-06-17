@@ -2956,8 +2956,13 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                     ))}
                   </div>
 
-                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Vista previa — primeras filas
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 8 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Vista previa — primeras filas
+                    </span>
+                    <span style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>
+                      Se muestran los datos más relevantes, pero se cargarán todas las columnas del CSV.
+                    </span>
                   </div>
                   <div style={{ border: '0.5px solid var(--color-border-tertiary)', borderRadius: 8, overflowX: 'auto', overflowY: 'auto', maxHeight: 220 }}>
                     <table style={{ width: '100%', minWidth: 700, borderCollapse: 'collapse', fontSize: 12 }}>
