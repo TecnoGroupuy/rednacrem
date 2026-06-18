@@ -4711,26 +4711,27 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
               <div className="searchbox" style={{ width: 280, position: 'relative' }}>
                 <Search size={16} color="#69788d" />
-                <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar por nombre, teléfono o documento..." style={{ paddingRight: searchTerm ? 28 : undefined }} />
+                <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar por nombre, teléfono o documento..." style={{ paddingRight: searchTerm ? 76 : undefined }} />
                 {searchTerm && (
                   <button
                     onClick={() => setSearchTerm('')}
                     title="Limpiar búsqueda"
                     style={{
                       position: 'absolute',
-                      right: 8,
+                      right: 10,
                       top: '50%',
                       transform: 'translateY(-50%)',
                       background: 'none',
                       border: 'none',
                       cursor: 'pointer',
-                      color: '#94a3b8',
-                      fontSize: 16,
+                      color: '#64748b',
+                      fontSize: 14,
+                      fontWeight: 700,
                       lineHeight: 1,
                       padding: 4
                     }}
                   >
-                    ×
+                    Limpiar
                   </button>
                 )}
               </div>
