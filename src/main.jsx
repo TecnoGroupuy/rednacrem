@@ -6653,6 +6653,22 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                   ) : null}
                                   {[row.nombre, row.apellido].filter(Boolean).join(' ') || '—'}
                                 </strong>
+                                {row.origen === 'recupero' ? (
+                                  <span style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    marginLeft: 8,
+                                    padding: '2px 8px',
+                                    borderRadius: 999,
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    background: '#FEF3C7',
+                                    color: '#92400E',
+                                    whiteSpace: 'nowrap'
+                                  }}>
+                                    Recupero
+                                  </span>
+                                ) : null}
                               </td>
                               {(agendaListTab === 'vencidas' || agendaListTab === 'todas') ? (
                                 <td>
@@ -6758,6 +6774,22 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                   <span title="Dato reciente (menos de 48hs)" style={{ marginRight: 6, fontSize: 12 }}>🔥</span>
                                 ) : null}
                                 {[row.nombre, row.apellido].filter(Boolean).join(' ') || '—'}
+                                {row.origen === 'recupero' ? (
+                                  <span style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    marginLeft: 8,
+                                    padding: '2px 8px',
+                                    borderRadius: 999,
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    background: '#FEF3C7',
+                                    color: '#92400E',
+                                    whiteSpace: 'nowrap'
+                                  }}>
+                                    Recupero
+                                  </span>
+                                ) : null}
                               </div>
                               <span style={{
                                 display: 'inline-flex',
