@@ -4934,7 +4934,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             const metricas = vistaMetricas === 'hoy'
               ? (isRecupero
                 ? [
-                  { label: 'Gestionados', value: stats?.gestiones_hoy, color: accentColor },
                   { label: 'No contesta', value: stats?.no_contesta_hoy, color: '#F5A623' },
                   { label: 'Rellamar', value: stats?.rellamar_hoy, color: '#4A90D9' },
                   { label: 'Seguimiento', value: stats?.tipificados_seguimiento_hoy, color: '#9B59B6' },
