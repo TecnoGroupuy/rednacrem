@@ -3936,7 +3936,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const loadStats = React.useCallback(async () => {
         try {
           const hoy = getTodayYmdLocal();
-          const statsUrl = `/leads/daily-stats?fecha=${hoy}`;
+          const statsUrl = isRecupero
+            ? `/api/recupero/daily-stats?fecha=${hoy}`
+            : `/leads/daily-stats?fecha=${hoy}`;
           const d = await api.get(statsUrl);
           console.log('[daily-stats]:', d);
           console.log('[daily-stats] respuesta completa:', JSON.stringify(d.data));
@@ -3978,7 +3980,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             }
           }
 
-          const statsUrl = `/leads/daily-stats?fecha=${hoy}`;
+          const statsUrl = isRecupero
+            ? `/api/recupero/daily-stats?fecha=${hoy}`
+            : `/leads/daily-stats?fecha=${hoy}`;
           const statsData = await api.get(statsUrl);
           if (statsData?.success || statsData?.ok) setStats(statsData.data);
         } catch (err) {
