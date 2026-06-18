@@ -14006,7 +14006,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           let result;
           if (draft?.origen === 'recupero' && draft?.recupero_candidato_id) {
             const recuperoPayload = {
-              product: principalProduct,
+              product: {
+                ...principalProduct,
+                id: newClientDraft.productsByContact.principal
+              },
               medio_pago: selectedPaymentMethodName || undefined,
               nota: null
             };
