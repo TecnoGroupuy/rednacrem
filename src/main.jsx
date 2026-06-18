@@ -3868,6 +3868,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [filtroUbicacion, setFiltroUbicacion] = React.useState('');
       const [filtroFechaDesde, setFiltroFechaDesde] = React.useState('');
       const [filtroFechaHasta, setFiltroFechaHasta] = React.useState('');
+      const [motivosBajaOptions, setMotivosBajaOptions] = React.useState([]);
       const [totalNuevos, setTotalNuevos] = React.useState(null);
       const [totalNoContesta, setTotalNoContesta] = React.useState(null);
       const [totalRecuperoNuevos, setTotalRecuperoNuevos] = React.useState(null);
@@ -4045,6 +4046,17 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           .then((r) => setTotalNoContesta(r?.data?.total ?? null))
           .catch(() => {});
       }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+      React.useEffect(() => {
+        if (!isRecupero) return;
+        api.get('/api/recupero/motivos-baja')
+          .then((res) => {
+            if (res?.ok && Array.isArray(res?.data)) {
+              setMotivosBajaOptions(res.data);
+            }
+          })
+          .catch(() => {});
+      }, [isRecupero]);
 
       const [drawerContact, setDrawerContact] = React.useState(null);
       const drawerOpen = Boolean(drawerContact);
@@ -4326,15 +4338,26 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             const ubicacion = (contact.departamento || contact.city || contact.localidad || '').toLowerCase();
             if (!ubicacion.includes(filtroUbicacion.toLowerCase())) return false;
           }
-          if (filtroFechaDesde && contact.created_at) {
-            if (new Date(contact.created_at) < new Date(filtroFechaDesde)) return false;
-          }
-          if (filtroFechaHasta && contact.created_at) {
-            if (new Date(contact.created_at) > new Date(filtroFechaHasta + 'T23:59:59')) return false;
+          if (isRecupero) {
+            if (filtroOrigen && contact.motivo_normalizado !== filtroOrigen) return false;
+            const fechaBaja = contact.fecha_baja || contact.fechaBaja;
+            if (filtroFechaDesde && fechaBaja) {
+              if (new Date(fechaBaja) < new Date(filtroFechaDesde)) return false;
+            }
+            if (filtroFechaHasta && fechaBaja) {
+              if (new Date(fechaBaja) > new Date(filtroFechaHasta + 'T23:59:59')) return false;
+            }
+          } else {
+            if (filtroFechaDesde && contact.created_at) {
+              if (new Date(contact.created_at) < new Date(filtroFechaDesde)) return false;
+            }
+            if (filtroFechaHasta && contact.created_at) {
+              if (new Date(contact.created_at) > new Date(filtroFechaHasta + 'T23:59:59')) return false;
+            }
           }
           return true;
         });
-      }, [localContacts, filtroEstado, filtroUbicacion, filtroFechaDesde, filtroFechaHasta]);
+      }, [localContacts, filtroEstado, filtroOrigen, filtroUbicacion, filtroFechaDesde, filtroFechaHasta, isRecupero]);
       const visibleContacts = React.useMemo(() => {
         const items = filteredContacts.filter((contact) => (isRecupero ? true : contact.estado_venta !== 'dato_erroneo'));
         const hasActiveFilters = Boolean(
@@ -5132,16 +5155,29 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           </div>
 
           <div style={{ display: 'flex', gap: 8, padding: '12px 0', flexWrap: 'wrap', alignItems: 'center' }}>
-            <select
-              value={filtroOrigen}
-              onChange={(e) => setFiltroOrigen(e.target.value)}
-              style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12, color: '#475569' }}
-            >
-              <option value="">Todos los orígenes</option>
-              {origenDatoResolvedOptions.map((o) => (
-                <option key={o.valor} value={o.valor}>{o.label}</option>
-              ))}
-            </select>
+            {isRecupero ? (
+              <select
+                value={filtroOrigen}
+                onChange={(e) => setFiltroOrigen(e.target.value)}
+                style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12, color: '#475569' }}
+              >
+                <option value="">Todos los motivos</option>
+                {motivosBajaOptions.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            ) : (
+              <select
+                value={filtroOrigen}
+                onChange={(e) => setFiltroOrigen(e.target.value)}
+                style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12, color: '#475569' }}
+              >
+                <option value="">Todos los orígenes</option>
+                {origenDatoResolvedOptions.map((o) => (
+                  <option key={o.valor} value={o.valor}>{o.label}</option>
+                ))}
+              </select>
+            )}
 
             <input
               type="date"
