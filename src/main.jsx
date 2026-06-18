@@ -4709,9 +4709,30 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.85rem' }}>{headerSubtitle}</p>
             </div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <div className="searchbox" style={{ width: 280 }}>
+              <div className="searchbox" style={{ width: 280, position: 'relative' }}>
                 <Search size={16} color="#69788d" />
-                <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar por nombre, teléfono o documento..." />
+                <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar por nombre, teléfono o documento..." style={{ paddingRight: searchTerm ? 28 : undefined }} />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    title="Limpiar búsqueda"
+                    style={{
+                      position: 'absolute',
+                      right: 8,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: '#94a3b8',
+                      fontSize: 16,
+                      lineHeight: 1,
+                      padding: 4
+                    }}
+                  >
+                    ×
+                  </button>
+                )}
               </div>
               {!isRecupero ? (
                 <button
@@ -5291,7 +5312,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           }}>
             <p style={{ fontSize: 12, color: '#888', margin: 0 }}>
               {totalContactos.toLocaleString()} contactos
-              {` en "${tabs.find((t) => t.key === tabActivo)?.label}"`}
+              {searchDebounced
+                ? ` para "${searchDebounced}"`
+                : ` en "${tabs.find((t) => t.key === tabActivo)?.label}"`}
             </p>
 
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
