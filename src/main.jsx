@@ -4710,8 +4710,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
       const dc = drawerContact;
       const drawerNombre = dc ? (dc.name || [dc.nombre, dc.apellido].filter(Boolean).join(' ') || '-') : '';
-      const drawerTelefono = dc ? (dc.phone || dc.telefono || '-') : '';
-      const drawerCelular = dc ? (pickCellular(dc) || dc.celular || '-') : '';
+      const drawerTelefono = dc ? (dc.telefono || dc.phone || '-') : '';
+      const drawerCelular = dc ? (dc.celular || pickCellular(dc) || '-') : '';
       const drawerDireccion = dc ? (pickDireccion(dc) || '') : '';
       const drawerUbicacion = dc ? (dc.city || [dc.localidad, dc.departamento].filter(Boolean).join(', ') || '-') : '';
       const drawerFuente = dc ? (dc.source || dc.origen_dato || null) : null;
