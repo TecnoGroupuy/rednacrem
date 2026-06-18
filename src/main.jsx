@@ -5158,9 +5158,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                   <tr>
                     <th>Estado</th>
                     <th>Contacto</th>
+                    <th>Producto anterior</th>
                     <th>Motivo de baja</th>
                     <th>Fecha de baja</th>
-                    <th>Antigüedad</th>
                   </tr>
                 ) : (
                   <tr>
@@ -5188,14 +5188,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         const fullName = contact.name || [contact.nombre, contact.apellido].filter(Boolean).join(' ') || '—';
                         const motivoInfo = getMotivoInfo(contact);
                         const fechaBaja = contact.fecha_baja || contact.fechaBaja || null;
-                        const dias = getAntiguedadDias(fechaBaja);
-                        const diasColor = (() => {
-                          if (dias === null) return 'var(--color-text-secondary)';
-                          if (dias > 365) return '#DC2626';
-                          if (dias >= 180) return '#92400E';
-                          if (dias >= 90) return '#854F0B';
-                          return 'var(--color-text-primary)';
-                        })();
                         const statusNorm = String(statusValue || '').toLowerCase();
                         const statusBadge = statusNorm === 'nuevo'
                           ? { label: 'Nuevo', bg: '#E1F5EE', color: '#0F6E56' }
@@ -5227,6 +5219,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                 </div>
                               </div>
                             </td>
+                            <td style={{ color: '#374151', fontSize: 12 }}>
+                              {contact.nombre_producto || '—'}
+                            </td>
                             <td>
                               <span style={{ color: motivoInfo.color, fontSize: 12, fontWeight: 500 }}>
                                 {motivoInfo.label}
@@ -5234,11 +5229,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             </td>
                             <td style={{ color: '#64748b', fontSize: 12, whiteSpace: 'nowrap' }}>
                               {formatFechaBaja(fechaBaja)}
-                            </td>
-                            <td>
-                              <div style={{ fontSize: 16, fontWeight: 800, color: diasColor, lineHeight: 1 }}>
-                                {dias === null ? '—' : `${dias}d`}
-                              </div>
                             </td>
                           </>
                         );
