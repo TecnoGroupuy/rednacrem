@@ -65,7 +65,7 @@ const toNotificationTitle = (item) => {
   const entidad = String(item.entidad || 'sistema');
   const tipo = String(item.tipo || 'actualizacion');
   const tipoLabel = tipo.replaceAll('_', ' ');
-  return entidad.charAt(0).toUpperCase() + entidad.slice(1) + ' · ' + tipoLabel;
+  return entidad.charAt(0).toUpperCase() + entidad.slice(1) + ' Â· ' + tipoLabel;
 };
 
 const toNotificationLink = (item) => {
@@ -93,7 +93,7 @@ const toNotification = (item, userId = 'anon') => {
     id: item.id,
     type: toNotificationType(item),
     title: toNotificationTitle(item),
-    description: item.descripcion || 'Actualización del sistema',
+    description: item.descripcion || 'ActualizaciÃ³n del sistema',
     timestamp: item.createdAt,
     read: !!readMap[item.id],
     link: toNotificationLink(item),
