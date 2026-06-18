@@ -3972,8 +3972,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             setTotalPages(isRecupero ? 1 : (contactosData?.data?.totalPages || 1));
             setTotalContactos(total);
             if (isRecupero) {
-              if (tabActivo === 'nuevos') setTotalRecuperoNuevos(total);
-              if (tabActivo === 'no_contesta') setTotalRecuperoNoContesta(total);
+              const tc = contactosData?.tab_counts || {};
+              setTotalRecuperoNuevos(tc.nuevos ?? (tabActivo === 'nuevos' ? total : null));
+              setTotalRecuperoNoContesta(tc.no_contesta ?? (tabActivo === 'no_contesta' ? total : null));
             } else {
               if (tabActivo === 'nuevo') setTotalNuevos(total);
               if (tabActivo === 'no_contesta') setTotalNoContesta(total);
@@ -4016,8 +4017,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             setTotalPages(isRecupero ? 1 : (d?.data?.totalPages || 1));
             setTotalContactos(total);
             if (isRecupero) {
-              if (tabActivo === 'nuevos') setTotalRecuperoNuevos(total);
-              if (tabActivo === 'no_contesta') setTotalRecuperoNoContesta(total);
+              const tc = d?.tab_counts || {};
+              setTotalRecuperoNuevos(tc.nuevos ?? (tabActivo === 'nuevos' ? total : null));
+              setTotalRecuperoNoContesta(tc.no_contesta ?? (tabActivo === 'no_contesta' ? total : null));
             } else {
               if (tabActivo === 'nuevo') setTotalNuevos(total);
               if (tabActivo === 'no_contesta') setTotalNoContesta(total);
