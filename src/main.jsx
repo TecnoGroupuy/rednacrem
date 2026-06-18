@@ -4035,12 +4035,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
       React.useEffect(() => {
         if (isRecupero) {
-          api.get('/leads/assigned?tipo=recupero&excluir_bloqueados=true&tab=nuevos&page=1&limit=1')
-            .then((r) => setTotalRecuperoNuevos(r?.data?.total ?? null))
-            .catch(() => {});
-          api.get('/leads/assigned?tipo=recupero&excluir_bloqueados=true&tab=no_contesta&page=1&limit=1')
-            .then((r) => setTotalRecuperoNoContesta(r?.data?.total ?? null))
-            .catch(() => {});
           return;
         }
         api.get('/leads/assigned?tipo_excluir=recupero&excluir_bloqueados=true&tab=nuevo&page=1&limit=1')
