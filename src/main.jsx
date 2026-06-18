@@ -3828,7 +3828,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [localContacts, setLocalContacts] = React.useState(() => contacts.filter(isSalesActiveContact));
       const [loadingContacts, setLoadingContacts] = React.useState(true);
       const [stats, setStats] = React.useState(null);
-      const [vistaMetricas, setVistaMetricas] = React.useState('hoy');
       const tabs = isRecupero
         ? [
           { key: 'nuevos', label: 'Nuevos', dot: '#6ee7b7' },
@@ -4927,47 +4926,26 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           ) : null}
 
           {stats && (() => {
-            const metricas = vistaMetricas === 'hoy'
-              ? (isRecupero
-                ? [
-                  { label: 'No contesta', value: stats?.no_contesta_hoy, color: '#F5A623' },
-                  { label: 'Rellamar', value: stats?.rellamar_hoy, color: '#4A90D9' },
-                  { label: 'Seguimiento', value: stats?.tipificados_seguimiento_hoy, color: '#9B59B6' },
-                  { label: 'Rechazos', value: stats?.rechazos_hoy, color: '#E53E3E' },
-                  { label: 'Venta', value: stats?.ventas_hoy, color: '#27AE60' },
-                  { label: 'Contacto', value: `${stats?.pct_contacto_hoy ?? 0}%`, color: '#4A90D9' },
-                  { label: 'Efectividad', value: `${stats?.pct_efectividad_hoy ?? 0}%`, color: '#27AE60' }
-                ]
-                : [
-                  { label: 'Tocados', value: stats?.gestiones_hoy, color: '#1A5C4A' },
-                  { label: 'No contesta', value: stats?.no_contesta_hoy, color: '#F5A623' },
-                  { label: 'Rellamar', value: stats?.rellamar_hoy, color: '#4A90D9' },
-                  { label: 'Seguimiento', value: stats?.tipificados_seguimiento_hoy, color: '#9B59B6' },
-                  { label: 'Rechazos', value: stats?.rechazos_hoy, color: '#E53E3E' },
-                  { label: 'Ventas', value: stats?.ventas_hoy, color: '#27AE60' },
-                  { label: 'Contacto', value: `${stats?.pct_contacto_hoy ?? 0}%`, color: '#4A90D9' },
-                  { label: 'Efectividad', value: `${stats?.pct_efectividad_hoy ?? 0}%`, color: '#27AE60' }
-                ])
-              : (isRecupero
-                ? [
-                  { label: 'Asignados', value: stats?.total_asignados, color: '#333' },
-                  { label: 'Seguimiento', value: stats?.seguimiento, color: '#9B59B6' },
-                  { label: 'No contesta', value: stats?.no_contesta, color: '#F5A623' },
-                  { label: 'Rechazos', value: stats?.rechazos, color: '#E53E3E' },
-                  { label: 'Venta', value: stats?.ventas, color: '#27AE60' },
-                  { label: 'Contacto', value: `${stats?.pct_contacto ?? 0}%`, color: '#4A90D9' },
-                  { label: 'Efectividad', value: `${stats?.pct_efectividad ?? 0}%`, color: '#27AE60' }
-                ]
-                : [
-                  { label: 'Asignados', value: stats?.total_asignados, color: '#333' },
-                  { label: 'Nuevos', value: stats?.nuevos, color: '#9E9E9E' },
-                  { label: 'No contesta', value: stats?.no_contesta, color: '#F5A623' },
-                  { label: 'En agenda', value: stats?.seguimiento, color: '#9B59B6' },
-                  { label: 'Rechazos', value: stats?.rechazos, color: '#E53E3E' },
-                  { label: 'Ventas', value: stats?.ventas, color: '#27AE60' },
-                  { label: 'Contacto', value: `${stats?.pct_contacto ?? 0}%`, color: '#4A90D9' },
-                  { label: 'Efectividad', value: `${stats?.pct_efectividad ?? 0}%`, color: '#27AE60' }
-                ]);
+            const metricas = isRecupero
+              ? [
+                { label: 'No contesta', value: stats?.no_contesta_hoy, color: '#F5A623' },
+                { label: 'Rellamar', value: stats?.rellamar_hoy, color: '#4A90D9' },
+                { label: 'Seguimiento', value: stats?.tipificados_seguimiento_hoy, color: '#9B59B6' },
+                { label: 'Rechazos', value: stats?.rechazos_hoy, color: '#E53E3E' },
+                { label: 'Venta', value: stats?.ventas_hoy, color: '#27AE60' },
+                { label: 'Contacto', value: `${stats?.pct_contacto_hoy ?? 0}%`, color: '#4A90D9' },
+                { label: 'Efectividad', value: `${stats?.pct_efectividad_hoy ?? 0}%`, color: '#27AE60' }
+              ]
+              : [
+                { label: 'Tocados', value: stats?.gestiones_hoy, color: '#1A5C4A' },
+                { label: 'No contesta', value: stats?.no_contesta_hoy, color: '#F5A623' },
+                { label: 'Rellamar', value: stats?.rellamar_hoy, color: '#4A90D9' },
+                { label: 'Seguimiento', value: stats?.tipificados_seguimiento_hoy, color: '#9B59B6' },
+                { label: 'Rechazos', value: stats?.rechazos_hoy, color: '#E53E3E' },
+                { label: 'Ventas', value: stats?.ventas_hoy, color: '#27AE60' },
+                { label: 'Contacto', value: `${stats?.pct_contacto_hoy ?? 0}%`, color: '#4A90D9' },
+                { label: 'Efectividad', value: `${stats?.pct_efectividad_hoy ?? 0}%`, color: '#27AE60' }
+              ];
 
             return (
               <div style={{
@@ -4980,34 +4958,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 alignItems: 'center',
                 gap: 8
               }}>
-                <div style={{
-                  display: 'flex',
-                  background: '#F5F5F5',
-                  borderRadius: 6,
-                  padding: 2,
-                  gap: 2,
-                  flexShrink: 0,
-                  marginRight: 8
-                }}>
-                  {['hoy', 'lote'].map((v) => (
-                    <button
-                      key={v}
-                      onClick={() => setVistaMetricas(v)}
-                      style={{
-                        padding: '3px 10px',
-                        borderRadius: 4,
-                        border: 'none',
-                        fontSize: 11,
-                        fontWeight: vistaMetricas === v ? 600 : 400,
-                        background: vistaMetricas === v ? accentColor : 'transparent',
-                        color: vistaMetricas === v ? '#FFF' : '#888',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {v === 'hoy' ? 'Hoy' : 'Lote'}
-                    </button>
-                  ))}
-                </div>
 
                 <div style={{
                   width: 1, height: 32,
