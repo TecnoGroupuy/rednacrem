@@ -4610,7 +4610,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         localidad: contact.localidad || contact.ciudad || contact.localidad_residencia || '',
         pais: contact.pais || 'Uruguay',
         batch_id: contact.batch_id || contact.lotId || '',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        origen: isRecupero ? 'recupero' : 'captacion',
+        recupero_candidato_id: isRecupero ? String(contact.id) : null
       });
 
       const handleGuardarGestion = async () => {
@@ -14002,7 +14004,19 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         setDuplicateWarning(false);
         try {
           let result;
-          if (leadIdForManagement) {
+          if (draft?.origen === 'recupero' && draft?.recupero_candidato_id) {
+            const recuperoPayload = {
+              product: principalProduct,
+              medio_pago: selectedPaymentMethodName || undefined,
+              nota: null
+            };
+            console.log('[recupero venta payload]', recuperoPayload);
+            result = await api.post(
+              `/api/recupero/candidatos/${encodeURIComponent(draft.recupero_candidato_id)}/venta`,
+              recuperoPayload
+            );
+            console.log('[recupero venta response]', result);
+          } else if (leadIdForManagement) {
             // Cualquier contacto existente registra la venta a través de la gestión:
             // se envían contacto + productos + familySales en el body del POST de management.
             const managementPayload = { status: 'venta', ...payload };
