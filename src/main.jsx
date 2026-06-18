@@ -5371,7 +5371,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '16px 0' }}>
                         {(() => {
                           const fechaBaja = dc?.fecha_baja || dc?.fechaBaja || null;
-                          const dias = getAntiguedadDias(fechaBaja);
                           const motivoInfo = getMotivoInfo(dc);
                           const productName = dc?.nombre_producto || dc?.producto || dc?.nombreProducto || '—';
                           const priceRaw = dc?.precio ?? dc?.price ?? null;
@@ -5401,7 +5400,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 12 }}>
                                   <span><strong>Precio:</strong> {priceValue}</span>
                                   <span><strong>Motivo:</strong> {motivoInfo.label}</span>
-                                  <span><strong>Antigüedad:</strong> {dias === null ? '—' : `${dias} días`}</span>
                                 </div>
                               </div>
 
@@ -5420,11 +5418,55 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                                   <div>
                                     <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Teléfono</div>
-                                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{dc?.telefono || dc?.phone || '—'}</div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{drawerTelefono}</div>
+                                      {drawerTelefono && drawerTelefono !== '-' ? (
+                                        <a
+                                          href={`tel:${String(drawerTelefono).replace(/[^\d+]/g, '')}`}
+                                          aria-label={`Llamar al teléfono ${drawerTelefono}`}
+                                          title={`Llamar ${drawerTelefono}`}
+                                          style={{
+                                            width: 28,
+                                            height: 28,
+                                            borderRadius: 999,
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            background: '#E6F7F3',
+                                            color: '#0F766E',
+                                            border: '1px solid rgba(15, 118, 110, 0.18)'
+                                          }}
+                                        >
+                                          <PhoneCall size={14} />
+                                        </a>
+                                      ) : null}
+                                    </div>
                                   </div>
                                   <div>
                                     <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Celular</div>
-                                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{dc?.celular || pickCellular(dc) || '—'}</div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{drawerCelular}</div>
+                                      {drawerCelular && drawerCelular !== '-' ? (
+                                        <a
+                                          href={`tel:${String(drawerCelular).replace(/[^\d+]/g, '')}`}
+                                          aria-label={`Llamar al celular ${drawerCelular}`}
+                                          title={`Llamar ${drawerCelular}`}
+                                          style={{
+                                            width: 28,
+                                            height: 28,
+                                            borderRadius: 999,
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            background: '#E6F7F3',
+                                            color: '#0F766E',
+                                            border: '1px solid rgba(15, 118, 110, 0.18)'
+                                          }}
+                                        >
+                                          <PhoneCall size={14} />
+                                        </a>
+                                      ) : null}
+                                    </div>
                                   </div>
                                   <div>
                                     <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Documento</div>
