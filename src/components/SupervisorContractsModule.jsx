@@ -84,10 +84,13 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const [activeTab, setActiveTab] = React.useState('disponibles');
   const [tabCounts, setTabCounts] = React.useState({
     disponibles: 0,
-    en_gestion: 0,
+    nuevo: 0,
+    no_contesta: 0,
+    rellamar: 0,
+    seguimiento: 0,
     recuperados: 0,
-    rechazados: 0,
-    fallecidos: 0
+    rechazos: 0,
+    dato_erroneo: 0
   });
   const [showImportModal, setShowImportModal] = React.useState(false);
   const [importFile, setImportFile] = React.useState(null);
@@ -156,10 +159,13 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
 
   const tabsOperativos = [
     { key: 'disponibles', label: 'Disponibles' },
-    { key: 'asignados', label: 'En gestión' },
+    { key: 'nuevo', label: 'Nuevo' },
+    { key: 'no_contesta', label: 'No contesta' },
+    { key: 'rellamar', label: 'Rellamar' },
+    { key: 'seguimiento', label: 'Seguimiento' },
+    { key: 'rechazos', label: 'Rechazos' },
+    { key: 'dato_erroneo', label: 'Dato erróneo' },
     { key: 'recuperados', label: 'Recuperados' },
-    { key: 'rechazados', label: 'Rechazados' },
-    { key: 'fallecidos', label: 'Fallecidos' }
   ];
 
   const allColumns = React.useMemo(() => ([
@@ -578,9 +584,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
 
   const buildSearchPayload = React.useCallback(() => {
     const filters = buildFiltersPayload();
-    if (activeTab === 'fallecidos') {
-      filters.motivo_normalizado = ['fallecimiento'];
-    }
     return {
       tab: activeTab,
       filters,
@@ -633,10 +636,13 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       if (incomingTabCounts && typeof incomingTabCounts === 'object') {
         setTabCounts({
           disponibles: Number(incomingTabCounts.disponibles || 0),
-          en_gestion: Number(incomingTabCounts.en_gestion ?? incomingTabCounts.asignados ?? 0),
+          nuevo: Number(incomingTabCounts.nuevo || 0),
+          no_contesta: Number(incomingTabCounts.no_contesta || 0),
+          rellamar: Number(incomingTabCounts.rellamar || 0),
+          seguimiento: Number(incomingTabCounts.seguimiento || 0),
           recuperados: Number(incomingTabCounts.recuperados || 0),
-          rechazados: Number(incomingTabCounts.rechazados || 0),
-          fallecidos: Number(incomingTabCounts.fallecidos || 0)
+          rechazos: Number(incomingTabCounts.rechazos ?? incomingTabCounts.rechazados ?? 0),
+          dato_erroneo: Number(incomingTabCounts.dato_erroneo || 0)
         });
       }
 
@@ -1908,7 +1914,12 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                 En lote
               </div>
               <div style={{ fontSize: '28px', fontWeight: '500' }}>
-                {Number(tabCounts.en_gestion || 0).toLocaleString('es-UY')}
+                {Number(
+                  (tabCounts.nuevo || 0) +
+                  (tabCounts.no_contesta || 0) +
+                  (tabCounts.rellamar || 0) +
+                  (tabCounts.seguimiento || 0)
+                ).toLocaleString('es-UY')}
               </div>
               <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
                 en lotes activos
@@ -1938,7 +1949,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                 Rechazados
               </div>
               <div style={{ fontSize: '28px', fontWeight: '500', color: 'var(--color-text-danger)' }}>
-                {Number(tabCounts.rechazados || 0).toLocaleString('es-UY')}
+                {Number(tabCounts.rechazos || 0).toLocaleString('es-UY')}
               </div>
               <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
                 no quisieron volver
@@ -1952,11 +1963,14 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                 const isActive = activeTab === tab.key;
                 const count = (
                   tab.key === 'disponibles' ? tabCounts.disponibles
-                    : tab.key === 'asignados' ? (tabCounts.en_gestion ?? tabCounts.asignados ?? 0)
-                      : tab.key === 'recuperados' ? tabCounts.recuperados
-                        : tab.key === 'rechazados' ? tabCounts.rechazados
-                          : tab.key === 'fallecidos' ? tabCounts.fallecidos
-                            : 0
+                    : tab.key === 'nuevo' ? tabCounts.nuevo
+                      : tab.key === 'no_contesta' ? tabCounts.no_contesta
+                        : tab.key === 'rellamar' ? tabCounts.rellamar
+                          : tab.key === 'seguimiento' ? tabCounts.seguimiento
+                            : tab.key === 'rechazos' ? tabCounts.rechazos
+                              : tab.key === 'dato_erroneo' ? tabCounts.dato_erroneo
+                    : tab.key === 'recuperados' ? tabCounts.recuperados
+                                : 0
                 );
                 return (
                   <button
