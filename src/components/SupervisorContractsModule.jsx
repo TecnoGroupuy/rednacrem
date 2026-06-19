@@ -163,7 +163,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     { key: 'no_contesta', label: 'No contesta' },
     { key: 'rellamar', label: 'Rellamar' },
     { key: 'seguimiento', label: 'Seguimiento' },
-    { key: 'rechazos', label: 'Rechazos' },
+    { key: 'rechazados', label: 'Rechazos' },
     { key: 'dato_erroneo', label: 'Dato erróneo' },
     { key: 'recuperados', label: 'Recuperados' },
   ];
@@ -1967,7 +1967,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                       : tab.key === 'no_contesta' ? tabCounts.no_contesta
                         : tab.key === 'rellamar' ? tabCounts.rellamar
                           : tab.key === 'seguimiento' ? tabCounts.seguimiento
-                            : tab.key === 'rechazos' ? tabCounts.rechazos
+                            : tab.key === 'rechazados' ? tabCounts.rechazos
                               : tab.key === 'dato_erroneo' ? tabCounts.dato_erroneo
                     : tab.key === 'recuperados' ? tabCounts.recuperados
                                 : 0
