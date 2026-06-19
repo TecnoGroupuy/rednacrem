@@ -331,6 +331,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     falta_de_pago: { label: 'Falta de pago', color: '#854F0B' },
     baja_antel: { label: 'Baja desde Antel', color: '#185FA5' },
     baja_bps: { label: 'Baja desde BPS', color: '#185FA5' },
+    sin_pago_bps: { label: 'Sin pago BPS', color: '#854F0B' },
     administrativa: { label: 'Administrativa', color: '#5F5E5A' },
     error_activacion: { label: 'Error de activación', color: '#5F5E5A' },
     no_llamar: { label: 'No llamar', color: '#DC2626' },
