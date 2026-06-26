@@ -3970,7 +3970,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               : (contactosData?.data?.contactos || contactosData?.data?.items || contactosData?.items || contactosData?.data || []);
             setLocalContacts(items.map(normalizeAssignedContact));
             const total = isRecupero ? (contactosData?.total ?? 0) : (contactosData?.data?.total ?? 0);
-            setTotalPages(isRecupero ? 1 : (contactosData?.data?.totalPages || 1));
+            const resolvedTotalPages = isRecupero
+              ? Number(contactosData?.totalPages ?? contactosData?.data?.totalPages ?? Math.max(1, Math.ceil(Number(total || 0) / LIMIT)))
+              : Number(contactosData?.data?.totalPages || 1);
+            setTotalPages(Number.isFinite(resolvedTotalPages) && resolvedTotalPages > 0 ? resolvedTotalPages : 1);
             setTotalContactos(total);
             if (isRecupero) {
               const tc = contactosData?.tab_counts || {};
@@ -4015,7 +4018,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               : (d?.data?.contactos || d?.data?.items || d?.items || d?.data || []);
             setLocalContacts(items.map(normalizeAssignedContact));
             const total = isRecupero ? (d?.total ?? 0) : (d?.data?.total ?? 0);
-            setTotalPages(isRecupero ? 1 : (d?.data?.totalPages || 1));
+            const resolvedTotalPages = isRecupero
+              ? Number(d?.totalPages ?? d?.data?.totalPages ?? Math.max(1, Math.ceil(Number(total || 0) / LIMIT)))
+              : Number(d?.data?.totalPages || 1);
+            setTotalPages(Number.isFinite(resolvedTotalPages) && resolvedTotalPages > 0 ? resolvedTotalPages : 1);
             setTotalContactos(total);
             if (isRecupero) {
               const tc = d?.tab_counts || {};
@@ -12527,6 +12533,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         const [selectedClient, setSelectedClient] = React.useState(null);
         const [clientDetailError, setClientDetailError] = React.useState('');
         const [bajaModal, setBajaModal] = React.useState({ open: false });
+        const [bajaMotivosOptions, setBajaMotivosOptions] = React.useState([]);
         const [bajaSaving, setBajaSaving] = React.useState(false);
         const [bajaError, setBajaError] = React.useState('');
         const [duplicateWarning, setDuplicateWarning] = React.useState(false);
@@ -12654,6 +12661,17 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         }, 400);
         return () => window.clearTimeout(timer);
       }, [clientSearch]);
+
+      React.useEffect(() => {
+        const api = getApiClient();
+        api.get('/api/contacts/products/baja-motivos')
+          .then((res) => {
+            if (res?.ok && Array.isArray(res?.data)) {
+              setBajaMotivosOptions(res.data);
+            }
+          })
+          .catch(() => {});
+      }, []);
 
       React.useEffect(() => {
         setClientPage(1);
@@ -12822,7 +12840,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         try {
           const api = getApiClient();
           await api.post(`/api/contacts/${encodeURIComponent(contactId)}/products/${encodeURIComponent(productId)}/baja`, {
-            motivo_baja_detalle: motivo,
+            motivo_baja: motivo,
             observacion
           });
           setClientRows((prev) => prev.filter((row) => {
@@ -13229,11 +13247,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         onChange={(e) => setBajaModal((prev) => ({ ...prev, motivo: e.target.value }))}
                         disabled={bajaSaving}
                       >
-                        <option value="Sin liquidez">Sin liquidez</option>
-                        <option value="Error en el pago">Error en el pago</option>
-                        <option value="Baja por auditoria">Baja por auditoria</option>
-                        <option value="Cuenta con otro servicio">Cuenta con otro servicio</option>
-                        <option value="Baja">Baja</option>
+                        <option value="">Seleccioná un motivo</option>
+                        {bajaMotivosOptions.map((m) => (
+                          <option key={m.slug} value={m.slug}>{m.label}</option>
+                        ))}
                       </select>
                     </div>
                     <div style={{ display: 'grid', gap: 4 }}>
