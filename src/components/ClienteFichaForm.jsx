@@ -676,9 +676,12 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
     setShowBajaModal(true);
     setBajaMotivosLoading(true);
     try {
-      const response = await api.get('/api/clients/baja-motivos');
-      const data = response?.data || response || {};
-      setBajaMotivos(Array.isArray(data.motivos) ? data.motivos : []);
+      const response = await api.get('/api/contacts/products/baja-motivos');
+      if (response?.ok && Array.isArray(response?.data)) {
+        setBajaMotivos(response.data);
+      } else {
+        setBajaMotivos([]);
+      }
     } catch (err) {
       setBajaError(err?.message || 'No se pudieron cargar los motivos de baja.');
     } finally {
@@ -1251,7 +1254,7 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
                 <span style={labelStyle}>Motivo de la baja</span>
                 <select className="input" value={bajaMotivoSelected} onChange={(event) => setBajaMotivoSelected(event.target.value)} disabled={bajaLoading || bajaMotivosLoading || !bajaMotivos.length} required>
                   <option value="">{bajaMotivosLoading ? 'Cargando motivos...' : 'Seleccionar motivo...'}</option>
-                  {bajaMotivos.map((motivo) => <option key={motivo} value={motivo}>{motivo}</option>)}
+                  {bajaMotivos.map((m) => <option key={m.slug} value={m.slug}>{m.label}</option>)}
                 </select>
               </label>
               <label style={{ display: 'grid', gap: 6 }}>
