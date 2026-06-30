@@ -9147,10 +9147,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const lotReportSummary = React.useMemo(() => {
         const source = lotReportData || {};
         const total = Number(source.total_ingresados ?? 0) || 0;
-        const claseA = Number(source.resumen?.A ?? 0) || 0;
-        const claseB = Number(source.resumen?.B ?? 0) || 0;
-        const claseC = Number(source.resumen?.C ?? 0) || 0;
-        const pendientes = Number(source.resumen?.pendiente ?? 0) || 0;
+        const claseA = source.resumen?.A ?? { cantidad: 0, ventas: 0 };
+        const claseB = source.resumen?.B ?? { cantidad: 0, ventas: 0 };
+        const claseC = source.resumen?.C ?? { cantidad: 0, ventas: 0 };
+        const pendientes = source.resumen?.pendiente ?? { cantidad: 0, ventas: 0 };
         return { total, claseA, claseB, claseC, pendientes };
       }, [lotReportData]);
 
@@ -9181,6 +9181,36 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           }
         });
         return [...assigned, ...unassigned];
+      }, [lotReportData]);
+
+      const lotReportGestionesRows = React.useMemo(() => {
+        const raw = lotReportData?.por_vendedor_gestiones
+          || lotReportData?.porVendedorGestiones
+          || lotReportData?.gestiones_por_vendedor
+          || [];
+        return Array.isArray(raw) ? raw.map((row) => {
+          const vendedor = row?.vendedor ?? row?.seller ?? row?.nombre ?? row?.name ?? '—';
+          const totalGestiones = Number(row?.total_gestiones ?? row?.totalGestiones ?? 0) || 0;
+          const venta = Number(row?.venta ?? 0) || 0;
+          const seguimiento = Number(row?.seguimiento ?? 0) || 0;
+          const rechazo = Number(row?.rechazo ?? 0) || 0;
+          const noContesta = Number(row?.no_contesta ?? row?.noContesta ?? 0) || 0;
+          const rellamar = Number(row?.rellamar ?? 0) || 0;
+          const datoErroneo = Number(row?.dato_erroneo ?? row?.datoErroneo ?? 0) || 0;
+          const sinResultado = noContesta + rellamar + datoErroneo;
+          return {
+            vendedorId: row?.vendedor_id ?? row?.vendedorId ?? vendedor,
+            vendedor,
+            totalGestiones,
+            venta,
+            seguimiento,
+            rechazo,
+            noContesta,
+            rellamar,
+            datoErroneo,
+            sinResultado
+          };
+        }) : [];
       }, [lotReportData]);
 
       const applyDistributionToLot = React.useCallback((lot, distribution = [], { ensureSeller } = {}) => {
@@ -10177,19 +10207,106 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
                     {!lotReportLoading && !lotReportError ? (
                       <>
+                        <div style={{ marginBottom: 12, fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                          Calidad de los datos
+                        </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12, marginBottom: 20 }}>
                           {[
-                            { label: 'Clase A', value: lotReportSummary.claseA, color: '#0F6E56', bg: '#E1F5EE' },
-                            { label: 'Clase B', value: lotReportSummary.claseB, color: '#185FA5', bg: '#E6F1FB' },
-                            { label: 'Clase C', value: lotReportSummary.claseC, color: '#854F0B', bg: '#FAEEDA' },
-                            { label: 'Pendientes', value: lotReportSummary.pendientes, color: '#69788d', bg: 'var(--color-background-secondary)' }
-                          ].map((item) => {
-                            const pct = lotReportSummary.total > 0 ? Math.round((item.value / lotReportSummary.total) * 100) : 0;
+                            {
+                              label: 'Total ingresados',
+                              value: lotReportSummary.total,
+                              helper: 'Base analizada',
+                              color: 'var(--color-text-primary)',
+                              bg: 'var(--color-background-secondary)'
+                            },
+                            {
+                              label: 'Clase A',
+                              value: lotReportSummary.claseA.cantidad,
+                              helper: `${lotReportSummary.total > 0 ? Math.round((lotReportSummary.claseA.cantidad / lotReportSummary.total) * 100) : 0}% del total`,
+                              color: '#085041',
+                              bg: '#E1F5EE'
+                            },
+                            {
+                              label: 'Clase B',
+                              value: lotReportSummary.claseB.cantidad,
+                              helper: `${lotReportSummary.total > 0 ? Math.round((lotReportSummary.claseB.cantidad / lotReportSummary.total) * 100) : 0}% del total`,
+                              color: '#0C447C',
+                              bg: '#E6F1FB'
+                            },
+                            {
+                              label: 'Pendiente',
+                              value: lotReportSummary.pendientes.cantidad,
+                              helper: `${lotReportSummary.total > 0 ? Math.round((lotReportSummary.pendientes.cantidad / lotReportSummary.total) * 100) : 0}% del total`,
+                              color: '#69788d',
+                              bg: 'var(--color-background-secondary)'
+                            }
+                          ].map((item) => (
+                            <div key={item.label} style={{ background: item.bg, borderRadius: 8, padding: '12px 14px', alignSelf: 'start' }}>
+                              <p style={{ margin: 0, fontSize: 11, color: 'var(--color-text-secondary)' }}>{item.label}</p>
+                              <p style={{ margin: '4px 0 0', fontSize: 24, fontWeight: 600, color: item.color }}>{item.value}</p>
+                              <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--color-text-secondary)' }}>{item.helper}</p>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div style={{ border: '1px solid rgba(20,34,53,0.08)', borderRadius: 12, background: '#fff', marginBottom: 24 }}>
+                          {[
+                            {
+                              key: 'A',
+                              title: 'Clase A · gestionados el mismo día',
+                              summary: lotReportSummary.claseA,
+                              color: '#085041',
+                              bg: '#E1F5EE'
+                            },
+                            {
+                              key: 'B',
+                              title: 'Clase B · gestionados dentro de la semana',
+                              summary: lotReportSummary.claseB,
+                              color: '#0C447C',
+                              bg: '#E6F1FB'
+                            },
+                            {
+                              key: 'C',
+                              title: 'Clase C · gestionados después de una semana',
+                              summary: lotReportSummary.claseC,
+                              color: '#854F0B',
+                              bg: '#FAEEDA'
+                            }
+                          ].map((item, index) => {
+                            const cantidad = Number(item.summary?.cantidad ?? 0) || 0;
+                            const ventas = Number(item.summary?.ventas ?? 0) || 0;
+                            const pct = cantidad > 0 ? Math.round((ventas / cantidad) * 100) : 0;
                             return (
-                              <div key={item.label} style={{ background: item.bg, borderRadius: 8, padding: '10px 12px', alignSelf: 'start' }}>
-                                <p style={{ margin: 0, fontSize: 11, color: 'var(--color-text-secondary)' }}>{item.label}</p>
-                                <p style={{ margin: '3px 0 0', fontSize: 22, fontWeight: 500, color: item.color }}>{item.value}</p>
-                                <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--color-text-secondary)' }}>{pct}% sobre {lotReportSummary.total || 0}</p>
+                              <div
+                                key={item.key}
+                                style={{
+                                  padding: '16px 18px',
+                                  borderTop: index > 0 ? '0.5px solid rgba(20,34,53,0.1)' : 'none'
+                                }}
+                              >
+                                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 4 }}>{item.title}</div>
+                                <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: cantidad > 0 ? 10 : 0 }}>
+                                  {cantidad} datos utilizados
+                                </div>
+                                {cantidad > 0 ? (
+                                  <>
+                                    <div style={{ height: 10, borderRadius: 999, background: item.bg, overflow: 'hidden', marginBottom: 8 }}>
+                                      <div
+                                        style={{
+                                          width: `${Math.max(0, Math.min(100, pct))}%`,
+                                          height: '100%',
+                                          borderRadius: 999,
+                                          background: item.color
+                                        }}
+                                      />
+                                    </div>
+                                    <div style={{ fontSize: 12, fontWeight: 500, color: item.color }}>
+                                      {ventas} ventas · {pct}% conversión
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Sin datos en este rango</div>
+                                )}
                               </div>
                             );
                           })}
@@ -10233,6 +10350,89 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                               ) : null}
                             </tbody>
                           </table>
+                        </div>
+
+                        <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid rgba(20,34,53,0.08)' }}>
+                          <div style={{ marginBottom: 4, fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                            Gestión de vendedor
+                          </div>
+                          <div style={{ marginBottom: 16, fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                            Resultado de las gestiones dentro del rango seleccionado, por vendedor
+                          </div>
+
+                          <div style={{ display: 'grid', gap: 12 }}>
+                            {lotReportGestionesRows.map((row, index) => {
+                              const total = row.totalGestiones;
+                              const segments = [
+                                { label: 'venta', value: row.venta, color: '#1D9E75' },
+                                { label: 'seguimiento', value: row.seguimiento, color: '#378ADD' },
+                                { label: 'rechazo', value: row.rechazo, color: 'var(--color-border-tertiary)' },
+                                { label: 'sin resultado', value: row.sinResultado, color: 'var(--line)' }
+                              ];
+                              return (
+                                <div
+                                  key={`${row.vendedorId}-${index}`}
+                                  style={{
+                                    border: '1px solid rgba(20,34,53,0.08)',
+                                    borderRadius: 12,
+                                    padding: '14px 16px',
+                                    background: '#fff',
+                                    opacity: total > 0 ? 1 : 0.6
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: total > 0 ? 12 : 4 }}>
+                                    <div
+                                      className="person-badge"
+                                      style={{ width: 40, height: 40, borderRadius: '50%', flexShrink: 0 }}
+                                    >
+                                      {initials(row.vendedor)}
+                                    </div>
+                                    <div style={{ minWidth: 0, flex: 1 }}>
+                                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary)' }}>{row.vendedor}</div>
+                                    </div>
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>
+                                      {total} gestiones
+                                    </div>
+                                  </div>
+
+                                  {total > 0 ? (
+                                    <>
+                                      <div style={{ height: 12, borderRadius: 999, overflow: 'hidden', display: 'flex', background: 'var(--color-background-secondary)', marginBottom: 10 }}>
+                                        {segments.map((segment) => {
+                                          const width = total > 0 ? (segment.value / total) * 100 : 0;
+                                          return width > 0 ? (
+                                            <div
+                                              key={segment.label}
+                                              title={`${segment.label}: ${segment.value}`}
+                                              style={{
+                                                width: `${width}%`,
+                                                background: segment.color,
+                                                minWidth: segment.value > 0 ? 6 : 0
+                                              }}
+                                            />
+                                          ) : null;
+                                        })}
+                                      </div>
+                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px', fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                                        <span>{row.venta} venta</span>
+                                        <span>{row.seguimiento} seguimiento</span>
+                                        <span>{row.rechazo} rechazo</span>
+                                        <span>{row.sinResultado} sin resultado</span>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>sin gestiones en el rango</div>
+                                  )}
+                                </div>
+                              );
+                            })}
+
+                            {!lotReportGestionesRows.length ? (
+                              <div style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                                No hay gestiones por vendedor para el rango seleccionado.
+                              </div>
+                            ) : null}
+                          </div>
                         </div>
                       </>
                     ) : null}
