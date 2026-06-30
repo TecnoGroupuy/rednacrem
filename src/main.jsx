@@ -8776,6 +8776,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [selectedLotId, setSelectedLotId] = React.useState(null);
       const [selectedLotOverride, setSelectedLotOverride] = React.useState(null);
       const [selectedLotMetrics, setSelectedLotMetrics] = React.useState(null);
+      const [showLotReportModal, setShowLotReportModal] = React.useState(false);
+      const [lotReportDesde, setLotReportDesde] = React.useState('');
+      const [lotReportHasta, setLotReportHasta] = React.useState('');
+      const [lotReportLoading, setLotReportLoading] = React.useState(false);
+      const [lotReportError, setLotReportError] = React.useState('');
+      const [lotReportData, setLotReportData] = React.useState(null);
       const [lotSellerDraft, setLotSellerDraft] = React.useState('');
       const [reassignModal, setReassignModal] = React.useState(null); // { sellerId, sellerName, contactCount }
       const [reassignTarget, setReassignTarget] = React.useState('');
@@ -9061,6 +9067,23 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         ))
         : null;
 
+      const formatDateInputLocal = React.useCallback((date) => {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      }, []);
+
+      const getCurrentMonthRange = React.useCallback(() => {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        return {
+          desde: formatDateInputLocal(start),
+          hasta: formatDateInputLocal(end)
+        };
+      }, [formatDateInputLocal]);
+
       React.useEffect(() => {
         if (!selectedLot?.id) {
           setSelectedLotMetrics(null);
@@ -9084,6 +9107,81 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           });
         return () => { active = false; };
       }, [api, activeOrgId, selectedLot?.id]);
+
+      const loadLotClassificationReport = React.useCallback(async ({ lotId, desde, hasta }) => {
+        if (!lotId || !desde || !hasta) return;
+        setLotReportLoading(true);
+        setLotReportError('');
+        try {
+          const response = await api.get(`/lead-batches/${encodeURIComponent(lotId)}/informe-clasificacion?desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hasta)}`);
+          const data = response || null;
+          if (data?.ok) {
+            setLotReportData(data);
+          } else {
+            setLotReportData(null);
+            setLotReportError('No se pudo cargar el informe de clasificación.');
+          }
+        } catch (err) {
+          setLotReportData(null);
+          setLotReportError(err?.message || 'No se pudo cargar el informe de clasificación.');
+        } finally {
+          setLotReportLoading(false);
+        }
+      }, [api]);
+
+      const openLotClassificationReport = React.useCallback(() => {
+        if (!selectedLot?.id) return;
+        const range = getCurrentMonthRange();
+        setLotReportDesde(range.desde);
+        setLotReportHasta(range.hasta);
+        setLotReportData(null);
+        setLotReportError('');
+        setShowLotReportModal(true);
+        loadLotClassificationReport({ lotId: selectedLot.id, desde: range.desde, hasta: range.hasta });
+      }, [getCurrentMonthRange, loadLotClassificationReport, selectedLot?.id]);
+
+      const closeLotClassificationReport = React.useCallback(() => {
+        setShowLotReportModal(false);
+      }, []);
+
+      const lotReportSummary = React.useMemo(() => {
+        const source = lotReportData || {};
+        const total = Number(source.total_ingresados ?? 0) || 0;
+        const claseA = Number(source.resumen?.A ?? 0) || 0;
+        const claseB = Number(source.resumen?.B ?? 0) || 0;
+        const claseC = Number(source.resumen?.C ?? 0) || 0;
+        const pendientes = Number(source.resumen?.pendiente ?? 0) || 0;
+        return { total, claseA, claseB, claseC, pendientes };
+      }, [lotReportData]);
+
+      const lotReportRows = React.useMemo(() => {
+        const raw = lotReportData?.por_vendedor
+          || lotReportData?.porVendedor
+          || lotReportData?.vendedores
+          || lotReportData?.rows
+          || [];
+        const rows = Array.isArray(raw) ? raw.map((row) => {
+          const vendedor = row?.vendedor ?? row?.seller ?? row?.nombre ?? row?.name ?? '—';
+          const total = Number(row?.total ?? row?.total_ingresado ?? row?.totalIngresado ?? 0) || 0;
+          const claseA = Number(row?.clase_a ?? row?.claseA ?? row?.a ?? 0) || 0;
+          const claseB = Number(row?.clase_b ?? row?.claseB ?? row?.b ?? 0) || 0;
+          const claseC = Number(row?.clase_c ?? row?.claseC ?? row?.c ?? 0) || 0;
+          const pendientes = Number(row?.pendientes ?? 0) || 0;
+          const pctClaseA = row?.pct_clase_a ?? null;
+          return { vendedor, total, claseA, claseB, claseC, pendientes, pctClaseA };
+        }) : [];
+        const assigned = [];
+        const unassigned = [];
+        rows.forEach((row) => {
+          const normalized = String(row.vendedor || '').trim().toLowerCase();
+          if (normalized === 'sin asignar' || normalized === 'unassigned') {
+            unassigned.push(row);
+          } else {
+            assigned.push(row);
+          }
+        });
+        return [...assigned, ...unassigned];
+      }, [lotReportData]);
 
       const applyDistributionToLot = React.useCallback((lot, distribution = [], { ensureSeller } = {}) => {
         if (!lot) return lot;
@@ -9700,6 +9798,31 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       <X size={16} />
                     </button>
                   ) : null}
+                  {selectedLot ? (
+                    <button
+                      onClick={openLotClassificationReport}
+                      style={{
+                        position: 'absolute',
+                        top: 2,
+                        right: 42,
+                        fontSize: 11,
+                        fontWeight: 500,
+                        color: '#185FA5',
+                        background: '#E6F1FB',
+                        border: '1px solid #85B7EB',
+                        borderRadius: 6,
+                        padding: '6px 10px',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6
+                      }}
+                      title="Ver informe"
+                    >
+                      <FileText size={14} />
+                      Ver informe
+                    </button>
+                  ) : null}
 
                   {selectedLot ? (
                     <div className="list">
@@ -10004,6 +10127,120 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 </div>
               </Panel>
             </section>
+
+            {showLotReportModal && selectedLot ? (
+              <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'grid', placeItems: 'center', background: 'rgba(2, 6, 23, 0.72)', backdropFilter: 'blur(4px)', padding: 16 }}>
+                <div style={{ width: 'min(1280px, 100%)', height: 'min(calc(100vh - 32px), 920px)', borderRadius: 26, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.98)', boxShadow: '0 24px 50px rgba(0,0,0,0.24)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ padding: '20px 22px 16px', borderBottom: '1px solid rgba(20,34,53,0.08)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+                    <div>
+                      <div style={{ fontFamily: "'Manrope', sans-serif", fontSize: 22, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.03em' }}>
+                        Informe de clasificación — {selectedLot.name}
+                      </div>
+                      <div style={{ marginTop: 4, color: 'var(--muted)', fontSize: 13 }}>
+                        Distribución A/B/C del lote para el rango seleccionado
+                      </div>
+                    </div>
+                    <button
+                      onClick={closeLotClassificationReport}
+                      style={{ width: 40, height: 40, borderRadius: 14, border: '1px solid rgba(20,34,53,0.12)', background: 'rgba(20,34,53,0.04)', cursor: 'pointer', color: 'var(--muted)', display: 'grid', placeItems: 'center', flexShrink: 0 }}
+                      title="Cerrar informe"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(20,34,53,0.08)', display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
+                    <label style={{ display: 'grid', gap: 6, minWidth: 180 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Desde</span>
+                      <input className="input" type="date" value={lotReportDesde} onChange={(event) => setLotReportDesde(event.target.value)} />
+                    </label>
+                    <label style={{ display: 'grid', gap: 6, minWidth: 180 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Hasta</span>
+                      <input className="input" type="date" value={lotReportHasta} onChange={(event) => setLotReportHasta(event.target.value)} />
+                    </label>
+                    <Button
+                      onClick={() => loadLotClassificationReport({ lotId: selectedLot.id, desde: lotReportDesde, hasta: lotReportHasta })}
+                      disabled={lotReportLoading || !lotReportDesde || !lotReportHasta}
+                      icon={<RefreshCw size={16} />}
+                    >
+                      Actualizar
+                    </Button>
+                  </div>
+
+                  <div style={{ padding: 22, overflow: 'auto', flex: 1 }}>
+                    {lotReportLoading ? (
+                      <div style={{ color: 'var(--muted)' }}>Cargando informe de clasificación...</div>
+                    ) : null}
+
+                    {!lotReportLoading && lotReportError ? (
+                      <div style={{ color: '#be123c', fontWeight: 700 }}>{lotReportError}</div>
+                    ) : null}
+
+                    {!lotReportLoading && !lotReportError ? (
+                      <>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12, marginBottom: 20 }}>
+                          {[
+                            { label: 'Clase A', value: lotReportSummary.claseA, color: '#0F6E56', bg: '#E1F5EE' },
+                            { label: 'Clase B', value: lotReportSummary.claseB, color: '#185FA5', bg: '#E6F1FB' },
+                            { label: 'Clase C', value: lotReportSummary.claseC, color: '#854F0B', bg: '#FAEEDA' },
+                            { label: 'Pendientes', value: lotReportSummary.pendientes, color: '#69788d', bg: 'var(--color-background-secondary)' }
+                          ].map((item) => {
+                            const pct = lotReportSummary.total > 0 ? Math.round((item.value / lotReportSummary.total) * 100) : 0;
+                            return (
+                              <div key={item.label} style={{ background: item.bg, borderRadius: 8, padding: '10px 12px', alignSelf: 'start' }}>
+                                <p style={{ margin: 0, fontSize: 11, color: 'var(--color-text-secondary)' }}>{item.label}</p>
+                                <p style={{ margin: '3px 0 0', fontSize: 22, fontWeight: 500, color: item.color }}>{item.value}</p>
+                                <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--color-text-secondary)' }}>{pct}% sobre {lotReportSummary.total || 0}</p>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <div style={{ marginBottom: 12, fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                          Por vendedor
+                        </div>
+                        <div className="table-wrap">
+                          <table>
+                            <thead>
+                              <tr>
+                                <th>Vendedor</th>
+                                <th>Total</th>
+                                <th>Clase A</th>
+                                <th>Clase B</th>
+                                <th>Clase C</th>
+                                <th>Pendientes</th>
+                                <th>% Clase A</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {lotReportRows.map((row, index) => {
+                                const isUnassigned = String(row.vendedor || '').trim().toLowerCase() === 'sin asignar' || String(row.vendedor || '').trim().toLowerCase() === 'unassigned';
+                                return (
+                                  <tr key={`${row.vendedor}-${index}`} style={isUnassigned ? { color: 'var(--color-text-secondary)' } : undefined}>
+                                    <td style={isUnassigned ? { color: 'var(--color-text-secondary)' } : undefined}>{row.vendedor}</td>
+                                    <td>{row.total}</td>
+                                    <td>{row.claseA}</td>
+                                    <td>{row.claseB}</td>
+                                    <td>{row.claseC}</td>
+                                    <td>{row.pendientes}</td>
+                                    <td>{row.pctClaseA == null ? '—' : `${row.pctClaseA}%`}</td>
+                                  </tr>
+                                );
+                              })}
+                              {!lotReportRows.length ? (
+                                <tr>
+                                  <td colSpan={7} style={{ padding: 16, color: 'var(--muted)' }}>No hay datos para el rango seleccionado.</td>
+                                </tr>
+                              ) : null}
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             {/* MODAL: REASIGNAR */}
             {reassignModal && (
