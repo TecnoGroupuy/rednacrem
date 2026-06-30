@@ -9799,32 +9799,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     </button>
                   ) : null}
                   {selectedLot ? (
-                    <button
-                      onClick={openLotClassificationReport}
-                      style={{
-                        position: 'absolute',
-                        top: 2,
-                        right: 42,
-                        fontSize: 11,
-                        fontWeight: 500,
-                        color: '#185FA5',
-                        background: '#E6F1FB',
-                        border: '1px solid #85B7EB',
-                        borderRadius: 6,
-                        padding: '6px 10px',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6
-                      }}
-                      title="Ver informe"
-                    >
-                      <FileText size={14} />
-                      Ver informe
-                    </button>
-                  ) : null}
-
-                  {selectedLot ? (
                     <div className="list">
 
                     {/* RESUMEN COMPACTO */}
@@ -9847,6 +9821,31 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             {selectedLotMetrics.incontactables_total} incontactables
                           </span>
                         )}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 14 }}>
+                        <button
+                          onClick={openLotClassificationReport}
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: '#185FA5',
+                            background: 'linear-gradient(180deg, #F4FAFF 0%, #E6F1FB 100%)',
+                            border: '1px solid #85B7EB',
+                            borderRadius: 10,
+                            padding: '10px 18px',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 8,
+                            minWidth: 180,
+                            boxShadow: '0 6px 18px rgba(24,95,165,0.12)'
+                          }}
+                          title="Ver informe"
+                        >
+                          <FileText size={16} />
+                          Ver informe
+                        </button>
                       </div>
                     </div>
 
