@@ -102,6 +102,7 @@ import SupervisorRegistrationRequestsModule from './components/SupervisorRegistr
 import CampanasRedesModule from './components/CampanasRedesModule.jsx';
 import EquipoVentaModule from './components/EquipoVentaModule.jsx';
 import ClienteFichaForm from './components/ClienteFichaForm.jsx';
+import PanelControlModule from './components/PanelControlModule.jsx';
 import ProfileModal from './components/ProfileModal.jsx';
 import BotonVistaRol from './components/BotonVistaRol.jsx';
 import UiRoleGate from './components/UiRoleGate.jsx';
@@ -192,6 +193,7 @@ const ROLE_NAV = [
       { path: 'sa_configuracion', label: 'Configuración', caption: 'Identidad y parámetros', roles: ['superadministrador'], icon: Settings },
       { path: 'sa_conexiones', label: 'Conexiones', caption: 'Webhooks externos', roles: ['superadministrador'], icon: Webhook },
       { path: 'dashboard', label: 'Monitor', caption: 'Resumen principal', roles: ['director', 'supervisor', 'vendedor', 'operaciones'], icon: Activity },
+      { path: 'panel_control', label: 'Panel de control', caption: 'Resumen del día', roles: ['director', 'supervisor'], icon: BarChart3 },
       { path: 'contactos', label: 'Contacto', caption: 'Base comercial', roles: ['director', 'vendedor'], icon: Users },
       { path: 'soporte', label: 'Atención al cliente', caption: 'Tickets y llamadas', roles: ['atencion_cliente'], icon: Headphones, badge: 12 },
       { path: 'recupero', label: 'Recupero', caption: 'Cartera en baja', roles: ['vendedor', 'atencion_cliente'], icon: FileText },
@@ -16876,6 +16878,13 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             />
           );
           return <OperationsDashboard />;
+        }
+        if (route === 'panel_control') {
+          return (
+            <RequireRole roles={['director', 'supervisor']} fallback={<PlaceholderView title="Panel de control" subtitle="No tenés permisos para este módulo." cta="Volver al foco" />}>
+              <PanelControlModule activeOrgId={activeOrg?.id} />
+            </RequireRole>
+          );
         }
         if (role === 'supervisor' && ['base_general', 'lotes', 'numeros_error', 'seguimiento_vendedores'].includes(route)) {
           return (
