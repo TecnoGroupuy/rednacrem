@@ -9084,6 +9084,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         };
       }, [formatDateInputLocal]);
 
+      const getTodayRange = React.useCallback(() => {
+        const today = formatDateInputLocal(new Date());
+        return { desde: today, hasta: today };
+      }, [formatDateInputLocal]);
+
       React.useEffect(() => {
         if (!selectedLot?.id) {
           setSelectedLotMetrics(null);
@@ -9113,7 +9118,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         setLotReportLoading(true);
         setLotReportError('');
         try {
-          const response = await api.get(`/lead-batches/${encodeURIComponent(lotId)}/informe-clasificacion?desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hasta)}`);
+          const hastaDate = new Date(`${hasta}T00:00:00`);
+          const hastaExclusiveDate = new Date(hastaDate);
+          hastaExclusiveDate.setDate(hastaExclusiveDate.getDate() + 1);
+          const hastaExclusive = formatDateInputLocal(hastaExclusiveDate);
+          const response = await api.get(`/lead-batches/${encodeURIComponent(lotId)}/informe-clasificacion?desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hastaExclusive)}`);
           const data = response || null;
           if (data?.ok) {
             setLotReportData(data);
@@ -9127,18 +9136,18 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         } finally {
           setLotReportLoading(false);
         }
-      }, [api]);
+      }, [api, formatDateInputLocal]);
 
       const openLotClassificationReport = React.useCallback(() => {
         if (!selectedLot?.id) return;
-        const range = getCurrentMonthRange();
+        const range = getTodayRange();
         setLotReportDesde(range.desde);
         setLotReportHasta(range.hasta);
         setLotReportData(null);
         setLotReportError('');
         setShowLotReportModal(true);
         loadLotClassificationReport({ lotId: selectedLot.id, desde: range.desde, hasta: range.hasta });
-      }, [getCurrentMonthRange, loadLotClassificationReport, selectedLot?.id]);
+      }, [getTodayRange, loadLotClassificationReport, selectedLot?.id]);
 
       const closeLotClassificationReport = React.useCallback(() => {
         setShowLotReportModal(false);
