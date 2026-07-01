@@ -9155,11 +9155,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
       const lotReportSummary = React.useMemo(() => {
         const source = lotReportData || {};
-        const total = Number(source.total_ingresados ?? 0) || 0;
+        const total = (Number(source.total_ingresados ?? 0) || 0) + (Number(source.pendientes_total ?? 0) || 0);
         const claseA = source.resumen?.A ?? { cantidad: 0, ventas: 0 };
         const claseB = source.resumen?.B ?? { cantidad: 0, ventas: 0 };
         const claseC = source.resumen?.C ?? { cantidad: 0, ventas: 0 };
-        const pendientes = source.resumen?.pendiente ?? { cantidad: 0, ventas: 0 };
+        const pendientes = { cantidad: Number(source.pendientes_total ?? 0) || 0, ventas: 0 };
         return { total, claseA, claseB, claseC, pendientes };
       }, [lotReportData]);
 
