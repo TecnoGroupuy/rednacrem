@@ -9155,8 +9155,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
       const lotReportSummary = React.useMemo(() => {
         const source = lotReportData || {};
-        const total = (Number(source.total_ingresados ?? 0) || 0)
-          + (Number(source.pendientes_total ?? 0) || 0);
+        const total = Number(source.total_ingresados ?? 0) || 0;
         const mkClase = (raw) => ({
           cantidad: Number(raw?.cantidad ?? 0) || 0,
           ventas: Number(raw?.ventas ?? 0) || 0,
