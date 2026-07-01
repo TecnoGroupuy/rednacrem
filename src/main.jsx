@@ -10307,7 +10307,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                               summary: lotReportSummary.claseA,
                               color: '#085041',
                               bg: '#E1F5EE',
-                              bar: '#1D9E75'
+                              bar: '#1D9E75',
+                              cardBg: '#C8EDE0'
                             },
                             {
                               key: 'B',
@@ -10315,7 +10316,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                               summary: lotReportSummary.claseB,
                               color: '#854F0B',
                               bg: '#FAEEDA',
-                              bar: '#D97706'
+                              bar: '#D97706',
+                              cardBg: '#F5DFB0'
                             },
                             {
                               key: 'C',
@@ -10323,7 +10325,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                               summary: lotReportSummary.claseC,
                               color: '#7F1D1D',
                               bg: '#FEE2E2',
-                              bar: '#DC2626'
+                              bar: '#DC2626',
+                              cardBg: '#F5C4C4'
                             }
                           ].map((item, index) => {
                             const cantidad = Number(item.summary?.cantidad ?? 0) || 0;
@@ -10353,8 +10356,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                     { label: 'No contesta', value: item.summary?.total_no_contesta ?? 0, color: 'var(--color-text-primary)' },
                                     { label: 'Dato erroneo', value: item.summary?.total_dato_erroneo ?? 0, color: 'var(--color-text-primary)' }
                                   ].map((metric) => (
-                                    <div key={metric.label} style={{ background: item.bg, borderRadius: 10, padding: '10px 12px' }}>
-                                      <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 4 }}>{metric.label}</div>
+                                    <div key={metric.label} style={{ background: item.cardBg, borderRadius: 10, padding: '10px 12px' }}>
+                                      <div style={{ fontSize: 11, color: item.color, marginBottom: 4 }}>{metric.label}</div>
                                       <div style={{ fontSize: 18, fontWeight: 700, color: metric.color }}>{metric.value}</div>
                                     </div>
                                   ))}
@@ -10432,8 +10435,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                               const segments = [
                                 { label: 'venta', value: row.venta, color: '#1D9E75' },
                                 { label: 'seguimiento', value: row.seguimiento, color: '#378ADD' },
-                                { label: 'rechazo', value: row.rechazo, color: 'var(--color-border-tertiary)' },
-                                { label: 'sin resultado', value: row.sinResultado, color: 'var(--line)' }
+                                { label: 'rechazo', value: row.rechazo, color: '#888780' },
+                                { label: 'sin resultado', value: row.sinResultado, color: '#D3D1C7' }
                               ];
                               return (
                                 <div
@@ -10463,7 +10466,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
                                   {total > 0 ? (
                                     <>
-                                      <div style={{ height: 12, borderRadius: 999, overflow: 'hidden', display: 'flex', background: 'var(--color-background-secondary)', marginBottom: 10 }}>
+                                      <div style={{ height: 12, borderRadius: 999, overflow: 'hidden', display: 'flex', background: '#E8E6E0', marginBottom: 10 }}>
                                         {segments.map((segment) => {
                                           const width = total > 0 ? (segment.value / total) * 100 : 0;
                                           return width > 0 ? (
