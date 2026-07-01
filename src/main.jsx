@@ -8777,8 +8777,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [selectedLotOverride, setSelectedLotOverride] = React.useState(null);
       const [selectedLotMetrics, setSelectedLotMetrics] = React.useState(null);
       const [showLotReportModal, setShowLotReportModal] = React.useState(false);
+      const [lotReportTab, setLotReportTab] = React.useState('inventario');
       const [lotReportDesde, setLotReportDesde] = React.useState('');
       const [lotReportHasta, setLotReportHasta] = React.useState('');
+      const [lotReportVendedorId, setLotReportVendedorId] = React.useState(null);
       const [lotReportLoading, setLotReportLoading] = React.useState(false);
       const [lotReportError, setLotReportError] = React.useState('');
       const [lotReportData, setLotReportData] = React.useState(null);
@@ -9113,16 +9115,24 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         return () => { active = false; };
       }, [api, activeOrgId, selectedLot?.id]);
 
-      const loadLotClassificationReport = React.useCallback(async ({ lotId, desde, hasta }) => {
-        if (!lotId || !desde || !hasta) return;
+      const loadLotClassificationReport = React.useCallback(async ({ lotId, desde, hasta, vendedorId }) => {
+        if (!lotId) return;
         setLotReportLoading(true);
         setLotReportError('');
         try {
-          const hastaDate = new Date(`${hasta}T00:00:00`);
-          const hastaExclusiveDate = new Date(hastaDate);
-          hastaExclusiveDate.setDate(hastaExclusiveDate.getDate() + 1);
-          const hastaExclusive = formatDateInputLocal(hastaExclusiveDate);
-          const response = await api.get(`/lead-batches/${encodeURIComponent(lotId)}/informe-clasificacion?desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hastaExclusive)}`);
+          let url = `/lead-batches/${encodeURIComponent(lotId)}/informe-clasificacion`;
+          const params = new URLSearchParams();
+          if (desde && hasta) {
+            const hastaDate = new Date(`${hasta}T00:00:00`);
+            const hastaExclusiveDate = new Date(hastaDate);
+            hastaExclusiveDate.setDate(hastaExclusiveDate.getDate() + 1);
+            const hastaExclusive = formatDateInputLocal(hastaExclusiveDate);
+            params.set('desde', desde);
+            params.set('hasta', hastaExclusive);
+          }
+          if (vendedorId) params.set('vendedor_id', vendedorId);
+          if (params.toString()) url += `?${params.toString()}`;
+          const response = await api.get(url);
           const data = response || null;
           if (data?.ok) {
             setLotReportData(data);
@@ -9141,12 +9151,14 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const openLotClassificationReport = React.useCallback(() => {
         if (!selectedLot?.id) return;
         const range = getTodayRange();
+        setLotReportTab('inventario');
         setLotReportDesde(range.desde);
         setLotReportHasta(range.hasta);
+        setLotReportVendedorId(null);
         setLotReportData(null);
         setLotReportError('');
         setShowLotReportModal(true);
-        loadLotClassificationReport({ lotId: selectedLot.id, desde: range.desde, hasta: range.hasta });
+        loadLotClassificationReport({ lotId: selectedLot.id });
       }, [getTodayRange, loadLotClassificationReport, selectedLot?.id]);
 
       const closeLotClassificationReport = React.useCallback(() => {
@@ -9184,13 +9196,14 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           || [];
         const rows = Array.isArray(raw) ? raw.map((row) => {
           const vendedor = row?.vendedor ?? row?.seller ?? row?.nombre ?? row?.name ?? '—';
+          const vendedorId = row?.vendedor_id ?? row?.vendedorId ?? row?.seller_id ?? row?.sellerId ?? null;
           const total = Number(row?.total ?? row?.total_ingresado ?? row?.totalIngresado ?? 0) || 0;
           const claseA = Number(row?.clase_a ?? row?.claseA ?? row?.a ?? 0) || 0;
           const claseB = Number(row?.clase_b ?? row?.claseB ?? row?.b ?? 0) || 0;
           const claseC = Number(row?.clase_c ?? row?.claseC ?? row?.c ?? 0) || 0;
           const pendientes = Number(row?.pendientes ?? 0) || 0;
           const pctClaseA = row?.pct_clase_a ?? null;
-          return { vendedor, total, claseA, claseB, claseC, pendientes, pctClaseA };
+          return { vendedorId, vendedor, total, claseA, claseB, claseC, pendientes, pctClaseA };
         }) : [];
         const assigned = [];
         const unassigned = [];
@@ -10190,6 +10203,45 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       <div style={{ marginTop: 4, color: 'var(--muted)', fontSize: 13 }}>
                         Distribución A/B/C del lote para el rango seleccionado
                       </div>
+                      <div style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                        {[
+                          { key: 'inventario', label: 'Inventario' },
+                          { key: 'periodo', label: 'Período' }
+                        ].map((tab) => {
+                          const isActive = lotReportTab === tab.key;
+                          return (
+                            <button
+                              key={tab.key}
+                              onClick={() => {
+                                setLotReportTab(tab.key);
+                                if (!selectedLot?.id) return;
+                                if (tab.key === 'inventario') {
+                                  loadLotClassificationReport({ lotId: selectedLot.id });
+                                  return;
+                                }
+                                loadLotClassificationReport({
+                                  lotId: selectedLot.id,
+                                  desde: lotReportDesde,
+                                  hasta: lotReportHasta,
+                                  vendedorId: lotReportVendedorId || undefined
+                                });
+                              }}
+                              style={{
+                                border: 'none',
+                                borderRadius: 999,
+                                padding: '8px 14px',
+                                fontSize: 13,
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                background: isActive ? '#0f766e' : 'var(--color-background-secondary)',
+                                color: isActive ? '#fff' : 'var(--color-text-secondary)'
+                              }}
+                            >
+                              {tab.label}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                     <button
                       onClick={closeLotClassificationReport}
@@ -10200,23 +10252,85 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     </button>
                   </div>
 
-                  <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(20,34,53,0.08)', display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
-                    <label style={{ display: 'grid', gap: 6, minWidth: 180 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Desde</span>
-                      <input className="input" type="date" value={lotReportDesde} onChange={(event) => setLotReportDesde(event.target.value)} />
-                    </label>
-                    <label style={{ display: 'grid', gap: 6, minWidth: 180 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Hasta</span>
-                      <input className="input" type="date" value={lotReportHasta} onChange={(event) => setLotReportHasta(event.target.value)} />
-                    </label>
-                    <Button
-                      onClick={() => loadLotClassificationReport({ lotId: selectedLot.id, desde: lotReportDesde, hasta: lotReportHasta })}
-                      disabled={lotReportLoading || !lotReportDesde || !lotReportHasta}
-                      icon={<RefreshCw size={16} />}
-                    >
-                      Actualizar
-                    </Button>
-                  </div>
+                  {lotReportTab === 'periodo' ? (
+                    <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(20,34,53,0.08)', display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
+                      <label style={{ display: 'grid', gap: 6, minWidth: 220 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Vendedor</span>
+                        <select
+                          className="input"
+                          value={lotReportVendedorId || ''}
+                          onChange={(event) => {
+                            const nextVendedorId = event.target.value || null;
+                            setLotReportVendedorId(nextVendedorId);
+                            if (!selectedLot?.id) return;
+                            loadLotClassificationReport({
+                              lotId: selectedLot.id,
+                              desde: lotReportDesde,
+                              hasta: lotReportHasta,
+                              vendedorId: nextVendedorId || undefined
+                            });
+                          }}
+                        >
+                          <option value="">Todos los vendedores</option>
+                          {lotReportRows
+                            .filter((row) => row.vendedorId && String(row.vendedor || '').trim().toLowerCase() !== 'sin asignar' && String(row.vendedor || '').trim().toLowerCase() !== 'unassigned')
+                            .map((row, index) => (
+                              <option key={`${row.vendedorId}-${index}`} value={row.vendedorId}>{row.vendedor}</option>
+                            ))}
+                        </select>
+                      </label>
+                      <label style={{ display: 'grid', gap: 6, minWidth: 180 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Desde</span>
+                        <input
+                          className="input"
+                          type="date"
+                          value={lotReportDesde}
+                          onChange={(event) => {
+                            const nextDesde = event.target.value;
+                            setLotReportDesde(nextDesde);
+                            if (!selectedLot?.id) return;
+                            loadLotClassificationReport({
+                              lotId: selectedLot.id,
+                              desde: nextDesde,
+                              hasta: lotReportHasta,
+                              vendedorId: lotReportVendedorId || undefined
+                            });
+                          }}
+                        />
+                      </label>
+                      <label style={{ display: 'grid', gap: 6, minWidth: 180 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Hasta</span>
+                        <input
+                          className="input"
+                          type="date"
+                          value={lotReportHasta}
+                          onChange={(event) => {
+                            const nextHasta = event.target.value;
+                            setLotReportHasta(nextHasta);
+                            if (!selectedLot?.id) return;
+                            loadLotClassificationReport({
+                              lotId: selectedLot.id,
+                              desde: lotReportDesde,
+                              hasta: nextHasta,
+                              vendedorId: lotReportVendedorId || undefined
+                            });
+                          }}
+                        />
+                      </label>
+                      <Button
+                        onClick={() => loadLotClassificationReport({
+                          lotId: selectedLot.id,
+                          desde: lotReportDesde,
+                          hasta: lotReportHasta,
+                          vendedorId: lotReportVendedorId || undefined
+                        })}
+                        disabled={lotReportLoading || !lotReportDesde || !lotReportHasta}
+                        icon={<RefreshCw size={16} />}
+                      >
+                        Actualizar
+                      </Button>
+                    </div>
+                  ) : null}
 
                   <div style={{ padding: 22, overflow: 'auto', flex: 1 }}>
                     {lotReportLoading ? (
@@ -10421,7 +10535,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           </table>
                         </div>
 
-                        <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid rgba(20,34,53,0.08)' }}>
+                        {lotReportTab === 'periodo' ? (
+                          <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid rgba(20,34,53,0.08)' }}>
                           <div style={{ marginBottom: 4, fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                             Gestión de vendedor
                           </div>
@@ -10502,7 +10617,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                               </div>
                             ) : null}
                           </div>
-                        </div>
+                          </div>
+                        ) : null}
                       </>
                     ) : null}
                   </div>
