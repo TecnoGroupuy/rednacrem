@@ -10239,15 +10239,15 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                               label: 'Clase B',
                               value: lotReportSummary.claseB.cantidad,
                               helper: `${lotReportSummary.total > 0 ? Math.round((lotReportSummary.claseB.cantidad / lotReportSummary.total) * 100) : 0}% del total`,
-                              color: '#0C447C',
-                              bg: '#E6F1FB'
+                              color: '#854F0B',
+                              bg: '#FAEEDA'
                             },
                             {
-                              label: 'Pendiente',
-                              value: lotReportSummary.pendientes.cantidad,
-                              helper: `${lotReportSummary.total > 0 ? Math.round((lotReportSummary.pendientes.cantidad / lotReportSummary.total) * 100) : 0}% del total`,
-                              color: '#69788d',
-                              bg: 'var(--color-background-secondary)'
+                              label: 'Clase C',
+                              value: lotReportSummary.claseC.cantidad,
+                              helper: `${lotReportSummary.total > 0 ? Math.round((lotReportSummary.claseC.cantidad / lotReportSummary.total) * 100) : 0}% del total`,
+                              color: '#7F1D1D',
+                              bg: '#FEE2E2'
                             }
                           ].map((item) => (
                             <div key={item.label} style={{ background: item.bg, borderRadius: 8, padding: '12px 14px', alignSelf: 'start' }}>
@@ -10262,24 +10262,24 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           {[
                             {
                               key: 'A',
-                              title: 'Clase A · gestionados el mismo día',
+                              title: 'Clase A · menos de 36hs · dato fresco',
                               summary: lotReportSummary.claseA,
-                              color: '#085041',
+                              color: '#1D9E75',
                               bg: '#E1F5EE'
                             },
                             {
                               key: 'B',
-                              title: 'Clase B · gestionados dentro de la semana',
+                              title: 'Clase B · entre 36hs y 7 días · dato tibio',
                               summary: lotReportSummary.claseB,
-                              color: '#0C447C',
-                              bg: '#E6F1FB'
+                              color: '#D97706',
+                              bg: '#FAEEDA'
                             },
                             {
                               key: 'C',
-                              title: 'Clase C · gestionados después de una semana',
+                              title: 'Clase C · más de 7 días · dato frío',
                               summary: lotReportSummary.claseC,
-                              color: '#854F0B',
-                              bg: '#FAEEDA'
+                              color: '#DC2626',
+                              bg: '#FEE2E2'
                             }
                           ].map((item, index) => {
                             const cantidad = Number(item.summary?.cantidad ?? 0) || 0;
@@ -10293,7 +10293,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                   borderTop: index > 0 ? '0.5px solid rgba(20,34,53,0.1)' : 'none'
                                 }}
                               >
-                                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 4 }}>{item.title}</div>
+                                <div style={{ fontSize: 14, fontWeight: 600, color: item.color, marginBottom: 4 }}>{item.title}</div>
                                 <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: cantidad > 0 ? 10 : 0 }}>
                                   {cantidad} datos utilizados
                                 </div>
