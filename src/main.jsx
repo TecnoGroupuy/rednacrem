@@ -9184,6 +9184,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           claseA: mkClase(source.resumen?.A),
           claseB: mkClase(source.resumen?.B),
           claseC: mkClase(source.resumen?.C),
+          bloqueados: Number(source.bloqueados_total ?? 0) || 0,
           pendientes: { cantidad: Number(source.pendientes_total ?? 0) || 0, ventas: 0 }
         };
       }, [lotReportData]);
@@ -10346,7 +10347,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         <div style={{ marginBottom: 12, fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                           CLASIFICACION DE DATOS
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12, marginBottom: 20 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 12, marginBottom: 20 }}>
                           {[
                             {
                               label: 'Total del lote',
@@ -10375,6 +10376,13 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                               helper: `${lotReportSummary.total > 0 ? Math.round((lotReportSummary.claseC.cantidad / lotReportSummary.total) * 100) : 0}% · mas de 7 dias`,
                               color: 'var(--text-danger)',
                               bg: 'var(--bg-danger)'
+                            },
+                            {
+                              label: 'Bloqueados',
+                              value: lotReportSummary.bloqueados,
+                              helper: 'Fuera de circulación',
+                              color: '#44403C',
+                              bg: '#E7E5E4'
                             }
                           ].map((item) => (
                             <div key={item.label} style={{ background: item.bg, borderRadius: 12, padding: '14px 16px', alignSelf: 'start' }}>
