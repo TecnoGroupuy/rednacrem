@@ -9155,12 +9155,26 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
       const lotReportSummary = React.useMemo(() => {
         const source = lotReportData || {};
-        const total = (Number(source.total_ingresados ?? 0) || 0) + (Number(source.pendientes_total ?? 0) || 0);
-        const claseA = source.resumen?.A ?? { cantidad: 0, ventas: 0 };
-        const claseB = source.resumen?.B ?? { cantidad: 0, ventas: 0 };
-        const claseC = source.resumen?.C ?? { cantidad: 0, ventas: 0 };
-        const pendientes = { cantidad: Number(source.pendientes_total ?? 0) || 0, ventas: 0 };
-        return { total, claseA, claseB, claseC, pendientes };
+        const total = (Number(source.total_ingresados ?? 0) || 0)
+          + (Number(source.pendientes_total ?? 0) || 0);
+        const mkClase = (raw) => ({
+          cantidad: Number(raw?.cantidad ?? 0) || 0,
+          ventas: Number(raw?.ventas ?? 0) || 0,
+          nuevos: Number(raw?.nuevos ?? 0) || 0,
+          total_ventas: Number(raw?.total_ventas ?? 0) || 0,
+          total_seguimientos: Number(raw?.total_seguimientos ?? 0) || 0,
+          total_rellamar: Number(raw?.total_rellamar ?? 0) || 0,
+          total_rechazos: Number(raw?.total_rechazos ?? 0) || 0,
+          total_no_contesta: Number(raw?.total_no_contesta ?? 0) || 0,
+          total_dato_erroneo: Number(raw?.total_dato_erroneo ?? 0) || 0
+        });
+        return {
+          total,
+          claseA: mkClase(source.resumen?.A),
+          claseB: mkClase(source.resumen?.B),
+          claseC: mkClase(source.resumen?.C),
+          pendientes: { cantidad: Number(source.pendientes_total ?? 0) || 0, ventas: 0 }
+        };
       }, [lotReportData]);
 
       const lotReportRows = React.useMemo(() => {
@@ -10217,105 +10231,149 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     {!lotReportLoading && !lotReportError ? (
                       <>
                         <div style={{ marginBottom: 12, fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                          Calidad de los datos
+                          CLASIFICACION DE DATOS
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12, marginBottom: 20 }}>
                           {[
                             {
-                              label: 'Total ingresados',
+                              label: 'Total del lote',
                               value: lotReportSummary.total,
                               helper: 'Base analizada',
                               color: 'var(--color-text-primary)',
-                              bg: 'var(--color-background-secondary)'
+                              bg: 'var(--surface-1)'
                             },
                             {
-                              label: 'Clase A',
+                              label: 'Clase A · frescos',
                               value: lotReportSummary.claseA.cantidad,
-                              helper: `${lotReportSummary.total > 0 ? Math.round((lotReportSummary.claseA.cantidad / lotReportSummary.total) * 100) : 0}% del total`,
-                              color: '#085041',
-                              bg: '#E1F5EE'
+                              helper: `${lotReportSummary.total > 0 ? Math.round((lotReportSummary.claseA.cantidad / lotReportSummary.total) * 100) : 0}% · menos de 36hs`,
+                              color: 'var(--text-success)',
+                              bg: 'var(--bg-success)'
                             },
                             {
-                              label: 'Clase B',
+                              label: 'Clase B · tibios',
                               value: lotReportSummary.claseB.cantidad,
-                              helper: `${lotReportSummary.total > 0 ? Math.round((lotReportSummary.claseB.cantidad / lotReportSummary.total) * 100) : 0}% del total`,
-                              color: '#854F0B',
-                              bg: '#FAEEDA'
+                              helper: `${lotReportSummary.total > 0 ? Math.round((lotReportSummary.claseB.cantidad / lotReportSummary.total) * 100) : 0}% · entre 36hs y 7 dias`,
+                              color: 'var(--text-warning)',
+                              bg: 'var(--bg-warning)'
                             },
                             {
-                              label: 'Clase C',
+                              label: 'Clase C · frios',
                               value: lotReportSummary.claseC.cantidad,
-                              helper: `${lotReportSummary.total > 0 ? Math.round((lotReportSummary.claseC.cantidad / lotReportSummary.total) * 100) : 0}% del total`,
-                              color: '#7F1D1D',
-                              bg: '#FEE2E2'
+                              helper: `${lotReportSummary.total > 0 ? Math.round((lotReportSummary.claseC.cantidad / lotReportSummary.total) * 100) : 0}% · mas de 7 dias`,
+                              color: 'var(--text-danger)',
+                              bg: 'var(--bg-danger)'
                             }
                           ].map((item) => (
-                            <div key={item.label} style={{ background: item.bg, borderRadius: 8, padding: '12px 14px', alignSelf: 'start' }}>
-                              <p style={{ margin: 0, fontSize: 11, color: 'var(--color-text-secondary)' }}>{item.label}</p>
-                              <p style={{ margin: '4px 0 0', fontSize: 24, fontWeight: 600, color: item.color }}>{item.value}</p>
-                              <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--color-text-secondary)' }}>{item.helper}</p>
+                            <div key={item.label} style={{ background: item.bg, borderRadius: 12, padding: '14px 16px', alignSelf: 'start' }}>
+                              <p style={{ margin: 0, fontSize: 11, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{item.label}</p>
+                              <p style={{ margin: '6px 0 0', fontSize: 26, fontWeight: 700, color: item.color }}>{item.value}</p>
+                              <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--color-text-secondary)' }}>{item.helper}</p>
                             </div>
                           ))}
                         </div>
 
-                        <div style={{ border: '1px solid rgba(20,34,53,0.08)', borderRadius: 12, background: '#fff', marginBottom: 24 }}>
+                        <div style={{ marginBottom: 20 }}>
+                          <div style={{ height: 8, borderRadius: 999, overflow: 'hidden', display: 'flex', background: 'var(--surface-1)', marginBottom: 10 }}>
+                            {[
+                              { key: 'A', value: lotReportSummary.claseA.cantidad, color: 'var(--fill-success)' },
+                              { key: 'B', value: lotReportSummary.claseB.cantidad, color: 'var(--fill-warning)' },
+                              { key: 'C', value: lotReportSummary.claseC.cantidad, color: 'var(--fill-danger)' }
+                            ].map((segment) => {
+                              const totalClasificado = lotReportSummary.claseA.cantidad + lotReportSummary.claseB.cantidad + lotReportSummary.claseC.cantidad;
+                              const width = totalClasificado > 0 ? (segment.value / totalClasificado) * 100 : 0;
+                              return width > 0 ? (
+                                <div
+                                  key={segment.key}
+                                  style={{
+                                    width: `${width}%`,
+                                    background: segment.color,
+                                    minWidth: segment.value > 0 ? 6 : 0
+                                  }}
+                                />
+                              ) : null;
+                            })}
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px', fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: 999, background: 'var(--fill-success)', display: 'inline-block' }} />A · frescos</span>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: 999, background: 'var(--fill-warning)', display: 'inline-block' }} />B · tibios</span>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: 999, background: 'var(--fill-danger)', display: 'inline-block' }} />C · frios</span>
+                          </div>
+                        </div>
+
+                        <div style={{ border: '0.5px solid var(--border)', borderRadius: 12, background: '#fff', marginBottom: 24 }}>
                           {[
                             {
                               key: 'A',
                               title: 'Clase A · menos de 36hs · dato fresco',
                               summary: lotReportSummary.claseA,
-                              color: '#1D9E75',
-                              bg: '#E1F5EE'
+                              color: '#085041',
+                              bg: '#E1F5EE',
+                              bar: '#1D9E75'
                             },
                             {
                               key: 'B',
-                              title: 'Clase B · entre 36hs y 7 días · dato tibio',
+                              title: 'Clase B · entre 36hs y 7 dias · dato tibio',
                               summary: lotReportSummary.claseB,
-                              color: '#D97706',
-                              bg: '#FAEEDA'
+                              color: '#854F0B',
+                              bg: '#FAEEDA',
+                              bar: '#D97706'
                             },
                             {
                               key: 'C',
-                              title: 'Clase C · más de 7 días · dato frío',
+                              title: 'Clase C · mas de 7 dias · dato frio',
                               summary: lotReportSummary.claseC,
-                              color: '#DC2626',
-                              bg: '#FEE2E2'
+                              color: '#7F1D1D',
+                              bg: '#FEE2E2',
+                              bar: '#DC2626'
                             }
                           ].map((item, index) => {
                             const cantidad = Number(item.summary?.cantidad ?? 0) || 0;
-                            const ventas = Number(item.summary?.ventas ?? 0) || 0;
-                            const pct = cantidad > 0 ? Math.round((ventas / cantidad) * 100) : 0;
+                            const totalVentas = Number(item.summary?.total_ventas ?? 0) || 0;
+                            const pct = cantidad > 0 ? Math.round((totalVentas / cantidad) * 100) : 0;
                             return (
                               <div
                                 key={item.key}
                                 style={{
-                                  padding: '16px 18px',
-                                  borderTop: index > 0 ? '0.5px solid rgba(20,34,53,0.1)' : 'none'
+                                  padding: '18px 18px 16px',
+                                  borderTop: index > 0 ? '0.5px solid var(--border)' : 'none'
                                 }}
                               >
-                                <div style={{ fontSize: 14, fontWeight: 600, color: item.color, marginBottom: 4 }}>{item.title}</div>
-                                <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: cantidad > 0 ? 10 : 0 }}>
-                                  {cantidad} datos utilizados
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                                  <span style={{ width: 10, height: 10, borderRadius: 999, background: item.bar, display: 'inline-block', flexShrink: 0 }} />
+                                  <div style={{ fontSize: 14, fontWeight: 700, color: item.color }}>{item.title}</div>
                                 </div>
-                                {cantidad > 0 ? (
-                                  <>
-                                    <div style={{ height: 10, borderRadius: 999, background: item.bg, overflow: 'hidden', marginBottom: 8 }}>
-                                      <div
-                                        style={{
-                                          width: `${Math.max(0, Math.min(100, pct))}%`,
-                                          height: '100%',
-                                          borderRadius: 999,
-                                          background: item.color
-                                        }}
-                                      />
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10, marginBottom: 14 }}>
+                                  {[
+                                    { label: 'Total', value: cantidad, color: 'var(--color-text-primary)' },
+                                    { label: 'Nuevos', value: item.summary?.nuevos ?? 0, color: 'var(--color-text-primary)' },
+                                    { label: 'Ventas', value: item.summary?.total_ventas ?? 0, color: 'var(--text-success)' },
+                                    { label: 'Seguimientos', value: item.summary?.total_seguimientos ?? 0, color: 'var(--color-text-primary)' },
+                                    { label: 'Rellamar', value: item.summary?.total_rellamar ?? 0, color: 'var(--color-text-primary)' },
+                                    { label: 'Rechazos', value: item.summary?.total_rechazos ?? 0, color: 'var(--color-text-primary)' },
+                                    { label: 'No contesta', value: item.summary?.total_no_contesta ?? 0, color: 'var(--color-text-primary)' },
+                                    { label: 'Dato erroneo', value: item.summary?.total_dato_erroneo ?? 0, color: 'var(--color-text-primary)' }
+                                  ].map((metric) => (
+                                    <div key={metric.label} style={{ background: item.bg, borderRadius: 10, padding: '10px 12px' }}>
+                                      <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 4 }}>{metric.label}</div>
+                                      <div style={{ fontSize: 18, fontWeight: 700, color: metric.color }}>{metric.value}</div>
                                     </div>
-                                    <div style={{ fontSize: 12, fontWeight: 500, color: item.color }}>
-                                      {ventas} ventas · {pct}% conversión
-                                    </div>
-                                  </>
-                                ) : (
-                                  <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Sin datos en este rango</div>
-                                )}
+                                  ))}
+                                </div>
+
+                                <div style={{ height: 10, borderRadius: 999, background: item.bg, overflow: 'hidden', marginBottom: 8 }}>
+                                  <div
+                                    style={{
+                                      width: `${Math.max(0, Math.min(100, pct))}%`,
+                                      height: '100%',
+                                      borderRadius: 999,
+                                      background: item.bar
+                                    }}
+                                  />
+                                </div>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: item.color }}>
+                                  {pct}% conversion
+                                </div>
                               </div>
                             );
                           })}
