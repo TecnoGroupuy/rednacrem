@@ -201,7 +201,7 @@ const ROLE_NAV = [
       { path: 'campanas_redes', label: 'Datos calientes', caption: 'Datos en tiempo real', roles: ['superadministrador', 'director', 'supervisor'], icon: Flame },
       { path: 'contratos', label: 'Recupero', caption: 'Cartera de clientes', roles: ['director', 'supervisor', 'operaciones'], icon: FileText },
       { path: 'clientes', label: 'Mis ventas', caption: 'Clientes que cerré', roles: ['vendedor'], icon: UserCheck },
-      { path: 'base_general', label: 'Datos libres', caption: 'Procesados.', roles: ['supervisor'], icon: Users },
+      { path: 'base_general', label: 'Mercado Abierto', caption: 'Datos fríos por CSV', roles: ['supervisor'], icon: Users },
       { path: 'equipo', label: 'Mi equipo', caption: 'Vendedores', roles: ['director', 'supervisor'], icon: Users },
       { path: 'lotes', label: 'Lotes', caption: 'Asignacion comercial', roles: ['supervisor'], icon: Layers },
       { path: 'seguimiento_vendedores', label: 'Codificaciones', caption: 'Codificaciones', roles: ['supervisor'], icon: BarChart3 },
