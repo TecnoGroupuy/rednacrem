@@ -294,6 +294,18 @@ export const getNoCallImportJob = async (jobId) => {
   return null;
 };
 
+const decodeBase64CsvForFallback = (base64Value) => {
+  const raw = String(base64Value || '').trim();
+  maybeThrow(!raw, 'No se pudo leer el contenido del archivo.');
+  const binary = atob(raw);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    return new TextDecoder('latin1').decode(bytes);
+  }
+};
+
 const normalizeDatosParaTrabajarPreviewRow = (row = {}, index = 0) => {
   const resultadoRaw =
     row?.resultado_preview
@@ -349,16 +361,20 @@ const normalizeDatosParaTrabajarPreviewResponse = (response = {}) => {
   };
 };
 
-export const previewDatosParaTrabajarCsv = async ({ fileName = '', csvText = '' } = {}) => {
-  maybeThrow(!csvText, 'No se pudo leer el contenido del archivo.');
+export const previewDatosParaTrabajarCsv = async ({ fileName = '', csvBase64 = '', origenDato = '' } = {}) => {
+  maybeThrow(!csvBase64, 'No se pudo leer el contenido del archivo.');
+  maybeThrow(!String(origenDato || '').trim(), 'Seleccioná el origen de los datos para continuar.');
   if (hasApiConfigured()) {
     const headers = fileName ? { 'X-File-Name': fileName } : {};
-    const response = await api.post('/imports/datos-para-trabajar/preview', { csv: csvText }, { headers });
+    const response = await api.post('/imports/datos-para-trabajar/preview', {
+      csvBase64,
+      origenDato: String(origenDato || '').trim()
+    }, { headers });
     return normalizeDatosParaTrabajarPreviewResponse(response);
   }
 
   await delay(220);
-  const parsed = parseCsv(csvText);
+  const parsed = parseCsv(decodeBase64CsvForFallback(csvBase64));
   const rows = parsed.rows.slice(0, 8).map((row, index) => ({
     id: String(index + 1),
     rowNumber: row?.rowNumber || index + 2,
@@ -366,7 +382,7 @@ export const previewDatosParaTrabajarCsv = async ({ fileName = '', csvText = '' 
     apellido: row?.apellido || row?.apellidos || '',
     telefono: row?.telefono || row?.celular || '',
     departamento: row?.departamento || '',
-    origen_dato: row?.origen_dato || row?.origen || '',
+    origen_dato: row?.origen_dato || row?.origen || String(origenDato || '').trim(),
     resultado: 'valido',
     resultadoLabel: 'Valido',
     motivo: ''
@@ -428,6 +444,8 @@ export const previewCsvText = async (csvText, { importType = 'clientes', fileNam
 export const createImportFromCsv = async ({
   fileName,
   csvText,
+  csvBase64 = '',
+  origenDato = '',
   userId = '',
   importType = 'clientes',
   batchId = null,
@@ -491,7 +509,12 @@ export const createImportFromCsv = async ({
 
   if (hasApiConfigured() && normalizedType === 'datos_para_trabajar') {
     const headers = fileName ? { 'X-File-Name': fileName } : {};
-    const response = await api.post('/imports/datos-para-trabajar', { csv: csvText }, { headers });
+    maybeThrow(!csvBase64, 'No se pudo leer el contenido del archivo.');
+    maybeThrow(!String(origenDato || '').trim(), 'Seleccioná el origen de los datos para continuar.');
+    const response = await api.post('/imports/datos-para-trabajar', {
+      csvBase64,
+      origenDato: String(origenDato || '').trim()
+    }, { headers });
     return {
       id: String(response?.batchId || response?.batch_id || Date.now()),
       nombreArchivo: fileName || 'import_datos_para_trabajar.csv',
@@ -510,9 +533,10 @@ export const createImportFromCsv = async ({
 
   await delay(260);
   maybeThrow(!fileName, 'Debes seleccionar un archivo CSV.');
-  maybeThrow(!csvText, 'No se pudo leer el contenido del archivo.');
+  maybeThrow(!(csvText || csvBase64), 'No se pudo leer el contenido del archivo.');
 
-  const parsed = parseCsv(csvText);
+  const effectiveCsvText = csvText || decodeBase64CsvForFallback(csvBase64);
+  const parsed = parseCsv(effectiveCsvText);
   const validation = validateCsvByType(parsed, normalizedType);
 
   if (normalizedType === 'no_llamar' && validation.validRows.length) {

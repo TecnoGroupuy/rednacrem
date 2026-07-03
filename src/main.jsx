@@ -8778,7 +8778,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [workDataImportStep, setWorkDataImportStep] = React.useState(1);
       const [workDataImportDraft, setWorkDataImportDraft] = React.useState({
         fileName: '',
-        csvText: '',
+        csvBase64: '',
+        origenDato: '',
         fileSize: 0,
         fileType: 'text/csv'
       });
@@ -8952,6 +8953,24 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         return `${(size / (1024 * 1024)).toFixed(1)} MB`;
       }, []);
 
+      const workDataImportOrigenOptions = React.useMemo(
+        () => Array.isArray(origenDatoResolvedOptions)
+          ? origenDatoResolvedOptions.filter((item) => String(item?.valor || '').trim())
+          : [],
+        [origenDatoResolvedOptions]
+      );
+
+      const arrayBufferToBase64 = React.useCallback((arrayBuffer) => {
+        const bytes = new Uint8Array(arrayBuffer);
+        const chunkSize = 0x8000;
+        let binary = '';
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+          const chunk = bytes.subarray(i, i + chunkSize);
+          binary += String.fromCharCode(...chunk);
+        }
+        return btoa(binary);
+      }, []);
+
       const getWorkDataPreviewBadge = React.useCallback((row = {}) => {
         const status = String(row?.resultado || '').toLowerCase();
         if (status.includes('cliente_activo') || status.includes('activo')) {
@@ -8972,7 +8991,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         setWorkDataImportStep(1);
         setWorkDataImportDraft({
           fileName: '',
-          csvText: '',
+          csvBase64: '',
+          origenDato: '',
           fileSize: 0,
           fileType: 'text/csv'
         });
@@ -8991,12 +9011,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         }
       }
 
-      const runWorkDataImportPreview = React.useCallback(async ({ fileName, csvText }) => {
+      const runWorkDataImportPreview = React.useCallback(async ({ fileName, csvBase64, origenDato }) => {
         setWorkDataImportPreviewLoading(true);
         setWorkDataImportError('');
         setWorkDataImportPreview(null);
         try {
-          const preview = await previewDatosParaTrabajarCsv({ fileName, csvText });
+          const preview = await previewDatosParaTrabajarCsv({ fileName, csvBase64, origenDato });
           setWorkDataImportPreview(preview);
           setWorkDataImportStep(2);
         } catch (err) {
@@ -9009,25 +9029,34 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
       const processWorkDataImportFile = React.useCallback(async (file) => {
         if (!file) return;
+        const origenDato = String(workDataImportDraft.origenDato || '').trim();
+        if (!origenDato) {
+          setWorkDataImportError('Seleccioná el origen de los datos antes de subir el archivo.');
+          setWorkDataImportDragActive(false);
+          return;
+        }
         try {
-          const csvText = await file.text();
+          const arrayBuffer = await file.arrayBuffer();
+          const csvBase64 = arrayBufferToBase64(arrayBuffer);
           setImportFile(file);
           setWorkDataImportDraft({
+            origenDato,
             fileName: file.name || 'archivo.csv',
-            csvText,
+            csvBase64,
             fileSize: file.size || 0,
             fileType: file.type || 'text/csv'
           });
           await runWorkDataImportPreview({
             fileName: file.name || 'archivo.csv',
-            csvText
+            csvBase64,
+            origenDato
           });
         } catch {
           setWorkDataImportError('No se pudo leer el archivo seleccionado.');
         } finally {
           setWorkDataImportDragActive(false);
         }
-      }, [runWorkDataImportPreview]);
+      }, [arrayBufferToBase64, runWorkDataImportPreview, workDataImportDraft.origenDato]);
 
       const handleWorkDataImportFile = React.useCallback(async (event) => {
         const file = event.target.files?.[0];
@@ -9061,7 +9090,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         try {
           await createImportFromCsv({
             fileName: workDataImportDraft.fileName,
-            csvText: workDataImportDraft.csvText,
+            csvBase64: workDataImportDraft.csvBase64,
+            origenDato: workDataImportDraft.origenDato,
             userId: workDataImportUserId,
             importType: 'datos_para_trabajar'
           });
@@ -9074,7 +9104,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         } finally {
           setWorkDataImportSubmitting(false);
         }
-      }, [workDataImportDraft.csvText, workDataImportDraft.fileName, workDataImportSubmitting, workDataImportUserId]);
+      }, [workDataImportDraft.csvBase64, workDataImportDraft.fileName, workDataImportDraft.origenDato, workDataImportSubmitting, workDataImportUserId]);
 
       const loadWorkData = React.useCallback(async () => {
         setWorkDataLoading(true);
@@ -11993,6 +12023,45 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       })}
                     </div>
 
+                    <div style={{ marginBottom: 16 }}>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 6 }}>
+                        Origen de los datos
+                      </label>
+                      {workDataImportOrigenOptions.length ? (
+                        <select
+                          className="input"
+                          value={workDataImportDraft.origenDato}
+                          onChange={(event) => {
+                            const nextValue = event.target.value;
+                            setWorkDataImportDraft((prev) => ({ ...prev, origenDato: nextValue }));
+                            setWorkDataImportError('');
+                          }}
+                          style={{ width: '100%' }}
+                        >
+                          <option value="">Seleccionar origen...</option>
+                          {workDataImportOrigenOptions.map((item) => (
+                            <option key={item.valor} value={item.valor}>
+                              {item.label || item.valor}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          className="input"
+                          value={workDataImportDraft.origenDato}
+                          onChange={(event) => {
+                            const nextValue = event.target.value;
+                            setWorkDataImportDraft((prev) => ({ ...prev, origenDato: nextValue }));
+                            setWorkDataImportError('');
+                          }}
+                          placeholder="Ingresá el origen de los datos"
+                        />
+                      )}
+                      <div style={{ marginTop: 6, fontSize: 12, color: 'var(--muted)' }}>
+                        Se aplicará como fallback a las filas que no traigan origen propio.
+                      </div>
+                    </div>
+
                     <div
                       className={`import-dropzone ${workDataImportDragActive ? 'active' : ''}`}
                       onClick={() => workDataImportFileInputRef.current?.click()}
@@ -12137,7 +12206,13 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       <Button
                         icon={<CheckCircle2 size={16} />}
                         onClick={confirmWorkDataImport}
-                        disabled={!workDataImportPreview || !workDataImportDraft.fileName || workDataImportSubmitting || workDataImportPreviewLoading}
+                        disabled={
+                          !workDataImportPreview
+                          || !workDataImportDraft.fileName
+                          || !String(workDataImportDraft.origenDato || '').trim()
+                          || workDataImportSubmitting
+                          || workDataImportPreviewLoading
+                        }
                       >
                         {workDataImportSubmitting ? 'Confirmando...' : 'Confirmar carga'}
                       </Button>
