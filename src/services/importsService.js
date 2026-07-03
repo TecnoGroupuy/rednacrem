@@ -294,6 +294,96 @@ export const getNoCallImportJob = async (jobId) => {
   return null;
 };
 
+const normalizeDatosParaTrabajarPreviewRow = (row = {}, index = 0) => {
+  const resultadoRaw =
+    row?.resultado_preview
+    || row?.resultado
+    || row?.decision
+    || row?.status
+    || row?.estado
+    || row?.preview_status
+    || row?.validation_status
+    || '';
+  const resultado = String(resultadoRaw || '').trim().toLowerCase();
+  return {
+    id: String(row?.id || row?.row_id || row?.rowNumber || row?.row_number || index + 1),
+    rowNumber: Number(row?.rowNumber || row?.row_number || index + 1) || (index + 1),
+    nombre: row?.nombre || row?.nombres || row?.name || '',
+    apellido: row?.apellido || row?.apellidos || row?.last_name || '',
+    telefono: row?.telefono || row?.celular || row?.phone || row?.mobile || row?.telefono_principal || '',
+    departamento: row?.departamento || row?.department || '',
+    origen_dato: row?.origen_dato || row?.origen || row?.source || '',
+    resultado,
+    resultadoLabel:
+      row?.resultado_label
+      || row?.decision_label
+      || row?.status_label
+      || row?.estado_label
+      || row?.validation_label
+      || (resultado ? resultado.replace(/_/g, ' ') : 'sin dato'),
+    motivo: row?.motivo || row?.reason || row?.detalle || row?.message || row?.observacion || ''
+  };
+};
+
+const normalizeDatosParaTrabajarPreviewResponse = (response = {}) => {
+  const payload = response?.data?.data || response?.data || response || {};
+  const summary = payload?.summary || payload?.resumen || payload?.stats || payload?.totals || {};
+  const rowsRaw =
+    payload?.rows
+    || payload?.items
+    || payload?.preview
+    || payload?.muestra
+    || payload?.sample
+    || payload?.contactos
+    || [];
+  return {
+    total: Number(payload?.total ?? payload?.total_rows ?? payload?.total_registros ?? summary?.total ?? 0) || 0,
+    summary: {
+      validos: Number(summary?.validos ?? summary?.importables ?? payload?.validos ?? 0) || 0,
+      cliente_activo: Number(summary?.cliente_activo ?? payload?.cliente_activo ?? 0) || 0,
+      no_llamar: Number(summary?.no_llamar ?? payload?.no_llamar ?? 0) || 0,
+      duplicados: Number(summary?.duplicados ?? payload?.duplicados ?? 0) || 0
+    },
+    rows: Array.isArray(rowsRaw) ? rowsRaw.slice(0, 8).map(normalizeDatosParaTrabajarPreviewRow) : [],
+    raw: payload
+  };
+};
+
+export const previewDatosParaTrabajarCsv = async ({ fileName = '', csvText = '' } = {}) => {
+  maybeThrow(!csvText, 'No se pudo leer el contenido del archivo.');
+  if (hasApiConfigured()) {
+    const headers = fileName ? { 'X-File-Name': fileName } : {};
+    const response = await api.post('/imports/datos-para-trabajar/preview', { csv: csvText }, { headers });
+    return normalizeDatosParaTrabajarPreviewResponse(response);
+  }
+
+  await delay(220);
+  const parsed = parseCsv(csvText);
+  const rows = parsed.rows.slice(0, 8).map((row, index) => ({
+    id: String(index + 1),
+    rowNumber: row?.rowNumber || index + 2,
+    nombre: row?.nombre || row?.nombres || '',
+    apellido: row?.apellido || row?.apellidos || '',
+    telefono: row?.telefono || row?.celular || '',
+    departamento: row?.departamento || '',
+    origen_dato: row?.origen_dato || row?.origen || '',
+    resultado: 'valido',
+    resultadoLabel: 'Valido',
+    motivo: ''
+  }));
+  return {
+    total: parsed.rows.length,
+    summary: {
+      validos: parsed.rows.length,
+      cliente_activo: 0,
+      no_llamar: 0,
+      duplicados: 0
+    },
+    rows,
+    raw: {}
+  };
+};
+
 export const previewCsvText = async (csvText, { importType = 'clientes', fileName = '' } = {}) => {
   const normalizedType = normalizeImportType(importType);
   if (normalizedType === 'no_llamar') {
@@ -338,7 +428,7 @@ export const previewCsvText = async (csvText, { importType = 'clientes', fileNam
 export const createImportFromCsv = async ({
   fileName,
   csvText,
-  userId = 'usr-001',
+  userId = '',
   importType = 'clientes',
   batchId = null,
   createProducts = false

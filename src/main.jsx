@@ -60,7 +60,7 @@ import {
 } from './services/ticketsService.js';
 import { listTicketsByClientId } from './services/ticketClientService.js';
 import { listOperationsRows } from './services/operationsService.js';
-import { listImports, previewCsvText, createImportFromCsv, deleteImportById, IMPORT_TYPES } from './services/importsService.js';
+import { listImports, previewCsvText, createImportFromCsv, deleteImportById, IMPORT_TYPES, previewDatosParaTrabajarCsv } from './services/importsService.js';
 import { getNoCallImportJob } from './services/noCallImportService.js';
 import { getImportRows } from './services/importRowsService.js';
 import {
@@ -8762,6 +8762,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
     };
 
     function SupervisorModule({ route, contacts, lots, accessToken, activeOrgId, onBulkAssignContacts, onCreateLot, onAssignLotSeller, onCloseLot, onReactivateError, onOpenRoute, origenDatoOptions = [], fetchLots = null }) {
+      const { user: authUser } = useAuth();
       const api = React.useMemo(() => getApiClient(), []);
       const origenDatoResolvedOptions = normalizeOrigenOptions(origenDatoOptions);
       const [search, setSearch] = React.useState('');
@@ -8772,6 +8773,20 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [selectedIds, setSelectedIds] = React.useState([]);
       const [showImport, setShowImport] = React.useState(false);
       const [importFile, setImportFile] = React.useState('');
+      const workDataImportFileInputRef = React.useRef(null);
+      const [workDataImportDragActive, setWorkDataImportDragActive] = React.useState(false);
+      const [workDataImportStep, setWorkDataImportStep] = React.useState(1);
+      const [workDataImportDraft, setWorkDataImportDraft] = React.useState({
+        fileName: '',
+        csvText: '',
+        fileSize: 0,
+        fileType: 'text/csv'
+      });
+      const [workDataImportPreview, setWorkDataImportPreview] = React.useState(null);
+      const [workDataImportPreviewLoading, setWorkDataImportPreviewLoading] = React.useState(false);
+      const [workDataImportError, setWorkDataImportError] = React.useState('');
+      const [workDataImportSubmitting, setWorkDataImportSubmitting] = React.useState(false);
+      const [workDataImportFlash, setWorkDataImportFlash] = React.useState('');
       const [lotNameDraft, setLotNameDraft] = React.useState('');
       const [selectedLotId, setSelectedLotId] = React.useState(null);
       const [selectedLotOverride, setSelectedLotOverride] = React.useState(null);
@@ -8927,6 +8942,139 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [workDataOriginFilter, setWorkDataOriginFilter] = React.useState('todos');
       const [workDataDeptFilter, setWorkDataDeptFilter] = React.useState('todos');
       const [workDataTab, setWorkDataTab] = React.useState('nuevo');
+      const workDataImportUserId = authUser?.id || authUser?.profile?.sub || authUser?.sub || '';
+
+      const formatWorkDataImportFileSize = React.useCallback((bytes) => {
+        const size = Number(bytes || 0);
+        if (!size) return 'CSV';
+        if (size < 1024) return `${size} B`;
+        if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+        return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+      }, []);
+
+      const getWorkDataPreviewBadge = React.useCallback((row = {}) => {
+        const status = String(row?.resultado || '').toLowerCase();
+        if (status.includes('cliente_activo') || status.includes('activo')) {
+          return { label: row.resultadoLabel || 'Cliente activo', bg: 'rgba(37,99,235,0.12)', color: '#2563eb', border: 'rgba(37,99,235,0.25)' };
+        }
+        if (status.includes('no_llamar') || status.includes('no-llamar')) {
+          return { label: row.resultadoLabel || 'No llamar', bg: 'rgba(239,68,68,0.12)', color: '#b91c1c', border: 'rgba(239,68,68,0.25)' };
+        }
+        if (status.includes('duplic')) {
+          return { label: row.resultadoLabel || 'Duplicado', bg: 'rgba(245,158,11,0.14)', color: '#92400e', border: 'rgba(245,158,11,0.25)' };
+        }
+        return { label: row.resultadoLabel || 'Valido', bg: 'rgba(15,118,110,0.10)', color: '#0f766e', border: 'rgba(15,118,110,0.22)' };
+      }, []);
+
+      const resetWorkDataImportFlow = React.useCallback(() => {
+        setImportFile('');
+        setWorkDataImportDragActive(false);
+        setWorkDataImportStep(1);
+        setWorkDataImportDraft({
+          fileName: '',
+          csvText: '',
+          fileSize: 0,
+          fileType: 'text/csv'
+        });
+        setWorkDataImportPreview(null);
+        setWorkDataImportPreviewLoading(false);
+        setWorkDataImportError('');
+        setWorkDataImportSubmitting(false);
+      }, []);
+
+      async function closeWorkDataImportModal({ refresh = true, flash = '' } = {}) {
+        setShowImport(false);
+        resetWorkDataImportFlow();
+        if (flash) setWorkDataImportFlash(flash);
+        if (refresh) {
+          await loadWorkData();
+        }
+      }
+
+      const runWorkDataImportPreview = React.useCallback(async ({ fileName, csvText }) => {
+        setWorkDataImportPreviewLoading(true);
+        setWorkDataImportError('');
+        setWorkDataImportPreview(null);
+        try {
+          const preview = await previewDatosParaTrabajarCsv({ fileName, csvText });
+          setWorkDataImportPreview(preview);
+          setWorkDataImportStep(2);
+        } catch (err) {
+          setWorkDataImportError(err?.message || 'No se pudo analizar el archivo.');
+          setWorkDataImportStep(1);
+        } finally {
+          setWorkDataImportPreviewLoading(false);
+        }
+      }, []);
+
+      const processWorkDataImportFile = React.useCallback(async (file) => {
+        if (!file) return;
+        try {
+          const csvText = await file.text();
+          setImportFile(file);
+          setWorkDataImportDraft({
+            fileName: file.name || 'archivo.csv',
+            csvText,
+            fileSize: file.size || 0,
+            fileType: file.type || 'text/csv'
+          });
+          await runWorkDataImportPreview({
+            fileName: file.name || 'archivo.csv',
+            csvText
+          });
+        } catch {
+          setWorkDataImportError('No se pudo leer el archivo seleccionado.');
+        } finally {
+          setWorkDataImportDragActive(false);
+        }
+      }, [runWorkDataImportPreview]);
+
+      const handleWorkDataImportFile = React.useCallback(async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        await processWorkDataImportFile(file);
+        event.target.value = '';
+      }, [processWorkDataImportFile]);
+
+      const handleWorkDataImportDrop = React.useCallback(async (event) => {
+        event.preventDefault();
+        setWorkDataImportDragActive(false);
+        const file = event.dataTransfer?.files?.[0];
+        if (file) {
+          await processWorkDataImportFile(file);
+        }
+      }, [processWorkDataImportFile]);
+
+      const handleWorkDataImportDragOver = React.useCallback((event) => {
+        event.preventDefault();
+        setWorkDataImportDragActive(true);
+      }, []);
+
+      const handleWorkDataImportDragLeave = React.useCallback(() => {
+        setWorkDataImportDragActive(false);
+      }, []);
+
+      const confirmWorkDataImport = React.useCallback(async () => {
+        if (workDataImportSubmitting) return;
+        setWorkDataImportSubmitting(true);
+        setWorkDataImportError('');
+        try {
+          await createImportFromCsv({
+            fileName: workDataImportDraft.fileName,
+            csvText: workDataImportDraft.csvText,
+            userId: workDataImportUserId,
+            importType: 'datos_para_trabajar'
+          });
+          await closeWorkDataImportModal({
+            refresh: true,
+            flash: 'Carga registrada correctamente. Los datos se procesaran en segundo plano.'
+          });
+        } catch (err) {
+          setWorkDataImportError(err?.message || 'No se pudo confirmar la carga.');
+        } finally {
+          setWorkDataImportSubmitting(false);
+        }
+      }, [workDataImportDraft.csvText, workDataImportDraft.fileName, workDataImportSubmitting, workDataImportUserId]);
 
       const loadWorkData = React.useCallback(async () => {
         setWorkDataLoading(true);
@@ -8965,6 +9113,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         if (route !== 'base_general') return;
         setWorkDataPage(1);
       }, [route, workDataTab]);
+
+      React.useEffect(() => {
+        if (!workDataImportFlash) return undefined;
+        const timer = window.setTimeout(() => setWorkDataImportFlash(''), 7000);
+        return () => window.clearTimeout(timer);
+      }, [workDataImportFlash]);
 
       const workDataOriginOptions = React.useMemo(() => {
         const valuesFromRows = workDataRows
@@ -11614,7 +11768,38 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       return (
         <div className="view">
           <section className="content-grid">
-            <Panel className="span-12" title="Base general" subtitle="Listado completo de registros cargados">
+            <Panel
+              className="span-12"
+              title="Base general"
+              subtitle="Listado completo de registros cargados"
+              action={(
+                <div className="toolbar" style={{ gap: 8 }}>
+                  <Button
+                    icon={<Upload size={16} />}
+                    onClick={() => {
+                      setWorkDataImportFlash('');
+                      setShowImport(true);
+                      resetWorkDataImportFlow();
+                    }}
+                  >
+                    Cargar datos
+                  </Button>
+                </div>
+              )}
+            >
+              {workDataImportFlash ? (
+                <div style={{
+                  marginBottom: 12,
+                  padding: '12px 14px',
+                  borderRadius: 12,
+                  background: 'rgba(15,118,110,0.08)',
+                  border: '1px solid rgba(15,118,110,0.18)',
+                  color: '#0f766e',
+                  fontWeight: 700
+                }}>
+                  {workDataImportFlash}
+                </div>
+              ) : null}
               <div className="toolbar" style={{ marginBottom: 8 }}>
                 <Button
                   variant={workDataTab === 'nuevo' ? 'secondary' : 'ghost'}
@@ -11748,6 +11933,218 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                   <Button variant="ghost" onClick={() => setWorkDataPage((p) => Math.min(workDataMeta.totalPages, p + 1))} disabled={workDataMeta.page >= workDataMeta.totalPages}>Siguiente</Button>
                 </div>
               </div>
+              {showImport ? (
+                <div className="lot-wizard-overlay" onClick={() => { closeWorkDataImportModal({ refresh: true }); }}>
+                  <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 980 }}>
+                    <div className="lot-wizard-header">
+                      <div>
+                        <h3>Cargar datos</h3>
+                        <p>Subida, preview y confirmacion para Mercado Abierto.</p>
+                      </div>
+                      <button
+                        className="icon-button"
+                        style={{ width: 36, height: 36 }}
+                        onClick={() => { closeWorkDataImportModal({ refresh: true }); }}
+                      >
+                        <X size={16} color="#152235" />
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+                      {[
+                        { step: 1, label: 'Archivo' },
+                        { step: 2, label: 'Preview' },
+                        { step: 3, label: 'Confirmacion' }
+                      ].map((item) => {
+                        const active = workDataImportStep === item.step;
+                        const completed = workDataImportStep > item.step;
+                        return (
+                          <div
+                            key={item.step}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              padding: '6px 12px',
+                              borderRadius: 999,
+                              fontSize: 12,
+                              fontWeight: 700,
+                              background: completed
+                                ? 'rgba(15,118,110,0.12)'
+                                : active
+                                  ? 'rgba(37,99,235,0.10)'
+                                  : 'rgba(20,34,53,0.04)',
+                              color: completed
+                                ? '#0f766e'
+                                : active
+                                  ? '#2563eb'
+                                  : '#64748b',
+                              border: completed
+                                ? '1px solid rgba(15,118,110,0.22)'
+                                : active
+                                  ? '1px solid rgba(37,99,235,0.22)'
+                                  : '1px solid rgba(20,34,53,0.08)'
+                            }}
+                          >
+                            {completed ? <CheckCircle2 size={14} /> : null}
+                            {item.label}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div
+                      className={`import-dropzone ${workDataImportDragActive ? 'active' : ''}`}
+                      onClick={() => workDataImportFileInputRef.current?.click()}
+                      onDrop={handleWorkDataImportDrop}
+                      onDragOver={handleWorkDataImportDragOver}
+                      onDragLeave={handleWorkDataImportDragLeave}
+                      tabIndex={0}
+                      role="button"
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          workDataImportFileInputRef.current?.click();
+                        }
+                      }}
+                      style={{ marginBottom: 18 }}
+                    >
+                      <div className="import-dropzone-content">
+                        <strong>{workDataImportDraft.fileName || 'Arrastra o selecciona un archivo CSV'}</strong>
+                        <span>
+                          {workDataImportDraft.fileName
+                            ? formatWorkDataImportFileSize(workDataImportDraft.fileSize)
+                            : 'CSV · maximo 10 MB'}
+                        </span>
+                      </div>
+                      <input
+                        ref={workDataImportFileInputRef}
+                        type="file"
+                        accept=".csv"
+                        className="import-file-input"
+                        onChange={handleWorkDataImportFile}
+                      />
+                    </div>
+
+                    {workDataImportError ? (
+                      <div className="import-error-bar" style={{ marginBottom: 14 }}>
+                        {workDataImportError}
+                      </div>
+                    ) : null}
+
+                    {workDataImportPreviewLoading ? (
+                      <div style={{ padding: 16, color: 'var(--muted)' }}>Analizando archivo...</div>
+                    ) : null}
+
+                    {workDataImportPreview ? (
+                      <>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 16 }}>
+                          <div style={{ padding: 12, borderRadius: 12, background: 'rgba(20,34,53,0.04)' }}>
+                            <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Total detectados</div>
+                            <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'Manrope, sans-serif', color: 'var(--text)', marginTop: 4 }}>
+                              {workDataImportPreview.total}
+                            </div>
+                          </div>
+                          <div style={{ padding: 12, borderRadius: 12, background: 'rgba(15,118,110,0.08)' }}>
+                            <div style={{ fontSize: 11, color: '#0f766e', textTransform: 'uppercase', letterSpacing: 1 }}>Validos</div>
+                            <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'Manrope, sans-serif', color: '#0f766e', marginTop: 4 }}>
+                              {workDataImportPreview.summary.validos}
+                            </div>
+                          </div>
+                          <div style={{ padding: 12, borderRadius: 12, background: 'rgba(37,99,235,0.10)' }}>
+                            <div style={{ fontSize: 11, color: '#2563eb', textTransform: 'uppercase', letterSpacing: 1 }}>Cliente activo</div>
+                            <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'Manrope, sans-serif', color: '#2563eb', marginTop: 4 }}>
+                              {workDataImportPreview.summary.cliente_activo}
+                            </div>
+                          </div>
+                          <div style={{ padding: 12, borderRadius: 12, background: 'rgba(239,68,68,0.10)' }}>
+                            <div style={{ fontSize: 11, color: '#b91c1c', textTransform: 'uppercase', letterSpacing: 1 }}>No llamar</div>
+                            <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'Manrope, sans-serif', color: '#b91c1c', marginTop: 4 }}>
+                              {workDataImportPreview.summary.no_llamar}
+                            </div>
+                          </div>
+                          <div style={{ padding: 12, borderRadius: 12, background: 'rgba(245,158,11,0.12)' }}>
+                            <div style={{ fontSize: 11, color: '#92400e', textTransform: 'uppercase', letterSpacing: 1 }}>Duplicados</div>
+                            <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'Manrope, sans-serif', color: '#92400e', marginTop: 4 }}>
+                              {workDataImportPreview.summary.duplicados}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ marginBottom: 8, fontSize: 12, color: 'var(--muted)' }}>
+                          Muestra de filas analizadas antes de confirmar la carga.
+                        </div>
+
+                        <div className="table-wrap" style={{ marginBottom: 18 }}>
+                          <table>
+                            <thead>
+                              <tr>
+                                <th>Fila</th>
+                                <th>Nombre</th>
+                                <th>Telefono</th>
+                                <th>Departamento</th>
+                                <th>Origen</th>
+                                <th>Resultado</th>
+                                <th>Detalle</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {workDataImportPreview.rows.length ? workDataImportPreview.rows.map((row) => {
+                                const badge = getWorkDataPreviewBadge(row);
+                                return (
+                                  <tr key={row.id}>
+                                    <td>{row.rowNumber}</td>
+                                    <td><strong>{[row.nombre, row.apellido].filter(Boolean).join(' ') || '—'}</strong></td>
+                                    <td>{row.telefono || '—'}</td>
+                                    <td>{row.departamento || '—'}</td>
+                                    <td>{row.origen_dato || '—'}</td>
+                                    <td>
+                                      <span style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        padding: '4px 10px',
+                                        borderRadius: 999,
+                                        fontSize: 12,
+                                        fontWeight: 700,
+                                        background: badge.bg,
+                                        color: badge.color,
+                                        border: `1px solid ${badge.border}`
+                                      }}>
+                                        {badge.label}
+                                      </span>
+                                    </td>
+                                    <td style={{ color: row.motivo ? 'var(--text)' : 'var(--muted)' }}>{row.motivo || '—'}</td>
+                                  </tr>
+                                );
+                              }) : (
+                                <tr>
+                                  <td colSpan={7} style={{ padding: 16, color: 'var(--muted)' }}>Sin filas de muestra para mostrar.</td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
+                    ) : null}
+
+                    <div className="wizard-actions" style={{ justifyContent: 'flex-end' }}>
+                      <Button
+                        variant="ghost"
+                        onClick={() => { closeWorkDataImportModal({ refresh: true }); }}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        icon={<CheckCircle2 size={16} />}
+                        onClick={confirmWorkDataImport}
+                        disabled={!workDataImportPreview || !workDataImportDraft.fileName || workDataImportSubmitting || workDataImportPreviewLoading}
+                      >
+                        {workDataImportSubmitting ? 'Confirmando...' : 'Confirmar carga'}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
               {workDataSelected ? <ContactDetailModal contact={workDataSelected} onClose={() => setWorkDataSelected(null)} /> : null}
             </Panel>
           </section>
