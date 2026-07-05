@@ -1,13 +1,17 @@
 import { WebStorageStateStore } from 'oidc-client-ts';
 
 export const cognitoHostedUiDomain = "https://us-east-2jy8mpm6nj.auth.us-east-2.amazoncognito.com";
-export const cognitoLogoutUri = "https://rednacrem.tri.uy";
 const inBrowser = typeof window !== 'undefined';
+
+// Usa el origen actual para que el Hosted UI redireccione al dominio desde el que
+// se abrió la app, en lugar de forzar siempre rednacrem.tri.uy.
+const currentOrigin = inBrowser ? window.location.origin : "https://rednacrem.tri.uy";
+export const cognitoLogoutUri = currentOrigin;
 
 export const cognitoAuthConfig = {
   authority: "https://cognito-idp.us-east-2.amazonaws.com/us-east-2_Jy8mPM6NJ",
   client_id: "59ogsft204res3f33i5ov7rm01",
-  redirect_uri: "https://rednacrem.tri.uy",
+  redirect_uri: currentOrigin,
   post_logout_redirect_uri: cognitoLogoutUri,
   response_type: "code",
   scope: "email openid profile",
