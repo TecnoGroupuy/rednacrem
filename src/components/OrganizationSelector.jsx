@@ -479,55 +479,58 @@ export function OrganizationSelectorScreen({ onSelect, hideCreateButton, overrid
                   fontFamily: 'inherit'
                 }}
               >
-                <div className="flex items-center gap-4 px-5 py-5 sm:px-6">
-                  <div className="relative shrink-0">
-                    <span className="absolute -right-2 -top-2 inline-flex min-h-7 min-w-7 items-center justify-center rounded-full border-2 border-[#132238] bg-gradient-to-r from-teal-500 to-teal-600 px-2 text-[11px] font-extrabold text-white shadow-lg shadow-teal-950/30">
-                      {org.total_usuarios ?? 0}
-                    </span>
-                    <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-white/10 via-white/[0.06] to-transparent ring-1 ring-white/10">
+                <div className="grid grid-cols-1 items-center gap-5 px-5 py-4 sm:grid-cols-[170px_1fr_auto_auto_auto] sm:px-5">
+                  <div className="w-full sm:w-[170px]">
+                    <div
+                      className={[
+                        'flex h-20 w-full items-center justify-center overflow-hidden rounded-xl p-2.5 shadow-md',
+                        org.activo === false ? 'bg-white/85' : 'bg-white'
+                      ].join(' ')}
+                    >
                       {org.logo_url ? (
                         <img
                           src={org.logo_url}
                           alt={org.nombre || 'Organizacion'}
-                          className="max-h-12 max-w-[70%] object-contain"
+                          className="max-h-full max-w-full object-contain"
                           style={{ filter: org.activo === false ? 'grayscale(1)' : 'none' }}
                         />
                       ) : (
-                        <Building2 className="h-6 w-6 text-white/80" />
+                        <Building2 className="h-6 w-6 text-slate-400" />
                       )}
                     </div>
                   </div>
 
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <div
-                        className="truncate text-lg font-extrabold text-slate-50"
-                        style={{ fontFamily: 'Manrope, "IBM Plex Sans", sans-serif' }}
-                      >
-                        {org.nombre || 'Sin nombre'}
-                      </div>
-
-                      <span
-                        className={[
-                          'inline-flex self-start rounded-full border px-2.5 py-1 text-[11px] font-semibold',
-                          org.activo === false
-                            ? 'border-red-400/20 bg-red-500/10 text-red-200'
-                            : 'border-emerald-400/20 bg-emerald-500/10 text-emerald-200'
-                        ].join(' ')}
-                      >
-                        {org.activo === false ? 'Inactiva' : 'Activa'}
-                      </span>
-                    </div>
-
-                    <div className="mt-2 flex items-center gap-2 text-sm text-slate-300" style={{ fontFamily: 'inherit' }}>
-                      <Users size={15} className="shrink-0 text-slate-400" />
-                      <span>{formatUsersLabel(org.total_usuarios)}</span>
-                    </div>
+                  <div className="min-w-0">
+                    <h3
+                      className="truncate text-center text-lg font-semibold text-slate-50"
+                      style={{ fontFamily: 'Manrope, "IBM Plex Sans", sans-serif' }}
+                    >
+                      {org.nombre || 'Sin nombre'}
+                    </h3>
                   </div>
 
                   <div
+                    className="flex items-center justify-center gap-2 text-sm text-slate-300"
+                    style={{ fontFamily: 'inherit' }}
+                  >
+                    <Users size={15} className="shrink-0 text-slate-400" />
+                    <span>{formatUsersLabel(org.total_usuarios)}</span>
+                  </div>
+
+                  <span
                     className={[
-                      'flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition duration-200',
+                      'inline-flex justify-center rounded-full border px-2.5 py-1 text-[11px] font-semibold',
+                      org.activo === false
+                        ? 'border-red-400/20 bg-red-500/10 text-red-200'
+                        : 'border-emerald-400/20 bg-emerald-500/10 text-emerald-200'
+                    ].join(' ')}
+                  >
+                    {org.activo === false ? 'Inactiva' : 'Activa'}
+                  </span>
+
+                  <div
+                    className={[
+                      'mx-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition duration-200 sm:mx-0',
                       org.activo === false
                         ? 'border-white/10 bg-white/[0.03] text-slate-500'
                         : 'border-white/10 bg-white/[0.04] text-slate-300 group-hover:border-teal-400/30 group-hover:bg-teal-500/10 group-hover:text-teal-200'
