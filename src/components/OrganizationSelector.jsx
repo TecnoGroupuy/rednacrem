@@ -1,7 +1,6 @@
 ﻿import React from 'react';
 import {
-  Building2, Plus,
-  Edit3, CheckCircle2, X, ChevronDown
+  ArrowRight, Building2, ChevronDown, Plus, Users, X
 } from 'lucide-react';
 import {
   listOrganizations,
@@ -17,6 +16,11 @@ const INITIALS_COLORS = [
   { bg: '#FAEEDA', text: '#854F0B' },
   { bg: '#EEEDFE', text: '#534AB7' },
 ];
+
+const formatUsersLabel = (value) => {
+  const total = Number(value || 0);
+  return `${total} usuario${total === 1 ? '' : 's'}`;
+};
 
 // Pantalla completa al iniciar sesion
 export function OrganizationSelectorScreen({ onSelect, hideCreateButton, overrideOrgs }) {
@@ -115,38 +119,57 @@ export function OrganizationSelectorScreen({ onSelect, hideCreateButton, overrid
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-      display: 'grid',
-      justifyItems: 'center',
-      alignContent: 'start',
-      overflowY: 'auto',
-      paddingTop: 32,
-      paddingRight: 24,
-      paddingBottom: 32,
-      paddingLeft: 24
-    }}>
-      <div style={{ width: 'min(600px, 100%)', display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div
+      className="grid min-h-screen content-start justify-items-center overflow-y-auto bg-gradient-to-br from-[#0f172a] to-[#1e293b] px-6 pb-8 pt-8"
+      style={{ fontFamily: '"IBM Plex Sans", sans-serif' }}
+    >
+      <div className="flex w-full max-w-[760px] flex-col gap-6">
 
         {/* Header */}
-        <div style={{ textAlign: 'center' }}>
-          <img
-            src="https://rednacrem-assets.s3.us-east-1.amazonaws.com/home/TRI+sin+fondo.png"
-            alt="Tri"
-            style={{
-              height: 130,
-              width: 'auto',
-              objectFit: 'contain',
-              filter: 'drop-shadow(0 0 12px rgba(16,185,129,0.3))'
-            }}
-          />
-          <h1 style={{ color: '#f8fafc', fontWeight: 800, fontSize: 26, margin: '0 0 8px' }}>
-            Seleccionar organizacion
-          </h1>
-          <p style={{ color: '#94a3b8', margin: 0 }}>
-            Elegi con que organizacion vas a trabajar.
-          </p>
+        <div className="flex flex-col gap-5">
+          <div className="text-center">
+            <img
+              src="https://rednacrem-assets.s3.us-east-1.amazonaws.com/home/TRI+sin+fondo.png"
+              alt="Tri"
+              style={{
+                height: 130,
+                width: 'auto',
+                objectFit: 'contain',
+                filter: 'drop-shadow(0 0 12px rgba(16,185,129,0.3))',
+                margin: '0 auto'
+              }}
+            />
+            <h1
+              className="mb-2 text-[26px] font-extrabold text-slate-50"
+              style={{ fontFamily: 'Manrope, "IBM Plex Sans", sans-serif' }}
+            >
+              Seleccionar organizacion
+            </h1>
+            <p className="m-0 text-base text-slate-400">
+              Elegi con que organizacion vas a trabajar.
+            </p>
+          </div>
+
+          {!hideCreateButton && (
+            <div className="flex justify-end">
+              <button
+                onClick={() => {
+                  if (showForm) {
+                    resetForm();
+                  } else {
+                    setShowForm(true);
+                    setWizardStep(1);
+                    setFormError('');
+                  }
+                }}
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-teal-500 to-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-teal-950/30 transition duration-200 hover:-translate-y-0.5 hover:from-teal-400 hover:to-teal-500"
+                style={{ fontFamily: 'inherit' }}
+              >
+                {showForm ? <X size={16} /> : <Plus size={16} />}
+                {showForm ? 'Cancelar nueva organización' : 'Nueva organización'}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Formulario nueva org */}
@@ -428,182 +451,94 @@ export function OrganizationSelectorScreen({ onSelect, hideCreateButton, overrid
         )}
 
         {/* Lista de organizaciones */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div className="flex flex-col gap-4">
           {loading && (
-            <div style={{ textAlign: 'center', color: '#64748b', padding: 40 }}>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-10 text-center text-sm text-slate-400">
               Cargando organizaciones...
             </div>
           )}
           {!loading && !error && !orgs.length && (
-            <div style={{ textAlign: 'center', color: '#64748b', padding: 40 }}>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-10 text-center text-sm text-slate-400">
               Sin organizaciones aun.
             </div>
           )}
-          {orgs.map((org) => {
+          {orgs.map((org, idx) => {
             return (
               <button
                 key={org.id}
                 onClick={() => onSelect(org)}
-                style={{
-                  width: '100%',
-                  position: 'relative',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 10,
-                  minHeight: 136,
-                  background: org.activo === false ? 'rgba(226,232,240,0.62)' : 'rgba(255,255,255,0.96)',
-                  border: '1px solid rgba(255,255,255,0.18)',
-                  borderRadius: 18,
-                  padding: '24px 20px 20px',
-                  cursor: org.activo === false ? 'not-allowed' : 'pointer',
-                  textAlign: 'center',
-                  color: '#0f172a',
-                  transition: 'transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease',
-                  boxShadow: '0 18px 45px rgba(15,23,42,0.16)',
-                  overflow: 'visible'
-                }}
                 disabled={org.activo === false}
-                onMouseEnter={(e) => {
-                  if (org.activo !== false) {
-                    e.currentTarget.style.transform = 'translateY(-1px)';
-                    e.currentTarget.style.boxShadow = '0 22px 55px rgba(15,23,42,0.22)';
-                    e.currentTarget.style.borderColor = 'rgba(15,118,110,0.35)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 18px 45px rgba(15,23,42,0.16)';
-                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.18)';
+                className={[
+                  'animate-fade-in-up relative w-full overflow-visible rounded-2xl text-left',
+                  org.activo === false
+                    ? 'glass-card glass-card-inactive cursor-not-allowed'
+                    : 'group glass-card glass-card-hover cursor-pointer'
+                ].join(' ')}
+                style={{
+                  animationDelay: `${Math.min(idx * 80, 320)}ms`,
+                  fontFamily: 'inherit'
                 }}
               >
-                <div style={{
-                  position: 'absolute',
-                  top: -8,
-                  right: -8,
-                  minWidth: 28,
-                  height: 28,
-                  borderRadius: 999,
-                  padding: '0 8px',
-                  background: '#0f766e',
-                  color: '#fff',
-                  border: '2px solid rgba(255,255,255,0.92)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 11,
-                  fontWeight: 800,
-                  boxShadow: '0 12px 30px rgba(15,118,110,0.28)'
-                }}>
-                  {org.total_usuarios ?? 0}
-                </div>
-                <div style={{
-                  width: '100%',
-                  minHeight: 52,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  {org.logo_url ? (
-                    <img
-                      src={org.logo_url}
-                      alt={org.nombre || 'Organizacion'}
-                      style={{
-                        maxHeight: 48,
-                        maxWidth: '70%',
-                        width: 'auto',
-                        objectFit: 'contain',
-                        filter: org.activo === false ? 'grayscale(1)' : 'none'
-                      }}
-                    />
-                  ) : (
-                    <div style={{
-                      color: '#0f172a',
-                      fontWeight: 700,
-                      fontSize: 18,
-                      lineHeight: 1.25,
-                      fontFamily: 'Manrope, "IBM Plex Sans", sans-serif',
-                      textAlign: 'center'
-                    }}>
-                      {org.nombre || 'Sin nombre'}
+                <div className="flex items-center gap-4 px-5 py-5 sm:px-6">
+                  <div className="relative shrink-0">
+                    <span className="absolute -right-2 -top-2 inline-flex min-h-7 min-w-7 items-center justify-center rounded-full border-2 border-[#132238] bg-gradient-to-r from-teal-500 to-teal-600 px-2 text-[11px] font-extrabold text-white shadow-lg shadow-teal-950/30">
+                      {org.total_usuarios ?? 0}
+                    </span>
+                    <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-white/10 via-white/[0.06] to-transparent ring-1 ring-white/10">
+                      {org.logo_url ? (
+                        <img
+                          src={org.logo_url}
+                          alt={org.nombre || 'Organizacion'}
+                          className="max-h-12 max-w-[70%] object-contain"
+                          style={{ filter: org.activo === false ? 'grayscale(1)' : 'none' }}
+                        />
+                      ) : (
+                        <Building2 className="h-6 w-6 text-white/80" />
+                      )}
                     </div>
-                  )}
-                </div>
-                {org.logo_url && (
-                  <div style={{ color: '#0f172a', fontWeight: 700, fontSize: 15, lineHeight: 1.3 }}>
-                    {org.nombre || 'Sin nombre'}
                   </div>
-                )}
-                {org.descripcion && (
-                  <div style={{ color: '#64748b', fontSize: 12, lineHeight: 1.45, maxWidth: 420 }}>
-                    {org.descripcion}
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div
+                        className="truncate text-lg font-extrabold text-slate-50"
+                        style={{ fontFamily: 'Manrope, "IBM Plex Sans", sans-serif' }}
+                      >
+                        {org.nombre || 'Sin nombre'}
+                      </div>
+
+                      <span
+                        className={[
+                          'inline-flex self-start rounded-full border px-2.5 py-1 text-[11px] font-semibold',
+                          org.activo === false
+                            ? 'border-red-400/20 bg-red-500/10 text-red-200'
+                            : 'border-emerald-400/20 bg-emerald-500/10 text-emerald-200'
+                        ].join(' ')}
+                      >
+                        {org.activo === false ? 'Inactiva' : 'Activa'}
+                      </span>
+                    </div>
+
+                    <div className="mt-2 flex items-center gap-2 text-sm text-slate-300" style={{ fontFamily: 'inherit' }}>
+                      <Users size={15} className="shrink-0 text-slate-400" />
+                      <span>{formatUsersLabel(org.total_usuarios)}</span>
+                    </div>
                   </div>
-                )}
-                <div style={{ color: '#64748b', fontSize: 12 }}>
-                  {org.total_usuarios ?? 0} usuario{Number(org.total_usuarios || 0) === 1 ? '' : 's'}
+
+                  <div
+                    className={[
+                      'flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition duration-200',
+                      org.activo === false
+                        ? 'border-white/10 bg-white/[0.03] text-slate-500'
+                        : 'border-white/10 bg-white/[0.04] text-slate-300 group-hover:border-teal-400/30 group-hover:bg-teal-500/10 group-hover:text-teal-200'
+                    ].join(' ')}
+                  >
+                    <ArrowRight size={18} />
+                  </div>
                 </div>
-                {org.activo === false ? (
-                  <span style={{
-                    fontSize: 10, fontWeight: 700, color: '#f59e0b',
-                    background: 'rgba(245,158,11,0.15)',
-                    borderRadius: 999, padding: '4px 10px', flexShrink: 0
-                  }}>
-                    Inactiva
-                  </span>
-                ) : (
-                  <span style={{
-                    fontSize: 10, fontWeight: 700, color: '#16a34a',
-                    background: 'rgba(34,197,94,0.15)',
-                    borderRadius: 999, padding: '4px 10px', flexShrink: 0
-                  }}>
-                    Activa
-                  </span>
-                )}
               </button>
             );
           })}
-          {!hideCreateButton && (
-            <button
-              onClick={() => {
-                if (showForm) {
-                  resetForm();
-                } else {
-                  setShowForm(true);
-                  setWizardStep(1);
-                  setFormError('');
-                }
-              }}
-              style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 10,
-                minHeight: 78,
-                padding: '18px 20px',
-                borderRadius: 18,
-                border: '1px dashed rgba(15,118,110,0.45)',
-                background: 'rgba(255,255,255,0.08)',
-                color: '#d7efe8',
-                fontWeight: 700,
-                fontSize: 14,
-                cursor: 'pointer',
-                transition: 'background 140ms ease, border-color 140ms ease'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(15,118,110,0.14)';
-                e.currentTarget.style.borderColor = 'rgba(15,118,110,0.7)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
-                e.currentTarget.style.borderColor = 'rgba(15,118,110,0.45)';
-              }}
-            >
-              {showForm ? <X size={16} /> : <Plus size={16} />}
-              {showForm ? 'Cancelar nueva org' : 'Nueva org'}
-            </button>
-          )}
         </div>
       </div>
     </div>
