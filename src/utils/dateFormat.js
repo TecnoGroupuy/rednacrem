@@ -13,6 +13,10 @@ export const toEsUyDateTime = (value) => {
 
 export const toEsUyDate = (value) => {
   if (!value) return '-';
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+    const [year, month, day] = value.trim().split('-').map(Number);
+    return `${day}/${month}/${year}`;
+  }
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString('es-UY', { timeZone: 'America/Montevideo' });
