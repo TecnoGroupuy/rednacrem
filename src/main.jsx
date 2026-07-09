@@ -9773,6 +9773,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const handleSelectAllAddDataGlobal = React.useCallback(async () => {
         if (!selectedLot?.id) return;
         if (addDataSelectingAll) return;
+        const PROGRESS_FLUSH_EVERY_PAGES = 5;
+        let collected = new Set(addDataSelected.map((id) => String(id)));
+        let pagesSinceLastFlush = 0;
         setAddDataSelectingAll(true);
         setAddDataError('');
         try {
@@ -9782,7 +9785,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               .map((c) => String(c.id))
           );
           const pageSize = 200;
-          const collected = new Set(addDataSelected.map((id) => String(id)));
           let page = 1;
           // paginar hasta que no vengan items
           while (true) {
@@ -9801,6 +9803,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               if (alreadyInLot.has(id)) return;
               collected.add(id);
             });
+            pagesSinceLastFlush += 1;
+            if (pagesSinceLastFlush >= PROGRESS_FLUSH_EVERY_PAGES) {
+              setAddDataSelected([...collected]);
+              pagesSinceLastFlush = 0;
+            }
             const totalPages = Number(result?.totalPages ?? result?.data?.totalPages ?? 0);
             if (totalPages && page >= totalPages) break;
             page += 1;
@@ -9808,11 +9815,16 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           }
           setAddDataSelected([...collected]);
         } catch (err) {
-          setAddDataError(err?.message || 'No se pudo seleccionar todos los resultados.');
+          setAddDataSelected([...collected]);
+          setAddDataError(
+            `No se pudo completar la selección de todos los resultados. ` +
+            `Se seleccionaron ${collected.size} de ${addDataTotal} antes del error: ` +
+            `${err?.message || 'error desconocido'}`
+          );
         } finally {
           setAddDataSelectingAll(false);
         }
-      }, [addDataSearch, addDataSelected, addDataSelectingAll, contacts, selectedLot?.id]);
+      }, [addDataSearch, addDataSelected, addDataSelectingAll, addDataTotal, contacts, selectedLot?.id]);
 
       React.useEffect(() => {
         if (!addDataToLotOpen) return;
