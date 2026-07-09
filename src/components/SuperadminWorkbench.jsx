@@ -11,10 +11,12 @@ import {
   removeUserFromOrganization
 } from '../services/organizationsService.js';
 import { listNoCallEntries, listPhoneResultEntries, getNoCallStats, listDatosParaTrabajar } from '../services/leadsService.js';
+import { createNoCallImportJob, getNoCallImportJob } from '../services/noCallImportService.js';
 import { listProductsAsync, createProduct, updateProduct } from '../services/productsService.js';
 import { listUsersAsync, updateUser } from '../services/usersService.js';
 import { listRecentActivity, listActivityLog, logActivityEvent } from '../services/activityService.js';
 import { IMPORT_SAMPLE_CSV, NO_LLAMAR_SAMPLE_CSV, RESULTADOS_SAMPLE_CSV, DATOS_TRABAJAR_SAMPLE_CSV, downloadCsvFile, formatFileSize } from '../utils/importWizardHelpers.js';
+import { toEsUyDate, toEsUyDateTime } from '../utils/dateFormat.js';
 import Conexiones from './Conexiones.jsx';
 
 const USER_ROLE_OPTIONS = ['superadministrador', 'director', 'supervisor', 'operaciones', 'atencion_cliente'];
@@ -152,6 +154,14 @@ export default function SuperadminWorkbench({
   const [noCallMeta, setNoCallMeta] = React.useState({ page: 1, pageSize: 20, total: 0, totalPages: 1 });
   const [noCallLoading, setNoCallLoading] = React.useState(false);
   const [noCallError, setNoCallError] = React.useState('');
+  const [showNoCallImportModal, setShowNoCallImportModal] = React.useState(false);
+  const [noCallImportFile, setNoCallImportFile] = React.useState(null);
+  const [noCallImportText, setNoCallImportText] = React.useState('');
+  const [noCallImportReading, setNoCallImportReading] = React.useState(false);
+  const [noCallImportSubmitting, setNoCallImportSubmitting] = React.useState(false);
+  const [noCallImportError, setNoCallImportError] = React.useState('');
+  const [noCallImportJob, setNoCallImportJob] = React.useState(null);
+  const noCallImportInputRef = React.useRef(null);
   const [workDataRows, setWorkDataRows] = React.useState([]);
   const [workDataLoading, setWorkDataLoading] = React.useState(false);
   const [workDataError, setWorkDataError] = React.useState('');
@@ -560,6 +570,11 @@ export default function SuperadminWorkbench({
     }
   }, [workDataPage, workDataPageSize, workDataSearch, workDataTab, workDataDepto, workDataOrigen]);
 
+  const loadNoCallStatsData = React.useCallback(async () => {
+    const stats = await getNoCallStats();
+    setNoCallStats(stats || { total: 0, celulares: 0, montevideo: 0, interior: 0, ultimaActualizacion: null });
+  }, []);
+
   const noCallStatsDisplay = React.useMemo(() => {
     const normalized = noCallRows.map((item) => String(item.numero || item.telefono || '').replace(/\D/g, ''));
     const fallbackTotal = noCallMeta.total || normalized.length;
@@ -673,8 +688,45 @@ export default function SuperadminWorkbench({
   React.useEffect(() => {
     if (route !== 'sa_no_llamar') return;
     loadNoCall();
-    getNoCallStats().then((stats) => setNoCallStats(stats || { total: 0, celulares: 0, montevideo: 0, interior: 0 })).catch(() => {});
-  }, [route, loadNoCall]);
+    loadNoCallStatsData().catch(() => {});
+  }, [route, loadNoCall, loadNoCallStatsData]);
+
+  React.useEffect(() => {
+    if (!showNoCallImportModal || !noCallImportJob?.id) return undefined;
+    let cancelled = false;
+
+    const poll = async () => {
+      try {
+        const job = await getNoCallImportJob(noCallImportJob.id);
+        if (!job || cancelled) return;
+        setNoCallImportJob((prev) => ({ ...prev, ...job }));
+      } catch (err) {
+        if (!cancelled) {
+          setNoCallImportError(err?.message || 'No se pudo consultar el estado de la carga.');
+        }
+      }
+    };
+
+    const timer = window.setInterval(async () => {
+      const latest = await getNoCallImportJob(noCallImportJob.id).catch((err) => {
+        if (!cancelled) {
+          setNoCallImportError(err?.message || 'No se pudo consultar el estado de la carga.');
+        }
+        return null;
+      });
+      if (!latest || cancelled) return;
+      setNoCallImportJob((prev) => ({ ...prev, ...latest }));
+      if (latest.status === 'completed' || latest.status === 'failed') {
+        window.clearInterval(timer);
+      }
+    }, 2500);
+
+    poll();
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [showNoCallImportModal, noCallImportJob?.id]);
 
   React.useEffect(() => {
     if (!['sa_importaciones', 'dashboard_global'].includes(route)) return;
@@ -747,6 +799,73 @@ export default function SuperadminWorkbench({
 
   const handleDragLeave = () => {
     setDragActive(false);
+  };
+
+  const readNoCallImportFile = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+    reader.onerror = () => reject(new Error('No se pudo leer el archivo seleccionado.'));
+    reader.readAsText(file);
+  });
+
+  const resetNoCallImportModal = React.useCallback(() => {
+    setNoCallImportFile(null);
+    setNoCallImportText('');
+    setNoCallImportReading(false);
+    setNoCallImportSubmitting(false);
+    setNoCallImportError('');
+    setNoCallImportJob(null);
+    if (noCallImportInputRef.current) {
+      noCallImportInputRef.current.value = '';
+    }
+  }, []);
+
+  const openNoCallImportModal = React.useCallback(() => {
+    resetNoCallImportModal();
+    setShowNoCallImportModal(true);
+  }, [resetNoCallImportModal]);
+
+  const closeNoCallImportModal = React.useCallback(async () => {
+    const shouldRefresh = noCallImportJob?.status === 'completed';
+    setShowNoCallImportModal(false);
+    if (shouldRefresh) {
+      await Promise.all([loadNoCall(), loadNoCallStatsData()]);
+    }
+    resetNoCallImportModal();
+  }, [noCallImportJob?.status, loadNoCall, loadNoCallStatsData, resetNoCallImportModal]);
+
+  const handleNoCallImportFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setNoCallImportError('');
+    setNoCallImportJob(null);
+    setNoCallImportReading(true);
+    try {
+      const text = await readNoCallImportFile(file);
+      setNoCallImportFile(file);
+      setNoCallImportText(text);
+    } catch (err) {
+      setNoCallImportFile(null);
+      setNoCallImportText('');
+      setNoCallImportError(err?.message || 'No se pudo leer el archivo seleccionado.');
+    } finally {
+      setNoCallImportReading(false);
+      event.target.value = '';
+    }
+  };
+
+  const submitNoCallImport = async () => {
+    if (!noCallImportFile || !noCallImportText || noCallImportSubmitting) return;
+    setNoCallImportError('');
+    setNoCallImportSubmitting(true);
+    try {
+      const job = await createNoCallImportJob(noCallImportText, { fileName: noCallImportFile.name });
+      setNoCallImportJob(job || null);
+    } catch (err) {
+      setNoCallImportError(err?.message || 'No se pudo iniciar la actualización del listado.');
+    } finally {
+      setNoCallImportSubmitting(false);
+    }
   };
 
   const validatePreview = async () => {
@@ -1371,10 +1490,32 @@ export default function SuperadminWorkbench({
   }
 
   if (route === 'sa_no_llamar') {
+    const lastUpdate = noCallStats?.ultimaActualizacion || null;
+    const hasLastUpdate = Boolean(lastUpdate?.numeroTramite || lastUpdate?.fechaConsulta || lastUpdate?.completedAt);
+    const processedCount = Number(noCallImportJob?.processed || 0);
+    const totalCount = Number(noCallImportJob?.total || 0);
+    const noCallImportBusy = noCallImportSubmitting || ['queued', 'processing'].includes(noCallImportJob?.status);
+    const progressPercent = Number(
+      noCallImportJob?.progressPercent
+      ?? (totalCount > 0 ? Math.round((processedCount / totalCount) * 100) : 0)
+    );
+
     return (
       <div className="view">
         <section className="content-grid">
-          <Panel className="span-12" title="Base No llamar" subtitle="Contactos bloqueados">
+          <Panel
+            className="span-12"
+            title="Base No llamar"
+            subtitle="Contactos bloqueados"
+            action={<Button icon={<Upload size={16} />} onClick={openNoCallImportModal}>Actualizar Listado</Button>}
+          >
+            <div style={{ marginBottom: 16, display: 'grid', gap: 6 }}>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                {hasLastUpdate
+                  ? `Última actualización: ${toEsUyDate(lastUpdate.fechaConsulta)} (trámite ${lastUpdate.numeroTramite || '-'}) · cargado el ${toEsUyDateTime(lastUpdate.completedAt)}`
+                  : 'Sin actualizaciones registradas'}
+              </div>
+            </div>
             <div className="mini-stats" style={{ marginBottom: 16 }}>
               <div className="mini-stat"><span>Teléfonos registrados</span><strong>{noCallStatsDisplay.total}</strong></div>
               <div className="mini-stat"><span>Registros en Montevideo</span><strong>{noCallStatsDisplay.montevideo}</strong></div>
@@ -1454,6 +1595,107 @@ export default function SuperadminWorkbench({
                 <Button variant="ghost" onClick={() => setNoCallPage((p) => Math.min(noCallMeta.totalPages, p + 1))} disabled={noCallMeta.page >= noCallMeta.totalPages}>Siguiente</Button>
               </div>
             </div>
+            {showNoCallImportModal ? (
+              <div className="lot-wizard-overlay" onClick={() => { if (!noCallImportBusy) closeNoCallImportModal(); }}>
+                <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 720 }}>
+                  <div className="lot-wizard-header">
+                    <div>
+                      <h3>Actualizar Listado</h3>
+                      <p>Subí el archivo real en texto plano para que el backend haga el parseo completo.</p>
+                    </div>
+                    <button
+                      className="icon-button"
+                      style={{ width: 36, height: 36 }}
+                      onClick={() => { if (!noCallImportBusy) closeNoCallImportModal(); }}
+                      disabled={noCallImportBusy}
+                    >
+                      <X size={16} color="#152235" />
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'grid', gap: 14 }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 6 }}>
+                        Archivo
+                      </label>
+                      <input
+                        ref={noCallImportInputRef}
+                        className="input"
+                        type="file"
+                        accept=".csv,.txt"
+                        onChange={handleNoCallImportFileChange}
+                        disabled={noCallImportBusy}
+                      />
+                      {noCallImportFile ? (
+                        <div style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)' }}>
+                          {noCallImportFile.name} · {formatFileSize(noCallImportFile.size || 0)}
+                        </div>
+                      ) : null}
+                    </div>
+
+                    {noCallImportReading ? (
+                      <div style={{ padding: '12px 14px', borderRadius: 12, background: 'rgba(37,99,235,0.08)', color: '#2563eb', fontWeight: 700 }}>
+                        Leyendo archivo...
+                      </div>
+                    ) : null}
+
+                    {noCallImportSubmitting && !noCallImportJob?.id ? (
+                      <div style={{ padding: '12px 14px', borderRadius: 12, background: 'rgba(37,99,235,0.08)', color: '#2563eb', fontWeight: 700 }}>
+                        Subiendo archivo...
+                      </div>
+                    ) : null}
+
+                    {['queued', 'processing'].includes(noCallImportJob?.status) ? (
+                      <div style={{ display: 'grid', gap: 8 }}>
+                        <div style={{ fontWeight: 700, color: '#152235' }}>
+                          Procesando... {processedCount.toLocaleString('es-UY')} / {totalCount.toLocaleString('es-UY')} ({progressPercent}%)
+                        </div>
+                        <div style={{ height: 10, borderRadius: 999, background: 'rgba(148,163,184,0.24)', overflow: 'hidden' }}>
+                          <div style={{ width: `${Math.max(0, Math.min(100, progressPercent))}%`, height: '100%', background: '#2563eb' }} />
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {noCallImportJob?.status === 'completed' ? (
+                      <div style={{ padding: '14px 16px', borderRadius: 14, background: 'rgba(15,118,110,0.08)', border: '1px solid rgba(15,118,110,0.18)' }}>
+                        <div style={{ fontWeight: 700, color: '#0f766e', marginBottom: 6 }}>Carga completada</div>
+                        <div style={{ color: '#0f172a' }}>
+                          Insertados {Number(noCallImportJob.inserted || 0).toLocaleString('es-UY')} · Omitidos {Number(noCallImportJob.skipped || 0).toLocaleString('es-UY')}
+                        </div>
+                        <div style={{ marginTop: 6, fontSize: 12, color: 'var(--muted)' }}>
+                          Omitidos incluye números inválidos y números ya cargados en actualizaciones anteriores.
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {(noCallImportJob?.status === 'failed' || noCallImportError) ? (
+                      <div style={{ padding: '12px 14px', borderRadius: 12, background: 'rgba(190,24,93,0.08)', border: '1px solid rgba(190,24,93,0.18)', color: '#be123c', fontWeight: 700 }}>
+                        {noCallImportJob?.error?.message || noCallImportJob?.error || noCallImportError}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
+                    <Button variant="secondary" onClick={closeNoCallImportModal} disabled={noCallImportBusy}>
+                      {noCallImportJob?.status === 'completed' ? 'Cerrar' : 'Cancelar'}
+                    </Button>
+                    {noCallImportJob?.status !== 'completed' ? (
+                      <Button
+                        onClick={submitNoCallImport}
+                        disabled={
+                          !noCallImportFile
+                          || !noCallImportText
+                          || noCallImportReading
+                          || noCallImportBusy
+                        }
+                      >
+                        {noCallImportSubmitting ? 'Subiendo...' : 'Confirmar carga'}
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </Panel>
         </section>
 

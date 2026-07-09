@@ -93,7 +93,8 @@ export function createApiClient({ baseUrl, getAccessToken }) {
     const hasBody = body !== undefined && body !== null;
     const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
     const isBlob = typeof Blob !== 'undefined' && body instanceof Blob;
-    const shouldSerializeJson = hasBody && !isFormData && !isBlob;
+    const isStringBody = typeof body === 'string';
+    const shouldSerializeJson = hasBody && !isFormData && !isBlob && !isStringBody;
     const isDevToken = import.meta?.env?.DEV && token === 'dev-token';
 
     const finalHeaders = {
