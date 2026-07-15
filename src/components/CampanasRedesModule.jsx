@@ -571,7 +571,7 @@ export default function CampanasRedesModule() {
                             {lead.email || '—'}
                           </td>
                           <td style={{ padding: '10px 12px', color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' }}>
-                            {formatOrigenLabel(lead.origen_dato)}
+                            {formatOrigenLabel(lead.source_channel || lead.origen_dato)}
                           </td>
                           <td style={{ padding: '10px 12px' }}>
                             <span style={{
