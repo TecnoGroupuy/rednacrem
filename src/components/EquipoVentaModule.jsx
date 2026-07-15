@@ -498,7 +498,6 @@ export default function EquipoVentaModule({
                 <div style={{ borderRadius: 12, border: '1px solid var(--line)', overflow: 'hidden' }}>
                   {[
                     { label: 'Telefono', value: selectedVendedor.telefono || '-' },
-                    { label: 'Rol global', value: selectedVendedor.role_key },
                     { label: 'Rol en org', value: selectedVendedor.role_in_org || '-' },
                     {
                       label: 'Estado',
