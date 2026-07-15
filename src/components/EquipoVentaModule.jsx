@@ -48,8 +48,49 @@ export default function EquipoVentaModule({
   const [pausarError, setPausarError] = React.useState('');
   const [desactivarLoading, setDesactivarLoading] = React.useState(false);
   const [desactivarError, setDesactivarError] = React.useState('');
+  const [desactivarRedistribucionModo, setDesactivarRedistribucionModo] = React.useState('round_robin');
+  const [desactivarTargetSellerId, setDesactivarTargetSellerId] = React.useState('');
 
   const canManage = ['supervisor', 'director', 'superadministrador'].includes(userRole);
+  const formatDurationFromSeconds = React.useCallback((seconds) => {
+    if (!Number.isFinite(Number(seconds))) return '--';
+    const total = Math.max(0, Math.floor(Number(seconds)));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    return `${h}h ${m}m`;
+  }, []);
+
+  const formatPendientesByEstado = React.useCallback((value) => {
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => {
+          const estado = item?.estado || item?.status || item?.label || item?.key || '';
+          const cantidad = Number(item?.count ?? item?.cantidad ?? item?.total ?? 0) || 0;
+          if (!estado || !cantidad) return null;
+          return `${cantidad} ${String(estado).replace(/_/g, ' ')}`;
+        })
+        .filter(Boolean)
+        .join(', ');
+    }
+    if (value && typeof value === 'object') {
+      return Object.entries(value)
+        .map(([estado, cantidadRaw]) => {
+          const cantidad = Number(cantidadRaw ?? 0) || 0;
+          if (!cantidad) return null;
+          return `${cantidad} ${String(estado).replace(/_/g, ' ')}`;
+        })
+        .filter(Boolean)
+        .join(', ');
+    }
+    return '';
+  }, []);
+
+  const vendedoresRedistribucion = React.useMemo(() => (
+    vendedores.filter((v) => (
+      v.status === 'approved'
+      && String(v.id) !== String(desactivarModal?.id || '')
+    ))
+  ), [vendedores, desactivarModal?.id]);
 
   const loadVendedores = React.useCallback(async (inactivos = false) => {
     if (!activeOrgId) return;
@@ -451,9 +492,13 @@ export default function EquipoVentaModule({
                     onClick={async () => {
                       setDesactivarModal({
                         id: selectedVendedor.id,
-                        nombre: `${selectedVendedor.nombre || ''} ${selectedVendedor.apellido || ''}`.trim()
+                        nombre: `${selectedVendedor.nombre || ''} ${selectedVendedor.apellido || ''}`.trim(),
+                        status: selectedVendedor.status || ''
                       });
                       setDesactivarStep('analisis');
+                      setDesactivarRedistribucionModo('round_robin');
+                      setDesactivarTargetSellerId('');
+                      setDesactivarData(null);
                       setDesactivarLoading(true);
                       setDesactivarError('');
                       try {
@@ -470,7 +515,7 @@ export default function EquipoVentaModule({
                       }
                     }}
                   >
-                    Ver análisis de desempeño
+                    {selectedVendedor?.status === 'baja' ? 'Ver reporte de cierre' : 'Ver análisis de desempeño'}
                   </Button>
                   {selectedVendedor?.status !== 'baja' && selectedVendedor?.status !== 'inactive' && (
                     <Button
@@ -480,9 +525,13 @@ export default function EquipoVentaModule({
                         const v = selectedVendedor;
                         setDesactivarModal({
                           id: v.id,
-                          nombre: `${v.nombre || ''} ${v.apellido || ''}`.trim()
+                          nombre: `${v.nombre || ''} ${v.apellido || ''}`.trim(),
+                          status: v.status || ''
                         });
                         setDesactivarStep('analisis');
+                        setDesactivarRedistribucionModo('round_robin');
+                        setDesactivarTargetSellerId('');
+                        setDesactivarData(null);
                         setDesactivarLoading(true);
                         setDesactivarError('');
                         try {
@@ -603,7 +652,14 @@ export default function EquipoVentaModule({
       {desactivarModal && (
         <div
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}
-          onClick={() => setDesactivarModal(null)}
+          onClick={() => {
+            setDesactivarModal(null);
+            setDesactivarData(null);
+            setDesactivarError('');
+            setDesactivarStep('analisis');
+            setDesactivarRedistribucionModo('round_robin');
+            setDesactivarTargetSellerId('');
+          }}
         >
           <div
             style={{
@@ -623,19 +679,26 @@ export default function EquipoVentaModule({
               <div>
                 <div style={{ fontWeight: 500, fontSize: 15, color: 'var(--color-text-primary)' }}>
                   {desactivarStep === 'analisis'
-                    ? `Análisis de desempeño — ${desactivarModal.nombre}`
+                    ? `${desactivarModal?.status === 'baja' ? 'Reporte de cierre' : 'Análisis de desempeño'} — ${desactivarModal.nombre}`
                     : `Confirmar desactivación — ${desactivarModal.nombre}`}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 2 }}>
                   {desactivarStep === 'analisis'
-                    ? (desactivarModal && vendedores.find((v) => v.id === desactivarModal.id)?.status === 'baja'
+                    ? (desactivarModal?.status === 'baja'
                       ? 'Historial de gestiones'
                       : 'Revisá el historial completo antes de desactivar')
                     : 'Esta acción no se puede deshacer'}
                 </div>
               </div>
               <button
-                onClick={() => setDesactivarModal(null)}
+                onClick={() => {
+                  setDesactivarModal(null);
+                  setDesactivarData(null);
+                  setDesactivarError('');
+                  setDesactivarStep('analisis');
+                  setDesactivarRedistribucionModo('round_robin');
+                  setDesactivarTargetSellerId('');
+                }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: 'var(--color-text-secondary)' }}
               >
                 ×
@@ -645,7 +708,9 @@ export default function EquipoVentaModule({
             {desactivarStep === 'analisis' && (
               <>
                 {desactivarLoading ? (
-                  <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-secondary)', fontSize: 13 }}>Cargando análisis...</div>
+                  <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-secondary)', fontSize: 13 }}>
+                    {desactivarModal?.status === 'baja' ? 'Cargando reporte de cierre...' : 'Cargando análisis...'}
+                  </div>
                 ) : null}
                 {desactivarError ? (
                   <div style={{ fontSize: 13, color: '#A32D2D', marginBottom: 16 }}>{desactivarError}</div>
@@ -668,6 +733,10 @@ export default function EquipoVentaModule({
                     : 1;
                   const promDiario = (totalGestiones / dias).toFixed(1);
                   const pendientes = desactivarData?.pendientes_count ?? 0;
+                  const jornada = desactivarData?.jornada || null;
+                  const jornadaDias = Array.isArray(jornada?.dias) ? jornada.dias : [];
+                  const jornadaDiasVisible = jornadaDias.slice(0, 8);
+                  const jornadaDiasRestantes = Math.max(0, jornadaDias.length - jornadaDiasVisible.length);
 
                   return (
                     <>
@@ -699,8 +768,68 @@ export default function EquipoVentaModule({
                         </div>
                       ) : null}
 
+                      {jornada ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+                          <div style={{ background: 'var(--color-background-secondary)', borderRadius: 8, padding: '10px 12px', border: '0.5px solid var(--color-border-secondary)' }}>
+                            <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 4 }}>Horas trabajadas en el periodo</div>
+                            <div style={{ fontSize: 20, fontWeight: 500, color: 'var(--color-text-primary)' }}>
+                              {formatDurationFromSeconds(jornada?.totalHorasSeg)}
+                            </div>
+                          </div>
+
+                          <div style={{ borderRadius: 8, border: '0.5px solid var(--color-border-secondary)', overflow: 'hidden' }}>
+                            <div style={{ padding: '10px 12px', background: 'var(--color-background-secondary)', borderBottom: '0.5px solid var(--color-border-secondary)', fontSize: 12, fontWeight: 600, color: 'var(--color-text-primary)' }}>
+                              Actividad diaria
+                            </div>
+                            <div style={{ overflowX: 'auto' }}>
+                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                                <thead>
+                                  <tr style={{ background: 'rgba(15,23,42,0.03)' }}>
+                                    <th style={{ textAlign: 'left', padding: '8px 12px', color: 'var(--color-text-secondary)', fontWeight: 600 }}>Fecha</th>
+                                    <th style={{ textAlign: 'left', padding: '8px 12px', color: 'var(--color-text-secondary)', fontWeight: 600 }}>Disponible</th>
+                                    <th style={{ textAlign: 'left', padding: '8px 12px', color: 'var(--color-text-secondary)', fontWeight: 600 }}>Descansos</th>
+                                    <th style={{ textAlign: 'left', padding: '8px 12px', color: 'var(--color-text-secondary)', fontWeight: 600 }}>Baños</th>
+                                    <th style={{ textAlign: 'left', padding: '8px 12px', color: 'var(--color-text-secondary)', fontWeight: 600 }}>Con supervisor</th>
+                                    <th style={{ textAlign: 'left', padding: '8px 12px', color: 'var(--color-text-secondary)', fontWeight: 600 }}>Total</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {jornadaDiasVisible.map((dia, index) => (
+                                    <tr key={dia?.dia || index} style={{ borderTop: index === 0 ? 'none' : '0.5px solid var(--color-border-secondary)' }}>
+                                      <td style={{ padding: '8px 12px', color: 'var(--color-text-primary)', fontWeight: 500 }}>{dia?.dia || '—'}</td>
+                                      <td style={{ padding: '8px 12px', color: 'var(--color-text-primary)' }}>{dia?.tiempoProductivoLabel || '—'}</td>
+                                      <td style={{ padding: '8px 12px', color: 'var(--color-text-primary)' }}>{dia?.descansosLabel || '—'}</td>
+                                      <td style={{ padding: '8px 12px', color: 'var(--color-text-primary)' }}>{dia?.banosLabel || '—'}</td>
+                                      <td style={{ padding: '8px 12px', color: 'var(--color-text-primary)' }}>{dia?.supervisorLabel || '—'}</td>
+                                      <td style={{ padding: '8px 12px', color: 'var(--color-text-primary)', fontWeight: 500 }}>{dia?.totalJornadaLabel || '—'}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                            {jornadaDiasRestantes > 0 ? (
+                              <div style={{ padding: '8px 12px', borderTop: '0.5px solid var(--color-border-secondary)', fontSize: 11, color: 'var(--color-text-secondary)', background: 'rgba(15,23,42,0.02)' }}>
+                                +{jornadaDiasRestantes} día{jornadaDiasRestantes !== 1 ? 's' : ''} más
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      ) : null}
+
                       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
-                        <Button variant="secondary" onClick={() => setDesactivarModal(null)}>Cerrar</Button>
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            setDesactivarModal(null);
+                            setDesactivarData(null);
+                            setDesactivarError('');
+                            setDesactivarStep('analisis');
+                            setDesactivarRedistribucionModo('round_robin');
+                            setDesactivarTargetSellerId('');
+                          }}
+                        >
+                          Cerrar
+                        </Button>
                         {desactivarModal &&
                           (() => {
                             const vendedor = vendedores.find((v) => v.id === desactivarModal.id);
@@ -725,17 +854,116 @@ export default function EquipoVentaModule({
                 <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 20 }}>
                   Al confirmar, <strong>{desactivarModal.nombre}</strong> pasará a estado <strong>Baja</strong>, será removido de todos los lotes activos y dejará de aparecer en los monitores.
                 </div>
+                {(Number(desactivarData?.pendientes_count ?? 0) || 0) > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
+                    <div style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                      Este vendedor tiene <strong>{Number(desactivarData?.pendientes_count ?? 0)}</strong> contactos pendientes
+                      {formatPendientesByEstado(desactivarData?.pendientes_by_estado)
+                        ? ` (${formatPendientesByEstado(desactivarData?.pendientes_by_estado)}). ¿Cómo redistribuimos?`
+                        : '. ¿Cómo redistribuimos?'}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {[
+                        { value: 'round_robin', label: 'Redistribuir automáticamente' },
+                        { value: 'specific_seller', label: 'Asignar a un vendedor específico' }
+                      ].map((option) => {
+                        const active = desactivarRedistribucionModo === option.value;
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => {
+                              setDesactivarRedistribucionModo(option.value);
+                              if (option.value !== 'specific_seller') {
+                                setDesactivarTargetSellerId('');
+                              }
+                              setDesactivarError('');
+                            }}
+                            style={{
+                              padding: '8px 12px',
+                              borderRadius: 8,
+                              border: active ? '1px solid #0F6E56' : '1px solid var(--color-border-secondary)',
+                              background: active ? 'rgba(15,110,86,0.10)' : '#fff',
+                              color: active ? '#0F6E56' : 'var(--color-text-primary)',
+                              fontSize: 12,
+                              fontWeight: 600,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {desactivarRedistribucionModo === 'specific_seller' ? (
+                      <div>
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 6 }}>
+                          Vendedor destino
+                        </label>
+                        <select
+                          className="input"
+                          value={desactivarTargetSellerId}
+                          onChange={(e) => {
+                            setDesactivarTargetSellerId(e.target.value);
+                            setDesactivarError('');
+                          }}
+                        >
+                          <option value="">Seleccionar vendedor</option>
+                          {vendedoresRedistribucion.map((v) => (
+                            <option key={v.id} value={v.id}>
+                              {[v.nombre, v.apellido].filter(Boolean).join(' ').trim() || v.email || v.id}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+                {desactivarError ? (
+                  <div style={{ fontSize: 13, color: '#A32D2D', marginBottom: 16 }}>{desactivarError}</div>
+                ) : null}
                 <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                   <Button variant="secondary" onClick={() => setDesactivarStep('analisis')}>← Volver</Button>
                   <Button
+                    disabled={
+                      Number(desactivarData?.pendientes_count ?? 0) > 0
+                      && desactivarRedistribucionModo === 'specific_seller'
+                      && !desactivarTargetSellerId
+                    }
                     onClick={async () => {
+                      const pendientesCount = Number(desactivarData?.pendientes_count ?? 0) || 0;
+                      if (
+                        pendientesCount > 0
+                        && desactivarRedistribucionModo === 'specific_seller'
+                        && !desactivarTargetSellerId
+                      ) {
+                        setDesactivarError('Seleccioná un vendedor destino para continuar.');
+                        return;
+                      }
                       try {
                         const api = getApiClient();
-                        const res = await api.patch(`/api/users/${desactivarModal.id}/desactivar`);
+                        const body = pendientesCount > 0
+                          ? {
+                            redistribucion: {
+                              modo: desactivarRedistribucionModo,
+                              ...(desactivarRedistribucionModo === 'specific_seller'
+                                ? { targetSellerId: desactivarTargetSellerId }
+                                : {})
+                            }
+                          }
+                          : undefined;
+                        const res = await api.patch(`/api/users/${desactivarModal.id}/desactivar`, body);
                         const payload = res?.data ?? res;
                         const data = payload?.data ?? payload;
                         if (!data.ok) throw new Error(data.message || 'Error al desactivar');
                         setDesactivarModal(null);
+                        setDesactivarData(null);
+                        setDesactivarError('');
+                        setDesactivarStep('analisis');
+                        setDesactivarRedistribucionModo('round_robin');
+                        setDesactivarTargetSellerId('');
                         setVendedores((prev) => prev.map((u) => (
                           u.id === desactivarModal.id
                             ? { ...u, status: 'baja', estado: 'Baja' }
@@ -744,7 +972,6 @@ export default function EquipoVentaModule({
                         setSelectedVendedor(null);
                       } catch (err) {
                         setDesactivarError(err?.message || 'No se pudo desactivar.');
-                        setDesactivarStep('analisis');
                       }
                     }}
                     style={{ background: '#993C1D', color: '#fff', border: 'none' }}
