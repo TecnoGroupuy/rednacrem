@@ -393,25 +393,6 @@ export default function EquipoVentaModule({
 
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
                               <Tag variant={statusVariant}>{statusLabel}</Tag>
-                              {v.status !== 'baja' && v.status !== 'inactive' && (
-                                <button
-                                  type="button"
-                                  onClick={() => openPausarModal(v)}
-                                  style={{
-                                    padding: '7px 12px',
-                                    borderRadius: 8,
-                                    border: '1px solid #f59e0b',
-                                    background: '#fffbeb',
-                                    color: '#92400e',
-                                    fontWeight: 700,
-                                    cursor: 'pointer',
-                                    fontSize: 12,
-                                    flexShrink: 0
-                                  }}
-                                >
-                                  ⏸ Pausar
-                                </button>
-                              )}
                               <button
                                 onClick={() => setSelectedVendedor({ ...v, stats })}
                                 style={{
@@ -623,39 +604,84 @@ export default function EquipoVentaModule({
                     </>
                   ) : null}
                   {selectedVendedor?.status !== 'baja' && selectedVendedor?.status !== 'inactive' && (
-                    <Button
-                      variant="ghost"
-                      icon={<UserX size={14} />}
-                      onClick={async () => {
-                        const v = selectedVendedor;
-                        setDesactivarModal({
-                          id: v.id,
-                          nombre: `${v.nombre || ''} ${v.apellido || ''}`.trim(),
-                          status: v.status || ''
-                        });
-                        setDesactivarStep('analisis');
-                        setDesactivarRedistribucionModo('round_robin');
-                        setDesactivarTargetSellerId('');
-                        setDesactivarData(null);
-                        setDesactivarLoading(true);
-                        setDesactivarError('');
-                        try {
-                          const api = getApiClient();
-                          const params = new URLSearchParams({ seller_id: String(v.id) });
-                          if (activeOrgId) params.set('organization_id', String(activeOrgId));
-                          const res = await api.get(`/api/supervisor/seller-detail?${params.toString()}`);
-                          const payload = res?.data ?? res;
-                          setDesactivarData(payload?.data ?? payload);
-                        } catch (err) {
-                          setDesactivarError('No se pudo cargar el análisis.');
-                        } finally {
-                          setDesactivarLoading(false);
-                        }
-                      }}
-                      style={{ color: '#993C1D' }}
-                    >
-                      Desactivar vendedor
-                    </Button>
+                    <>
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 10,
+                          marginTop: 4,
+                          padding: '14px 16px',
+                          borderRadius: 12,
+                          border: '1px solid var(--line)',
+                          background: 'var(--color-background-secondary)'
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: 4 }}>
+                            Pusar usuario
+                          </div>
+                          <div style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--color-text-secondary)' }}>
+                            Deja pausado el usuario cuando se vaya de licencia, falte se certifique o cualquier otra cosa que no asista a su jornada laboral. De esta forma no le llegarán datos. Quita al usuario del lote y asigna los datos a otro vendedor.
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => openPausarModal(selectedVendedor)}
+                          style={{
+                            padding: '10px 14px',
+                            borderRadius: 10,
+                            border: '1px solid #f59e0b',
+                            background: '#fffbeb',
+                            color: '#92400e',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            fontSize: 13,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 8
+                          }}
+                        >
+                          <span aria-hidden="true">⏸</span>
+                          Pausar usuario
+                        </button>
+                      </div>
+
+                      <Button
+                        variant="ghost"
+                        icon={<UserX size={14} />}
+                        onClick={async () => {
+                          const v = selectedVendedor;
+                          setDesactivarModal({
+                            id: v.id,
+                            nombre: `${v.nombre || ''} ${v.apellido || ''}`.trim(),
+                            status: v.status || ''
+                          });
+                          setDesactivarStep('analisis');
+                          setDesactivarRedistribucionModo('round_robin');
+                          setDesactivarTargetSellerId('');
+                          setDesactivarData(null);
+                          setDesactivarLoading(true);
+                          setDesactivarError('');
+                          try {
+                            const api = getApiClient();
+                            const params = new URLSearchParams({ seller_id: String(v.id) });
+                            if (activeOrgId) params.set('organization_id', String(activeOrgId));
+                            const res = await api.get(`/api/supervisor/seller-detail?${params.toString()}`);
+                            const payload = res?.data ?? res;
+                            setDesactivarData(payload?.data ?? payload);
+                          } catch (err) {
+                            setDesactivarError('No se pudo cargar el análisis.');
+                          } finally {
+                            setDesactivarLoading(false);
+                          }
+                        }}
+                        style={{ color: '#993C1D' }}
+                      >
+                        Desactivar vendedor
+                      </Button>
+                    </>
                   )}
                 </div>
               </div>
