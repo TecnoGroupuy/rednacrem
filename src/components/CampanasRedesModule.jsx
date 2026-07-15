@@ -258,7 +258,7 @@ export default function CampanasRedesModule() {
               gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
               gap: 10
             }}>
-              <MetricCard label="Total del mes" value={metricas.total ?? '-'} valueColor="var(--color-text-primary, #0f172a)" subtitle="" />
+              <MetricCard label="Total" value={metricas.total ?? '-'} valueColor="var(--color-text-primary, #0f172a)" subtitle="" />
               <MetricCard label="Sin gestión" value={metricas.sin_gestion ?? metricas.sin_gestion_total ?? '-'} valueColor="var(--color-text-secondary, #64748b)" subtitle="" />
               <MetricCard label="No contesta" value={metricas.no_contesta ?? '-'} valueColor="#854F0B" subtitle="" />
               <MetricCard label="Rechazados" value={metricas.rechazados ?? '-'} valueColor="#A32D2D" subtitle="" />
