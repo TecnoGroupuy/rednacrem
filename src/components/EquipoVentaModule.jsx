@@ -1,6 +1,7 @@
 ﻿import React from 'react';
-import { Plus, Edit3, X, Loader2, ChevronRight, TrendingUp, Phone, ShoppingBag, UserX, BarChart2 } from 'lucide-react';
+import { Plus, Edit3, X, Loader2, ChevronRight, TrendingUp, Phone, ShoppingBag, UserX, BarChart2, Info } from 'lucide-react';
 import { getApiClient } from '../services/apiClient.js';
+import { toEsUyDate } from '../utils/dateFormat.js';
 
 const DEFAULT_DRAFT = {
   nombre: '',
@@ -50,6 +51,7 @@ export default function EquipoVentaModule({
   const [desactivarError, setDesactivarError] = React.useState('');
   const [desactivarRedistribucionModo, setDesactivarRedistribucionModo] = React.useState('round_robin');
   const [desactivarTargetSellerId, setDesactivarTargetSellerId] = React.useState('');
+  const [reassignedInfoMessage, setReassignedInfoMessage] = React.useState('');
 
   const canManage = ['supervisor', 'director', 'superadministrador'].includes(userRole);
   const formatDurationFromSeconds = React.useCallback((seconds) => {
@@ -91,6 +93,39 @@ export default function EquipoVentaModule({
       && String(v.id) !== String(desactivarModal?.id || '')
     ))
   ), [vendedores, desactivarModal?.id]);
+
+  const vendedorStatusMeta = React.useCallback((status) => {
+    if (status === 'approved') {
+      return {
+        label: 'Activo',
+        background: 'rgba(15,118,110,0.12)',
+        color: '#0f6e56',
+        border: '1px solid rgba(15,118,110,0.25)'
+      };
+    }
+    if (status === 'baja') {
+      return {
+        label: 'Baja',
+        background: 'rgba(153,60,29,0.12)',
+        color: '#993c1d',
+        border: '1px solid rgba(240,153,123,0.45)'
+      };
+    }
+    if (status === 'pausado') {
+      return {
+        label: 'Pausado',
+        background: 'rgba(245,158,11,0.12)',
+        color: '#92400e',
+        border: '1px solid rgba(245,158,11,0.30)'
+      };
+    }
+    return {
+      label: status || 'Sin estado',
+      background: 'rgba(100,116,139,0.10)',
+      color: '#475569',
+      border: '1px solid rgba(148,163,184,0.30)'
+    };
+  }, []);
 
   const loadVendedores = React.useCallback(async (inactivos = false) => {
     if (!activeOrgId) return;
@@ -410,7 +445,10 @@ export default function EquipoVentaModule({
           {selectedVendedor && (
             <>
             <div
-              onClick={() => setSelectedVendedor(null)}
+              onClick={() => {
+                setSelectedVendedor(null);
+                setReassignedInfoMessage('');
+              }}
               style={{
                 position: 'fixed',
                 inset: 0,
@@ -441,7 +479,10 @@ export default function EquipoVentaModule({
                   <div style={{ fontSize: 12, color: 'var(--muted)' }}>{selectedVendedor.email}</div>
                 </div>
                 <button
-                  onClick={() => setSelectedVendedor(null)}
+                  onClick={() => {
+                    setSelectedVendedor(null);
+                    setReassignedInfoMessage('');
+                  }}
                   style={{
                     width: 32, height: 32, borderRadius: 8,
                     border: '1px solid var(--line)',
@@ -459,33 +500,65 @@ export default function EquipoVentaModule({
                     { label: 'Telefono', value: selectedVendedor.telefono || '-' },
                     { label: 'Rol global', value: selectedVendedor.role_key },
                     { label: 'Rol en org', value: selectedVendedor.role_in_org || '-' },
-                    { label: 'Estado', value: selectedVendedor.status === 'approved' ? 'Activo' : selectedVendedor.status },
-                    { label: 'Tiempo conectado', value: selectedVendedor.stats?.workTime || '-' },
-                    { label: 'Tiempo en pausas', value: selectedVendedor.stats?.pausesMinutes ? `${selectedVendedor.stats.pausesMinutes} min` : '-' }
-                  ].map((item, i) => (
+                    {
+                      label: 'Estado',
+                      isStatus: true,
+                      value: vendedorStatusMeta(selectedVendedor.status)
+                    },
+                    ...(selectedVendedor.status === 'baja'
+                      ? [
+                        { label: 'Fecha de baja', value: selectedVendedor.fecha_baja ? toEsUyDate(selectedVendedor.fecha_baja) : 'No disponible' },
+                        { label: 'Procesado por', value: selectedVendedor.procesado_por || 'No disponible' }
+                      ]
+                      : [
+                        { label: 'Tiempo conectado', value: selectedVendedor.stats?.workTime || '-' },
+                        { label: 'Tiempo en pausas', value: selectedVendedor.stats?.pausesMinutes ? `${selectedVendedor.stats.pausesMinutes} min` : '-' }
+                      ])
+                  ].map((item, i, arr) => (
                     <div key={item.label} style={{
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                       padding: '10px 16px',
-                      borderBottom: i < 5 ? '1px solid var(--line)' : 'none',
+                      borderBottom: i < arr.length - 1 ? '1px solid var(--line)' : 'none',
                       fontSize: 13
                     }}>
                       <span style={{ color: 'var(--muted)' }}>{item.label}</span>
-                      <span style={{ fontWeight: 500 }}>{item.value}</span>
+                      {item.isStatus ? (
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            padding: '4px 10px',
+                            borderRadius: 999,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            background: item.value.background,
+                            color: item.value.color,
+                            border: item.value.border
+                          }}
+                        >
+                          {item.value.label}
+                        </span>
+                      ) : (
+                        <span style={{ fontWeight: 500 }}>{item.value}</span>
+                      )}
                     </div>
                   ))}
                 </div>
 
                 <div style={{ display: 'flex', gap: 8, flexDirection: 'column' }}>
-                  <Button
-                    variant="ghost"
-                    icon={<Edit3 size={14} />}
-                    onClick={() => {
-                      startEdit(selectedVendedor);
-                      setSelectedVendedor(null);
-                    }}
-                  >
-                    Editar vendedor
-                  </Button>
+                  {selectedVendedor.status !== 'baja' ? (
+                    <Button
+                      variant="ghost"
+                      icon={<Edit3 size={14} />}
+                      onClick={() => {
+                        startEdit(selectedVendedor);
+                        setSelectedVendedor(null);
+                        setReassignedInfoMessage('');
+                      }}
+                    >
+                      Editar vendedor
+                    </Button>
+                  ) : null}
                   <Button
                     variant="ghost"
                     icon={<BarChart2 size={14} />}
@@ -517,6 +590,39 @@ export default function EquipoVentaModule({
                   >
                     {selectedVendedor?.status === 'baja' ? 'Ver reporte de cierre' : 'Ver análisis de desempeño'}
                   </Button>
+                  {selectedVendedor?.status === 'baja' ? (
+                    <>
+                      <Button
+                        variant="ghost"
+                        icon={<Info size={14} />}
+                        onClick={() => {
+                          const count = Number(selectedVendedor.contactos_reasignados_count ?? 0) || 0;
+                          setReassignedInfoMessage(
+                            count > 0
+                              ? `${count} contactos fueron reasignados a otros vendedores al momento de la baja.`
+                              : '0 contactos fueron reasignados a otros vendedores al momento de la baja.'
+                          );
+                        }}
+                        disabled={Number(selectedVendedor.contactos_reasignados_count ?? 0) === 0}
+                      >
+                        Contactos reasignados ({Number(selectedVendedor.contactos_reasignados_count ?? 0) || 0})
+                      </Button>
+                      {reassignedInfoMessage ? (
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: 'var(--color-text-secondary)',
+                            background: 'var(--color-background-secondary)',
+                            border: '0.5px solid var(--color-border-secondary)',
+                            borderRadius: 8,
+                            padding: '10px 12px'
+                          }}
+                        >
+                          {reassignedInfoMessage}
+                        </div>
+                      ) : null}
+                    </>
+                  ) : null}
                   {selectedVendedor?.status !== 'baja' && selectedVendedor?.status !== 'inactive' && (
                     <Button
                       variant="ghost"
