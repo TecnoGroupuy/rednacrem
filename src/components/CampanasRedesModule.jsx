@@ -8,35 +8,12 @@ function formatOrigenLabel(origen) {
   const lower = str.toLowerCase();
   const explicit = {
     facebook: 'Facebook',
-    instagram: 'Instagram'
+    instagram: 'Instagram',
+    whatsapp: 'WhatsApp',
+    web_form: 'Formulario web'
   };
   if (explicit[lower]) return explicit[lower];
   return lower.charAt(0).toUpperCase() + lower.slice(1);
-}
-
-function normalizeOrigenesResponse(res) {
-  if (!res) return [];
-  const raw = Array.isArray(res)
-    ? res
-    : Array.isArray(res?.items)
-      ? res.items
-      : Array.isArray(res?.origenes)
-        ? res.origenes
-        : Array.isArray(res?.data)
-          ? res.data
-          : [];
-
-  return raw
-    .map((item) => {
-      if (!item) return null;
-      if (typeof item === 'string') return item.trim();
-      if (typeof item?.value === 'string') return item.value.trim();
-      if (typeof item?.origen === 'string') return item.origen.trim();
-      if (typeof item?.origen_dato === 'string') return item.origen_dato.trim();
-      if (typeof item?.key === 'string') return item.key.trim();
-      return null;
-    })
-    .filter(Boolean);
 }
 
 const PERIODOS = [
@@ -47,10 +24,11 @@ const PERIODOS = [
 ];
 
 const ORIGENES = [
-  { value: 'todos', label: 'Todos los orígenes' },
+  { value: 'todos', label: 'Todos los canales' },
   { value: 'facebook', label: 'Facebook' },
   { value: 'instagram', label: 'Instagram' },
-  { value: 'referido', label: 'Referido' }
+  { value: 'whatsapp', label: 'WhatsApp' },
+  { value: 'web_form', label: 'Formulario web' }
 ];
 
 function safeNumber(value) {
@@ -100,14 +78,6 @@ function MetricCard({ label, value, valueColor, subtitle }) {
 export default function CampanasRedesModule() {
   const [periodo, setPeriodo] = React.useState('');
   const [origen, setOrigen] = React.useState('todos');
-  const [origenes, setOrigenes] = React.useState(() => {
-    const fallback = ['Facebook', 'Instagram', 'Referido'];
-    return [
-      { value: 'todos', label: 'Todos los orígenes' },
-      ...fallback.map((value) => ({ value, label: formatOrigenLabel(value) }))
-    ];
-  });
-  const [origenesLoading, setOrigenesLoading] = React.useState(false);
   const [data, setData] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
@@ -137,49 +107,6 @@ export default function CampanasRedesModule() {
     }
   }, [periodo, origen]);
 
-  const loadOrigenes = React.useCallback(async () => {
-    setOrigenesLoading(true);
-    try {
-      const api = getApiClient();
-      const res = await api.get('/campanas/origenes');
-      const values = normalizeOrigenesResponse(res);
-      const seenLower = new Set();
-      const uniqueValues = [];
-      for (const raw of values) {
-        const cleaned = String(raw || '').trim();
-        if (!cleaned) continue;
-        const lower = cleaned.toLowerCase();
-        if (seenLower.has(lower)) continue;
-        seenLower.add(lower);
-        uniqueValues.push(cleaned);
-      }
-      const nextOptions = [
-        { value: 'todos', label: 'Todos los orígenes' },
-        ...uniqueValues.map((value) => ({ value, label: formatOrigenLabel(value) }))
-      ];
-
-      setOrigenes(nextOptions);
-      setOrigen((prev) => {
-        const prevLower = String(prev || '').toLowerCase();
-        if (prevLower === 'todos') return 'todos';
-        const normalizedOptions = nextOptions.map((o) => ({ value: o.value, lower: String(o.value || '').toLowerCase() }));
-        const hasPrev = normalizedOptions.some((o) => o.lower === prevLower);
-        if (hasPrev) return normalizedOptions.find((o) => o.lower === prevLower)?.value || prev;
-
-        const facebookOption = normalizedOptions.find((o) => o.lower === 'facebook');
-        if (facebookOption) return facebookOption.value;
-
-        const firstOrigin = normalizedOptions.find((o) => o.lower !== 'todos');
-        return firstOrigin?.value || 'todos';
-      });
-    } catch (err) {
-      console.error('Error cargando orígenes:', err);
-    } finally {
-      setOrigenesLoading(false);
-    }
-  }, []);
-
-  React.useEffect(() => { loadOrigenes(); }, [loadOrigenes]);
   React.useEffect(() => { load(); }, [load]);
 
   const metricas = data?.metricas || {};
@@ -245,7 +172,7 @@ export default function CampanasRedesModule() {
             <div>
               <div style={{ fontWeight: 800, fontSize: 18, letterSpacing: '-0.2px' }}>Datos calientes</div>
               <div style={{ color: 'var(--color-text-secondary, #64748b)', fontSize: 12, marginTop: 2 }}>
-                Vista supervisor · métricas de leads por origen
+                Vista supervisor · métricas de leads por canal
               </div>
             </div>
 
@@ -274,7 +201,6 @@ export default function CampanasRedesModule() {
                 <select
                   value={origen}
                   onChange={(e) => setOrigen(e.target.value)}
-                  disabled={origenesLoading}
                   style={{
                     appearance: 'none',
                     padding: '8px 36px 8px 12px',
@@ -283,11 +209,10 @@ export default function CampanasRedesModule() {
                     background: 'transparent',
                     fontSize: 13,
                     fontWeight: 700,
-                    color: 'var(--color-text-primary, #0f172a)',
-                    opacity: origenesLoading ? 0.6 : 1
+                    color: 'var(--color-text-primary, #0f172a)'
                   }}
                 >
-                  {origenes.map((o) => (
+                  {ORIGENES.map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.label}
                     </option>
@@ -579,7 +504,7 @@ export default function CampanasRedesModule() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 900 }}>
                 <thead>
                   <tr style={{ background: 'rgba(15,23,42,0.02)' }}>
-                    {['F. Solicitud', 'Nombre', 'Teléfono', 'Email', 'Origen', 'Estado', 'Motivo', 'Gestión', 'Intentos', 'Último intento', 'Vendedor'].map((h) => (
+                    {['F. Solicitud', 'Nombre', 'Teléfono', 'Email', 'Canal', 'Estado', 'Motivo', 'Gestión', 'Intentos', 'Último intento', 'Vendedor'].map((h) => (
                       <th
                         key={h}
                         style={{
@@ -646,7 +571,7 @@ export default function CampanasRedesModule() {
                             {lead.email || '—'}
                           </td>
                           <td style={{ padding: '10px 12px', color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' }}>
-                            {lead.origen_dato || '—'}
+                            {formatOrigenLabel(lead.origen_dato)}
                           </td>
                           <td style={{ padding: '10px 12px' }}>
                             <span style={{
