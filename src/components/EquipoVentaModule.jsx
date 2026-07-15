@@ -127,6 +127,10 @@ export default function EquipoVentaModule({
     };
   }, []);
 
+  const getInitials = React.useCallback((nombre, apellido) => (
+    `${nombre?.[0] || ''}${apellido?.[0] || ''}`.toUpperCase()
+  ), []);
+
   const loadVendedores = React.useCallback(async (inactivos = false) => {
     if (!activeOrgId) return;
     setLoading(true);
@@ -810,13 +814,15 @@ export default function EquipoVentaModule({
               <div>
                 <div style={{ fontWeight: 500, fontSize: 15, color: 'var(--color-text-primary)' }}>
                   {desactivarStep === 'analisis'
-                    ? `${desactivarModal?.status === 'baja' ? 'Reporte de cierre' : 'Análisis de desempeño'} — ${desactivarModal.nombre}`
+                    ? (desactivarModal?.status === 'baja'
+                      ? 'Gestión final del vendedor'
+                      : `Análisis de desempeño — ${desactivarModal.nombre}`)
                     : `Confirmar desactivación — ${desactivarModal.nombre}`}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 2 }}>
                   {desactivarStep === 'analisis'
                     ? (desactivarModal?.status === 'baja'
-                      ? 'Historial de gestiones'
+                      ? 'Resumen de la actividad y gestión realizada antes de finalizar su participación en el equipo.'
                       : 'Revisá el historial completo antes de desactivar')
                     : 'Esta acción no se puede deshacer'}
                 </div>
@@ -840,13 +846,14 @@ export default function EquipoVentaModule({
               <>
                 {desactivarLoading ? (
                   <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-secondary)', fontSize: 13 }}>
-                    {desactivarModal?.status === 'baja' ? 'Cargando reporte de cierre...' : 'Cargando análisis...'}
+                    {desactivarModal?.status === 'baja' ? 'Cargando gestión final del vendedor...' : 'Cargando análisis...'}
                   </div>
                 ) : null}
                 {desactivarError ? (
                   <div style={{ fontSize: 13, color: '#A32D2D', marginBottom: 16 }}>{desactivarError}</div>
                 ) : null}
                 {!desactivarLoading && desactivarData ? (() => {
+                  const vendedor = vendedores.find((item) => String(item.id) === String(desactivarModal?.id || ''));
                   const r = desactivarData?.resumen || {};
                   const totalGestiones = (r.ventas || 0)
                     + (r.rechazos || 0)
@@ -859,21 +866,69 @@ export default function EquipoVentaModule({
                     : '0.0';
                   const desde = desactivarData?.fecha_desde;
                   const hasta = desactivarData?.fecha_hasta;
-                  const dias = (desde && hasta)
-                    ? Math.max(1, Math.floor((new Date(hasta) - new Date(desde)) / 86400000) + 1)
-                    : 1;
-                  const promDiario = (totalGestiones / dias).toFixed(1);
+                  const diasConGestion = Number(desactivarData?.dias_con_gestion || 0);
+                  const promDiario = (totalGestiones / Math.max(1, diasConGestion)).toFixed(1);
                   const pendientes = desactivarData?.pendientes_count ?? 0;
                   const jornada = desactivarData?.jornada || null;
                   const jornadaDias = Array.isArray(jornada?.dias) ? jornada.dias : [];
                   const jornadaDiasVisible = jornadaDias.slice(0, 8);
                   const jornadaDiasRestantes = Math.max(0, jornadaDias.length - jornadaDiasVisible.length);
+                  const esBaja = desactivarModal?.status === 'baja';
+                  const nombreCompleto = [vendedor?.nombre, vendedor?.apellido].filter(Boolean).join(' ') || desactivarModal?.nombre || 'Vendedor';
+                  const email = vendedor?.email || 'Sin email';
+                  const rol = vendedor?.role_in_org || vendedor?.role || 'Vendedor';
+                  const periodoDesde = desde ? toEsUyDate(desde) : '—';
+                  const periodoHasta = hasta ? toEsUyDate(hasta) : '—';
 
                   return (
                     <>
-                      <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 16, background: 'var(--color-background-secondary)', borderRadius: 8, padding: '8px 12px' }}>
-                        Período: <strong>{desde} → {hasta}</strong> ({dias} día{dias !== 1 ? 's' : ''} activo{dias !== 1 ? 's' : ''})
-                      </div>
+                      {esBaja ? (
+                        <>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 12,
+                            paddingTop: 16,
+                            marginBottom: 12,
+                            borderTop: '1px solid var(--color-border-secondary)'
+                          }}>
+                            <div style={{
+                              width: 44,
+                              height: 44,
+                              borderRadius: '50%',
+                              background: '#F1EFE8',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: 14,
+                              fontWeight: 700,
+                              color: '#5F5E5A',
+                              flexShrink: 0
+                            }}>
+                              {getInitials(vendedor?.nombre, vendedor?.apellido)}
+                            </div>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)' }}>
+                                {nombreCompleto}
+                              </div>
+                              <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginTop: 2 }}>
+                                {email}
+                              </div>
+                              <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginTop: 2 }}>
+                                {rol}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 16, background: 'var(--color-background-secondary)', borderRadius: 8, padding: '8px 12px' }}>
+                            Periodo real de actividad: <strong>{periodoDesde} — {periodoHasta}</strong> · {diasConGestion} día(s) con gestiones
+                          </div>
+                        </>
+                      ) : (
+                        <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 16, background: 'var(--color-background-secondary)', borderRadius: 8, padding: '8px 12px' }}>
+                          Período: <strong>{desde} → {hasta}</strong>
+                        </div>
+                      )}
 
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 }}>
                         {[
@@ -943,6 +998,9 @@ export default function EquipoVentaModule({
                                 +{jornadaDiasRestantes} día{jornadaDiasRestantes !== 1 ? 's' : ''} más
                               </div>
                             ) : null}
+                            <div style={{ padding: '8px 12px', borderTop: '0.5px solid var(--color-border-secondary)', fontSize: 11, color: 'var(--color-text-secondary)', background: 'rgba(15,23,42,0.04)' }}>
+                              Los tramos sin cierre de sesión se acotan hasta el fin de turno (21:00) para no sumar horas no trabajadas.
+                            </div>
                           </div>
                         </div>
                       ) : null}
@@ -961,7 +1019,8 @@ export default function EquipoVentaModule({
                         >
                           Cerrar
                         </Button>
-                        {desactivarModal &&
+                        {desactivarModal?.status !== 'baja' &&
+                          desactivarModal &&
                           (() => {
                             const vendedor = vendedores.find((v) => v.id === desactivarModal.id);
                             return vendedor?.status !== 'baja' && vendedor?.status !== 'inactive';
