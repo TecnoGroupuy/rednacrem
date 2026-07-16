@@ -1,4 +1,4 @@
-﻿
+
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { AuthProvider as OidcAuthProvider, useAuth as useOidcAuth } from 'react-oidc-context';
@@ -8812,6 +8812,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [addSellerOpen, setAddSellerOpen] = React.useState(false);
       const [addSellerTarget, setAddSellerTarget] = React.useState('');
       const [addSellerError, setAddSellerError] = React.useState('');
+      const [redistributeLoadingState, setRedistributeLoadingState] = React.useState('');
+      const [redistributeFeedback, setRedistributeFeedback] = React.useState({ type: '', message: '' });
       const [addDataToLotOpen, setAddDataToLotOpen] = React.useState(false);
       const [addDataWizardStep, setAddDataWizardStep] = React.useState(1);
       const [addDataSelected, setAddDataSelected] = React.useState([]); // contact ids seleccionados
@@ -9458,6 +9460,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         return { ...lot, vendedores: nextVendedores };
       }, []);
 
+      React.useEffect(() => {
+        setRedistributeLoadingState('');
+        setRedistributeFeedback({ type: '', message: '' });
+      }, [selectedLot?.id]);
+
       const sellerSummary = React.useMemo(() => sellers.map((seller) => {
         const sellerLabel = typeof seller === 'string'
           ? seller
@@ -9866,6 +9873,33 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         }
       };
 
+      const redistributeLotByState = async (states, successMessage) => {
+        if (!selectedLot?.id) return;
+        if (!(selectedLot?.vendedores || []).length) return;
+        setRedistributeLoadingState(states[0] || 'loading');
+        setRedistributeFeedback({ type: '', message: '' });
+        try {
+          const res = await fetch(buildApiUrl(`/lead-batches/${selectedLot.id}/redistribute`, getApiBaseUrl()), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(accessToken) },
+            body: JSON.stringify({ states })
+          });
+          const data = await res.json();
+          if (!data.ok) throw new Error(data.message || 'No se pudo redistribuir el lote.');
+          if (data.distribution?.length) {
+            setSelectedLotOverride((prev) => {
+              const base = prev && String(prev.id) === String(selectedLot.id) ? prev : selectedLot;
+              return applyDistributionToLot(base, data.distribution);
+            });
+          }
+          setRedistributeFeedback({ type: 'success', message: successMessage });
+        } catch (err) {
+          setRedistributeFeedback({ type: 'error', message: err.message || 'No se pudo redistribuir el lote.' });
+        } finally {
+          setRedistributeLoadingState('');
+        }
+      };
+
       const reactivateErrorNumber = async (id) => {
         await onReactivateError(id);
       };
@@ -10133,11 +10167,26 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             style={{ fontSize: 11, fontWeight: 500, color: '#185FA5', background: '#E6F1FB', border: '1px solid #85B7EB', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
                           >+ Nuevo contacto</button>
                           <button
+                            onClick={() => redistributeLotByState(['no_contesta'], 'Contactos en "No contesta" redistribuidos correctamente.')}
+                            disabled={!(selectedLot.vendedores?.length) || !!redistributeLoadingState}
+                            style={{ fontSize: 11, fontWeight: 500, color: '#185FA5', background: '#F7F1E6', border: '1px solid #D7BF8A', borderRadius: 6, padding: '4px 10px', cursor: !(selectedLot.vendedores?.length) || !!redistributeLoadingState ? 'not-allowed' : 'pointer', opacity: !(selectedLot.vendedores?.length) || !!redistributeLoadingState ? 0.6 : 1 }}
+                          >{redistributeLoadingState === 'no_contesta' ? 'Distribuyendo...' : 'Distribuir no contesta'}</button>
+                          <button
+                            onClick={() => redistributeLotByState(['rellamar'], 'Contactos en "Rellamar" redistribuidos correctamente.')}
+                            disabled={!(selectedLot.vendedores?.length) || !!redistributeLoadingState}
+                            style={{ fontSize: 11, fontWeight: 500, color: '#185FA5', background: '#F7F1E6', border: '1px solid #D7BF8A', borderRadius: 6, padding: '4px 10px', cursor: !(selectedLot.vendedores?.length) || !!redistributeLoadingState ? 'not-allowed' : 'pointer', opacity: !(selectedLot.vendedores?.length) || !!redistributeLoadingState ? 0.6 : 1 }}
+                          >{redistributeLoadingState === 'rellamar' ? 'Distribuyendo...' : 'Distribuir rellamar'}</button>
+                          <button
                             onClick={() => setAddSellerOpen(true)}
                             style={{ fontSize: 11, fontWeight: 500, color: '#0F6E56', background: '#E1F5EE', border: '1px solid #5DCAA5', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
                           >+ Agregar vendedor</button>
                         </div>
                       </div>
+                      {redistributeFeedback.message ? (
+                        <div style={{ fontSize: 12, color: redistributeFeedback.type === 'error' ? '#A32D2D' : '#1A5C4A', marginBottom: 10 }}>
+                          {redistributeFeedback.message}
+                        </div>
+                      ) : null}
 
                     {(selectedLot.vendedores?.length ? selectedLot.vendedores : []).map((v) => {
                       const nombre = `${v.nombre || ''} ${v.apellido || ''}`.trim();
