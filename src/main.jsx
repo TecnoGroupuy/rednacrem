@@ -9453,8 +9453,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           .map((v) => {
             const match = distList.find((d) => String(d.seller_id ?? d.sellerId ?? d.vendedor_id ?? d.vendedorId) === String(v.id));
             if (!match) return v;
-            const cantidad = Number(match.cantidad ?? match.count ?? match.total ?? 0);
-            return Number.isFinite(cantidad) ? { ...v, total_contactos: cantidad } : v;
+            return {
+              ...v,
+              total_contactos: Number(match.total_contactos ?? match.cantidad ?? match.count ?? match.total ?? v.total_contactos ?? 0),
+              gestionados: Number(match.gestionados ?? v.gestionados ?? 0)
+            };
           });
 
         return { ...lot, vendedores: nextVendedores };
