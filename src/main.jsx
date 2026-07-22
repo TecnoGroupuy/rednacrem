@@ -13915,6 +13915,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const handleClientUpdated = React.useCallback((updated) => {
         if (!updated) return;
         const updatedId = updated.id;
+        const updatedProductId = String(updated.productId || updated.product_id || updated.product?.id || '').trim();
         const productLabel = typeof updated.product === 'string'
           ? updated.product
           : (updated.product?.nombre || updated.product?.name || '');
@@ -13923,6 +13924,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         setSelectedClient((prev) => (prev && prev.id === updatedId ? { ...prev, ...updated } : updated));
         setClientRows((prev) => prev.map((row) => {
           if (row.id !== updatedId) return row;
+          if (updatedProductId && String(row.productId || '').trim() !== updatedProductId) return row;
           return {
             ...row,
             name: updated.name || `${updated.nombre || ''} ${updated.apellido || ''}`.trim() || row.name,
@@ -14276,7 +14278,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           );
         }
         return filteredClients.map((row, index) => (
-          <tr key={row.id || `client-${index}`}>
+          <tr key={row.productId ? `${row.id}-${row.productId}` : (row.id || `client-${index}`)}>
             <td className="col-cliente">
               <div className="person">
                 <div className="person-badge">{initials(row.name || 'Cliente')}</div>
