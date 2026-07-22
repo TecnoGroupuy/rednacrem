@@ -459,7 +459,11 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
     seenProducts.add(key);
     normalizedProducts.push(item);
   }
-  const primaryProduct = normalizedProducts[0] || null;
+  const primaryProduct = (
+    client.selectedProductId
+      ? normalizedProducts.find((item) => String(item.id) === String(client.selectedProductId))
+      : null
+  ) || normalizedProducts[0] || null;
   const product = primaryProduct || client.product || client.producto || null;
   const currentProductId = pickField(
     primaryProduct?.productId,

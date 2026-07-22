@@ -13882,16 +13882,16 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
 
       const totalPages = Math.max(1, Math.ceil((clientTotal || 0) / clientPageSize));
 
-      const handleViewFicha = React.useCallback(async (clientId) => {
+      const handleViewFicha = React.useCallback(async (clientId, productId) => {
         const found = clientRows.find((item) => item.id === clientId);
         if (found) {
-          setSelectedClient(found);
+          setSelectedClient({ ...found, selectedProductId: productId || null });
         }
         setClientDetailError('');
         try {
           const detail = await fetchClientDetail(clientId);
           if (detail) {
-            setSelectedClient(detail);
+            setSelectedClient({ ...detail, selectedProductId: productId || null });
           }
           try {
             const tickets = await listTicketsByClientId(clientId);
@@ -14312,7 +14312,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             </td>
             <td className="col-accion">
               <div className="clients-actions">
-                <Button className="clients-action-btn" variant="ghost" icon={<Eye size={15} />} onClick={() => handleViewFicha(row.id)}>Ver ficha</Button>
+                <Button className="clients-action-btn" variant="ghost" icon={<Eye size={15} />} onClick={() => handleViewFicha(row.id, row.productId)}>Ver ficha</Button>
                 {(() => {
                   const status = String(row.status || '').toLowerCase();
                   const isBaja = status.includes('baja');
