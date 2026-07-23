@@ -98,6 +98,7 @@ const mapBackendPortfolioRow = (item = {}) => {
     || productObj?.producto_id
     || productObj?.producto_contrato_id
     || productObj?.productoContratoId
+    || item.productId
     || item.product_id
     || item.producto_id
     || item.producto_contrato_id
