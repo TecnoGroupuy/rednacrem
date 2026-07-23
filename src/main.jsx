@@ -262,7 +262,8 @@ const DEFAULT_CLIENT_METRICS = {
 
 const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
   { title: 'Activos', value: metrics.activos, icon: UserCheck, bg: 'rgba(21,128,61,0.12)', color: '#15803d', showTrend: false },
-  { title: 'En baja', value: metrics.enBaja, icon: TrendingDown, bg: 'rgba(190,18,60,0.12)', color: '#be123c', showTrend: false }
+  { title: 'En baja', value: metrics.enBaja, icon: TrendingDown, bg: 'rgba(190,18,60,0.12)', color: '#be123c', showTrend: false },
+  { title: 'Clientes únicos', value: metrics.clientesUnicos, icon: Users, bg: 'rgba(37,99,235,0.12)', color: '#2563eb', showTrend: false }
 ]);
 
 const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
@@ -14357,7 +14358,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       onChange={(event) => setClientSearch(event.target.value)}
                     />
                   </div>
-                  <Button className="clients-new-btn" icon={<Plus size={18} />} onClick={() => handleOpenNewClient()}>Nuevo cliente</Button>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <Button variant="secondary" icon={<Upload size={18} />} onClick={() => console.log('TODO: abrir modal de baja masiva')}>Baja masiva</Button>
+                    <Button className="clients-new-btn" icon={<Plus size={18} />} onClick={() => handleOpenNewClient()}>Nuevo cliente</Button>
+                  </div>
                 </div>
                 <div className="table-wrap clients-table-wrap">
                   <table className="clients-table">
