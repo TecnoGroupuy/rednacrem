@@ -13704,6 +13704,15 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         const [clientsError, setClientsError] = React.useState('');
         const [selectedClient, setSelectedClient] = React.useState(null);
         const [clientDetailError, setClientDetailError] = React.useState('');
+        React.useEffect(() => {
+          if (!clientsError) return undefined;
+          const timeoutId = window.setTimeout(() => {
+            setClientsError('');
+          }, 5000);
+          return () => {
+            window.clearTimeout(timeoutId);
+          };
+        }, [clientsError]);
         const [bajaModal, setBajaModal] = React.useState({ open: false });
         const [bajaMotivosOptions, setBajaMotivosOptions] = React.useState([]);
         const [bajaSaving, setBajaSaving] = React.useState(false);
@@ -14289,13 +14298,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             </tr>
           );
         }
-        if (clientsError) {
-          return (
-            <tr>
-              <td colSpan={6} style={{ textAlign: 'center', padding: 20, color: '#be123c' }}>{clientsError}</td>
-            </tr>
-          );
-        }
         if (!filteredClients.length) {
           return (
             <tr>
@@ -14395,6 +14397,32 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     <Button className="clients-new-btn" icon={<Plus size={18} />} onClick={() => handleOpenNewClient()}>Nuevo cliente</Button>
                   </div>
                 </div>
+                {clientsError ? (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                      marginBottom: 12,
+                      padding: '12px 14px',
+                      borderRadius: 12,
+                      background: '#fff1f2',
+                      border: '1px solid #fecdd3',
+                      color: '#be123c'
+                    }}
+                  >
+                    <span>{clientsError}</span>
+                    <button
+                      type="button"
+                      onClick={() => setClientsError('')}
+                      style={{ border: 0, background: 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}
+                      aria-label="Cerrar mensaje de error"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : null}
                 <div className="table-wrap clients-table-wrap">
                   <table className="clients-table">
                     <colgroup>
