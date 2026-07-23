@@ -82,7 +82,7 @@ import {
   fetchClientsMetrics
 } from './services/clientsService.js';
 import { fetchClientDetail } from './services/clientDetailService.js';
-import { deleteClient } from './services/clientAdminService.js';
+import { deleteClient, deleteContactProduct } from './services/clientAdminService.js';
 import { createContactWithProducts } from './services/clientCreateService.js';
 import {
   getAlerts,
@@ -13974,6 +13974,31 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         }
       }, [clientPage, clientPageSize, clientSearchDebounced]);
 
+      const handleDeleteContactProduct = React.useCallback(async (contactProductId, clientName, productName) => {
+        if (!contactProductId) return;
+        const productLabel = productName || 'este producto';
+        const clientLabel = clientName || 'este cliente';
+        const confirmed = window.confirm(`Â¿Seguro que querÃ©s eliminar ${productLabel} de ${clientLabel}? Esta acciÃ³n es definitiva.`);
+        if (!confirmed) return;
+        try {
+          await deleteContactProduct(contactProductId, getActiveOrganizationId());
+          const [directory, metrics] = await Promise.all([
+            fetchClientsDirectory({ page: clientPage, limit: clientPageSize, search: clientSearchDebounced }),
+            fetchClientsMetrics()
+          ]);
+          setClientRows(directory.table);
+          setClientTotal(Number(directory.total || 0));
+          setClientMetrics(buildClientMetricCards(metrics));
+          setSelectedClient((prev) => {
+            if (!prev) return prev;
+            return String(prev.selectedProductId || '') === String(contactProductId) ? null : prev;
+          });
+        } catch (err) {
+          const message = err?.message || 'No se pudo eliminar el producto del cliente.';
+          setClientsError(message);
+        }
+      }, [clientPage, clientPageSize, clientSearchDebounced]);
+
       const openBajaModal = React.useCallback((row) => {
         const now = new Date();
         const loggedName = [authUser?.nombre, authUser?.apellido].filter(Boolean).join(' ') || authUser?.email || 'Usuario';
@@ -14332,7 +14357,14 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                   );
                 })()}
                 {viewerRole === 'superadministrador' ? (
-                  <Button className="clients-action-btn clients-action-btn--danger" variant="ghost" icon={<Trash2 size={15} />} onClick={() => handleDeleteClient(row.id, row.name)}>Eliminar</Button>
+                  <Button
+                    className="clients-action-btn clients-action-btn--danger"
+                    variant="ghost"
+                    icon={<Trash2 size={15} />}
+                    onClick={() => handleDeleteContactProduct(row.productId, row.name, row.product)}
+                  >
+                    Eliminar
+                  </Button>
                 ) : null}
               </div>
             </td>
