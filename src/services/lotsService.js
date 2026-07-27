@@ -27,7 +27,7 @@ export const listLotsAsync = async () => {
     return (response?.items || []).map((item) => ({
       id: String(item.id || ''),
       name: item.nombre,
-      seller: item.assigned_to_name || (item.vendedores?.[0] ? `${item.vendedores[0].nombre || ''} ${item.vendedores[0].apellido || ''}`.trim() : ''),
+      seller: (item.vendedores?.[0] ? `${item.vendedores[0].nombre || ''} ${item.vendedores[0].apellido || ''}`.trim() : '') || item.assigned_to_name || '',
       vendedores: item.vendedores || [],
       total_contactos: Number(item.total_contactos ?? item.cantidad_contactos ?? item.cantidad ?? item.count ?? 0) || 0,
       gestionado: Number(item.gestionado ?? item.gestionados ?? item.total_gestionado ?? 0) || 0,
