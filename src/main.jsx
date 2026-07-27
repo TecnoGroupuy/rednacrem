@@ -10938,7 +10938,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       </div>
                       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                         <Button variant="secondary" onClick={() => { setRemoveModal(null); setRemoveStep(1); setRemoveMode('specific'); setReassignTarget(''); }}>Cancelar</Button>
-                        <Button onClick={() => setRemoveStep(2)}>Siguiente ? elegir destino</Button>
+                        <Button onClick={() => setRemoveStep(2)}>Siguiente: elegir destino</Button>
                       </div>
                     </>
                   ) : (
@@ -11030,9 +11030,14 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             });
                             const data = await res.json();
                             if (!data.ok) throw new Error(data.message || 'Error al quitar vendedor');
+                            const lotId = selectedLot.id;
                             setRemoveModal(null); setRemoveStep(1); setRemoveMode('specific');
                             setReassignTarget(''); setReassignError('');
-                            window.location.reload();
+                            setSelectedLotOverride(null);
+                            if (typeof fetchLots === 'function') {
+                              await fetchLots();
+                            }
+                            setSelectedLotId(lotId);
                           } catch (err) {
                             setReassignError(err.message || 'No se pudo completar la operación.');
                           } finally {
