@@ -11011,7 +11011,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                       {reassignError && <div style={{ fontSize: 12, color: '#A32D2D', marginBottom: 10 }}>{reassignError}</div>}
 
                       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
-                        <Button variant="secondary" onClick={() => setRemoveStep(1)}>? Volver</Button>
+                        <Button variant="secondary" onClick={() => setRemoveStep(1)}>Volver</Button>
                         <Button onClick={async () => {
                           if (!removeMode) { setReassignError('Seleccioná una opción.'); return; }
                           if (removeMode === 'specific' && !reassignTarget) {
