@@ -8806,7 +8806,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       const [lotReportError, setLotReportError] = React.useState('');
       const [lotReportData, setLotReportData] = React.useState(null);
       const [lotSellerDraft, setLotSellerDraft] = React.useState('');
-      const [reassignModal, setReassignModal] = React.useState(null); // { sellerId, sellerName, contactCount }
+      const [reassignModal, setReassignModal] = React.useState(null);
       const [reassignTarget, setReassignTarget] = React.useState('');
       const [reassignLoading, setReassignLoading] = React.useState(false);
       const [reassignError, setReassignError] = React.useState('');
@@ -9855,30 +9855,14 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         await onCloseLot(selectedLot.id);
       };
 
-      const removeSeller = async () => {
-        if (!reassignModal || !reassignTarget) {
-          setReassignError('Seleccioná un vendedor destino.');
-          return;
-        }
-        setReassignLoading(true);
+      const openRemoveSellerModal = React.useCallback((seller, { step = 1, mode = 'specific' } = {}) => {
+        if (!seller) return;
+        setRemoveModal(seller);
+        setRemoveStep(step);
+        setRemoveMode(mode);
+        setReassignTarget('');
         setReassignError('');
-        try {
-          const res = await fetch(buildApiUrl(`/lead-batches/${selectedLot.id}/remove-seller`, getApiBaseUrl()), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(accessToken) },
-            body: JSON.stringify({ seller_id: reassignModal.sellerId, new_seller_id: reassignTarget })
-          });
-          const data = await res.json();
-          if (!data.ok) throw new Error(data.message || 'Error al reasignar');
-          setReassignModal(null);
-          setReassignTarget('');
-          window.location.reload();
-        } catch (err) {
-          setReassignError(err.message || 'No se pudo reasignar.');
-        } finally {
-          setReassignLoading(false);
-        }
-      };
+      }, []);
 
       const redistributeLotByState = async (states, successMessage) => {
         if (!selectedLot?.id) return;
@@ -10232,15 +10216,13 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                               </div>
                               <div style={{ display: 'flex', gap: 6 }}>
                                 <button
-                                  onClick={() => { setReassignModal({ sellerId: v.id, sellerName: nombre, contactCount: total, gestionados }); setReassignTarget(''); setReassignError(''); }}
+                                  onClick={() => openRemoveSellerModal({ sellerId: v.id, sellerName: nombre, contactCount: total, gestionados }, { step: 2, mode: 'specific' })}
                                   style={{ fontSize: 11, fontWeight: 500, color: '#185FA5', background: '#E6F1FB', border: '1px solid #85B7EB', borderRadius: 6, padding: '4px 9px', cursor: 'pointer' }}
                                 >Reasignar</button>
-                                {selectedLot.vendedores.length > 1 && (
-                                  <button
-                                    onClick={() => { setRemoveModal({ sellerId: v.id, sellerName: nombre, contactCount: total, gestionados }); }}
-                                    style={{ fontSize: 11, fontWeight: 500, color: '#993C1D', background: '#FAECE7', border: '1px solid #F0997B', borderRadius: 6, padding: '4px 9px', cursor: 'pointer' }}
-                                  >Quitar</button>
-                                )}
+                                <button
+                                  onClick={() => openRemoveSellerModal({ sellerId: v.id, sellerName: nombre, contactCount: total, gestionados }, { step: 1, mode: 'specific' })}
+                                  style={{ fontSize: 11, fontWeight: 500, color: '#993C1D', background: '#FAECE7', border: '1px solid #F0997B', borderRadius: 6, padding: '4px 9px', cursor: 'pointer' }}
+                                >Quitar</button>
                               </div>
                             </div>
                             {/* Barra de progreso por vendedor */}
@@ -10979,6 +10961,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         Nuevo y no contesta ({removeModal.contactCount} contactos sin contexto):
                       </div>
 
+                      {removeMode === 'pool' && (selectedLot?.vendedores || []).length <= 1 ? (
+                        <div style={{ fontSize: 12, background: '#E6F1FB', color: '#185FA5', border: '1px solid #85B7EB', borderRadius: 8, padding: '8px 12px', marginBottom: 16 }}>
+                          Este lote quedarÃ¡ <strong>activo y sin vendedor asignado</strong>. Los contactos pasarÃ¡n al pool para reasignarlos despuÃ©s; esto no finaliza el lote.
+                        </div>
+                      ) : null}
                       {['specific', 'roundrobin', 'pool'].map((m) => (
                         <div key={m}
                           onClick={() => { setRemoveMode(m); setReassignError(''); }}
