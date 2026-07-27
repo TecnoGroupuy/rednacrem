@@ -10989,10 +10989,10 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         </div>
                       ))}
 
-                      {(removeMode === 'specific' || removeMode === 'roundrobin') && (
+                      {removeMode === 'specific' && (
                         <>
                           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 12, marginBottom: 4 }}>
-                            {removeMode === 'specific' ? 'Todos van a:' : 'Rellamar y seguimiento van a:'}
+                            Todos van a:
                           </div>
                           <select className="input" style={{ width: '100%', marginBottom: 8 }}
                             value={reassignTarget}
@@ -11014,7 +11014,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         <Button variant="secondary" onClick={() => setRemoveStep(1)}>? Volver</Button>
                         <Button onClick={async () => {
                           if (!removeMode) { setReassignError('Seleccioná una opción.'); return; }
-                          if ((removeMode === 'specific' || removeMode === 'roundrobin') && !reassignTarget) {
+                          if (removeMode === 'specific' && !reassignTarget) {
                             setReassignError('Seleccioná un vendedor destino.'); return;
                           }
                           setReassignLoading(true); setReassignError('');
