@@ -12621,18 +12621,17 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                               <Button
                                 variant="secondary"
                                 icon={<Plus size={15} />}
-                                aria-label={'Nueva gesti\u00f3n'}
-                                title={'Nueva gesti\u00f3n'}
-                                style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                 onClick={(event) => { event.stopPropagation(); openManualForm(client); }}
-                              />
+                              >
+                                Gestión de baja
+                              </Button>
                               <Button
                                 variant="primary"
                                 icon={<Briefcase size={15} />}
                                 disabled={String(client.status || client.estado || client.estadoProducto || '').toLowerCase().includes('baja')}
                                 onClick={(event) => { event.stopPropagation(); openManualForm(client, 'solicitud_servicio'); }}
                               >
-                                Solicitud
+                                Solicitud de servicio
                               </Button>
                             </div>
                           </div>
