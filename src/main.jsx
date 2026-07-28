@@ -12586,13 +12586,14 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
               <div style={{ position: 'relative' }}>
                 {!showManualForm ? (
                   <div style={{ marginBottom: 14, borderRadius: 16, padding: 12, background: 'rgba(20,34,53,0.04)', border: '1px solid rgba(20,34,53,0.08)' }}>
+                    <div style={{ color: 'var(--muted)', fontSize: 12, marginBottom: 8 }}>{'Ingresá documento, teléfono, celular o nombre para comenzar la búsqueda'}</div>
                     <div className="toolbar" style={{ alignItems: 'stretch' }}>
                       <div className="searchbox" style={{ maxWidth: 460 }}>
                         <Search size={18} color="#69788d" />
                         <input
                           value={clientSearch}
                           onChange={(event) => setClientSearch(event.target.value)}
-                          placeholder="Buscar por documento, nombre, telefono o numero de cliente..."
+                          placeholder={"Documento, teléfono, celular o nombre"}
                         />
                       </div>
                     </div>
@@ -12604,14 +12605,15 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             <div style={{ flex: 1 }}>
                               <div style={{ fontWeight: 700 }}>{client.nombre}</div>
                               <div style={{ color: 'var(--muted)', fontSize: '0.86rem', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                                <span>CI {client.documento} · {client.telefono || client.celular || '—'} · {client.productoActualNombre}</span>
+                                <span>CI {client.documento} {' · '} {client.telefono || client.celular || '—'} {' · '} {client.productoActualNombre}</span>
                                 {productStatusBadge(client.status || client.estado || client.estadoProducto)}
                               </div>
                             </div>
                             <div className="toolbar">
                               <Button variant="ghost" icon={<Eye size={15} />} onClick={() => handleViewSupportFicha(client)}>Ver</Button>
-                              <Button variant="secondary" icon={<Plus size={15} />} onClick={(event) => { event.stopPropagation(); openManualForm(client); }}>Nueva gestión</Button>
+                              <Button variant="secondary" icon={<Plus size={15} />} onClick={(event) => { event.stopPropagation(); openManualForm(client); }}>{'Nueva gestión'}</Button>
                               <Button
+                                variant="primary"
                                 icon={<Briefcase size={15} />}
                                 disabled={String(client.status || client.estado || client.estadoProducto || '').toLowerCase().includes('baja')}
                                 onClick={(event) => { event.stopPropagation(); openManualForm(client, 'solicitud_servicio'); }}
@@ -12625,38 +12627,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     ) : null}
 
                     {!clientSearch.trim() ? (
-                      <div style={{ marginTop: 10 }}>
-                        {supportClientsLoading ? (
-                          <div style={{ color: 'var(--muted)' }}>Cargando clientes...</div>
-                        ) : supportClientsError ? (
-                          <div style={{ color: '#be123c', fontWeight: 700 }}>{supportClientsError}</div>
-                        ) : (
-                          <div className="list">
-                            {supportClients.slice(0, 6).map((client) => (
-                              <div key={client.id} className="status-item" style={{ alignItems: 'center' }}>
-                                <div style={{ flex: 1 }}>
-                                  <div style={{ fontWeight: 700 }}>{client.name || 'Cliente'}</div>
-                              <div style={{ color: 'var(--muted)', fontSize: '0.86rem', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                                <span>CI {client.documento || '—'} · {client.phone || '—'} · {client.product || 'Sin producto'}</span>
-                                {productStatusBadge(client.status || client.estado || client.estadoProducto)}
-                              </div>
-                                </div>
-                                <div className="toolbar">
-                                  <Button variant="ghost" icon={<Eye size={15} />} onClick={() => handleViewSupportFicha(client)}>Ver</Button>
-                                  <Button variant="secondary" icon={<Plus size={15} />} onClick={(event) => { event.stopPropagation(); openManualForm(client); }}>Nueva gestión</Button>
-                                  <Button
-                                    icon={<Briefcase size={15} />}
-                                    disabled={String(client.status || client.estado || client.estadoProducto || '').toLowerCase().includes('baja')}
-                                    onClick={(event) => { event.stopPropagation(); openManualForm(client, 'solicitud_servicio'); }}
-                                  >
-                                    Nueva solicitud de servicio
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
-                            {!supportClients.length ? <div style={{ color: 'var(--muted)' }}>No hay clientes cargados.</div> : null}
-                          </div>
-                        )}
+                      <div style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--muted)' }}>
+                        <Search size={28} style={{ opacity: 0.4, marginBottom: 8 }} />
+                        <div style={{ fontSize: 13 }}>{'Escribí para buscar un cliente'}</div>
                       </div>
                     ) : null}
                   </div>
@@ -18470,8 +18443,6 @@ createRoot(document.getElementById('root')).render(
   </React.StrictMode>
 );
   
-
-
 
 
 
