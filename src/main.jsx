@@ -2635,12 +2635,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           onClick={toggle}
                           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggle(); }}
                           style={{
-                            background: sellerIndex % 2 === 0 ? 'var(--color-background-primary)' : 'rgba(20,34,53,0.05)',
+                            background: sellerIndex % 2 === 0 ? 'var(--color-background-primary)' : 'rgba(20,34,53,0.11)',
                             border: '0.5px solid var(--color-border-tertiary)',
                             borderRadius: 14,
                             padding: 12,
                             cursor: 'pointer',
-                            boxShadow: '0 3px 10px rgba(15,23,42,0.08), 0 1px 3px rgba(15,23,42,0.06)'
+                            boxShadow: '0 6px 18px rgba(15,23,42,0.12), 0 3px 8px rgba(15,23,42,0.10)'
                           }}
                         >
                           <div
