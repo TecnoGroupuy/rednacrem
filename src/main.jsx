@@ -9,7 +9,7 @@ import {
   Activity, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, AlertTriangle,
   DollarSign, Target, Download, Layers, Eye, Calendar, PhoneCall, CreditCard, FileText,
   Filter, Plus, CheckCircle2, Clock, Settings, Zap, BarChart3, Flame, Edit3, MoreHorizontal, Trash2,
-  MessageSquare, Send, Headphones, Bot, User, Hash, Upload, LogOut, Coffee, Bath, PersonStanding,
+  MessageSquare, Send, Headphones, Headset, Bot, User, Hash, Upload, LogOut, Coffee, Bath, PersonStanding,
   PauseCircle, XCircle, Webhook,
   Info, Shield, ChevronRight, RefreshCw
 } from 'lucide-react';
@@ -1966,7 +1966,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             padding: '3px 10px',
             borderRadius: 999,
             fontWeight: 600,
-            fontSize: 12,
+            fontSize: 13,
             background: c.bg,
             color: c.color,
             whiteSpace: 'nowrap',
@@ -2591,7 +2591,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 12 }}>
-                    {sellersByOrigin.map((seller) => {
+                    {sellersByOrigin.map((seller, sellerIndex) => {
                       const sellerId = String(seller?.id || '');
                       const nombre = String(seller?.nombre || '').trim();
                       const apellido = String(seller?.apellido || '').trim();
@@ -2635,7 +2635,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           onClick={toggle}
                           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggle(); }}
                           style={{
-                            background: 'var(--color-background-primary)',
+                            background: sellerIndex % 2 === 0 ? 'var(--color-background-primary)' : 'rgba(20,34,53,0.02)',
                             border: '0.5px solid var(--color-border-tertiary)',
                             borderRadius: 14,
                             padding: 12,
@@ -2652,8 +2652,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             }}
                           >
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                              <div style={{ width: 34, height: 34, borderRadius: 999, background: 'rgba(15,118,110,0.12)', color: '#0f766e', display: 'grid', placeItems: 'center', fontWeight: 800, flexShrink: 0 }}>
-                                {initials || '—'}
+                              <div style={{ width: 34, height: 34, borderRadius: 999, background: 'rgba(15,118,110,0.12)', color: '#0f766e', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                                <Headset size={16} />
                               </div>
                               <div style={{ minWidth: 0 }}>
                                 <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -2665,9 +2665,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             <div style={{ display: 'flex', justifyContent: 'center' }}>
                               <SellerBadge value={Number(totals?.ventas ?? 0)} styleFn={ventasBadgeStyle} />
                             </div>
-                            <div style={{ textAlign: 'center', fontWeight: 700 }}>{Number(totals?.seguimientos ?? 0)}</div>
-                            <div style={{ textAlign: 'center', fontWeight: 700 }}>{Number(totals?.rellamadas ?? 0)}</div>
-                            <div style={{ textAlign: 'center', fontWeight: 700 }}>{Number(totals?.no_contesta ?? 0)}</div>
+                            <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 14 }}>{Number(totals?.seguimientos ?? 0)}</div>
+                            <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 14 }}>{Number(totals?.rellamadas ?? 0)}</div>
+                            <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 14 }}>{Number(totals?.no_contesta ?? 0)}</div>
                             <div style={{ display: 'flex', justifyContent: 'center' }}>
                               <SellerBadge value={Number(totals?.rechazos ?? 0)} styleFn={rechazosBadgeStyle} />
                             </div>
@@ -2677,7 +2677,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             <div style={{ display: 'flex', justifyContent: 'center' }}>
                               <SellerBadge value={Number(totals?.efectividad ?? 0)} styleFn={percentBadgeStyle} suffix="%" />
                             </div>
-                            <div style={{ textAlign: 'center', fontWeight: 800 }}>{Number(totals?.gestiones ?? 0)}</div>
+                            <div style={{ textAlign: 'center', fontWeight: 800, fontSize: 14 }}>{Number(totals?.gestiones ?? 0)}</div>
                           </div>
 
                           <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
