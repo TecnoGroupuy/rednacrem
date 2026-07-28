@@ -1923,6 +1923,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         if (value <= 12) return { bg: 'rgba(234,179,8,0.18)', color: '#854d0e', dot: '#eab308' };
         return { bg: 'rgba(239,68,68,0.18)', color: '#991b1b', dot: '#ef4444' };
       };
+      // TODO: remove if confirmed unused
       const normalizeSummaryRow = React.useCallback((item = {}) => {
         const gestiones_venta = Number(item.gestiones_venta ?? item.ventas ?? 0);
         const ventas = Number(item.ventas ?? gestiones_venta ?? 0);
@@ -1968,7 +1969,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             fontSize: 12,
             background: c.bg,
             color: c.color,
-            whiteSpace: 'nowrap'
+            whiteSpace: 'nowrap',
+            boxShadow: c.boxShadow
           }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: c.dot, flexShrink: 0 }} />
             {value}{suffix}
@@ -2547,8 +2549,11 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       return (
         <div className="view">
           <section className="content-grid">
-            {Object.keys(summaryWidgets || {}).length === 0 ? (
-              <Panel className="span-12" title="Resumen">
+            <Panel className="span-12" title="Gestiones por vendedor" subtitle="Desglose por origen de datos">
+              {sellersByOriginError ? (
+                <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 600 }}>{sellersByOriginError}</div>
+              ) : null}
+              {sellersByOriginLoading ? (
                 <WidgetContainer
                   status="loading"
                   dataLength={0}
@@ -2557,56 +2562,44 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                   partialText="Algunos datos no están disponibles"
                   onRetry={fetchAllSummary}
                 />
-              </Panel>
-            ) : (
-              (Array.isArray(sellersByOrigin) && sellersByOrigin.length > 0 && !sellersByOriginLoading) ? (
-                <Panel className="span-12" title="Gestiones por vendedor" subtitle="Desglose por origen de datos">
-                  {sellersByOriginError ? (
-                    <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 600 }}>{sellersByOriginError}</div>
-                  ) : null}
-                  <div style={{ overflowX: 'auto' }}>
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: '220px repeat(10, 1fr)',
-                        gap: 8,
-                        alignItems: 'center',
-                        padding: '8px 12px',
-                        fontSize: 11,
-                        color: '#64748b',
-                        fontWeight: 800,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.04em',
-                        borderBottom: '1px solid rgba(148,163,184,0.25)'
-                      }}
-                    >
-                      <div>Vendedor</div>
-                      <div style={{ textAlign: 'center' }}>Ventas</div>
-                      <div style={{ textAlign: 'center' }}>Seg.</div>
-                      <div style={{ textAlign: 'center' }}>Rellamar</div>
-                      <div style={{ textAlign: 'center' }}>No contesta</div>
-                      <div style={{ textAlign: 'center' }}>Rechazos</div>
-                      <div style={{ textAlign: 'center' }}>Datos err.</div>
-                      <div style={{ textAlign: 'center' }}>Contacto</div>
-                      <div style={{ textAlign: 'center' }}>Efectividad</div>
-                      <div style={{ textAlign: 'center' }}>Asignados</div>
-                      <div style={{ textAlign: 'center' }}>Gestiones</div>
-                    </div>
+              ) : (Array.isArray(sellersByOrigin) && sellersByOrigin.length > 0) ? (
+                <div style={{ overflowX: 'auto' }}>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '220px repeat(7, 1fr) 120px',
+                      gap: 8,
+                      alignItems: 'center',
+                      padding: '8px 12px',
+                      fontSize: 11,
+                      color: '#64748b',
+                      fontWeight: 800,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.04em',
+                      borderBottom: '1px solid rgba(148,163,184,0.25)'
+                    }}
+                  >
+                    <div>Vendedor</div>
+                    <div style={{ textAlign: 'center' }}>Ventas</div>
+                    <div style={{ textAlign: 'center' }}>Seg.</div>
+                    <div style={{ textAlign: 'center' }}>Rellamar</div>
+                    <div style={{ textAlign: 'center' }}>No contesta</div>
+                    <div style={{ textAlign: 'center' }}>Rechazos</div>
+                    <div style={{ textAlign: 'center' }}>Contacto</div>
+                    <div style={{ textAlign: 'center' }}>Efectividad</div>
+                    <div style={{ textAlign: 'center' }}>Gestiones</div>
+                  </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 12 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 12 }}>
                     {sellersByOrigin.map((seller) => {
                       const sellerId = String(seller?.id || '');
                       const nombre = String(seller?.nombre || '').trim();
                       const apellido = String(seller?.apellido || '').trim();
-                      const initials = `${nombre[0] || ''}${apellido[0] || ''}`.toUpperCase();
+                      const initials = [nombre[0] || '', apellido[0] || ''].join('').toUpperCase();
                       const totals = seller?.totals || {};
                       const origins = Array.isArray(seller?.origins) ? seller.origins : [];
                       const activeOrigins = origins.filter((o) => Number(o?.gestiones ?? 0) > 0);
                       const isExpanded = Boolean(expandedSellers?.[sellerId]);
-
-                      const asignados = Number(totals?.asignados ?? 0);
-                      const gestiones = Number(totals?.gestiones ?? 0);
-                      const sinGestion = Math.max(0, asignados - gestiones);
 
                       const openSellerReport = (event) => {
                         event?.stopPropagation?.();
@@ -2618,21 +2611,25 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         setExpandedSellers((prev) => ({ ...(prev || {}), [sellerId]: !prev?.[sellerId] }));
                       };
 
-                      const ventasBadgeStyle = (value) => (
-                        value > 0
-                          ? { bg: 'rgba(234,179,8,0.18)', color: '#854d0e', dot: '#eab308' }
-                          : { bg: 'rgba(148,163,184,0.18)', color: '#475569', dot: '#94a3b8' }
-                      );
+                      const ventasBadgeStyle = () => ({
+                        bg: 'var(--bg-success)',
+                        color: 'var(--text-success)',
+                        dot: 'var(--fill-success)'
+                      });
                       const rechazosBadgeStyle = (value) => (
                         value > 0
-                          ? { bg: 'rgba(239,68,68,0.18)', color: '#991b1b', dot: '#ef4444' }
-                          : { bg: 'rgba(34,197,94,0.18)', color: '#166534', dot: '#22c55e' }
+                          ? { bg: 'var(--bg-danger)', color: 'var(--text-danger)', dot: 'var(--fill-danger)' }
+                          : { bg: 'var(--bg-success)', color: 'var(--text-success)', dot: 'var(--fill-success)' }
                       );
+                      const percentBadgeStyle = (value) => ({
+                        ...sellerPercentStyle(value),
+                        boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.08)'
+                      });
                       const ChevronIcon = isExpanded ? ChevronUp : ChevronDown;
 
                       return (
                         <div
-                          key={sellerId || `${nombre}-${apellido}`}
+                          key={sellerId || [nombre, apellido].join('-')}
                           role="button"
                           tabIndex={0}
                           onClick={toggle}
@@ -2642,13 +2639,14 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             border: '0.5px solid var(--color-border-tertiary)',
                             borderRadius: 14,
                             padding: 12,
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)'
                           }}
                         >
                           <div
                             style={{
                               display: 'grid',
-                              gridTemplateColumns: '220px repeat(10, 1fr)',
+                              gridTemplateColumns: '220px repeat(7, 1fr) 120px',
                               gap: 8,
                               alignItems: 'center'
                             }}
@@ -2659,7 +2657,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                               </div>
                               <div style={{ minWidth: 0 }}>
                                 <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                  {`${nombre} ${apellido}`.trim() || '—'}
+                                  {[nombre, apellido].join(' ').trim() || '—'}
                                 </div>
                               </div>
                             </div>
@@ -2673,24 +2671,21 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             <div style={{ display: 'flex', justifyContent: 'center' }}>
                               <SellerBadge value={Number(totals?.rechazos ?? 0)} styleFn={rechazosBadgeStyle} />
                             </div>
-                            <div style={{ textAlign: 'center', fontWeight: 700 }}>{Number(totals?.datos_erroneos ?? 0)}</div>
                             <div style={{ display: 'flex', justifyContent: 'center' }}>
-                              <SellerBadge value={Number(totals?.contacto ?? 0)} styleFn={sellerPercentStyle} suffix="%" />
+                              <SellerBadge value={Number(totals?.contacto ?? 0)} styleFn={percentBadgeStyle} suffix="%" />
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'center' }}>
-                              <SellerBadge value={Number(totals?.efectividad ?? 0)} styleFn={sellerPercentStyle} suffix="%" />
+                              <SellerBadge value={Number(totals?.efectividad ?? 0)} styleFn={percentBadgeStyle} suffix="%" />
                             </div>
-                            <div style={{ textAlign: 'center', fontWeight: 800 }}>{asignados}</div>
-                            <div style={{ textAlign: 'center', fontWeight: 800 }}>{gestiones}</div>
+                            <div style={{ textAlign: 'center', fontWeight: 800 }}>{Number(totals?.gestiones ?? 0)}</div>
                           </div>
 
-                            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                              <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                            <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                               {activeOrigins.length} orígenes
                               <ChevronIcon size={14} />
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
-                              <span style={{ fontSize: 12, color: '#854F0B', fontWeight: 800 }}>Sin gestión: {sinGestion}</span>
                               <button
                                 type="button"
                                 className="button secondary"
@@ -2716,15 +2711,14 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             <div style={{ marginTop: 12, borderTop: '1px solid rgba(148,163,184,0.25)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
                               {activeOrigins.map((originRow, idx) => {
                                 const originKey = originRow?.origen_dato || '—';
-                                const oAsignados = Number(originRow?.asignados ?? 0);
                                 const oGestiones = Number(originRow?.gestiones ?? 0);
                                 const dotColor = idx % 3 === 0 ? '#3b82f6' : idx % 3 === 1 ? '#a855f7' : '#f59e0b';
                                 return (
                                   <div
-                                    key={`${sellerId}-${originKey}-${idx}`}
+                                    key={[sellerId, originKey, idx].join('-')}
                                     style={{
                                       display: 'grid',
-                                      gridTemplateColumns: '220px repeat(10, 1fr)',
+                                      gridTemplateColumns: '220px repeat(7, 1fr) 120px',
                                       gap: 8,
                                       alignItems: 'center',
                                       padding: '8px 10px',
@@ -2748,14 +2742,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                     <div style={{ textAlign: 'center' }}>
                                       <SellerBadge value={Number(originRow?.rechazos ?? 0)} styleFn={rechazosBadgeStyle} />
                                     </div>
-                                    <div style={{ textAlign: 'center', fontSize: 12, color: '#475569', fontWeight: 700 }}>{Number(originRow?.datos_erroneos ?? 0)}</div>
                                     <div style={{ display: 'flex', justifyContent: 'center' }}>
-                                      <SellerBadge value={Number(originRow?.contacto ?? 0)} styleFn={sellerPercentStyle} suffix="%" />
+                                      <SellerBadge value={Number(originRow?.contacto ?? 0)} styleFn={percentBadgeStyle} suffix="%" />
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'center' }}>
-                                      <SellerBadge value={Number(originRow?.efectividad ?? 0)} styleFn={sellerPercentStyle} suffix="%" />
+                                      <SellerBadge value={Number(originRow?.efectividad ?? 0)} styleFn={percentBadgeStyle} suffix="%" />
                                     </div>
-                                    <div style={{ textAlign: 'center', fontSize: 12, color: '#475569', fontWeight: 800 }}>{oAsignados}</div>
                                     <div style={{ textAlign: 'center', fontSize: 12, color: '#475569', fontWeight: 800 }}>{oGestiones}</div>
                                   </div>
                                 );
@@ -2765,126 +2757,14 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                         </div>
                       );
                     })}
-                    </div>
                   </div>
-                </Panel>
+                </div>
               ) : (
-              Object.entries(summaryWidgets).map(([tipo, widget]) => {
-                const label = TIPO_LABELS[tipo] || tipo;
-                const rows = (widget?.data || []).map(normalizeSummaryRow);
-
-                return (
-                  <Panel
-                    key={tipo}
-                    className="span-12"
-                    title={label}
-                    subtitle="Gestiones por vendedor"
-                  >
-                    <WidgetContainer
-                      status={widget?.status}
-                      dataLength={rows.length}
-                      errorText={`No pudimos cargar ${label}`}
-                      emptyText={TIPO_EMPTY_TEXT[tipo] || 'No hay datos'}
-                      partialText="Algunos datos no están disponibles"
-                      onRetry={fetchAllSummary}
-                    >
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                        {rows.map((row, idx) => {
-                          const key = row.id || `${tipo}-${row.nombre}-${row.apellido}-${idx}`;
-                          const nombre = String(row.nombre || row.name || '').trim();
-                          const apellido = String(row.apellido || '').trim();
-                          const asignados = Number(row.asignados ?? 0);
-                          const gestionesDelDia = Number(row.gestiones ?? 0);
-                          const sinGestion = asignados - gestionesDelDia;
-                          const openSellerReport = () => setDetailAgent({
-                            id: row.id,
-                            nombre: row.name || row.nombre,
-                            apellido: row.apellido
-                          });
-
-                          return (
-                            <div
-                              key={key}
-                              style={{
-                                background: 'var(--color-background-primary)',
-                                border: '0.5px solid var(--color-border-tertiary)',
-                                borderRadius: 12,
-                                padding: 12
-                              }}
-                            >
-                              <div className="table-wrap" style={{ margin: 0 }}>
-                                <table>
-                                  <thead>
-                                    <tr>
-                                      <th>Vendedor</th>
-                                      <th>Ventas</th>
-                                      <th>Seg.</th>
-                                      <th>Rellamar</th>
-                                      <th>No contesta</th>
-                                      <th>Rechazos</th>
-                                      <th>Datos err.</th>
-                                      <th>Contacto</th>
-                                      <th>Efectividad</th>
-                                      <th>Asignados</th>
-                                      <th>Gestiones</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    <tr
-                                      onClick={openSellerReport}
-                                      style={{ cursor: 'pointer' }}
-                                      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-background-secondary)'; }}
-                                      onMouseLeave={(e) => { e.currentTarget.style.background = ''; }}
-                                    >
-                                      <td>
-                                        <div className="person">
-                                          <SellerAvatar nombre={row.nombre} apellido={row.apellido} />
-                                          <div style={{ lineHeight: 1.15 }}>
-                                            <div style={{ fontWeight: 500, fontSize: 13, color: 'var(--color-text-primary)' }}>{nombre || '—'}</div>
-                                            <div style={{ fontSize: 12, color: 'var(--muted)' }}>{apellido || ' '}</div>
-                                          </div>
-                                        </div>
-                                      </td>
-                                      <td><SellerBadge value={row.gestiones_venta} styleFn={sellerVentasStyle} /></td>
-                                      <td>{row.seguimientos}</td>
-                                      <td>{row.rellamadas}</td>
-                                      <td>{row.no_contesta}</td>
-                                      <td><SellerBadge value={row.rechazos} styleFn={sellerRechazosStyle} /></td>
-                                      <td>{row.datos_erroneos}</td>
-                                      <td><SellerBadge value={row.contacto} styleFn={sellerPercentStyle} suffix="%" /></td>
-                                      <td><SellerBadge value={row.efectividad} styleFn={sellerPercentStyle} suffix="%" /></td>
-                                      <td>{row.asignados}</td>
-                                      <td>{gestionesDelDia}</td>
-                                    </tr>
-                                  </tbody>
-                                </table>
-                              </div>
-
-                              <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                                <span style={{ fontSize: 12, color: '#94a3b8' }}>Total gestiones: {gestionesDelDia}</span>
-                                <span style={{ width: 1, height: 16, background: 'rgba(20,34,53,0.18)' }} />
-                                <span style={{ fontSize: 12, color: '#854F0B', fontWeight: 600 }}>Sin gestión: {sinGestion}</span>
-                                <button
-                                  type="button"
-                                  className="button secondary"
-                                  onClick={openSellerReport}
-                                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
-                                >
-                                  <FileText size={16} />
-                                  Ver informe
-                                  <ChevronRight size={16} />
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </WidgetContainer>
-                  </Panel>
-                );
-              })
-              )
-            )}
+                <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--muted)' }}>
+                  Sin datos de gestión para la fecha seleccionada.
+                </div>
+              )}
+            </Panel>
           </section>
           <section className="content-grid">
             <Panel className="span-12">
