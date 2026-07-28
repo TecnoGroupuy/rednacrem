@@ -959,8 +959,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       );
     }
 
-    function Button({ children, icon, variant = 'primary', className = '', onClick, type = 'button', disabled = false }) {
-      return <button type={type} onClick={onClick} disabled={disabled} className={'button ' + variant + ' ' + className}>{icon}{children}</button>;
+    function Button({ children, icon, variant = 'primary', className = '', onClick, type = 'button', disabled = false, ...rest }) {
+      return <button type={type} onClick={onClick} disabled={disabled} className={'button ' + variant + ' ' + className} {...rest}>{icon}{children}</button>;
     }
 
     function Tag({ children, variant = 'info' }) {
@@ -12609,16 +12609,30 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                                 {productStatusBadge(client.status || client.estado || client.estadoProducto)}
                               </div>
                             </div>
-                            <div className="toolbar">
-                              <Button variant="ghost" icon={<Eye size={15} />} onClick={() => handleViewSupportFicha(client)}>Ver</Button>
-                              <Button variant="secondary" icon={<Plus size={15} />} onClick={(event) => { event.stopPropagation(); openManualForm(client); }}>{'Nueva gestión'}</Button>
+                            <div className="toolbar" style={{ gap: 6 }}>
+                              <Button
+                                variant="ghost"
+                                icon={<Eye size={15} />}
+                                aria-label="Ver ficha"
+                                title="Ver ficha"
+                                style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                onClick={() => handleViewSupportFicha(client)}
+                              />
+                              <Button
+                                variant="secondary"
+                                icon={<Plus size={15} />}
+                                aria-label={'Nueva gesti\u00f3n'}
+                                title={'Nueva gesti\u00f3n'}
+                                style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                onClick={(event) => { event.stopPropagation(); openManualForm(client); }}
+                              />
                               <Button
                                 variant="primary"
                                 icon={<Briefcase size={15} />}
                                 disabled={String(client.status || client.estado || client.estadoProducto || '').toLowerCase().includes('baja')}
                                 onClick={(event) => { event.stopPropagation(); openManualForm(client, 'solicitud_servicio'); }}
                               >
-                                Nueva solicitud de servicio
+                                Solicitud
                               </Button>
                             </div>
                           </div>
@@ -13483,10 +13497,28 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         <div className="view">
           <section className="content-grid">
             <Panel className="span-12" style={{ padding: '10px 14px' }}>
-              <div className="toolbar" style={{ gap: 12 }}>
-                <Button style={{ minWidth: 170 }} variant={section === 'buscar_cliente' ? 'primary' : 'secondary'} onClick={() => setSection('buscar_cliente')}>Buscar cliente</Button>
-                <Button style={{ minWidth: 210 }} variant={section === 'gestiones_clientes' ? 'primary' : 'secondary'} onClick={() => setSection('gestiones_clientes')}>Gestiones con clientes</Button>
-                <Button style={{ minWidth: 220 }} variant={section === 'solicitudes_servicio' ? 'primary' : 'secondary'} onClick={() => setSection('solicitudes_servicio')}>Solicitudes de servicio</Button>
+              <div style={{ display: 'flex', gap: 4, background: 'rgba(20,34,53,0.05)', padding: 4, borderRadius: 12, width: 'fit-content' }}>
+                <Button
+                  variant={section === 'buscar_cliente' ? 'secondary' : 'ghost'}
+                  style={section === 'buscar_cliente' ? { background: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.08)', border: 'none' } : { border: 'none', background: 'transparent' }}
+                  onClick={() => setSection('buscar_cliente')}
+                >
+                  Buscar cliente
+                </Button>
+                <Button
+                  variant={section === 'gestiones_clientes' ? 'secondary' : 'ghost'}
+                  style={section === 'gestiones_clientes' ? { background: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.08)', border: 'none' } : { border: 'none', background: 'transparent' }}
+                  onClick={() => setSection('gestiones_clientes')}
+                >
+                  Gestiones con clientes
+                </Button>
+                <Button
+                  variant={section === 'solicitudes_servicio' ? 'secondary' : 'ghost'}
+                  style={section === 'solicitudes_servicio' ? { background: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.08)', border: 'none' } : { border: 'none', background: 'transparent' }}
+                  onClick={() => setSection('solicitudes_servicio')}
+                >
+                  Solicitudes de servicio
+                </Button>
               </div>
             </Panel>
           </section>
@@ -18442,8 +18474,3 @@ createRoot(document.getElementById('root')).render(
     </OidcAuthProvider>
   </React.StrictMode>
 );
-  
-
-
-
-
