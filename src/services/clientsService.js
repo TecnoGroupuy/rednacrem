@@ -351,21 +351,15 @@ export const searchPortfolioClients = async (term) => {
   }
   const { portfolio = [], table = [] } = await fetchClientsDirectory({ page: 1, limit: 50, search: term });
   const base = portfolio.length ? portfolio : table;
-  return base
-    .map((client) => ({
-      id: client.id,
-      nombre: client.nombre || client.name || '',
-      numeroCliente: client.numeroCliente || client.numero_cliente || client.id || '',
-      documento: client.documento || '',
-      telefono: client.telefono || client.phone || '',
-      productoActualNombre: client.productoActualNombre || client.product || ''
-    }))
-    .filter((client) => {
-      const text = [client.numeroCliente, client.nombre, client.documento, client.telefono, client.productoActualNombre]
-        .join(' ')
-        .toLowerCase();
-      return text.includes(query);
-    });
+  return base.map((client) => ({
+    id: client.id,
+    nombre: client.nombre || client.name || '',
+    numeroCliente: client.numeroCliente || client.numero_cliente || client.id || '',
+    documento: client.documento || '',
+    telefono: client.telefono || client.phone || '',
+    celular: client.celular || '',
+    productoActualNombre: client.productoActualNombre || client.product || ''
+  }));
 };
 
 export const fetchContactsList = async () => {

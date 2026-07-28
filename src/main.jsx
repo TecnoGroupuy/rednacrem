@@ -8045,7 +8045,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             const parsedMonths = rawItems
               .map((item) => {
                 const month = Number(item?.month ?? item?.mes ?? String(item).slice(5, 7));
-                const year = Number(item?.year ?? item?.anio ?? item?.año ?? String(item).slice(0, 4));
+                const year = Number(item?.year ?? item?.anio ?? item?.['año'] ?? item?.año ?? String(item).slice(0, 4));
                 if (!month || !year) return null;
                 const countRaw = item?.total_ventas ?? null;
                 const count = countRaw == null ? null : Number(countRaw);
@@ -12604,7 +12604,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                             <div style={{ flex: 1 }}>
                               <div style={{ fontWeight: 700 }}>{client.nombre}</div>
                               <div style={{ color: 'var(--muted)', fontSize: '0.86rem', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                                <span>CI {client.documento} · {client.telefono} · {client.productoActualNombre}</span>
+                                <span>CI {client.documento} · {client.telefono || client.celular || '—'} · {client.productoActualNombre}</span>
                                 {productStatusBadge(client.status || client.estado || client.estadoProducto)}
                               </div>
                             </div>
@@ -18470,7 +18470,6 @@ createRoot(document.getElementById('root')).render(
   </React.StrictMode>
 );
   
-
 
 
 
