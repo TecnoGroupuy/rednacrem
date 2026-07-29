@@ -2590,7 +2590,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     <div style={{ textAlign: 'center' }}>Gestiones</div>
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 12 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 12, overflow: 'hidden' }}>
                     {sellersByOrigin.map((seller, sellerIndex) => {
                       const sellerId = String(seller?.id || '');
                       const nombre = String(seller?.nombre || '').trim();
@@ -2635,12 +2635,12 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                           onClick={toggle}
                           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggle(); }}
                           style={{
-                            background: sellerIndex % 2 === 0 ? 'var(--color-background-primary)' : 'rgba(20,34,53,0.11)',
-                            border: '0.5px solid var(--color-border-tertiary)',
+                            background: sellerIndex % 2 === 0 ? 'rgba(18,63,87,0.08)' : 'rgba(18,63,87,0.14)',
+                            border: '1px solid rgba(32,178,170,0.18)',
                             borderRadius: 14,
                             padding: 12,
                             cursor: 'pointer',
-                            boxShadow: '0 6px 18px rgba(15,23,42,0.12), 0 3px 8px rgba(15,23,42,0.10)'
+                            boxShadow: '0 10px 18px -14px rgba(10,37,64,0.22), 0 2px 6px rgba(10,37,64,0.08)'
                           }}
                         >
                           <div
