@@ -78,8 +78,7 @@ import {
   listActiveContactProducts,
   getContactLifecycle,
   fetchContactsList,
-  fetchClientsDirectory,
-  fetchClientsMetrics
+  fetchClientsDirectory
 } from './services/clientsService.js';
 import { fetchClientDetail } from './services/clientDetailService.js';
 import { deleteClient, deleteContactProduct } from './services/clientAdminService.js';
@@ -253,22 +252,6 @@ const formatCurrency = (value) => {
   return `$ ${numeric.toLocaleString('es-UY')}`;
 };
 
-const DEFAULT_CLIENT_METRICS = {
-  activos: 11203,
-  enBaja: 28,
-  cuotaPromedio: 4250,
-  cuotaPromedioLabel: '$ 4.250'
-};
-
-const buildClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
-  { title: 'Activos', value: metrics.activos, icon: UserCheck, bg: 'rgba(21,128,61,0.12)', color: '#15803d', showTrend: false },
-  { title: 'En baja', value: metrics.enBaja, icon: TrendingDown, bg: 'rgba(190,18,60,0.12)', color: '#be123c', showTrend: false },
-  { title: 'Clientes únicos', value: metrics.clientesUnicos, icon: Users, bg: 'rgba(37,99,235,0.12)', color: '#2563eb', showTrend: false }
-]);
-
-const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => ([
-  ...buildClientMetricCards(metrics)
-]);
     const normalizePaymentMethod = (value) => {
       const raw = String(value || '').trim();
       if (!raw) return '';
@@ -13569,7 +13552,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
     function ClientsView({ productsCatalog = [], prefillContact = null, onPrefillUsed = null, viewerRole = '', origenDatoOptions = [] }) {
         const { user: authUser } = useAuth();
         const origenDatoResolvedOptions = normalizeOrigenOptions(origenDatoOptions);
-        const [clientMetrics, setClientMetrics] = React.useState(() => buildClientMetricCards());
         const [clientRows, setClientRows] = React.useState([]);
         const [clientSearch, setClientSearch] = React.useState('');
         const [clientSearchDebounced, setClientSearchDebounced] = React.useState('');
@@ -13670,20 +13652,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
           });
         return () => { cancelled = true; };
       }, [newClientOpen]);
-
-      React.useEffect(() => {
-        let canceled = false;
-        fetchClientsMetrics()
-          .then((metrics) => {
-            if (canceled) return;
-            setClientMetrics(buildClientMetricCards(metrics));
-          })
-          .catch(() => {})
-          .finally(() => {
-            if (canceled) return;
-          });
-        return () => { canceled = true; };
-      }, []);
 
       React.useEffect(() => {
         const onResize = () => setIsCompactForm(window.innerWidth < 768);
@@ -13845,13 +13813,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         if (!confirmed) return;
         try {
           await deleteClient(clientId);
-          const [directory, metrics] = await Promise.all([
-            fetchClientsDirectory({ page: clientPage, limit: clientPageSize, search: clientSearchDebounced }),
-            fetchClientsMetrics()
-          ]);
+          const directory = await fetchClientsDirectory({ page: clientPage, limit: clientPageSize, search: clientSearchDebounced });
           setClientRows(directory.table);
           setClientTotal(Number(directory.total || 0));
-          setClientMetrics(buildClientMetricCards(metrics));
           setSelectedClient((prev) => (prev && prev.id === clientId ? null : prev));
         } catch (err) {
           const message = err?.message || 'No se pudo eliminar el cliente.';
@@ -13867,13 +13831,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         if (!confirmed) return;
         try {
           await deleteContactProduct(contactProductId, getActiveOrganizationId());
-          const [directory, metrics] = await Promise.all([
-            fetchClientsDirectory({ page: clientPage, limit: clientPageSize, search: clientSearchDebounced }),
-            fetchClientsMetrics()
-          ]);
+          const directory = await fetchClientsDirectory({ page: clientPage, limit: clientPageSize, search: clientSearchDebounced });
           setClientRows(directory.table);
           setClientTotal(Number(directory.total || 0));
-          setClientMetrics(buildClientMetricCards(metrics));
           setSelectedClient((prev) => {
             if (!prev) return prev;
             return String(prev.selectedProductId || '') === String(contactProductId) ? null : prev;
@@ -14054,13 +14014,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             setDuplicateWarning(true);
             return;
           }
-          const [directory, metrics] = await Promise.all([
-            fetchClientsDirectory({ page: clientPage, limit: clientPageSize, search: clientSearchDebounced }),
-            fetchClientsMetrics()
-          ]);
+          const directory = await fetchClientsDirectory({ page: clientPage, limit: clientPageSize, search: clientSearchDebounced });
             setClientRows(directory.table);
             setClientTotal(Number(directory.total || 0));
-            setClientMetrics(buildClientMetricCards(metrics));
             handleCloseNewClient();
             try { localStorage.removeItem('cliente_pendiente_alta'); } catch {}
           } catch (err) {
@@ -14076,10 +14032,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                   return (doc && row.documento === doc) || (email && row.email === email);
                 });
                 if (match) {
-                  const metrics = await fetchClientsMetrics().catch(() => null);
                   setClientRows(directory.table);
                   setClientTotal(Number(directory.total || 0));
-                  if (metrics) setClientMetrics(buildClientMetricCards(metrics));
                   handleCloseNewClient();
                   return;
                 }
@@ -14094,10 +14048,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                   return (doc && row.documento === doc) || (email && row.email === email);
                 });
                 if (match) {
-                  const metrics = await fetchClientsMetrics().catch(() => null);
                   setClientRows(directory.table);
                   setClientTotal(Number(directory.total || 0));
-                  if (metrics) setClientMetrics(buildClientMetricCards(metrics));
                   handleCloseNewClient();
                   return;
                 }
@@ -14183,6 +14135,9 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
         }
         return filteredClients.map((row, index) => (
           <tr key={row.productId ? `${row.id}-${row.productId}` : (row.id || `client-${index}`)}>
+            <td className="col-fecha">{(row.fechaAlta || row.fechaVenta)
+              ? formatDate(row.fechaAlta || row.fechaVenta)
+              : (formatDateShort(row.createdAt) || 'Sin dato')}</td>
             <td className="col-cliente">
               <div className="person">
                 <div className="person-badge">{initials(row.name || 'Cliente')}</div>
@@ -14199,9 +14154,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 })()}
               </div>
             </td>
-            <td className="col-fecha">{(row.fechaAlta || row.fechaVenta)
-              ? formatDate(row.fechaAlta || row.fechaVenta)
-              : (formatDateShort(row.createdAt) || 'Sin dato')}</td>
             <td className="col-producto"><span className="client-product">{row.product || 'Sin dato'}</span></td>
             <td className="col-cuota"><span className="client-fee">{row.fee || 'Sin dato'}</span></td>
             <td className="col-estado">
@@ -14216,24 +14168,7 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
             </td>
             <td className="col-accion">
               <div className="clients-actions">
-                <Button className="clients-action-btn" variant="ghost" icon={<Eye size={15} />} onClick={() => handleViewFicha(row.id, row.productId)}>Ver ficha</Button>
-                {(() => {
-                  const status = String(row.status || '').toLowerCase();
-                  const isBaja = status.includes('baja');
-                  const canBaja = Boolean((row.contactId || row.id) && row.productId);
-                  if (isBaja) return null;
-                  if (!canBaja) return null;
-                  return (
-                    <Button
-                      className="clients-action-btn clients-action-btn--danger-outline"
-                      variant="ghost"
-                      icon={<XCircle size={15} />}
-                      onClick={() => openBajaModal(row)}
-                    >
-                      Dar de baja
-                    </Button>
-                  );
-                })()}
+                <Button className="clients-action-btn clients-action-btn--view" variant="ghost" icon={<Eye size={15} />} onClick={() => handleViewFicha(row.id, row.productId)}>Ver ficha</Button>
                 {viewerRole === 'superadministrador' ? (
                   <Button
                     className="clients-action-btn clients-action-btn--danger"
@@ -14253,9 +14188,6 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
       return (
         <div className="view clients-view">
           <div className="clients-container">
-            <section className="metrics-grid">
-              {clientMetrics.map((item) => <MetricCard key={item.title} item={item} />)}
-            </section>
             <section className="content-grid">
               <Panel className="span-12" title="Clientes" subtitle="Gestión de cartera activa">
                 <div className="clients-headerbar">
@@ -14302,8 +14234,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                 <div className="table-wrap clients-table-wrap">
                   <table className="clients-table">
                     <colgroup>
-                      <col className="col-cliente" />
                       <col className="col-fecha" />
+                      <col className="col-cliente" />
                       <col className="col-producto" />
                       <col className="col-cuota" />
                       <col className="col-estado" />
@@ -14311,8 +14243,8 @@ const buildSupervisorClientMetricCards = (metrics = DEFAULT_CLIENT_METRICS) => (
                     </colgroup>
                     <thead>
                       <tr>
-                        <th className="col-cliente">Cliente</th>
                         <th className="col-fecha">Fecha de alta</th>
+                        <th className="col-cliente">Cliente</th>
                         <th className="col-producto">Producto</th>
                         <th className="col-cuota">Cuota</th>
                         <th className="col-estado">Estado</th>

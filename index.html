@@ -459,23 +459,27 @@
 
     .clients-view .clients-table-wrap { overflow: hidden; border-radius: 12px; border: 0; background: transparent; }
     .clients-view .clients-table { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; }
-    .clients-view .clients-table col.col-cliente { width: 28%; }
-    .clients-view .clients-table col.col-fecha { width: 13%; }
-    .clients-view .clients-table col.col-producto { width: 18%; }
+    .clients-view .clients-table col.col-fecha { width: 14%; }
+    .clients-view .clients-table col.col-cliente { width: 26%; }
+    .clients-view .clients-table col.col-producto { width: 20%; }
     .clients-view .clients-table col.col-cuota { width: 10%; }
-    .clients-view .clients-table col.col-estado { width: 13%; }
+    .clients-view .clients-table col.col-estado { width: 12%; }
     .clients-view .clients-table col.col-accion { width: 18%; }
 
-    .clients-view .clients-table thead th { height: 40px; padding: 0 12px; font-size: 11px; letter-spacing: 0.08em; background: transparent; border-bottom: 0; color: #6B7280; }
-    .clients-view .clients-table tbody td { height: 56px; padding: 0 12px; vertical-align: middle; border-bottom: 1px solid #E2E8F0; }
+    .clients-view .clients-table thead th { height: 40px; padding: 0 12px; font-size: 11px; letter-spacing: 0.08em; text-align: left; background: transparent; border-bottom: 0; color: #6B7280; white-space: nowrap; }
+    .clients-view .clients-table tbody td { height: 56px; padding: 0 12px; vertical-align: middle; text-align: left; border-bottom: 1px solid #E2E8F0; }
     .clients-view .clients-table tbody tr:last-child td { border-bottom: 0; }
     .clients-view .clients-table tbody tr:nth-child(odd) { background: #FFFFFF; }
     .clients-view .clients-table tbody tr:nth-child(even) { background: #F8FAFC; }
 
-    .clients-view .clients-table td.col-fecha { font-variant-numeric: tabular-nums; color: #374151; }
+    .clients-view .clients-table th.col-fecha,
+    .clients-view .clients-table td.col-fecha { font-variant-numeric: tabular-nums; color: #374151; white-space: nowrap; }
+    .clients-view .clients-table th.col-cuota,
     .clients-view .clients-table td.col-cuota { text-align: right; }
     .clients-view .clients-table td.col-cuota .client-fee { font-variant-numeric: tabular-nums; font-size: 14px; color: #111827; }
+    .clients-view .clients-table th.col-estado,
     .clients-view .clients-table td.col-estado { text-align: center; }
+    .clients-view .clients-table th.col-accion,
     .clients-view .clients-table td.col-accion { text-align: right; }
 
     .clients-view .clients-table .person { display: flex; align-items: center; gap: 10px; }
@@ -490,9 +494,11 @@
     .clients-view .clients-table .status-dot { width: 6px; height: 6px; border-radius: 999px; background: #10B981; margin-right: 5px; }
     .clients-view .clients-table td.col-estado .tag { height: 24px; padding: 0 10px; border-radius: 999px; font-size: 12px; font-weight: 500; }
 
-    .clients-view .clients-actions { display: inline-flex; gap: 8px; justify-content: flex-end; }
-    .clients-view .clients-action-btn.button.ghost { background: transparent; border: 0; border-radius: 6px; padding: 5px 10px; font-size: 13px; font-weight: 500; }
+    .clients-view .clients-actions { display: inline-flex; gap: 8px; justify-content: flex-end; align-items: center; width: 100%; }
+    .clients-view .clients-action-btn.button.ghost { background: transparent; border: 0; border-radius: 999px; padding: 7px 12px; font-size: 13px; font-weight: 600; box-shadow: none; }
     .clients-view .clients-action-btn.button.ghost:hover { background: #F9FAFB; transform: none; }
+    .clients-view .clients-action-btn--view.button.ghost { color: #0F766E; background: #ECFDF5; border: 1px solid #A7F3D0; }
+    .clients-view .clients-action-btn--view.button.ghost:hover { background: #D1FAE5; }
     .clients-view .clients-action-btn--danger.button.ghost { color: #B91C1C; }
     .clients-view .clients-action-btn--danger-outline.button.ghost { color: #B91C1C; border: 1px solid #FECACA; }
     .clients-view .clients-action-btn--danger-outline.button.ghost:hover { background: #FEF2F2; }
@@ -609,8 +615,6 @@
     /* Responsive */
     @media (max-width: 1024px) {
       .clients-view .clients-container { padding: 0 16px; }
-      .clients-view .clients-table th.col-fecha,
-      .clients-view .clients-table td.col-fecha { display: none; }
       .clients-view .clients-search { width: 260px; }
     }
 
