@@ -649,23 +649,14 @@ export default function Conexiones({ Button, Panel, Tag }) {
       }
 
       const response = await api.post('/api/sms-templates/test', payload);
-      const testResult = response?.result || null;
-      if (testResult?.status === 'sent') {
+      const result = response?.result;
+      if (result?.status === 'sent') {
         setSmsTemplateMessage(`SMS de prueba enviado a ${normalizedPhone}.`);
       } else {
-        setSmsTemplateError(testResult?.error_detail || 'No se pudo enviar el SMS de prueba.');
+        setSmsTemplateError(result?.error_detail || 'No se pudo enviar el SMS de prueba.');
       }
     } catch (err) {
-      const backendDetail =
-        err?.details?.error_detail ||
-        err?.details?.result?.error_detail ||
-        err?.details?.message ||
-        err?.message;
-      if ([404, 501].includes(Number(err?.status))) {
-        setSmsTemplateError(backendDetail || 'No se pudo enviar el SMS de prueba.');
-      } else {
-        setSmsTemplateError(backendDetail || 'No se pudo enviar el SMS de prueba.');
-      }
+      setSmsTemplateError(err?.details || err?.error_detail || err?.message || 'No se pudo enviar el SMS de prueba.');
     } finally {
       setSmsTemplateTesting(false);
     }
