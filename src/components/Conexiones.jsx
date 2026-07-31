@@ -648,17 +648,23 @@ export default function Conexiones({ Button, Panel, Tag }) {
         payload.product_name = selectedSmsTemplateProductName;
       }
 
-      const result = await api.post('/api/sms-templates/test', payload);
-      if (result?.status === 'sent') {
+      const response = await api.post('/api/sms-templates/test', payload);
+      const testResult = response?.result || null;
+      if (testResult?.status === 'sent') {
         setSmsTemplateMessage(`SMS de prueba enviado a ${normalizedPhone}.`);
       } else {
-        setSmsTemplateError(result?.error_detail || 'No se pudo enviar el SMS de prueba.');
+        setSmsTemplateError(testResult?.error_detail || 'No se pudo enviar el SMS de prueba.');
       }
     } catch (err) {
+      const backendDetail =
+        err?.details?.error_detail ||
+        err?.details?.result?.error_detail ||
+        err?.details?.message ||
+        err?.message;
       if ([404, 501].includes(Number(err?.status))) {
-        setSmsTemplateError(err?.error_detail || 'No se pudo enviar el SMS de prueba.');
+        setSmsTemplateError(backendDetail || 'No se pudo enviar el SMS de prueba.');
       } else {
-        setSmsTemplateError(err?.error_detail || err?.message || 'No se pudo enviar el SMS de prueba.');
+        setSmsTemplateError(backendDetail || 'No se pudo enviar el SMS de prueba.');
       }
     } finally {
       setSmsTemplateTesting(false);
