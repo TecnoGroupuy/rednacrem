@@ -5970,10 +5970,17 @@ const formatCurrency = (value) => {
       const handleForzarRechazo = async (row) => {
         setAgGuardando(true); setAgError('');
         try {
-          await agendaApi.post(`/leads/${row.contact_id}/management`, {
-            status: 'rechazo',
-            nota: 'Sin respuesta luego de 3 intentos consecutivos'
-          });
+          if (row.origen === 'recupero') {
+            await agendaApi.post(`/api/recupero/candidatos/${row.contact_id}/gestionar`, {
+              status: 'rechazo',
+              note: 'Sin respuesta luego de 3 intentos consecutivos'
+            });
+          } else {
+            await agendaApi.post(`/leads/${row.contact_id}/management`, {
+              status: 'rechazo',
+              nota: 'Sin respuesta luego de 3 intentos consecutivos'
+            });
+          }
           await agendaApi.patch(`/agenda/${row.id}/complete`, {}).catch(() => {});
           setSeguimientos((prev) => prev.filter((s) => s.id !== row.id));
           cerrarDrawer();
@@ -6035,15 +6042,23 @@ const formatCurrency = (value) => {
             return;
           }
 
-          await registerCommercialManagement(
-            drawerItem.contact_id,
-            {
+          if (drawerItem.origen === 'recupero') {
+            await registerRecuperoManagement(drawerItem.contact_id, {
               status: agEstado,
               note: agNota.trim() || undefined,
-              nextAction: fecha_agenda,
               fecha_agenda
-            }
-          );
+            });
+          } else {
+            await registerCommercialManagement(
+              drawerItem.contact_id,
+              {
+                status: agEstado,
+                note: agNota.trim() || undefined,
+                nextAction: fecha_agenda,
+                fecha_agenda
+              }
+            );
+          }
           cerrarDrawer();
           if (ESTADOS_FINALES_GESTION.includes(agEstado)) {
             await agendaApi.patch(`/agenda/${itemGuardado.id}/complete`, {}).catch(() => {});
