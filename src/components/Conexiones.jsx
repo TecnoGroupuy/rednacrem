@@ -14,7 +14,6 @@ const emptyDraft = {
 };
 
 const SMS_TABS = [
-  { key: 'club', label: 'Club del Adulto Mayor' },
   { key: 'webhooks', label: 'Webhooks' },
   { key: 'sms', label: 'SMS' }
 ];
@@ -41,7 +40,9 @@ const emptySmsConnectionDraft = {
 };
 
 const emptySmsTemplateDraft = {
+  id: '',
   organizationId: '',
+  productId: '',
   template: '',
   encoding: 'gsm-7bit'
 };
@@ -63,11 +64,21 @@ const normalizeSmsLogItems = (response) => {
   return [];
 };
 
+const normalizeSmsTemplateItems = (response) => {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.items)) return response.items;
+  if (Array.isArray(response?.data)) return response.data;
+  if (Array.isArray(response?.data?.items)) return response.data.items;
+  return [];
+};
+
 const productId = (product) => String(product?.id || product?.product_id || '');
 const productName = (product) => product?.nombre || product?.name || product?.nombreProducto || product?.nombre_producto || 'Producto';
+const productOrganizationId = (product) => String(product?.organization_id || product?.organizationId || product?.org_id || product?.orgId || '');
 const organizationIdOf = (item) => String(item?.id || item?.organization_id || item?.organizationId || '');
 const organizationNameOf = (item) => item?.nombre || item?.name || item?.organization_name || 'Organización';
 const getEncodingLimit = (encoding) => (encoding === 'unicode' ? 70 : 160);
+const smsTemplateProductId = (item) => String(item?.product_id || item?.productId || '');
 
 const normalizeSmsConnectionStatus = (value) => {
   const normalized = String(value || '').trim().toLowerCase();
@@ -99,10 +110,11 @@ const normalizeSmsConnectionResponse = (response, organizationId = '') => {
   };
 };
 
-const normalizeSmsTemplateResponse = (response, organizationId = '') => {
-  const item = response?.item || response?.data || response || {};
+const normalizeSmsTemplateItem = (item = {}, organizationId = '') => {
   return {
+    id: String(item?.id || item?.template_id || ''),
     organizationId: String(item?.organization_id || item?.organizationId || organizationId || ''),
+    productId: smsTemplateProductId(item),
     template: String(item?.template || ''),
     encoding: item?.encoding === 'unicode' ? 'unicode' : 'gsm-7bit'
   };
@@ -142,6 +154,8 @@ export default function Conexiones({ Button, Panel, Tag }) {
   const [smsPasswordVisible, setSmsPasswordVisible] = useState(false);
 
   const [smsTemplateDraft, setSmsTemplateDraft] = useState(emptySmsTemplateDraft);
+  const [smsTemplateRows, setSmsTemplateRows] = useState([]);
+  const [smsTemplateProducts, setSmsTemplateProducts] = useState([]);
   const [smsTemplateLoading, setSmsTemplateLoading] = useState(false);
   const [smsTemplateSaving, setSmsTemplateSaving] = useState(false);
   const [smsTemplateError, setSmsTemplateError] = useState('');
@@ -168,6 +182,22 @@ export default function Conexiones({ Button, Panel, Tag }) {
   const smsConnectionBadge = SMS_STATUS_META[smsConnectionStatus] || SMS_STATUS_META.idle;
   const smsTemplateLimit = getEncodingLimit(smsTemplateDraft.encoding);
   const smsTemplateLength = smsTemplateDraft.template.length;
+  const smsTemplatePreviewRows = useMemo(
+    () => smsTemplateRows.map((item) => {
+      const normalized = normalizeSmsTemplateItem(item, selectedOrganizationId);
+      const matchedProduct = smsTemplateProducts.find((product) => productId(product) === normalized.productId);
+      const productLabel = normalized.productId
+        ? matchedProduct?.nombre || productMap.get(normalized.productId) || 'Producto'
+        : 'Por defecto';
+      const preview = normalized.template.length > 40 ? `${normalized.template.slice(0, 40)}...` : normalized.template;
+      return {
+        ...normalized,
+        productLabel,
+        preview: preview || 'Sin mensaje configurado'
+      };
+    }),
+    [productMap, selectedOrganizationId, smsTemplateProducts, smsTemplateRows]
+  );
 
   const loadConnections = async () => {
     setLoading(true);
@@ -200,7 +230,11 @@ export default function Conexiones({ Button, Panel, Tag }) {
       const firstOrganizationId = organizationIdOf(items[0]);
       if (firstOrganizationId) {
         setSmsConnectionDraft((prev) => ({ ...prev, organizationId: prev.organizationId || firstOrganizationId }));
-        setSmsTemplateDraft((prev) => ({ ...prev, organizationId: prev.organizationId || firstOrganizationId }));
+        setSmsTemplateDraft((prev) => ({
+          ...prev,
+          organizationId: prev.organizationId || firstOrganizationId,
+          productId: prev.productId || ''
+        }));
       }
     } catch (err) {
       setOrgs([]);
@@ -239,29 +273,85 @@ export default function Conexiones({ Button, Panel, Tag }) {
     }
   }, [api]);
 
-  const loadSmsTemplate = useCallback(async (organizationId) => {
+  const selectSmsTemplateDraft = useCallback((templates, organizationId, selectedProductId = '') => {
+    const productKey = String(selectedProductId || '');
+    const matched = templates
+      .map((item) => normalizeSmsTemplateItem(item, organizationId))
+      .find((item) => item.productId === productKey);
+
+    if (matched) {
+      setSmsTemplateDraft({
+        id: matched.id,
+        organizationId,
+        productId: matched.productId,
+        template: matched.template,
+        encoding: matched.encoding
+      });
+      return;
+    }
+
+    setSmsTemplateDraft({
+      ...emptySmsTemplateDraft,
+      organizationId,
+      productId: productKey
+    });
+  }, []);
+
+  const loadSmsTemplateProducts = useCallback(async (organizationId) => {
+    if (!organizationId) {
+      setSmsTemplateProducts([]);
+      return [];
+    }
+
+    try {
+      const response = await api.get(`/api/products?organization_id=${encodeURIComponent(organizationId)}`);
+      const items = normalizeItems(response);
+      setSmsTemplateProducts(items);
+      return items;
+    } catch (err) {
+      if ([404, 501].includes(Number(err?.status))) {
+        setSmsTemplateProducts([]);
+        return [];
+      }
+
+      try {
+        const response = await api.get('/api/products');
+        const items = normalizeItems(response);
+        const filtered = items.filter((item) => {
+          const itemOrganizationId = productOrganizationId(item);
+          return !itemOrganizationId || itemOrganizationId === String(organizationId);
+        });
+        setSmsTemplateProducts(filtered);
+        return filtered;
+      } catch {
+        setSmsTemplateProducts([]);
+        return [];
+      }
+    }
+  }, [api]);
+
+  const loadSmsTemplates = useCallback(async (organizationId, selectedProductId = '') => {
     if (!organizationId) return;
     setSmsTemplateLoading(true);
     setSmsTemplateError('');
     setSmsTemplateMessage('');
     try {
-      const response = await api.get(`/api/sms-template?organization_id=${encodeURIComponent(organizationId)}`);
-      const normalized = normalizeSmsTemplateResponse(response, organizationId);
-      setSmsTemplateDraft({
-        organizationId,
-        template: normalized.template,
-        encoding: normalized.encoding
-      });
+      await loadSmsTemplateProducts(organizationId);
+      const response = await api.get(`/api/sms-templates?organization_id=${encodeURIComponent(organizationId)}`);
+      const items = normalizeSmsTemplateItems(response);
+      setSmsTemplateRows(items);
+      selectSmsTemplateDraft(items, organizationId, selectedProductId);
     } catch (err) {
       if ([404, 501].includes(Number(err?.status))) {
-        setSmsTemplateDraft({ ...emptySmsTemplateDraft, organizationId });
+        setSmsTemplateRows([]);
+        selectSmsTemplateDraft([], organizationId, selectedProductId);
       } else {
         setSmsTemplateError(err?.message || 'No se pudo cargar la plantilla SMS.');
       }
     } finally {
       setSmsTemplateLoading(false);
     }
-  }, [api]);
+  }, [api, loadSmsTemplateProducts, selectSmsTemplateDraft]);
 
   const loadSmsLog = useCallback(async (organizationId) => {
     if (!organizationId) return;
@@ -293,9 +383,9 @@ export default function Conexiones({ Button, Panel, Tag }) {
   useEffect(() => {
     if (!selectedOrganizationId) return;
     loadSmsConnection(selectedOrganizationId);
-    loadSmsTemplate(selectedOrganizationId);
+    loadSmsTemplates(selectedOrganizationId, smsTemplateDraft.productId);
     loadSmsLog(selectedOrganizationId);
-  }, [selectedOrganizationId, loadSmsConnection, loadSmsTemplate, loadSmsLog]);
+  }, [selectedOrganizationId, loadSmsConnection, loadSmsTemplates, loadSmsLog]);
 
   const openCreate = () => {
     setEditingConnection(null);
@@ -415,7 +505,13 @@ export default function Conexiones({ Button, Panel, Tag }) {
 
   const handleSmsOrganizationChange = (organizationId) => {
     setSmsConnectionDraft((prev) => ({ ...prev, organizationId }));
-    setSmsTemplateDraft((prev) => ({ ...prev, organizationId }));
+    setSmsTemplateDraft((prev) => ({ ...prev, id: '', organizationId, productId: '' }));
+  };
+
+  const handleSmsTemplateProductChange = (nextProductId) => {
+    selectSmsTemplateDraft(smsTemplateRows, smsTemplateDraft.organizationId, nextProductId);
+    setSmsTemplateError('');
+    setSmsTemplateMessage('');
   };
 
   const handleTestSmsConnection = async () => {
@@ -488,17 +584,82 @@ export default function Conexiones({ Button, Panel, Tag }) {
     setSmsTemplateError('');
     setSmsTemplateMessage('');
     try {
-      await api.post('/api/sms-template', {
+      await api.post('/api/sms-templates', {
+        id: smsTemplateDraft.id || undefined,
         organization_id: smsTemplateDraft.organizationId,
+        product_id: smsTemplateDraft.productId || null,
         template: smsTemplateDraft.template,
         encoding: smsTemplateDraft.encoding
       });
+      await loadSmsTemplates(smsTemplateDraft.organizationId, smsTemplateDraft.productId);
       setSmsTemplateMessage('Plantilla guardada.');
     } catch (err) {
       if ([404, 501].includes(Number(err?.status))) {
+        const mockId = smsTemplateDraft.id || `mock-${smsTemplateDraft.productId || 'default'}`;
+        const nextRows = [
+          ...smsTemplateRows.filter((item) => normalizeSmsTemplateItem(item, smsTemplateDraft.organizationId).productId !== smsTemplateDraft.productId),
+          {
+            id: mockId,
+            organization_id: smsTemplateDraft.organizationId,
+            product_id: smsTemplateDraft.productId || null,
+            template: smsTemplateDraft.template,
+            encoding: smsTemplateDraft.encoding
+          }
+        ];
+        setSmsTemplateRows(nextRows);
+        setSmsTemplateDraft((prev) => ({ ...prev, id: mockId }));
         setSmsTemplateMessage('Mock local: plantilla guardada para esta maqueta.');
       } else {
         setSmsTemplateError(err?.message || 'No se pudo guardar la plantilla SMS.');
+      }
+    } finally {
+      setSmsTemplateSaving(false);
+    }
+  };
+
+  const handleEditSmsTemplate = (templateRow) => {
+    const normalized = normalizeSmsTemplateItem(templateRow, smsTemplateDraft.organizationId);
+    setSmsTemplateDraft({
+      id: normalized.id,
+      organizationId: smsTemplateDraft.organizationId,
+      productId: normalized.productId,
+      template: normalized.template,
+      encoding: normalized.encoding
+    });
+    setSmsTemplateError('');
+    setSmsTemplateMessage('');
+  };
+
+  const handleDeleteSmsTemplate = async (templateRow) => {
+    const normalized = normalizeSmsTemplateItem(templateRow, smsTemplateDraft.organizationId);
+    if (!normalized.id) return;
+    if (!window.confirm('¿Eliminar esta plantilla SMS?')) return;
+
+    setSmsTemplateSaving(true);
+    setSmsTemplateError('');
+    setSmsTemplateMessage('');
+    try {
+      await api.del(`/api/sms-templates/${encodeURIComponent(normalized.id)}?organization_id=${encodeURIComponent(smsTemplateDraft.organizationId)}`);
+      const remainingRows = smsTemplateRows.filter((item) => normalizeSmsTemplateItem(item, smsTemplateDraft.organizationId).id !== normalized.id);
+      setSmsTemplateRows(remainingRows);
+      selectSmsTemplateDraft(
+        remainingRows,
+        smsTemplateDraft.organizationId,
+        smsTemplateDraft.productId
+      );
+      setSmsTemplateMessage('Plantilla eliminada.');
+    } catch (err) {
+      if ([404, 501].includes(Number(err?.status))) {
+        const remainingRows = smsTemplateRows.filter((item) => normalizeSmsTemplateItem(item, smsTemplateDraft.organizationId).id !== normalized.id);
+        setSmsTemplateRows(remainingRows);
+        selectSmsTemplateDraft(
+          remainingRows,
+          smsTemplateDraft.organizationId,
+          smsTemplateDraft.productId
+        );
+        setSmsTemplateMessage('Mock local: plantilla eliminada para esta maqueta.');
+      } else {
+        setSmsTemplateError(err?.message || 'No se pudo eliminar la plantilla SMS.');
       }
     } finally {
       setSmsTemplateSaving(false);
@@ -537,12 +698,6 @@ export default function Conexiones({ Button, Panel, Tag }) {
               );
             })}
           </div>
-
-          {activeTab === 'club' ? (
-            <div style={{ border: '1px solid var(--line)', borderRadius: 12, padding: 16, background: '#fff', color: 'var(--muted)' }}>
-              Sin configuración disponible para Club del Adulto Mayor en esta maqueta.
-            </div>
-          ) : null}
 
           {activeTab === 'webhooks' ? (
             <>
@@ -668,12 +823,21 @@ export default function Conexiones({ Button, Panel, Tag }) {
               <div style={{ border: '1px solid var(--line)', borderRadius: 12, padding: 14, background: '#fff' }}>
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ fontWeight: 800 }}>Plantilla de confirmación de alta</div>
-                  <div style={{ color: 'var(--muted)', fontSize: 13 }}>Mensaje base para el envío automático</div>
+                  <div style={{ color: 'var(--muted)', fontSize: 13 }}>Mensaje base por producto para el envío automático</div>
                 </div>
                 {smsTemplateError ? <div style={{ color: '#be123c', fontWeight: 700, marginBottom: 10 }}>{smsTemplateError}</div> : null}
                 {smsTemplateMessage ? <div style={{ color: '#15803d', fontWeight: 700, marginBottom: 10 }}>{smsTemplateMessage}</div> : null}
                 {smsTemplateLoading ? <div style={{ color: 'var(--muted)', paddingBottom: 12 }}>Cargando plantilla SMS...</div> : null}
                 <div style={{ display: 'grid', gap: 12 }}>
+                  <label style={{ display: 'grid', gap: 6 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>Producto</span>
+                    <select className="input" value={smsTemplateDraft.productId} onChange={(event) => handleSmsTemplateProductChange(event.target.value)}>
+                      <option value="">Plantilla por defecto (todos los productos)</option>
+                      {smsTemplateProducts.map((product) => (
+                        <option key={productId(product)} value={productId(product)}>{productName(product)}</option>
+                      ))}
+                    </select>
+                  </label>
                   <textarea
                     className="input"
                     rows={5}
@@ -700,6 +864,23 @@ export default function Conexiones({ Button, Panel, Tag }) {
                     <Button onClick={handleSaveSmsTemplate} disabled={smsTemplateSaving}>
                       {smsTemplateSaving ? 'Guardando...' : 'Guardar'}
                     </Button>
+                  </div>
+                  <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, display: 'grid', gap: 8 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>Plantillas configuradas</div>
+                    {!smsTemplatePreviewRows.length ? (
+                      <div style={{ color: 'var(--muted)', fontSize: 13 }}>Todavía no hay plantillas configuradas para esta organización.</div>
+                    ) : (
+                      smsTemplatePreviewRows.map((item) => (
+                        <div key={item.id || `template-${item.productId || 'default'}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 180px) minmax(0, 1fr) auto', gap: 12, alignItems: 'center', border: '1px solid var(--line)', borderRadius: 10, padding: '10px 12px' }}>
+                          <div style={{ fontWeight: 700 }}>{item.productLabel}</div>
+                          <div style={{ color: 'var(--muted)', fontSize: 13 }}>{item.preview}</div>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button type="button" className="button ghost" onClick={() => handleEditSmsTemplate(item)}>Editar</button>
+                            <button type="button" className="button ghost" style={{ color: '#b91c1c' }} onClick={() => handleDeleteSmsTemplate(item)}>Eliminar</button>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               </div>
