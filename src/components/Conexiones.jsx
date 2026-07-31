@@ -157,6 +157,7 @@ export default function Conexiones({ Button, Panel, Tag }) {
   const [smsTemplateRows, setSmsTemplateRows] = useState([]);
   const [smsTemplateProducts, setSmsTemplateProducts] = useState([]);
   const [smsTemplateLoading, setSmsTemplateLoading] = useState(false);
+  const [smsTemplateTesting, setSmsTemplateTesting] = useState(false);
   const [smsTemplateSaving, setSmsTemplateSaving] = useState(false);
   const [smsTemplateError, setSmsTemplateError] = useState('');
   const [smsTemplateMessage, setSmsTemplateMessage] = useState('');
@@ -182,6 +183,10 @@ export default function Conexiones({ Button, Panel, Tag }) {
   const smsConnectionBadge = SMS_STATUS_META[smsConnectionStatus] || SMS_STATUS_META.idle;
   const smsTemplateLimit = getEncodingLimit(smsTemplateDraft.encoding);
   const smsTemplateLength = smsTemplateDraft.template.length;
+  const selectedSmsTemplateProduct = smsTemplateProducts.find(
+    (product) => productId(product) === smsTemplateDraft.productId
+  );
+  const selectedSmsTemplateProductName = selectedSmsTemplateProduct ? productName(selectedSmsTemplateProduct) : '';
   const smsTemplatePreviewRows = useMemo(
     () => smsTemplateRows.map((item) => {
       const normalized = normalizeSmsTemplateItem(item, selectedOrganizationId);
@@ -617,6 +622,49 @@ export default function Conexiones({ Button, Panel, Tag }) {
     }
   };
 
+  const handleTestSmsTemplate = async () => {
+    if (!smsTemplateDraft.organizationId) {
+      setSmsTemplateError('Selecciona una organización.');
+      return;
+    }
+
+    const phone = window.prompt('Ingresá el número de celular para la prueba (ej: 092900743):');
+    if (phone == null) return;
+
+    const normalizedPhone = phone.trim();
+    if (!normalizedPhone) return;
+
+    setSmsTemplateTesting(true);
+    setSmsTemplateError('');
+    setSmsTemplateMessage('');
+    try {
+      const payload = {
+        organization_id: smsTemplateDraft.organizationId,
+        template: smsTemplateDraft.template,
+        encoding: smsTemplateDraft.encoding,
+        phone: normalizedPhone
+      };
+      if (smsTemplateDraft.productId && selectedSmsTemplateProductName) {
+        payload.product_name = selectedSmsTemplateProductName;
+      }
+
+      const result = await api.post('/api/sms-templates/test', payload);
+      if (result?.status === 'sent') {
+        setSmsTemplateMessage(`SMS de prueba enviado a ${normalizedPhone}.`);
+      } else {
+        setSmsTemplateError(result?.error_detail || 'No se pudo enviar el SMS de prueba.');
+      }
+    } catch (err) {
+      if ([404, 501].includes(Number(err?.status))) {
+        setSmsTemplateError(err?.error_detail || 'No se pudo enviar el SMS de prueba.');
+      } else {
+        setSmsTemplateError(err?.error_detail || err?.message || 'No se pudo enviar el SMS de prueba.');
+      }
+    } finally {
+      setSmsTemplateTesting(false);
+    }
+  };
+
   const handleEditSmsTemplate = (templateRow) => {
     const normalized = normalizeSmsTemplateItem(templateRow, smsTemplateDraft.organizationId);
     setSmsTemplateDraft({
@@ -861,7 +909,10 @@ export default function Conexiones({ Button, Panel, Tag }) {
                     {smsTemplateLength} / {smsTemplateLimit} caracteres
                   </div>
                   <div className="toolbar" style={{ justifyContent: 'flex-end' }}>
-                    <Button onClick={handleSaveSmsTemplate} disabled={smsTemplateSaving}>
+                    <Button variant="ghost" onClick={handleTestSmsTemplate} disabled={smsTemplateTesting || smsTemplateSaving}>
+                      {smsTemplateTesting ? 'Enviando...' : 'Enviar prueba'}
+                    </Button>
+                    <Button onClick={handleSaveSmsTemplate} disabled={smsTemplateSaving || smsTemplateTesting}>
                       {smsTemplateSaving ? 'Guardando...' : 'Guardar'}
                     </Button>
                   </div>
