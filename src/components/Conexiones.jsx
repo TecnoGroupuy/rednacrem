@@ -531,7 +531,7 @@ export default function Conexiones({ Button, Panel, Tag }) {
         username: smsConnectionDraft.username.trim(),
         password: smsConnectionDraft.password
       });
-      setSmsConnectionStatus(normalizeSmsConnectionStatus(response?.status || response?.last_test_status || 'connected'));
+      setSmsConnectionStatus('connected');
       setSmsConnectionMessage('Conexión probada correctamente.');
     } catch (err) {
       if ([404, 501].includes(Number(err?.status))) {
