@@ -4540,19 +4540,20 @@ const formatCurrency = (value) => {
             return;
           }
 
-          const { gestion_id } = isRecupero
+          const { gestion_id, estado_venta_final } = isRecupero
             ? await registerRecuperoManagement(dc.id, gestionPayload)
             : await registerCommercialManagement(dc.id, gestionPayload);
+          const estadoFinal = estado_venta_final || estadoGestion;
 
           const ahora = new Date().toISOString();
           const applyUpdate = (c) => ({
             ...c,
-            status: estadoGestion,
+            status: estadoFinal,
             ultima_gestion_real: ahora,
             last: formatLastGestion(ahora)
           });
 
-          if (estadosFinalesGestion.includes(estadoGestion)) {
+          if (estadosFinalesGestion.includes(estadoFinal)) {
             setLocalContacts((prev) => {
               const found = prev.find((c) => String(c.id) === String(contactId));
               const resto = prev.filter((c) => String(c.id) !== String(contactId));
@@ -4564,7 +4565,7 @@ const formatCurrency = (value) => {
             );
           }
 
-          setStatusOverrides((prev) => ({ ...prev, [contactId]: estadoGestion }));
+          setStatusOverrides((prev) => ({ ...prev, [contactId]: estadoFinal }));
 
           if (estadosConAgenda.includes(estadoGestion)) {
             try { localStorage.setItem('agenda_needs_refresh', 'true'); } catch {}
@@ -4572,6 +4573,11 @@ const formatCurrency = (value) => {
 
           closeDrawer();
           await refreshSilencioso();
+          setStatusOverrides((prev) => {
+            const next = { ...prev };
+            delete next[contactId];
+            return next;
+          });
 
         } catch (err) {
           const msg = String(err?.message || '');
@@ -6042,14 +6048,16 @@ const formatCurrency = (value) => {
             return;
           }
 
+          let estadoFinal = agEstado;
           if (drawerItem.origen === 'recupero') {
-            await registerRecuperoManagement(drawerItem.contact_id, {
+            const response = await registerRecuperoManagement(drawerItem.contact_id, {
               status: agEstado,
               note: agNota.trim() || undefined,
               fecha_agenda
             });
+            estadoFinal = response?.estado_venta_final || agEstado;
           } else {
-            await registerCommercialManagement(
+            const response = await registerCommercialManagement(
               drawerItem.contact_id,
               {
                 status: agEstado,
@@ -6058,9 +6066,10 @@ const formatCurrency = (value) => {
                 fecha_agenda
               }
             );
+            estadoFinal = response?.estado_venta_final || agEstado;
           }
           cerrarDrawer();
-          if (ESTADOS_FINALES_GESTION.includes(agEstado)) {
+          if (ESTADOS_FINALES_GESTION.includes(estadoFinal)) {
             await agendaApi.patch(`/agenda/${itemGuardado.id}/complete`, {}).catch(() => {});
             setSeguimientos((prev) => prev.filter((s) => s.id !== itemGuardado.id));
           } else {
