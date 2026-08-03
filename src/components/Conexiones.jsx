@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Eye, EyeOff, Plus, RefreshCw, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Eye, EyeOff, Loader2, Pencil, Plus, RefreshCw, Send, X } from 'lucide-react';
 import { getApiClient } from '../services/apiClient.js';
 import { listMyOrganizations } from '../services/organizationsService.js';
 
@@ -21,14 +21,18 @@ const SMS_TABS = [
 const SMS_STATUS_META = {
   connected: { label: 'Conectado', variant: 'success' },
   idle: { label: 'Sin probar', variant: 'outline' },
-  error: { label: 'Error', variant: 'danger' }
+  error: { label: 'Error', variant: 'danger' },
+  testing: { label: 'Probando...', variant: 'info' }
 };
 
 const SMS_LOG_STATUS_META = {
-  entregado: { label: 'Entregado', variant: 'success' },
-  enviado: { label: 'Enviado', variant: 'warning' },
-  fallo: { label: 'Fallo', variant: 'danger' }
+  sent: { label: 'Enviado', variant: 'success' },
+  delivered: { label: 'Entregado', variant: 'info' },
+  failed: { label: 'Falló', variant: 'danger' },
+  pending: { label: 'Pendiente', variant: 'warning' }
 };
+
+const SMS_LOG_PAGE_SIZE = 4;
 
 const emptySmsConnectionDraft = {
   organizationId: '',
@@ -64,6 +68,17 @@ const normalizeSmsLogItems = (response) => {
   return [];
 };
 
+const normalizeSmsLogCollection = (response) => {
+  const items = normalizeSmsLogItems(response);
+  const source = response?.data && !Array.isArray(response.data) ? response.data : response;
+  return {
+    items,
+    total: Number(source?.total ?? items.length ?? 0),
+    limit: Number(source?.limit ?? SMS_LOG_PAGE_SIZE),
+    offset: Number(source?.offset ?? 0)
+  };
+};
+
 const normalizeSmsTemplateItems = (response) => {
   if (Array.isArray(response)) return response;
   if (Array.isArray(response?.items)) return response.items;
@@ -89,9 +104,10 @@ const normalizeSmsConnectionStatus = (value) => {
 
 const normalizeSmsLogStatus = (value) => {
   const normalized = String(value || '').trim().toLowerCase();
-  if (normalized === 'entregado') return 'entregado';
-  if (['fallo', 'fallado', 'error'].includes(normalized)) return 'fallo';
-  return 'enviado';
+  if (['delivered', 'entregado'].includes(normalized)) return 'delivered';
+  if (['failed', 'fallo', 'fallado', 'error'].includes(normalized)) return 'failed';
+  if (['pending', 'pendiente', 'queued'].includes(normalized)) return 'pending';
+  return 'sent';
 };
 
 const normalizeSmsConnectionResponse = (response, organizationId = '') => {
@@ -146,6 +162,7 @@ export default function Conexiones({ Button, Panel, Tag }) {
 
   const [smsConnectionDraft, setSmsConnectionDraft] = useState(emptySmsConnectionDraft);
   const [smsConnectionStatus, setSmsConnectionStatus] = useState('idle');
+  const [smsConnectionExpanded, setSmsConnectionExpanded] = useState(false);
   const [smsConnectionLoading, setSmsConnectionLoading] = useState(false);
   const [smsConnectionSaving, setSmsConnectionSaving] = useState(false);
   const [smsConnectionTesting, setSmsConnectionTesting] = useState(false);
@@ -156,8 +173,10 @@ export default function Conexiones({ Button, Panel, Tag }) {
   const [smsTemplateDraft, setSmsTemplateDraft] = useState(emptySmsTemplateDraft);
   const [smsTemplateRows, setSmsTemplateRows] = useState([]);
   const [smsTemplateProducts, setSmsTemplateProducts] = useState([]);
+  const [smsTemplateEditorOpen, setSmsTemplateEditorOpen] = useState(false);
   const [smsTemplateLoading, setSmsTemplateLoading] = useState(false);
   const [smsTemplateTesting, setSmsTemplateTesting] = useState(false);
+  const [smsTemplateTestingId, setSmsTemplateTestingId] = useState('');
   const [smsTemplateSaving, setSmsTemplateSaving] = useState(false);
   const [smsTemplateError, setSmsTemplateError] = useState('');
   const [smsTemplateMessage, setSmsTemplateMessage] = useState('');
@@ -165,6 +184,10 @@ export default function Conexiones({ Button, Panel, Tag }) {
   const [smsLogRows, setSmsLogRows] = useState([]);
   const [smsLogLoading, setSmsLogLoading] = useState(false);
   const [smsLogError, setSmsLogError] = useState('');
+  const [smsLogPage, setSmsLogPage] = useState(0);
+  const [smsLogTotal, setSmsLogTotal] = useState(0);
+  const [smsLogLimit, setSmsLogLimit] = useState(SMS_LOG_PAGE_SIZE);
+  const [smsLogOffset, setSmsLogOffset] = useState(0);
 
   const productMap = useMemo(() => {
     const map = new Map();
@@ -181,28 +204,40 @@ export default function Conexiones({ Button, Panel, Tag }) {
 
   const selectedOrganizationId = smsConnectionDraft.organizationId || smsTemplateDraft.organizationId || organizationOptions[0]?.id || '';
   const smsConnectionBadge = SMS_STATUS_META[smsConnectionStatus] || SMS_STATUS_META.idle;
+  const selectedOrganizationLabel = organizationOptions.find((item) => item.id === selectedOrganizationId)?.label || 'Organización';
+  const smsConnectionAccent = smsConnectionStatus === 'connected'
+    ? '#15803d'
+    : smsConnectionStatus === 'error'
+      ? '#be123c'
+      : smsConnectionStatus === 'testing'
+        ? '#64748b'
+        : '#94a3b8';
+  const smsConnectionSummary = [
+    [smsConnectionDraft.host, smsConnectionDraft.port].filter(Boolean).join(':'),
+    smsConnectionDraft.username ? `Usuario ${smsConnectionDraft.username}` : ''
+  ].filter(Boolean).join(' · ') || 'Sin configuración cargada';
   const smsTemplateLimit = getEncodingLimit(smsTemplateDraft.encoding);
   const smsTemplateLength = smsTemplateDraft.template.length;
-  const selectedSmsTemplateProduct = smsTemplateProducts.find(
-    (product) => productId(product) === smsTemplateDraft.productId
-  );
-  const selectedSmsTemplateProductName = selectedSmsTemplateProduct ? productName(selectedSmsTemplateProduct) : '';
   const smsTemplatePreviewRows = useMemo(
     () => smsTemplateRows.map((item) => {
       const normalized = normalizeSmsTemplateItem(item, selectedOrganizationId);
       const matchedProduct = smsTemplateProducts.find((product) => productId(product) === normalized.productId);
       const productLabel = normalized.productId
         ? matchedProduct?.nombre || productMap.get(normalized.productId) || 'Producto'
-        : 'Por defecto';
-      const preview = normalized.template.length > 40 ? `${normalized.template.slice(0, 40)}...` : normalized.template;
+        : 'Todos los productos';
       return {
         ...normalized,
+        title: normalized.productId ? productLabel : 'Plantilla por defecto',
         productLabel,
-        preview: preview || 'Sin mensaje configurado'
+        encodingLabel: normalized.encoding === 'unicode' ? 'unicode' : 'gsm-7bit'
       };
     }),
     [productMap, selectedOrganizationId, smsTemplateProducts, smsTemplateRows]
   );
+  const smsLogRangeStart = smsLogTotal ? smsLogOffset + 1 : 0;
+  const smsLogRangeEnd = smsLogTotal ? Math.min(smsLogOffset + smsLogLimit, smsLogTotal) : 0;
+  const smsLogCanGoPrev = smsLogOffset > 0;
+  const smsLogCanGoNext = smsLogOffset + smsLogLimit < smsLogTotal;
 
   const loadConnections = async () => {
     setLoading(true);
@@ -358,16 +393,24 @@ export default function Conexiones({ Button, Panel, Tag }) {
     }
   }, [api, loadSmsTemplateProducts, selectSmsTemplateDraft]);
 
-  const loadSmsLog = useCallback(async (organizationId) => {
+  const loadSmsLog = useCallback(async (organizationId, page = 0) => {
     if (!organizationId) return;
     setSmsLogLoading(true);
     setSmsLogError('');
     try {
-      const response = await api.get(`/api/sms-log?organization_id=${encodeURIComponent(organizationId)}&limit=20`);
-      setSmsLogRows(normalizeSmsLogItems(response));
+      const offset = page * SMS_LOG_PAGE_SIZE;
+      const response = await api.get(`/api/sms-log?organization_id=${encodeURIComponent(organizationId)}&limit=${SMS_LOG_PAGE_SIZE}&offset=${offset}`);
+      const normalized = normalizeSmsLogCollection(response);
+      setSmsLogRows(normalized.items);
+      setSmsLogTotal(normalized.total);
+      setSmsLogLimit(normalized.limit || SMS_LOG_PAGE_SIZE);
+      setSmsLogOffset(normalized.offset || 0);
     } catch (err) {
       if ([404, 501].includes(Number(err?.status))) {
         setSmsLogRows([]);
+        setSmsLogTotal(0);
+        setSmsLogLimit(SMS_LOG_PAGE_SIZE);
+        setSmsLogOffset(0);
       } else {
         setSmsLogError(err?.message || 'No se pudo cargar la actividad reciente.');
       }
@@ -389,8 +432,12 @@ export default function Conexiones({ Button, Panel, Tag }) {
     if (!selectedOrganizationId) return;
     loadSmsConnection(selectedOrganizationId);
     loadSmsTemplates(selectedOrganizationId, smsTemplateDraft.productId);
-    loadSmsLog(selectedOrganizationId);
-  }, [selectedOrganizationId, loadSmsConnection, loadSmsTemplates, loadSmsLog]);
+  }, [selectedOrganizationId, loadSmsConnection, loadSmsTemplates, smsTemplateDraft.productId]);
+
+  useEffect(() => {
+    if (!selectedOrganizationId) return;
+    loadSmsLog(selectedOrganizationId, smsLogPage);
+  }, [selectedOrganizationId, smsLogPage, loadSmsLog]);
 
   const openCreate = () => {
     setEditingConnection(null);
@@ -511,6 +558,20 @@ export default function Conexiones({ Button, Panel, Tag }) {
   const handleSmsOrganizationChange = (organizationId) => {
     setSmsConnectionDraft((prev) => ({ ...prev, organizationId }));
     setSmsTemplateDraft((prev) => ({ ...prev, id: '', organizationId, productId: '' }));
+    setSmsConnectionExpanded(false);
+    setSmsTemplateEditorOpen(false);
+    setSmsLogPage(0);
+  };
+
+  const openCreateSmsTemplate = () => {
+    setSmsTemplateDraft({
+      ...emptySmsTemplateDraft,
+      organizationId: selectedOrganizationId,
+      productId: ''
+    });
+    setSmsTemplateError('');
+    setSmsTemplateMessage('');
+    setSmsTemplateEditorOpen(true);
   };
 
   const handleSmsTemplateProductChange = (nextProductId) => {
@@ -525,6 +586,7 @@ export default function Conexiones({ Button, Panel, Tag }) {
       return;
     }
     setSmsConnectionTesting(true);
+    setSmsConnectionStatus('testing');
     setSmsConnectionError('');
     setSmsConnectionMessage('');
     try {
@@ -597,6 +659,7 @@ export default function Conexiones({ Button, Panel, Tag }) {
         encoding: smsTemplateDraft.encoding
       });
       await loadSmsTemplates(smsTemplateDraft.organizationId, smsTemplateDraft.productId);
+      setSmsTemplateEditorOpen(false);
       setSmsTemplateMessage('Plantilla guardada.');
     } catch (err) {
       if ([404, 501].includes(Number(err?.status))) {
@@ -613,6 +676,7 @@ export default function Conexiones({ Button, Panel, Tag }) {
         ];
         setSmsTemplateRows(nextRows);
         setSmsTemplateDraft((prev) => ({ ...prev, id: mockId }));
+        setSmsTemplateEditorOpen(false);
         setSmsTemplateMessage('Mock local: plantilla guardada para esta maqueta.');
       } else {
         setSmsTemplateError(err?.message || 'No se pudo guardar la plantilla SMS.');
@@ -622,8 +686,12 @@ export default function Conexiones({ Button, Panel, Tag }) {
     }
   };
 
-  const handleTestSmsTemplate = async () => {
-    if (!smsTemplateDraft.organizationId) {
+  const handleTestSmsTemplate = async (templateRow = null) => {
+    const normalizedDraft = templateRow
+      ? normalizeSmsTemplateItem(templateRow, smsTemplateDraft.organizationId || selectedOrganizationId)
+      : smsTemplateDraft;
+
+    if (!normalizedDraft.organizationId) {
       setSmsTemplateError('Selecciona una organización.');
       return;
     }
@@ -635,17 +703,21 @@ export default function Conexiones({ Button, Panel, Tag }) {
     if (!normalizedPhone) return;
 
     setSmsTemplateTesting(true);
+    setSmsTemplateTestingId(templateRow?.id || `draft-${normalizedDraft.productId || 'default'}`);
     setSmsTemplateError('');
     setSmsTemplateMessage('');
     try {
+      const matchedProduct = normalizedDraft.productId
+        ? smsTemplateProducts.find((product) => productId(product) === normalizedDraft.productId)
+        : null;
       const payload = {
-        organization_id: smsTemplateDraft.organizationId,
-        template: smsTemplateDraft.template,
-        encoding: smsTemplateDraft.encoding,
+        organization_id: normalizedDraft.organizationId,
+        template: normalizedDraft.template,
+        encoding: normalizedDraft.encoding,
         phone: normalizedPhone
       };
-      if (smsTemplateDraft.productId && selectedSmsTemplateProductName) {
-        payload.product_name = selectedSmsTemplateProductName;
+      if (normalizedDraft.productId && matchedProduct) {
+        payload.product_name = productName(matchedProduct);
       }
 
       const response = await api.post('/api/sms-templates/test', payload);
@@ -659,6 +731,7 @@ export default function Conexiones({ Button, Panel, Tag }) {
       setSmsTemplateError(err?.details || err?.error_detail || err?.message || 'No se pudo enviar el SMS de prueba.');
     } finally {
       setSmsTemplateTesting(false);
+      setSmsTemplateTestingId('');
     }
   };
 
@@ -673,6 +746,7 @@ export default function Conexiones({ Button, Panel, Tag }) {
     });
     setSmsTemplateError('');
     setSmsTemplateMessage('');
+    setSmsTemplateEditorOpen(true);
   };
 
   const handleDeleteSmsTemplate = async (templateRow) => {
@@ -803,19 +877,33 @@ export default function Conexiones({ Button, Panel, Tag }) {
 
           {activeTab === 'sms' ? (
             <div style={{ display: 'grid', gap: 12 }}>
-              <div style={{ border: '1px solid var(--line)', borderRadius: 12, padding: 14, background: '#fff' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: 12 }}>
-                  <div>
-                    <div style={{ fontWeight: 800 }}>Conexión gateway Dinstar</div>
-                    <div style={{ color: 'var(--muted)', fontSize: 13 }}>Configuración del gateway SMS por organización</div>
+              <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+              <div style={{ border: '1px solid var(--line)', borderLeft: `3px solid ${smsConnectionAccent}`, borderRadius: 12, padding: 14, background: '#fff' }}>
+                <button
+                  type="button"
+                  className="button ghost"
+                  onClick={() => setSmsConnectionExpanded((prev) => !prev)}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: 0, background: 'transparent', border: 'none', boxShadow: 'none', textAlign: 'left' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                    <span style={{ width: 10, height: 10, borderRadius: 999, background: smsConnectionAccent, flex: '0 0 auto' }} />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 800 }}>Conexión gateway Dinstar · {selectedOrganizationLabel}</div>
+                      <div style={{ color: 'var(--muted)', fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{smsConnectionSummary}</div>
+                    </div>
                   </div>
-                  <Tag variant={smsConnectionBadge.variant}>{smsConnectionBadge.label}</Tag>
-                </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: '0 0 auto' }}>
+                    {smsConnectionStatus === 'testing' ? <Loader2 size={16} style={{ color: '#64748b', animation: 'spin 1s linear infinite' }} /> : null}
+                    <Tag variant={smsConnectionBadge.variant}>{smsConnectionBadge.label}</Tag>
+                    {smsConnectionExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                  </div>
+                </button>
                 {orgsError ? <div style={{ color: '#be123c', fontWeight: 700, marginBottom: 10 }}>{orgsError}</div> : null}
                 {smsConnectionError ? <div style={{ color: '#be123c', fontWeight: 700, marginBottom: 10 }}>{smsConnectionError}</div> : null}
                 {smsConnectionMessage ? <div style={{ color: '#15803d', fontWeight: 700, marginBottom: 10 }}>{smsConnectionMessage}</div> : null}
                 {(orgsLoading || smsConnectionLoading) ? <div style={{ color: 'var(--muted)', paddingBottom: 12 }}>Cargando configuración SMS...</div> : null}
-                <div style={{ display: 'grid', gap: 12 }}>
+                {smsConnectionExpanded ? (
+                <div style={{ display: 'grid', gap: 12, marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
                   <label style={{ display: 'grid', gap: 6 }}>
                     <span style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>Organización</span>
                     <select className="input" value={smsConnectionDraft.organizationId} onChange={(event) => handleSmsOrganizationChange(event.target.value)} disabled={orgsLoading || smsConnectionLoading}>
@@ -863,17 +951,23 @@ export default function Conexiones({ Button, Panel, Tag }) {
                     </Button>
                   </div>
                 </div>
+                ) : null}
               </div>
 
               <div style={{ border: '1px solid var(--line)', borderRadius: 12, padding: 14, background: '#fff' }}>
-                <div style={{ marginBottom: 12 }}>
-                  <div style={{ fontWeight: 800 }}>Plantilla de confirmación de alta</div>
-                  <div style={{ color: 'var(--muted)', fontSize: 13 }}>Mensaje base por producto para el envío automático</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
+                  <div>
+                    <div style={{ fontWeight: 800 }}>Plantilla de confirmación de alta</div>
+                    <div style={{ color: 'var(--muted)', fontSize: 13 }}>Mensaje base por producto para el envío automático</div>
+                  </div>
+                  {!smsTemplateEditorOpen ? <Button icon={<Plus size={16} />} onClick={openCreateSmsTemplate}>Crear nueva plantilla</Button> : null}
                 </div>
                 {smsTemplateError ? <div style={{ color: '#be123c', fontWeight: 700, marginBottom: 10 }}>{smsTemplateError}</div> : null}
                 {smsTemplateMessage ? <div style={{ color: '#15803d', fontWeight: 700, marginBottom: 10 }}>{smsTemplateMessage}</div> : null}
                 {smsTemplateLoading ? <div style={{ color: 'var(--muted)', paddingBottom: 12 }}>Cargando plantilla SMS...</div> : null}
                 <div style={{ display: 'grid', gap: 12 }}>
+                  {smsTemplateEditorOpen ? (
+                  <div style={{ border: '1px solid var(--line)', borderRadius: 12, padding: 14, background: '#fff', display: 'grid', gap: 12 }}>
                   <label style={{ display: 'grid', gap: 6 }}>
                     <span style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>Producto</span>
                     <select className="input" value={smsTemplateDraft.productId} onChange={(event) => handleSmsTemplateProductChange(event.target.value)}>
@@ -905,26 +999,53 @@ export default function Conexiones({ Button, Panel, Tag }) {
                   <div style={{ fontSize: 12, fontWeight: 700, color: smsTemplateLength > smsTemplateLimit ? '#b91c1c' : '#64748b' }}>
                     {smsTemplateLength} / {smsTemplateLimit} caracteres
                   </div>
-                  <div className="toolbar" style={{ justifyContent: 'flex-end' }}>
+                  <div className="toolbar" style={{ justifyContent: 'space-between' }}>
+                    <Button variant="ghost" onClick={() => setSmsTemplateEditorOpen(false)} disabled={smsTemplateTesting || smsTemplateSaving}>
+                      Cancelar
+                    </Button>
+                    <div className="toolbar" style={{ gap: 8 }}>
                     <Button variant="ghost" onClick={handleTestSmsTemplate} disabled={smsTemplateTesting || smsTemplateSaving}>
                       {smsTemplateTesting ? 'Enviando...' : 'Enviar prueba'}
                     </Button>
                     <Button onClick={handleSaveSmsTemplate} disabled={smsTemplateSaving || smsTemplateTesting}>
                       {smsTemplateSaving ? 'Guardando...' : 'Guardar'}
                     </Button>
+                    </div>
                   </div>
-                  <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, display: 'grid', gap: 8 }}>
+                  </div>
+                  ) : null}
+                  <div style={{ borderTop: smsTemplateEditorOpen ? '1px solid var(--line)' : 'none', paddingTop: smsTemplateEditorOpen ? 12 : 0, display: 'grid', gap: 8 }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>Plantillas configuradas</div>
                     {!smsTemplatePreviewRows.length ? (
                       <div style={{ color: 'var(--muted)', fontSize: 13 }}>Todavía no hay plantillas configuradas para esta organización.</div>
                     ) : (
                       smsTemplatePreviewRows.map((item) => (
-                        <div key={item.id || `template-${item.productId || 'default'}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 180px) minmax(0, 1fr) auto', gap: 12, alignItems: 'center', border: '1px solid var(--line)', borderRadius: 10, padding: '10px 12px' }}>
-                          <div style={{ fontWeight: 700 }}>{item.productLabel}</div>
-                          <div style={{ color: 'var(--muted)', fontSize: 13 }}>{item.preview}</div>
-                          <div style={{ display: 'flex', gap: 8 }}>
-                            <button type="button" className="button ghost" onClick={() => handleEditSmsTemplate(item)}>Editar</button>
-                            <button type="button" className="button ghost" style={{ color: '#b91c1c' }} onClick={() => handleDeleteSmsTemplate(item)}>Eliminar</button>
+                        <div key={item.id || `template-${item.productId || 'default'}`} style={{ border: '1px solid var(--line)', borderRadius: 12, padding: 14, background: '#fff', display: 'grid', gap: 12 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
+                            <div>
+                              <div style={{ fontWeight: 800 }}>{item.title}</div>
+                              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                                <span className="pill">{item.productLabel}</span>
+                              </div>
+                            </div>
+                            <Tag variant={item.encoding === 'unicode' ? 'info' : 'outline'}>{item.encodingLabel}</Tag>
+                          </div>
+                          <div style={{ color: 'var(--muted)', fontSize: 13, lineHeight: 1.45, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                            {item.template || 'Sin mensaje configurado'}
+                          </div>
+                          <div style={{ borderTop: '1px solid var(--line)' }} />
+                          <div className="toolbar" style={{ justifyContent: 'flex-end' }}>
+                            <Button
+                              variant="ghost"
+                              icon={smsTemplateTesting && smsTemplateTestingId === (item.id || `draft-${item.productId || 'default'}`) ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={16} />}
+                              onClick={() => handleTestSmsTemplate(item)}
+                              disabled={smsTemplateSaving || smsTemplateTesting}
+                            >
+                              {smsTemplateTesting && smsTemplateTestingId === (item.id || `draft-${item.productId || 'default'}`) ? 'Enviando...' : 'Enviar prueba'}
+                            </Button>
+                            <Button variant="secondary" icon={<Pencil size={16} />} onClick={() => handleEditSmsTemplate(item)} disabled={smsTemplateSaving || smsTemplateTesting}>
+                              Editar
+                            </Button>
                           </div>
                         </div>
                       ))
@@ -945,7 +1066,6 @@ export default function Conexiones({ Button, Panel, Tag }) {
                       <tr>
                         <th>Cliente</th>
                         <th>Teléfono</th>
-                        <th>Organización</th>
                         <th>Estado</th>
                       </tr>
                     </thead>
@@ -957,7 +1077,6 @@ export default function Conexiones({ Button, Panel, Tag }) {
                           <tr key={item?.id || `${item?.telefono || 'sms'}-${index}`}>
                             <td>{item?.cliente || item?.clientName || '-'}</td>
                             <td>{item?.telefono || item?.phone || '-'}</td>
-                            <td>{item?.organizacion || item?.organization_name || item?.organizationName || '-'}</td>
                             <td><Tag variant={statusMeta.variant}>{statusMeta.label}</Tag></td>
                           </tr>
                         );
@@ -967,6 +1086,19 @@ export default function Conexiones({ Button, Panel, Tag }) {
                   {smsLogLoading ? <div style={{ padding: 16, color: 'var(--muted)' }}>Cargando actividad...</div> : null}
                   {!smsLogLoading && !smsLogRows.length ? <div style={{ padding: 16, color: 'var(--muted)' }}>Todavía no se enviaron SMS</div> : null}
                 </div>
+                {!smsLogLoading && smsLogTotal ? (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, paddingTop: 12 }}>
+                    <div style={{ color: 'var(--muted)', fontSize: 13 }}>{smsLogRangeStart}-{smsLogRangeEnd} de {smsLogTotal}</div>
+                    <div className="toolbar" style={{ gap: 8 }}>
+                      <Button variant="ghost" onClick={() => setSmsLogPage((prev) => Math.max(0, prev - 1))} disabled={!smsLogCanGoPrev}>
+                        <ChevronLeft size={16} />
+                      </Button>
+                      <Button variant="ghost" onClick={() => setSmsLogPage((prev) => prev + 1)} disabled={!smsLogCanGoNext}>
+                        <ChevronRight size={16} />
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </div>
           ) : null}
