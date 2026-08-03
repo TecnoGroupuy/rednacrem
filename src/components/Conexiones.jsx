@@ -598,8 +598,14 @@ export default function Conexiones({ Button, Panel, Tag }) {
         username: smsConnectionDraft.username.trim(),
         password: smsConnectionDraft.password
       });
-      setSmsConnectionStatus('connected');
-      setSmsConnectionMessage('Conexión probada correctamente.');
+      const resultStatus = String(response?.status || response?.item?.status || '').trim().toLowerCase();
+      if (resultStatus === 'ok') {
+        setSmsConnectionStatus('connected');
+        setSmsConnectionMessage(response?.detail || response?.item?.detail || 'Conexión probada correctamente.');
+      } else {
+        setSmsConnectionStatus('error');
+        setSmsConnectionError(response?.detail || response?.item?.detail || 'No se pudo probar la conexión SMS.');
+      }
     } catch (err) {
       if ([404, 501].includes(Number(err?.status))) {
         setSmsConnectionStatus('connected');
