@@ -41,6 +41,29 @@ function safePct(value) {
   return `${Math.round(n)}%`;
 }
 
+function normalizeResumenPayload(data) {
+  const summary = data?.summary || {};
+  const agents = Array.isArray(data?.agents) ? data.agents : [];
+
+  return {
+    ...data,
+    totales: {
+      monto_total: summary.salesAmount ?? 0,
+      operaciones: summary.sales ?? 0,
+      tendencia: summary.avgConversion ?? null
+    },
+    vendedores: agents.map((agent) => ({
+      vendedor_id: agent.id,
+      nombre: agent.name,
+      monto_total: agent.monto_total ?? 0,
+      operaciones: agent.sales ?? 0,
+      tendencia: agent.conversion ?? 0,
+      gestion: {},
+      analisis: {}
+    }))
+  };
+}
+
 // ─── Estilos inline (design system Tri) ────────────────────────────────────────
 
 const S = {
@@ -337,10 +360,17 @@ export default function PanelControlModule({ activeOrgId }) {
   const fetchResumen = useCallback(async (date) => {
     setLoading(true);
     setError(null);
+    if (!activeOrgId) {
+      setError('Seleccioná una organización para ver el resumen');
+      setResumen(null);
+      setLoading(false);
+      return;
+    }
     try {
       const fecha = toISODate(date);
-      const data = await api.get(`/panel/resumen?fecha=${fecha}`);
-      setResumen(data);
+      const url = `/api/supervisor/team-summary?fecha=${fecha}&organization_id=${encodeURIComponent(activeOrgId)}`;
+      const data = await api.get(url);
+      setResumen(normalizeResumenPayload(data));
     } catch (err) {
       console.error('[PanelControl] Error al cargar resumen:', err);
       setError('No se pudo cargar el resumen. Intentá de nuevo.');
