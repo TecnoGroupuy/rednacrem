@@ -31,6 +31,30 @@ const ORIGENES = [
   { value: 'web_form', label: 'Formulario web' }
 ];
 
+const LEADS_TABLE_COLUMNS = [
+  { key: 'fecha_solicitud', label: 'F. Solicitud', headerBg: 'rgba(254, 240, 138, 0.34)', cellBg: 'rgba(254, 240, 138, 0.18)' },
+  { key: 'nombre', label: 'Nombre', headerBg: 'rgba(191, 219, 254, 0.34)', cellBg: 'rgba(191, 219, 254, 0.18)' },
+  { key: 'telefono', label: 'Teléfono', headerBg: 'rgba(196, 181, 253, 0.32)', cellBg: 'rgba(196, 181, 253, 0.16)' },
+  { key: 'email', label: 'Email', headerBg: 'rgba(186, 230, 253, 0.34)', cellBg: 'rgba(186, 230, 253, 0.16)' },
+  { key: 'canal', label: 'Canal', headerBg: 'rgba(167, 243, 208, 0.34)', cellBg: 'rgba(167, 243, 208, 0.16)' },
+  { key: 'campana', label: 'Campaña', headerBg: 'rgba(253, 230, 138, 0.34)', cellBg: 'rgba(253, 230, 138, 0.16)' },
+  { key: 'estado', label: 'Estado', headerBg: 'rgba(224, 231, 255, 0.34)', cellBg: 'rgba(224, 231, 255, 0.16)' },
+  { key: 'motivo', label: 'Motivo', headerBg: 'rgba(254, 205, 211, 0.34)', cellBg: 'rgba(254, 205, 211, 0.16)' },
+  { key: 'gestion', label: 'Gestión', headerBg: 'rgba(254, 215, 170, 0.34)', cellBg: 'rgba(254, 215, 170, 0.16)' },
+  { key: 'intentos', label: 'Intentos', headerBg: 'rgba(209, 250, 229, 0.34)', cellBg: 'rgba(209, 250, 229, 0.16)' },
+  { key: 'ultimo_intento', label: 'Último intento', headerBg: 'rgba(226, 232, 240, 0.46)', cellBg: 'rgba(226, 232, 240, 0.22)' },
+  { key: 'vendedor', label: 'Vendedor', headerBg: 'rgba(251, 207, 232, 0.34)', cellBg: 'rgba(251, 207, 232, 0.16)' }
+];
+
+function buildLeadCellStyle(columnIndex, overrides = {}) {
+  const column = LEADS_TABLE_COLUMNS[columnIndex];
+  return {
+    padding: '10px 12px',
+    background: column?.cellBg || 'transparent',
+    ...overrides
+  };
+}
+
 function safeNumber(value) {
   if (value === null || value === undefined) return null;
   const parsed = Number(value);
@@ -501,12 +525,12 @@ export default function CampanasRedesModule() {
             </div>
 
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 900 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 1080 }}>
                 <thead>
                   <tr style={{ background: 'rgba(15,23,42,0.02)' }}>
-                    {['F. Solicitud', 'Nombre', 'Teléfono', 'Email', 'Canal', 'Campaña', 'Estado', 'Motivo', 'Gestión', 'Intentos', 'Último intento', 'Vendedor'].map((h) => (
+                    {LEADS_TABLE_COLUMNS.map((column) => (
                       <th
-                        key={h}
+                        key={column.key}
                         style={{
                           padding: '10px 12px',
                           textAlign: 'left',
@@ -515,10 +539,11 @@ export default function CampanasRedesModule() {
                           fontSize: 11,
                           textTransform: 'uppercase',
                           letterSpacing: 0.8,
-                          whiteSpace: 'nowrap'
+                          whiteSpace: 'nowrap',
+                          background: column.headerBg
                         }}
                       >
-                        {h}
+                        {column.label}
                       </th>
                     ))}
                   </tr>
@@ -553,7 +578,7 @@ export default function CampanasRedesModule() {
 
                       return (
                         <tr key={lead.id || idx} style={{ borderTop: '0.5px solid var(--color-border-tertiary, rgba(15,23,42,0.10))' }}>
-                          <td style={{ padding: '10px 12px', color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' }}>
+                          <td style={buildLeadCellStyle(0, { color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' })}>
                             {(() => {
                               const fSolicitud = lead.fecha_lead || lead.created_at || null;
                               return fSolicitud
@@ -561,22 +586,22 @@ export default function CampanasRedesModule() {
                                 : '—';
                             })()}
                           </td>
-                          <td style={{ padding: '10px 12px', fontWeight: 800, maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <td style={buildLeadCellStyle(1, { fontWeight: 800, maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' })}>
                             {lead.nombre || '—'} {lead.apellido || ''}
                           </td>
-                          <td style={{ padding: '10px 12px', color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' }}>
+                          <td style={buildLeadCellStyle(2, { color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' })}>
                             {lead.telefono || lead.celular || '—'}
                           </td>
-                          <td style={{ padding: '10px 12px', color: 'var(--color-text-secondary, #64748b)', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <td style={buildLeadCellStyle(3, { color: 'var(--color-text-secondary, #64748b)', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' })}>
                             {lead.email || '—'}
                           </td>
-                          <td style={{ padding: '10px 12px', color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' }}>
+                          <td style={buildLeadCellStyle(4, { color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' })}>
                             {formatOrigenLabel(lead.source_channel || lead.origen_dato)}
                           </td>
-                          <td style={{ padding: '10px 12px', color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' }}>
+                          <td style={buildLeadCellStyle(5, { color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' })}>
                             {String(lead.campana_meta || '').trim() || '—'}
                           </td>
-                          <td style={{ padding: '10px 12px' }}>
+                          <td style={buildLeadCellStyle(6)}>
                             <span style={{
                               background: 'rgba(15,23,42,0.04)',
                               color: estadoColor,
@@ -589,7 +614,7 @@ export default function CampanasRedesModule() {
                               {lead.estado || '—'}
                             </span>
                           </td>
-                          <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
+                          <td style={buildLeadCellStyle(7, { whiteSpace: 'nowrap' })}>
                             {(() => {
                               const rawMotivo = String(lead.motivo_bloqueo || '').trim();
                               if (!rawMotivo) return <span style={{ color: 'var(--color-text-tertiary, #94a3b8)' }}>—</span>;
@@ -608,7 +633,7 @@ export default function CampanasRedesModule() {
                               return <span style={neutralStyle}>{rawMotivo}</span>;
                             })()}
                           </td>
-                          <td style={{ padding: '10px 12px' }}>
+                          <td style={buildLeadCellStyle(8)}>
                             <span style={{
                               background: 'rgba(15,23,42,0.04)',
                               color: gestionColor,
@@ -621,15 +646,15 @@ export default function CampanasRedesModule() {
                               {lead.estado_venta || '—'}
                             </span>
                           </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--color-text-secondary, #64748b)', fontWeight: 800 }}>
+                          <td style={buildLeadCellStyle(9, { textAlign: 'center', color: 'var(--color-text-secondary, #64748b)', fontWeight: 800 })}>
                             {lead.intentos ?? '—'}
                           </td>
-                          <td style={{ padding: '10px 12px', color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' }}>
+                          <td style={buildLeadCellStyle(10, { color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' })}>
                             {lead.last_gestion_at
                               ? new Date(lead.last_gestion_at).toLocaleDateString('es-UY', { timeZone: 'America/Montevideo' })
                               : '—'}
                           </td>
-                          <td style={{ padding: '10px 12px', color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' }}>
+                          <td style={buildLeadCellStyle(11, { color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' })}>
                             {lead.assigned_to_name || '—'}
                           </td>
                         </tr>
