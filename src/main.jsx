@@ -5604,14 +5604,14 @@ const formatCurrency = (value) => {
                         ) : null}
                         <p style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px 0' }}>Teléfonos</p>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                          {(dc.telefono || dc.phone) && (
+                          {drawerTelefono && drawerTelefono !== '-' && (
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <div>
                                 <p style={{ fontSize: 11, color: '#888', margin: 0 }}>Fijo</p>
-                                <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>{dc.telefono || dc.phone}</p>
+                                <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>{drawerTelefono}</p>
                               </div>
                               <a
-                                href={`tel:${(dc.telefono || dc.phone).replace(/\s/g, '')}`}
+                                href={`tel:${String(drawerTelefono).replace(/\s/g, '')}`}
                                 style={{
                                   display: 'inline-flex',
                                   alignItems: 'center',
