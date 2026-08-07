@@ -398,7 +398,24 @@ const formatCurrency = (value) => {
 
       return { ok: true };
     }
+    const normalizeComparablePhone = (value) => String(value || '').replace(/\D/g, '');
     const pickCellular = (contact) => (contact?.celular || contact?.cellphone || contact?.telefono_celular || contact?.telefonoCelular || '');
+    const pickLandline = (contact) => {
+      const celular = normalizeComparablePhone(pickCellular(contact));
+      const candidates = [
+        contact?.telefono,
+        contact?.telefono_fijo,
+        contact?.telefonoFijo,
+        contact?.phone
+      ];
+      const resolved = candidates.find((value) => {
+        const normalized = normalizeComparablePhone(value);
+        if (!normalized) return false;
+        if (celular && normalized === celular) return false;
+        return true;
+      });
+      return resolved || '';
+    };
     const pickDireccion = (contact) => (
       contact?.direccion
       || contact?.domicilio
@@ -3677,7 +3694,7 @@ const formatCurrency = (value) => {
     const normalizeAssignedContact = (raw) => ({
       ...raw,
       name: [raw.nombre, raw.apellido].filter(Boolean).join(' ').trim() || raw.nombre || '',
-      phone: raw.celular || raw.telefono || '',
+      phone: pickLandline(raw),
       city: raw.departamento || raw.localidad || '',
       status: raw.estado_venta || 'nuevo',
       last: formatLastGestion(raw.ultima_gestion_real)
@@ -4593,13 +4610,46 @@ const formatCurrency = (value) => {
 
       const dc = drawerContact;
       const drawerNombre = dc ? (dc.name || [dc.nombre, dc.apellido].filter(Boolean).join(' ') || '-') : '';
-      const drawerTelefono = dc ? (dc.telefono || dc.phone || '-') : '';
+      const drawerTelefono = dc ? (pickLandline(dc) || '-') : '';
       const drawerCelular = dc ? (dc.celular || pickCellular(dc) || '-') : '';
       const drawerDireccion = dc ? (pickDireccion(dc) || '') : '';
       const drawerUbicacion = dc ? (dc.city || [dc.localidad, dc.departamento].filter(Boolean).join(', ') || '-') : '';
       const drawerFuente = dc ? (dc.source || dc.origen_dato || null) : null;
       const drawerLote = dc ? (dc.lotId || dc.batch_id || null) : null;
       const drawerEstado = dc ? (statusOverrides[dc.id] || dc.status || dc.estado_venta || 'nuevo') : 'nuevo';
+      const drawerNote = dc ? String(dc.nota || '').trim() : '';
+      const drawerCampaign = dc ? String(dc.campana_meta || dc.campana || '').trim() : '';
+      const drawerCampaignFromNote = drawerNote.match(/Campa(?:ñ|n)a:\s*([^|]+)/i)?.[1]?.trim() || '';
+      const drawerAffiliationSource = dc ? (dc.afiliado_asociacion ?? dc.afiliadoAsociacion ?? dc.afiliado ?? dc.asociado ?? '') : '';
+      const normalizeAffiliationLabel = (value) => {
+        const normalized = String(value || '').trim();
+        if (!normalized) return '';
+        const lower = normalized.toLowerCase();
+        if (['1', 'true', 'si', 'sí', 'yes', 'y', 'afiliado'].includes(lower)) return 'Sí';
+        if (['0', 'false', 'no', 'n'].includes(lower)) return 'No';
+        return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+      };
+      const drawerAffiliationFromNote = drawerNote.match(/Afiliado\s+asociaci(?:ó|o)n:\s*([^|]+)/i)?.[1]?.trim() || '';
+      const drawerCampaignLabel = drawerCampaign || drawerCampaignFromNote;
+      const drawerAffiliationLabel = normalizeAffiliationLabel(drawerAffiliationSource) || normalizeAffiliationLabel(drawerAffiliationFromNote);
+      const drawerAffiliationIsPositive = ['sí', 'si', 'true', '1', 'yes', 'afiliado'].includes(String(drawerAffiliationLabel || '').trim().toLowerCase());
+      const drawerObservationText = drawerNote
+        .replace(/Campa(?:ñ|n)a:\s*[^|]+/i, '')
+        .replace(/Afiliado\s+asociaci(?:ó|o)n:\s*[^|]+/i, '')
+        .replace(/\s*\|\s*/g, ' ')
+        .replace(/\s{2,}/g, ' ')
+        .trim()
+        .replace(/^[|,:;\-\s]+|[|,:;\-\s]+$/g, '');
+      const observationBadgeStyle = {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '6px 10px',
+        borderRadius: 999,
+        fontSize: 12,
+        fontWeight: 700,
+        lineHeight: 1.2
+      };
       const headerTitle = isRecupero ? 'Recupero' : 'Contactos asignados';
       const headerSubtitle = isRecupero ? 'Gestiona tu cartera de clientes en baja' : 'Gestiona solo tu lote operativo';
       const isVentaFlow = estadoGestion === 'venta';
@@ -5516,7 +5566,42 @@ const formatCurrency = (value) => {
                       </div>
                     ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, padding: '16px 0' }}>
+                      {(drawerCampaignLabel || drawerAffiliationLabel || drawerObservationText) && (
+                        <div>
+                          <p style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px 0' }}>Observaciones</p>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            {(drawerCampaignLabel || drawerAffiliationLabel) && (
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                {drawerCampaignLabel && (
+                                  <span style={{ ...observationBadgeStyle, background: '#EEEDFE', color: '#3C3489' }}>
+                                    <span style={{ opacity: 0.72 }}>Campaña</span>
+                                    <span>{drawerCampaignLabel}</span>
+                                  </span>
+                                )}
+                                {drawerAffiliationLabel && (
+                                  <span
+                                    style={{
+                                      ...observationBadgeStyle,
+                                      background: drawerAffiliationIsPositive ? '#E1F5EE' : '#F1F5F9',
+                                      color: drawerAffiliationIsPositive ? '#085041' : '#475569'
+                                    }}
+                                  >
+                                    <span style={{ opacity: 0.72 }}>Afiliación</span>
+                                    <span>{drawerAffiliationLabel}</span>
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {drawerObservationText && (
+                              <p style={{ fontSize: 13, fontWeight: 500, margin: 0, color: '#475569' }}>{drawerObservationText}</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
                       <div>
+                        {(drawerCampaignLabel || drawerAffiliationLabel || drawerObservationText) ? (
+                          <hr style={{ border: 'none', borderTop: '1px solid #F0F0F0', margin: '0 0 12px 0' }} />
+                        ) : null}
                         <p style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px 0' }}>Teléfonos</p>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                           {(dc.telefono || dc.phone) && (
@@ -5721,15 +5806,6 @@ const formatCurrency = (value) => {
                           </div>
                         </div>
                       </>
-                      {dc.nota && (
-                        <>
-                          <hr style={{ border: 'none', borderTop: '1px solid #F0F0F0', margin: 0 }} />
-                          <div>
-                            <p style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px 0' }}>Observaciones</p>
-                            <p style={{ fontSize: 13, fontWeight: 500, margin: 0, color: '#475569' }}>{dc.nota}</p>
-                          </div>
-                        </>
-                      )}
                       <div>
                         <hr style={{ border: 'none', borderTop: '1px solid #F0F0F0', margin: 0 }} />
                         <div style={{ paddingTop: 12 }}>
