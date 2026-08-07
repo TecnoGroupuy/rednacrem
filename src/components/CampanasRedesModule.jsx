@@ -32,27 +32,84 @@ const ORIGENES = [
 ];
 
 const LEADS_TABLE_COLUMNS = [
-  { key: 'fecha_solicitud', label: 'F. Solicitud', headerBg: 'rgba(254, 240, 138, 0.34)', cellBg: 'rgba(254, 240, 138, 0.18)' },
-  { key: 'nombre', label: 'Nombre', headerBg: 'rgba(191, 219, 254, 0.34)', cellBg: 'rgba(191, 219, 254, 0.18)' },
-  { key: 'telefono', label: 'Teléfono', headerBg: 'rgba(196, 181, 253, 0.32)', cellBg: 'rgba(196, 181, 253, 0.16)' },
-  { key: 'email', label: 'Email', headerBg: 'rgba(186, 230, 253, 0.34)', cellBg: 'rgba(186, 230, 253, 0.16)' },
-  { key: 'canal', label: 'Canal', headerBg: 'rgba(167, 243, 208, 0.34)', cellBg: 'rgba(167, 243, 208, 0.16)' },
-  { key: 'campana', label: 'Campaña', headerBg: 'rgba(253, 230, 138, 0.34)', cellBg: 'rgba(253, 230, 138, 0.16)' },
-  { key: 'estado', label: 'Estado', headerBg: 'rgba(224, 231, 255, 0.34)', cellBg: 'rgba(224, 231, 255, 0.16)' },
-  { key: 'motivo', label: 'Motivo', headerBg: 'rgba(254, 205, 211, 0.34)', cellBg: 'rgba(254, 205, 211, 0.16)' },
-  { key: 'gestion', label: 'Gestión', headerBg: 'rgba(254, 215, 170, 0.34)', cellBg: 'rgba(254, 215, 170, 0.16)' },
-  { key: 'intentos', label: 'Intentos', headerBg: 'rgba(209, 250, 229, 0.34)', cellBg: 'rgba(209, 250, 229, 0.16)' },
-  { key: 'ultimo_intento', label: 'Último intento', headerBg: 'rgba(226, 232, 240, 0.46)', cellBg: 'rgba(226, 232, 240, 0.22)' },
-  { key: 'vendedor', label: 'Vendedor', headerBg: 'rgba(251, 207, 232, 0.34)', cellBg: 'rgba(251, 207, 232, 0.16)' }
+  { key: 'fecha_solicitud', label: 'F. Solicitud' },
+  { key: 'nombre', label: 'Nombre' },
+  { key: 'telefono', label: 'Teléfono' },
+  { key: 'email', label: 'Email' },
+  { key: 'canal', label: 'Canal' },
+  { key: 'campana', label: 'Campaña' },
+  { key: 'estado', label: 'Estado' },
+  { key: 'motivo', label: 'Motivo' },
+  { key: 'gestion', label: 'Gestión' },
+  { key: 'intentos', label: 'Intentos' },
+  { key: 'ultimo_intento', label: 'Último intento' },
+  { key: 'vendedor', label: 'Vendedor' }
 ];
 
-function buildLeadCellStyle(columnIndex, overrides = {}) {
-  const column = LEADS_TABLE_COLUMNS[columnIndex];
+const BADGE_STYLE = {
+  padding: '2px 8px',
+  borderRadius: 'var(--radius)',
+  fontSize: 12,
+  fontWeight: 900,
+  whiteSpace: 'nowrap'
+};
+
+const CAMPAIGN_BADGE_COLORS = [
+  { bg: '#EEEDFE', text: '#3C3489' },
+  { bg: '#E1F5EE', text: '#085041' },
+  { bg: '#FAECE7', text: '#712B13' },
+  { bg: '#FBEAF0', text: '#72243E' }
+];
+
+const ESTADO_BADGE_MAP = {
+  bloqueado: { bg: 'var(--bg-danger, rgba(163,45,45,0.12))', text: 'var(--text-danger, #A32D2D)' },
+  nuevo: { bg: 'var(--bg-accent, rgba(59,130,246,0.12))', text: 'var(--text-accent, #1d4ed8)' },
+  trabajado: { bg: 'var(--bg-warning, rgba(133,79,11,0.12))', text: 'var(--text-warning, #854F0B)' }
+};
+
+const MOTIVO_BADGE_MAP = {
+  cliente_existente: { bg: 'var(--bg-danger, rgba(163,45,45,0.12))', text: 'var(--text-danger, #A32D2D)' },
+  no_llamar: { bg: 'var(--bg-danger, rgba(163,45,45,0.12))', text: 'var(--text-danger, #A32D2D)' },
+  rechazo: { bg: 'var(--bg-danger, rgba(163,45,45,0.12))', text: 'var(--text-danger, #A32D2D)' },
+  duplicado: { bg: 'var(--bg-warning, rgba(133,79,11,0.12))', text: 'var(--text-warning, #854F0B)' },
+  reemplazado: { bg: 'var(--surface-1, rgba(15,23,42,0.06))', text: 'var(--text-secondary, #64748b)' }
+};
+
+const GESTION_BADGE_MAP = {
+  venta: { bg: 'var(--bg-success, rgba(21,128,61,0.12))', text: 'var(--text-success, #15803d)' },
+  rechazo: { bg: 'var(--bg-danger, rgba(163,45,45,0.12))', text: 'var(--text-danger, #A32D2D)' },
+  no_contesta: { bg: 'var(--bg-warning, rgba(133,79,11,0.12))', text: 'var(--text-warning, #854F0B)' },
+  rellamar: { bg: 'var(--bg-warning, rgba(133,79,11,0.12))', text: 'var(--text-warning, #854F0B)' },
+  seguimiento: { bg: 'var(--bg-warning, rgba(133,79,11,0.12))', text: 'var(--text-warning, #854F0B)' },
+  nuevo: { bg: 'var(--bg-accent, rgba(59,130,246,0.12))', text: 'var(--text-accent, #1d4ed8)' }
+};
+
+const NEUTRAL_BADGE_STYLE = {
+  bg: 'var(--surface-1, rgba(15,23,42,0.06))',
+  text: 'var(--text-secondary, #64748b)'
+};
+
+function buildLeadCellStyle(overrides = {}) {
   return {
     padding: '10px 12px',
-    background: column?.cellBg || 'transparent',
     ...overrides
   };
+}
+
+function getBadgeTone(map, value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return null;
+  return map[normalized] || NEUTRAL_BADGE_STYLE;
+}
+
+function getCampaignBadgeTone(value) {
+  const normalized = String(value || '').trim();
+  if (!normalized) return null;
+  let hash = 0;
+  for (let i = 0; i < normalized.length; i += 1) {
+    hash += normalized.charCodeAt(i);
+  }
+  return CAMPAIGN_BADGE_COLORS[hash % CAMPAIGN_BADGE_COLORS.length];
 }
 
 function safeNumber(value) {
@@ -539,8 +596,7 @@ export default function CampanasRedesModule() {
                           fontSize: 11,
                           textTransform: 'uppercase',
                           letterSpacing: 0.8,
-                          whiteSpace: 'nowrap',
-                          background: column.headerBg
+                          whiteSpace: 'nowrap'
                         }}
                       >
                         {column.label}
@@ -559,26 +615,15 @@ export default function CampanasRedesModule() {
                     </tr>
                   ) : (
                     leads.map((lead, idx) => {
-                      const estado = String(lead.estado || '').toLowerCase();
-                      const gestion = String(lead.estado_venta || '').toLowerCase();
-                      const estadoColor = estado.includes('convert')
-                        ? 'var(--success, #15803d)'
-                        : estado.includes('rechaz')
-                          ? '#A32D2D'
-                          : estado.includes('no contesta')
-                            ? '#854F0B'
-                            : 'var(--color-text-secondary, #64748b)';
-                      const gestionColor = gestion.includes('sin')
-                        ? 'var(--color-text-secondary, #64748b)'
-                        : gestion.includes('seguim') || gestion.includes('rellam')
-                          ? '#854F0B'
-                          : gestion.includes('venta') || gestion.includes('convert')
-                            ? 'var(--success, #15803d)'
-                            : 'var(--color-text-secondary, #64748b)';
+                      const campaignValue = String(lead.campana_meta || '').trim();
+                      const campaignTone = getCampaignBadgeTone(campaignValue);
+                      const estadoTone = getBadgeTone(ESTADO_BADGE_MAP, lead.estado);
+                      const motivoTone = getBadgeTone(MOTIVO_BADGE_MAP, lead.motivo_bloqueo);
+                      const gestionTone = getBadgeTone(GESTION_BADGE_MAP, lead.estado_venta);
 
                       return (
                         <tr key={lead.id || idx} style={{ borderTop: '0.5px solid var(--color-border-tertiary, rgba(15,23,42,0.10))' }}>
-                          <td style={buildLeadCellStyle(0, { color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' })}>
+                          <td style={buildLeadCellStyle({ color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' })}>
                             {(() => {
                               const fSolicitud = lead.fecha_lead || lead.created_at || null;
                               return fSolicitud
@@ -586,75 +631,87 @@ export default function CampanasRedesModule() {
                                 : '—';
                             })()}
                           </td>
-                          <td style={buildLeadCellStyle(1, { fontWeight: 800, maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' })}>
+                          <td style={buildLeadCellStyle({ fontWeight: 800, maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' })}>
                             {lead.nombre || '—'} {lead.apellido || ''}
                           </td>
-                          <td style={buildLeadCellStyle(2, { color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' })}>
+                          <td style={buildLeadCellStyle({ color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' })}>
                             {lead.telefono || lead.celular || '—'}
                           </td>
-                          <td style={buildLeadCellStyle(3, { color: 'var(--color-text-secondary, #64748b)', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' })}>
+                          <td style={buildLeadCellStyle({ color: 'var(--color-text-secondary, #64748b)', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' })}>
                             {lead.email || '—'}
                           </td>
-                          <td style={buildLeadCellStyle(4, { color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' })}>
+                          <td style={buildLeadCellStyle({ color: 'var(--text-secondary, var(--color-text-secondary, #64748b))', whiteSpace: 'nowrap' })}>
                             {formatOrigenLabel(lead.source_channel || lead.origen_dato)}
                           </td>
-                          <td style={buildLeadCellStyle(5, { color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' })}>
-                            {String(lead.campana_meta || '').trim() || '—'}
+                          <td style={buildLeadCellStyle({ whiteSpace: 'nowrap' })}>
+                            {!campaignValue ? (
+                              <span style={{ color: 'var(--text-muted, var(--color-text-tertiary, #94a3b8))' }}>{'\u2014'}</span>
+                            ) : (
+                              <span
+                                style={{
+                                  ...BADGE_STYLE,
+                                  background: campaignTone.bg,
+                                  color: campaignTone.text
+                                }}
+                              >
+                                {campaignValue}
+                              </span>
+                            )}
                           </td>
-                          <td style={buildLeadCellStyle(6)}>
-                            <span style={{
-                              background: 'rgba(15,23,42,0.04)',
-                              color: estadoColor,
-                              borderRadius: 999,
-                              padding: '2px 8px',
-                              fontSize: 11,
-                              fontWeight: 900,
-                              whiteSpace: 'nowrap'
-                            }}>
-                              {lead.estado || '—'}
-                            </span>
+                          <td style={buildLeadCellStyle()}>
+                            {!String(lead.estado || '').trim() ? (
+                              <span style={{ color: 'var(--text-muted, var(--color-text-tertiary, #94a3b8))' }}>{'\u2014'}</span>
+                            ) : (
+                              <span
+                                style={{
+                                  ...BADGE_STYLE,
+                                  background: estadoTone.bg,
+                                  color: estadoTone.text
+                                }}
+                              >
+                                {lead.estado}
+                              </span>
+                            )}
                           </td>
-                          <td style={buildLeadCellStyle(7, { whiteSpace: 'nowrap' })}>
-                            {(() => {
-                              const rawMotivo = String(lead.motivo_bloqueo || '').trim();
-                              if (!rawMotivo) return <span style={{ color: 'var(--color-text-tertiary, #94a3b8)' }}>—</span>;
-                              const motivo = rawMotivo.toLowerCase();
-
-                              const dangerStyle = { background: 'rgba(163,45,45,0.12)', color: '#A32D2D', borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 900 };
-                              const warningStyle = { background: 'rgba(133,79,11,0.12)', color: '#854F0B', borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 900 };
-                              const neutralStyle = { background: 'rgba(15,23,42,0.06)', color: 'var(--color-text-secondary, #64748b)', borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 900 };
-
-                              if (motivo === 'cliente_existente') return <span style={dangerStyle}>Cliente</span>;
-                              if (motivo === 'duplicado') return <span style={warningStyle}>Duplicado</span>;
-                              if (motivo === 'reemplazado') return <span style={neutralStyle}>{lead.motivo_bloqueo_detalle || 'Reemplazado'}</span>;
-                              if (motivo === 'no_llamar') return <span style={dangerStyle}>No llamar</span>;
-                              if (motivo === 'rechazo') return <span style={dangerStyle}>Rechazo</span>;
-
-                              return <span style={neutralStyle}>{rawMotivo}</span>;
-                            })()}
+                          <td style={buildLeadCellStyle({ whiteSpace: 'nowrap' })}>
+                            {!String(lead.motivo_bloqueo || '').trim() ? (
+                              <span style={{ color: 'var(--text-muted, var(--color-text-tertiary, #94a3b8))' }}>{'\u2014'}</span>
+                            ) : (
+                              <span
+                                style={{
+                                  ...BADGE_STYLE,
+                                  background: motivoTone.bg,
+                                  color: motivoTone.text
+                                }}
+                              >
+                                {lead.motivo_bloqueo_detalle || lead.motivo_bloqueo}
+                              </span>
+                            )}
                           </td>
-                          <td style={buildLeadCellStyle(8)}>
-                            <span style={{
-                              background: 'rgba(15,23,42,0.04)',
-                              color: gestionColor,
-                              borderRadius: 999,
-                              padding: '2px 8px',
-                              fontSize: 11,
-                              fontWeight: 900,
-                              whiteSpace: 'nowrap'
-                            }}>
-                              {lead.estado_venta || '—'}
-                            </span>
+                          <td style={buildLeadCellStyle()}>
+                            {!String(lead.estado_venta || '').trim() ? (
+                              <span style={{ color: 'var(--text-muted, var(--color-text-tertiary, #94a3b8))' }}>{'\u2014'}</span>
+                            ) : (
+                              <span
+                                style={{
+                                  ...BADGE_STYLE,
+                                  background: gestionTone.bg,
+                                  color: gestionTone.text
+                                }}
+                              >
+                                {lead.estado_venta}
+                              </span>
+                            )}
                           </td>
-                          <td style={buildLeadCellStyle(9, { textAlign: 'center', color: 'var(--color-text-secondary, #64748b)', fontWeight: 800 })}>
+                          <td style={buildLeadCellStyle({ textAlign: 'center', color: 'var(--color-text-secondary, #64748b)', fontWeight: 800 })}>
                             {lead.intentos ?? '—'}
                           </td>
-                          <td style={buildLeadCellStyle(10, { color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' })}>
+                          <td style={buildLeadCellStyle({ color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' })}>
                             {lead.last_gestion_at
                               ? new Date(lead.last_gestion_at).toLocaleDateString('es-UY', { timeZone: 'America/Montevideo' })
                               : '—'}
                           </td>
-                          <td style={buildLeadCellStyle(11, { color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' })}>
+                          <td style={buildLeadCellStyle({ color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' })}>
                             {lead.assigned_to_name || '—'}
                           </td>
                         </tr>
