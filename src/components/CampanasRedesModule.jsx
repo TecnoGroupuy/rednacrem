@@ -504,7 +504,7 @@ export default function CampanasRedesModule() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 900 }}>
                 <thead>
                   <tr style={{ background: 'rgba(15,23,42,0.02)' }}>
-                    {['F. Solicitud', 'Nombre', 'Teléfono', 'Email', 'Canal', 'Estado', 'Motivo', 'Gestión', 'Intentos', 'Último intento', 'Vendedor'].map((h) => (
+                    {['F. Solicitud', 'Nombre', 'Teléfono', 'Email', 'Canal', 'Campaña', 'Estado', 'Motivo', 'Gestión', 'Intentos', 'Último intento', 'Vendedor'].map((h) => (
                       <th
                         key={h}
                         style={{
@@ -526,11 +526,11 @@ export default function CampanasRedesModule() {
                 <tbody>
                   {leadsLoading ? (
                     <tr>
-                      <td colSpan={11} style={{ padding: 16, color: 'var(--color-text-secondary, #64748b)' }}>Cargando leads...</td>
+                      <td colSpan={12} style={{ padding: 16, color: 'var(--color-text-secondary, #64748b)' }}>Cargando leads...</td>
                     </tr>
                   ) : !leads.length ? (
                     <tr>
-                      <td colSpan={11} style={{ padding: 16, color: 'var(--color-text-secondary, #64748b)' }}>Sin leads</td>
+                      <td colSpan={12} style={{ padding: 16, color: 'var(--color-text-secondary, #64748b)' }}>Sin leads</td>
                     </tr>
                   ) : (
                     leads.map((lead, idx) => {
@@ -572,6 +572,9 @@ export default function CampanasRedesModule() {
                           </td>
                           <td style={{ padding: '10px 12px', color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' }}>
                             {formatOrigenLabel(lead.source_channel || lead.origen_dato)}
+                          </td>
+                          <td style={{ padding: '10px 12px', color: 'var(--color-text-secondary, #64748b)', whiteSpace: 'nowrap' }}>
+                            {String(lead.campana_meta || '').trim() || '—'}
                           </td>
                           <td style={{ padding: '10px 12px' }}>
                             <span style={{
