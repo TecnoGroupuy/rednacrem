@@ -6333,6 +6333,23 @@ const formatCurrency = (value) => {
         const start = (safePage - 1) * PAGE_SIZE;
         return agendaVisibleRows.slice(start, start + PAGE_SIZE);
       }, [agendaVisibleRows, safePage]);
+      const drawerNota = drawerItem ? String(drawerItem.nota || '').trim() : '';
+      const drawerCampaignLabel = drawerItem
+        ? String(
+          drawerItem.campana_meta
+          || drawerItem.campana
+          || drawerItem.campania
+          || drawerItem.meta_campania
+          || drawerItem.meta_campana
+          || drawerItem.nombre_meta_campania
+          || drawerItem.nombre_meta_campana
+          || drawerItem.campana_nombre
+          || drawerItem.campania_nombre
+          || ''
+        ).trim()
+        : '';
+      const drawerCampaignFromNote = drawerNota.match(/Campa(?:ñ|n)a:\s*([^|]+)/i)?.[1]?.trim() || '';
+      const drawerResolvedCampaignLabel = drawerCampaignLabel || drawerCampaignFromNote;
 
       return (
         <div className="view">
@@ -6870,8 +6887,11 @@ const formatCurrency = (value) => {
                     <button
                       type="button"
                       onClick={cerrarDrawer}
+                      aria-label="Cerrar"
                       style={{ border: 'none', background: '#f3f4f6', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', flexShrink: 0 }}
-                    >?</button>
+                    >
+                      <X size={16} />
+                    </button>
                   </div>
                   {/* Tabs */}
                   <div style={{ display: 'flex', gap: 0, marginTop: 4 }}>
@@ -6961,7 +6981,7 @@ const formatCurrency = (value) => {
                           )}
                         </div>
                       </div>
-                      {(drawerItem.documento || drawerItem.fecha_nacimiento || drawerItem.correo_electronico || drawerItem.nota || drawerItem.origen_dato || drawerItem.origen || drawerItem.created_at || drawerItem.departamento || drawerItem.localidad) && (
+                      {(drawerItem.documento || drawerItem.fecha_nacimiento || drawerItem.correo_electronico || drawerItem.nota || drawerResolvedCampaignLabel || drawerItem.origen_dato || drawerItem.origen || drawerItem.created_at || drawerItem.departamento || drawerItem.localidad) && (
                         <>
                           <hr style={{ border: 'none', borderTop: '1px solid #F0F0F0', margin: 0 }} />
                           <div>
@@ -6986,6 +7006,12 @@ const formatCurrency = (value) => {
                                 <div style={{ gridColumn: '1 / -1' }}>
                                   <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Comentarios</p>
                                   <p style={{ fontSize: 13, fontWeight: 500, margin: 0, color: '#475569' }}>{drawerItem.nota}</p>
+                                </div>
+                              )}
+                              {drawerResolvedCampaignLabel && (
+                                <div style={{ gridColumn: '1 / -1' }}>
+                                  <p style={{ fontSize: 11, color: '#888', margin: '0 0 2px 0' }}>Meta campaña</p>
+                                  <p style={{ fontSize: 13, fontWeight: 500, margin: 0, color: '#475569' }}>{drawerResolvedCampaignLabel}</p>
                                 </div>
                               )}
                             </div>
