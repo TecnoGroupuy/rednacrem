@@ -349,17 +349,39 @@ export const searchPortfolioClients = async (term) => {
       return text.includes(query);
     });
   }
-  const { portfolio = [], table = [] } = await fetchClientsDirectory({ page: 1, limit: 50, search: term });
+  const { portfolio = [], table = [], items = [] } = await fetchClientsDirectory({ page: 1, limit: 50, search: term });
   const base = portfolio.length ? portfolio : table;
-  return base.map((client) => ({
-    id: client.id,
-    nombre: client.nombre || client.name || '',
-    numeroCliente: client.numeroCliente || client.numero_cliente || client.id || '',
-    documento: client.documento || '',
-    telefono: client.telefono || client.phone || '',
-    celular: client.celular || '',
-    productoActualNombre: client.productoActualNombre || client.product || ''
-  }));
+  const rawByClientId = new Map(
+    (Array.isArray(items) ? items : []).map((item) => {
+      const rawClientId =
+        item?.contact_id
+        || item?.contactId
+        || item?.contacto_id
+        || item?.contact?.id
+        || item?.contacto?.id
+        || item?.client?.id
+        || item?.cliente?.id
+        || item?.id
+        || '';
+      return [String(rawClientId), item];
+    }).filter(([id]) => Boolean(id))
+  );
+  return base.map((client) => {
+    const raw = rawByClientId.get(String(client.id || client.contactId || '')) || {};
+    return {
+      id: client.id,
+      nombre: client.nombre || client.name || '',
+      numeroCliente: client.numeroCliente || client.numero_cliente || client.id || '',
+      documento: client.documento || '',
+      telefono: client.telefono || client.phone || '',
+      celular: client.celular || '',
+      productoActualNombre: client.productoActualNombre || client.product || '',
+      matchedVia: raw.matched_via || raw.matchedVia || '',
+      matched_via: raw.matched_via || raw.matchedVia || '',
+      familyReferenceName: raw.matched_from_name || raw.matchedFromName || '',
+      family_reference_name: raw.matched_from_name || raw.matchedFromName || ''
+    };
+  });
 };
 
 export const fetchContactsList = async () => {
@@ -391,6 +413,7 @@ export const fetchClientsDirectory = async ({ page = 1, limit = null, search = '
         cuotasPagas: 0,
         carenciaCuotas: 0
       })),
+      items: fallback,
       portfolio: fallback,
       total: fallback.length,
       page,
@@ -460,7 +483,7 @@ export const fetchClientsDirectory = async ({ page = 1, limit = null, search = '
     cuotasPagas: item.cuotasPagas,
     carenciaCuotas: item.carenciaCuotas
   }));
-  return { table, portfolio, total, page: currentPage, pageSize };
+  return { table, portfolio, items, total, page: currentPage, pageSize };
 };
 
 export const fetchClientsMetrics = async () => {

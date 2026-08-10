@@ -12589,10 +12589,36 @@ const formatCurrency = (value) => {
                     {lookupError ? <div style={{ marginTop: 8, color: '#be123c', fontWeight: 700 }}>{lookupError}</div> : null}
                     {lookupResults.length ? (
                       <div className="list" style={{ marginTop: 10 }}>
-                        {lookupResults.slice(0, 6).map((client) => (
-                          <div key={client.id} className="status-item" style={{ alignItems: 'center' }}>
+                        {lookupResults.slice(0, 6).map((client, index) => {
+                          const isFamilyRelationMatch = String(client.matchedVia || client.matched_via || '').toLowerCase() === 'family_relation';
+                          const familyReferenceName =
+                            client.familyReferenceName
+                            || client.family_reference_name
+                            || client.relatedContactName
+                            || client.related_contact_name
+                            || client.contactoRelacionNombre
+                            || client.contacto_relacion_nombre
+                            || '';
+                          return (
+                          <div key={`${client.id || client.contactId || 'client'}-${index}`} className="status-item" style={{ alignItems: 'center' }}>
                             <div style={{ flex: 1 }}>
-                              <div style={{ fontWeight: 700 }}>{client.nombre}</div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                <div style={{ fontWeight: 700 }}>{client.nombre}</div>
+                                {isFamilyRelationMatch ? (
+                                  <span style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    padding: '2px 8px',
+                                    borderRadius: 999,
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    background: 'rgba(59,130,246,0.12)',
+                                    color: '#1d4ed8'
+                                  }}>
+                                    {`Familiar de ${familyReferenceName || 'contacto relacionado'}`}
+                                  </span>
+                                ) : null}
+                              </div>
                               <div style={{ color: 'var(--muted)', fontSize: '0.86rem', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                                 <span>CI {client.documento} {' · '} {client.telefono || client.celular || '—'} {' · '} {client.productoActualNombre}</span>
                                 {productStatusBadge(client.status || client.estado || client.estadoProducto)}
@@ -12624,7 +12650,8 @@ const formatCurrency = (value) => {
                               </Button>
                             </div>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     ) : null}
 
@@ -14931,6 +14958,29 @@ const formatCurrency = (value) => {
           cobranzaDocumento: ''
         }
       });
+      const familiaresConProductoIds = React.useMemo(() => (
+        new Set(
+          Object.entries(newClientDraft.productsByContact || {})
+            .filter(([key, value]) => key !== 'principal' && Boolean(value))
+            .map(([key]) => String(key))
+        )
+      ), [newClientDraft.productsByContact]);
+      const familiarRequiresDocumento = React.useCallback((fam = {}) => (
+        familiaresConProductoIds.has(String(fam?.id || ''))
+      ), [familiaresConProductoIds]);
+      const getFamiliarDocumentoError = React.useCallback((fam = {}) => {
+        if (!familiarRequiresDocumento(fam)) return '';
+        const documento = String(fam?.documento || '').trim();
+        if (documento) return '';
+        return 'El documento es obligatorio.';
+      }, [familiarRequiresDocumento]);
+      const familiaresDocumentoInvalidos = React.useMemo(() => (
+        (newClientDraft.familiares || []).filter((fam) => Boolean(getFamiliarDocumentoError(fam)))
+      ), [newClientDraft.familiares, getFamiliarDocumentoError]);
+      const hasInvalidFamiliaresDocumento = familiaresDocumentoInvalidos.length > 0;
+      const hasIncompleteProductSelection = newClientStep === 2
+        && (!newClientDraft.productsByContact.principal || Object.keys(newClientDraft.productsByContact).length < (1 + newClientDraft.familiares.length));
+      const canGoNextStep = !newClientSaving && !(newClientStep === 2 && (hasIncompleteProductSelection || hasInvalidFamiliaresDocumento));
 
       const handleSiguiente = () => {
         if (newClientStep === 0) {
@@ -14943,6 +14993,11 @@ const formatCurrency = (value) => {
           setDocumentoError(documentoVal ? '' : 'El documento es obligatorio.');
 
           if (!telVal.ok || !celVal.ok || !documentoVal) return;
+        }
+
+        if (newClientStep === 2 && hasInvalidFamiliaresDocumento) {
+          setNewClientError('');
+          return;
         }
 
         if (newClientStep < 3) {
@@ -15496,11 +15551,19 @@ const formatCurrency = (value) => {
                   >
                     + Agregar familiar
                   </button>
+                  {hasInvalidFamiliaresDocumento ? (
+                    <div style={{ fontSize: 12, color: '#b91c1c', marginBottom: 12 }}>
+                      Completá el documento de cada familiar con producto asignado para continuar.
+                    </div>
+                  ) : null}
                   {!newClientDraft.familiares.length ? (
                     <div style={{ fontSize: 12, color: '#94a3b8' }}>Sin familiares agregados.</div>
                   ) : (
                     <div style={{ display: 'grid', gap: 12 }}>
-                      {newClientDraft.familiares.map((fam, idx) => (
+                      {newClientDraft.familiares.map((fam, idx) => {
+                        const documentoError = getFamiliarDocumentoError(fam);
+                        const documentoLabel = familiarRequiresDocumento(fam) ? 'Documento *' : 'Documento';
+                        return (
                         <div key={fam.id} style={{ border: '1px solid #e5e7eb', borderRadius: 14, padding: 12 }}>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                             <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>Familiar {idx + 1}</div>
@@ -15516,20 +15579,41 @@ const formatCurrency = (value) => {
                             {[
                               { label: 'Nombre', field: 'nombre' },
                               { label: 'Apellido', field: 'apellido' },
-                              { label: 'Documento', field: 'documento' },
+                              { label: documentoLabel, field: 'documento' },
                               { label: 'Teléfono', field: 'telefono' },
                               { label: 'Celular', field: 'celular' },
                               { label: 'Fecha de nacimiento', field: 'fecha_nacimiento', type: 'date' },
                               { label: 'Dirección', field: 'direccion', full: true }
                             ].map(({ label, field }) => (
-                              <label key={field} style={{ fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, gridColumn: field === 'direccion' ? '1 / -1' : 'auto' }}>
+                              <label
+                                key={field}
+                                style={{
+                                  fontSize: 12,
+                                  color: field === 'documento' && documentoError ? '#b91c1c' : '#6b7280',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: 1,
+                                  gridColumn: field === 'direccion' ? '1 / -1' : 'auto'
+                                }}
+                              >
                                 {label}
                                 <input
                                   type={field === 'fecha_nacimiento' ? 'date' : 'text'}
                                   value={field === 'fecha_nacimiento' ? toDateInput(fam[field]) : (fam[field] || '')}
                                   onChange={(event) => handleFamiliarChange(fam.id, field, event.target.value)}
-                                  style={{ marginTop: 6, width: '100%', padding: '10px 12px', borderRadius: 12, border: '1px solid #e5e7eb' }}
+                                  aria-invalid={field === 'documento' && documentoError ? 'true' : 'false'}
+                                  style={{
+                                    marginTop: 6,
+                                    width: '100%',
+                                    padding: '10px 12px',
+                                    borderRadius: 12,
+                                    border: field === 'documento' && documentoError ? '1px solid #dc2626' : '1px solid #e5e7eb'
+                                  }}
                                 />
+                                {field === 'documento' && documentoError ? (
+                                  <span style={{ fontSize: 12, color: '#dc2626', marginTop: 4, display: 'block', textTransform: 'none', letterSpacing: 0 }}>
+                                    ⚠ {documentoError}
+                                  </span>
+                                ) : null}
                               </label>
                             ))}
                             <label style={{ fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1 }}>
@@ -15547,7 +15631,8 @@ const formatCurrency = (value) => {
                             </label>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -15686,7 +15771,7 @@ const formatCurrency = (value) => {
               <button
                 type="button"
                 onClick={handleSiguiente}
-                disabled={newClientSaving || (newClientStep === 2 && (!newClientDraft.productsByContact.principal || Object.keys(newClientDraft.productsByContact).length < (1 + newClientDraft.familiares.length)))}
+                disabled={!canGoNextStep}
                 className="new-client-action"
                 style={{
                   border: 'none',
@@ -15694,8 +15779,8 @@ const formatCurrency = (value) => {
                   color: '#fff',
                   padding: '10px 22px',
                   borderRadius: 999,
-                  cursor: newClientSaving || (newClientStep === 2 && (!newClientDraft.productsByContact.principal || Object.keys(newClientDraft.productsByContact).length < (1 + newClientDraft.familiares.length))) ? 'not-allowed' : 'pointer',
-                  opacity: newClientSaving || (newClientStep === 2 && (!newClientDraft.productsByContact.principal || Object.keys(newClientDraft.productsByContact).length < (1 + newClientDraft.familiares.length))) ? 0.65 : 1
+                  cursor: !canGoNextStep ? 'not-allowed' : 'pointer',
+                  opacity: !canGoNextStep ? 0.65 : 1
                 }}
                 >
                   {newClientStep < 3 ? 'Siguiente' : (newClientSaving ? 'Guardando...' : 'Finalizar venta')}
