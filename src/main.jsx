@@ -8848,6 +8848,9 @@ const formatCurrency = (value) => {
       const [nuevoContactoError, setNuevoContactoError] = React.useState('');
       const [phoneWarnings, setPhoneWarnings] = React.useState([]);
       const [phoneCheckLoading, setPhoneCheckLoading] = React.useState(false);
+      const [noCallAuthMotivo, setNoCallAuthMotivo] = React.useState('');
+      const [noCallAuthLoading, setNoCallAuthLoading] = React.useState(false);
+      const [noCallAuthError, setNoCallAuthError] = React.useState('');
       const [telefonoError, setTelefonoError] = React.useState('');
       const [celularError, setCelularError] = React.useState('');
       const [origenDatoError, setOrigenDatoError] = React.useState('');
@@ -9658,6 +9661,8 @@ const formatCurrency = (value) => {
           setPhoneWarnings([]);
           setPhoneVerified(false);
           setReactivarData(null);
+          setNoCallAuthMotivo('');
+          setNoCallAuthError('');
           return;
         }
         const token = ++phoneCheckTokenRef.current;
@@ -9668,20 +9673,57 @@ const formatCurrency = (value) => {
           );
           if (token !== phoneCheckTokenRef.current) return;
           if (res?.ok) {
-            setPhoneWarnings(res.advertencias || []);
-            if (!res.advertencias || res.advertencias.length === 0) {
+            const warnings = Array.isArray(res.advertencias) ? res.advertencias : [];
+            const hasBlockingNoCall = warnings.some((w) => w.tipo === 'no_llamar' && !w.autorizado);
+            const hasNonNoCallWarnings = warnings.some((w) => w.tipo !== 'no_llamar');
+            setPhoneWarnings(warnings);
+            if (!warnings.length) {
+              setPhoneVerified(true);
+              setReactivarData(null);
+            } else if (!hasBlockingNoCall && !hasNonNoCallWarnings) {
               setPhoneVerified(true);
               setReactivarData(null);
             } else {
               setPhoneVerified(false);
             }
+          } else {
+            setPhoneWarnings([]);
+            setPhoneVerified(false);
+            setReactivarData(null);
+            setNoCallAuthError('');
           }
         } catch {
+          setPhoneWarnings([]);
+          setPhoneVerified(false);
+          setReactivarData(null);
+          setNoCallAuthError('');
           // silencioso — no bloquear el formulario si falla la verificación
         } finally {
           if (token === phoneCheckTokenRef.current) {
             setPhoneCheckLoading(false);
           }
+        }
+      }
+
+      async function handleAuthorizeNoCall(warning) {
+        const tel = String(warning?.numero || '').trim();
+        if (!tel || !noCallAuthMotivo.trim()) return;
+        setNoCallAuthLoading(true);
+        setNoCallAuthError('');
+        setNuevoContactoError('');
+        try {
+          await api.post(
+            `/no-llamar/${encodeURIComponent(tel)}/authorize`,
+            { motivo: noCallAuthMotivo.trim() }
+          );
+          setNoCallAuthMotivo('');
+          await checkPhone(tel);
+        } catch (err) {
+          const message = err?.message || 'No se pudo autorizar el desbloqueo.';
+          setNoCallAuthError(message);
+          setNuevoContactoError(message);
+        } finally {
+          setNoCallAuthLoading(false);
         }
       }
 
@@ -11410,12 +11452,17 @@ const formatCurrency = (value) => {
                           if (value !== nuevoContactoForm.celular) {
                             setPhoneVerified(false);
                             setReactivarData(null);
+                            setPhoneWarnings([]);
+                            setNoCallAuthMotivo('');
+                            setNoCallAuthError('');
                           }
                           const nextError = validateCelularNumber(value);
                           setCelularError(nextError);
                           if (nextError) triggerShake('celular');
                           if (!value) {
                             setPhoneWarnings([]);
+                            setNoCallAuthMotivo('');
+                            setNoCallAuthError('');
                             return;
                           }
                           if (!nextError && value.length >= 6) {
@@ -11446,12 +11493,17 @@ const formatCurrency = (value) => {
                           if (value !== nuevoContactoForm.telefono) {
                             setPhoneVerified(false);
                             setReactivarData(null);
+                            setPhoneWarnings([]);
+                            setNoCallAuthMotivo('');
+                            setNoCallAuthError('');
                           }
                           const nextError = validateTelefonoFijo(value);
                           setTelefonoError(nextError);
                           if (nextError) triggerShake('telefono');
                           if (!value) {
                             setPhoneWarnings([]);
+                            setNoCallAuthMotivo('');
+                            setNoCallAuthError('');
                             return;
                           }
                           if (!nextError && value.length >= 6) {
@@ -11475,49 +11527,102 @@ const formatCurrency = (value) => {
                       {phoneWarnings.length > 0 ? (
                         <div style={{ display: 'grid', gap: 8, marginTop: 4 }}>
                           {phoneWarnings.map((w, idx) => (
-                            <div key={idx} style={{
-                              fontSize: 12, color: '#92400e', background: '#fffbeb',
-                              border: '1px solid #fde68a', borderRadius: 8, padding: '8px 10px'
-                            }}>
-                              <div style={{ fontWeight: 700, marginBottom: 2 }}>
-                                Se encontró un contacto existente
+                            w.tipo === 'no_llamar' ? (
+                              w.autorizado ? (
+                                <div key={idx} style={{
+                                  fontSize: 12, color: '#92400e', background: '#fffbeb',
+                                  border: '1px solid #fde68a', borderRadius: 8, padding: '8px 10px'
+                                }}>
+                                  <div style={{ fontWeight: 700, marginBottom: 2 }}>
+                                    Este número estuvo en la lista NO ME LLAMES
+                                  </div>
+                                  <div>
+                                    Autorizado por {w.autorizado_por || '—'} el {w.autorizado_at
+                                      ? new Date(w.autorizado_at).toLocaleDateString('es-UY')
+                                      : '—'}
+                                  </div>
+                                  <div>Motivo: {w.autorizado_motivo || '—'}</div>
+                                </div>
+                              ) : (
+                                <div key={idx} style={{
+                                  fontSize: 12, color: '#991b1b', background: '#fef2f2',
+                                  border: '1px solid #fecaca', borderRadius: 8, padding: '8px 10px'
+                                }}>
+                                  <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                                    Este número se encuentra en el listado NO ME LLAMES
+                                  </div>
+                                  <div style={{ marginBottom: 8 }}>
+                                    No se puede contactar en frío. Si la persona mostró interés en contratar, podés autorizar el desbloqueo.
+                                  </div>
+                                  <input
+                                    type="text"
+                                    placeholder="Motivo de la autorización (obligatorio)"
+                                    value={noCallAuthMotivo}
+                                    onChange={(e) => setNoCallAuthMotivo(e.target.value)}
+                                    style={{ width: '100%', marginBottom: 8, padding: '6px 8px', borderRadius: 6, border: '1px solid #fecaca' }}
+                                  />
+                                  <button
+                                    type="button"
+                                    disabled={!noCallAuthMotivo.trim() || noCallAuthLoading}
+                                    onClick={() => handleAuthorizeNoCall(w)}
+                                    style={{ background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px' }}
+                                  >
+                                    {noCallAuthLoading ? 'Autorizando...' : 'Autorizar y continuar'}
+                                  </button>
+                                  {noCallAuthError ? (
+                                    <div style={{ marginTop: 8, color: '#b91c1c' }}>{noCallAuthError}</div>
+                                  ) : null}
+                                </div>
+                              )
+                            ) : (
+                              <div key={idx} style={{
+                                fontSize: 12, color: '#92400e', background: '#fffbeb',
+                                border: '1px solid #fde68a', borderRadius: 8, padding: '8px 10px'
+                              }}>
+                                <div style={{ fontWeight: 700, marginBottom: 2 }}>
+                                  Se encontró un contacto existente
+                                </div>
+                                <div>Lote: {w.lote || w.lote_nombre || '—'}</div>
+                                <div>Asignado a: {w.asignado_a || [w.vendedor_nombre, w.vendedor_apellido].filter(Boolean).join(' ') || '—'}</div>
+                                <div>Último resultado: {w.motivo || w.ultimo_resultado || '—'}</div>
                               </div>
-                              <div>Lote: {w.lote || w.lote_nombre || '—'}</div>
-                              <div>Asignado a: {w.asignado_a || [w.vendedor_nombre, w.vendedor_apellido].filter(Boolean).join(' ') || '—'}</div>
-                              <div>Último resultado: {w.motivo || w.ultimo_resultado || '—'}</div>
-                            </div>
+                            )
                           ))}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              phoneCheckTokenRef.current++;
-                              setPhoneCheckLoading(false);
-                              const w = phoneWarnings[0];
-                              setReactivarData(w);
-                              setNuevoContactoForm(prev => ({
-                                ...prev,
-                                nombre: w.nombre || prev.nombre,
-                                apellido: w.apellido || prev.apellido,
-                                documento: w.documento || prev.documento,
-                                correo_electronico: w.correo_electronico || prev.correo_electronico,
-                                departamento: w.departamento || prev.departamento,
-                                direccion: w.direccion || prev.direccion,
-                                localidad: w.localidad || prev.localidad,
-                              }));
-                              setPhoneWarnings([]);
-                              setPhoneVerified(true);
-                            }}
-                            style={{
-                              border: 'none', background: '#f59e0b', color: '#fff',
-                              padding: '10px 16px', borderRadius: 8, fontWeight: 700,
-                              cursor: 'pointer', fontSize: 13, width: '100%'
-                            }}
-                          >
-                            Volver a gestionar
-                          </button>
+                          {phoneWarnings.some((w) => w.tipo !== 'no_llamar')
+                            && !phoneWarnings.some((w) => w.tipo === 'no_llamar' && !w.autorizado) ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                phoneCheckTokenRef.current++;
+                                setPhoneCheckLoading(false);
+                                const w = phoneWarnings[0];
+                                setReactivarData(w);
+                                setNuevoContactoForm(prev => ({
+                                  ...prev,
+                                  nombre: w.nombre || prev.nombre,
+                                  apellido: w.apellido || prev.apellido,
+                                  documento: w.documento || prev.documento,
+                                  correo_electronico: w.correo_electronico || prev.correo_electronico,
+                                  departamento: w.departamento || prev.departamento,
+                                  direccion: w.direccion || prev.direccion,
+                                  localidad: w.localidad || prev.localidad,
+                                }));
+                                setPhoneWarnings([]);
+                                setPhoneVerified(true);
+                                setNoCallAuthMotivo('');
+                                setNoCallAuthError('');
+                              }}
+                              style={{
+                                border: 'none', background: '#f59e0b', color: '#fff',
+                                padding: '10px 16px', borderRadius: 8, fontWeight: 700,
+                                cursor: 'pointer', fontSize: 13, width: '100%'
+                              }}
+                            >
+                              Volver a gestionar
+                            </button>
+                          ) : null}
                         </div>
                       ) : null}
-
                       {phoneCheckLoading && (
                         <>
                           <style>{'@keyframes lotsPhoneSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }'}</style>
@@ -11541,7 +11646,7 @@ const formatCurrency = (value) => {
                             }} />
                             <div style={{ display: 'grid', gap: 2 }}>
                               <span style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>
-                                Verificando número
+                                Verificando numero
                               </span>
                               <span style={{ fontSize: 11, color: '#64748b' }}>
                                 Buscando coincidencias y datos previos...
@@ -11623,6 +11728,8 @@ const formatCurrency = (value) => {
                         setReactivarData(null);
                         resetNuevoContactoValidation();
                         setPhoneWarnings([]);
+                        setNoCallAuthMotivo('');
+                        setNoCallAuthError('');
                         setOrigenDatoError('');
                         setNuevoContactoForm({
                           nombre: '', apellido: '', celular: '', telefono: '',
