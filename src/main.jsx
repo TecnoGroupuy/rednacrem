@@ -1316,7 +1316,7 @@ const formatCurrency = (value) => {
                 {[
                   { label: 'Ventas', key: 'ventas', color: '#0F6E56' },
                   { label: 'Rechazos', key: 'rechazos', color: '#A32D2D' },
-                  { label: 'Seguimientos', key: 'seguimientos', color: 'var(--color-text-primary)' },
+                  { label: 'Seguimientos', key: 'seguimiento', color: 'var(--color-text-primary)' },
                   { label: 'Rellamar', key: 'rellamar', color: 'var(--color-text-primary)' },
                   { label: 'No contesta', key: 'no_contesta', color: 'var(--color-text-primary)' }
                 ].map(({ label, key, color }) => (
