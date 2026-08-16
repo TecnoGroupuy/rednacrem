@@ -442,6 +442,13 @@ export default function SuperadminWorkbench({
     const items = await listProductsAsync({ search, filter });
     setProducts(sortProducts(items));
   }, [productsSearch, productsFilter, sortProducts]);
+  const getUserRowId = React.useCallback((userRow) => (
+    userRow?.id
+    ?? userRow?.user_id
+    ?? userRow?.userId
+    ?? userRow?.usuario_id
+    ?? null
+  ), []);
   const loadUsers = React.useCallback(async () => setUsers(await listUsersAsync()), []);
   const loadOrgUsers = React.useCallback(async () => {
     if (!activeOrgId) return;
@@ -520,11 +527,16 @@ export default function SuperadminWorkbench({
   };
   const handleRemoveFromOrg = async (userId) => {
     if (!activeOrgId) return;
+    if (!userId) {
+      alert('No se pudo identificar el usuario a quitar.');
+      return;
+    }
     try {
       await removeUserFromOrganization(activeOrgId, userId);
       await loadOrgUsers();
     } catch (err) {
       console.error('Error desasociando usuario:', err);
+      alert(err?.message || 'No se pudo quitar el usuario de la organización.');
     }
   };
   const loadSpecialBases = React.useCallback(async () => {
@@ -2050,9 +2062,9 @@ export default function SuperadminWorkbench({
   }
 
   if (route === 'sa_usuarios') {
-    const orgUserIds = new Set(orgUsers.map(u => u.id));
+    const orgUserIds = new Set(orgUsers.map((u) => getUserRowId(u)).filter(Boolean));
     const availableToAssign = allUsers.filter(u => {
-      if (orgUserIds.has(u.id)) return false;
+      if (orgUserIds.has(getUserRowId(u))) return false;
       if (!assignSearch.trim()) return true;
       const term = assignSearch.toLowerCase();
       return (
@@ -2122,8 +2134,10 @@ export default function SuperadminWorkbench({
                 </tr>
               </thead>
               <tbody>
-                {(activeOrgId ? orgUsers : allUsers).map(u => (
-                  <tr key={u.id}>
+                {(activeOrgId ? orgUsers : allUsers).map(u => {
+                  const userId = getUserRowId(u);
+                  return (
+                  <tr key={userId || u.email}>
                     <td>{u.nombre} {u.apellido}</td>
                     <td style={{ fontSize: 12, color: 'var(--muted)' }}>{u.email}</td>
                     <td><Tag>{u.role_key}</Tag></td>
@@ -2141,7 +2155,7 @@ export default function SuperadminWorkbench({
                           icon={<Edit3 size={14} />}
                           onClick={() => {
                             setUserDraft({
-                              id: u.id,
+                              id: userId,
                               nombre: u.nombre || '',
                               apellido: u.apellido || '',
                               email: u.email || '',
@@ -2167,7 +2181,7 @@ export default function SuperadminWorkbench({
                             variant="ghost"
                             icon={<Trash2 size={14} />}
                             onClick={() => setDeleteUserModal({
-                              id: u.id,
+                              id: userId,
                               nombre: `${u.nombre} ${u.apellido}`.trim(),
                               email: u.email
                             })}
@@ -2180,7 +2194,7 @@ export default function SuperadminWorkbench({
                             size="sm"
                             variant="ghost"
                             icon={<X size={14} />}
-                            onClick={() => handleRemoveFromOrg(u.id)}
+                            onClick={() => handleRemoveFromOrg(userId)}
                           >
                             Quitar
                           </Button>
@@ -2188,7 +2202,7 @@ export default function SuperadminWorkbench({
                       </div>
                     </td>
                   </tr>
-                ))}
+                )})}
                 {(activeOrgId ? orgUsers : allUsers).length === 0 && (
                   <tr>
                     <td
@@ -2242,7 +2256,7 @@ export default function SuperadminWorkbench({
                     </div>
                   )}
                   {availableToAssign.map(u => (
-                    <div key={u.id} style={{
+                    <div key={getUserRowId(u) || u.email} style={{
                       display: 'flex', alignItems: 'center',
                       justifyContent: 'space-between',
                       padding: '10px 12px', borderRadius: 10,
@@ -2266,7 +2280,7 @@ export default function SuperadminWorkbench({
                       <Button
                         size="sm"
                         disabled={assignLoading}
-                        onClick={() => handleAssignUser(u.id)}
+                        onClick={() => handleAssignUser(getUserRowId(u))}
                       >
                         Asignar
                       </Button>
