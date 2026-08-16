@@ -7,8 +7,7 @@ import { getApiClient } from '../services/apiClient.js';
 import {
   uploadOrganizationLogo,
   listOrganizationUsers,
-  assignUserToOrganization,
-  removeUserFromOrganization
+  assignUserToOrganization
 } from '../services/organizationsService.js';
 import { listNoCallEntries, listPhoneResultEntries, getNoCallStats, listDatosParaTrabajar } from '../services/leadsService.js';
 import { createNoCallImportJob, getNoCallImportJob } from '../services/noCallImportService.js';
@@ -214,11 +213,8 @@ export default function SuperadminWorkbench({
   const [userFormError, setUserFormError] = React.useState('');
   const [userFormSuccess, setUserFormSuccess] = React.useState('');
   const [userFormLoading, setUserFormLoading] = React.useState(false);
-  const userFormRef = React.useRef(null);
   const [deleteUserModal, setDeleteUserModal] = React.useState(null); // { id, nombre, email }
   const [deleteUserLoading, setDeleteUserLoading] = React.useState(false);
-  const [removeUserModal, setRemoveUserModal] = React.useState(null); // { id, nombre, email }
-  const [removeUserLoading, setRemoveUserLoading] = React.useState(false);
 
   const [logoDraft, setLogoDraft] = React.useState(logoUrl || '');
   const [logoFile, setLogoFile] = React.useState(null);
@@ -525,19 +521,6 @@ export default function SuperadminWorkbench({
       setAssignError(err?.message || 'No se pudo asignar el usuario.');
     } finally {
       setAssignLoading(false);
-    }
-  };
-  const handleRemoveFromOrg = async (userId) => {
-    if (!activeOrgId) return;
-    if (!userId) {
-      throw new Error('No se pudo identificar el usuario a quitar.');
-    }
-    try {
-      await removeUserFromOrganization(activeOrgId, userId);
-      await loadOrgUsers();
-    } catch (err) {
-      console.error('Error desasociando usuario:', err);
-      throw err;
     }
   };
   const loadSpecialBases = React.useCallback(async () => {
@@ -2079,7 +2062,7 @@ export default function SuperadminWorkbench({
       <div className="view">
         <section className="content-grid">
           <Panel
-            className={showAssignPanel || showUserForm ? 'span-8' : 'span-12'}
+            className={showAssignPanel ? 'span-8' : 'span-12'}
             title="Usuarios y roles"
             subtitle={activeOrgId
               ? `${orgUsers.length} usuarios en esta organización`
@@ -2169,9 +2152,6 @@ export default function SuperadminWorkbench({
                             setShowAssignPanel(false);
                             setUserFormError('');
                             setUserFormSuccess('');
-                            setTimeout(() => {
-                              userFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                            }, 50);
                           }}
                         >
                           Editar
@@ -2188,20 +2168,6 @@ export default function SuperadminWorkbench({
                             })}
                           >
                             Eliminar
-                          </Button>
-                        )}
-                        {activeOrgId && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            icon={<X size={14} />}
-                            onClick={() => setRemoveUserModal({
-                              id: userId,
-                              nombre: `${u.nombre} ${u.apellido}`.trim(),
-                              email: u.email
-                            })}
-                          >
-                            Quitar
                           </Button>
                         )}
                       </div>
@@ -2297,71 +2263,95 @@ export default function SuperadminWorkbench({
           )}
 
           {showUserForm && (
-            <div ref={userFormRef}>
-              <Panel
-                className="span-4"
-                title={userDraft.id ? 'Editar usuario' : 'Crear usuario'}
-                subtitle={!userDraft.id && activeOrgId
-                  ? 'Se asignará a esta organización'
-                  : 'Formulario'}
-              >
-                <div className="list">
+            <div
+              className="lot-wizard-overlay"
+              onClick={() => {
+                if (userFormLoading) return;
+                setShowUserForm(false);
+                setUserDraft(createUserDraft());
+                setUserFormError('');
+                setUserFormSuccess('');
+              }}
+            >
+              <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 520 }}>
+                <div className="lot-wizard-header">
                   <div>
-                    <label className="label">Nombre *</label>
-                    <input
-                      className="input"
-                      value={userDraft.nombre}
-                      onChange={e => setUserDraft(p => ({ ...p, nombre: e.target.value }))}
-                    />
+                    <h3>{userDraft.id ? 'Editar usuario' : 'Crear usuario'}</h3>
+                    <p>{!userDraft.id && activeOrgId ? 'Se asignará a esta organización' : 'Formulario'}</p>
                   </div>
-                  <div>
-                    <label className="label">Apellido *</label>
-                    <input
-                      className="input"
-                      value={userDraft.apellido}
-                      onChange={e => setUserDraft(p => ({ ...p, apellido: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="label">Email *</label>
-                    <input
-                      className="input"
-                      type="email"
-                      value={userDraft.email}
-                      onChange={e => setUserDraft(p => ({ ...p, email: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="label">Teléfono *</label>
-                    <input
-                      className="input"
-                      value={userDraft.telefono}
-                      onChange={e => setUserDraft(p => ({ ...p, telefono: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="label">Rol global</label>
-                    <select
-                      className="input"
-                      value={userDraft.role}
-                      onChange={e => setUserDraft(p => ({ ...p, role: e.target.value }))}
-                    >
-                      {USER_ROLE_OPTIONS.map(r => (
-                        <option key={r} value={r}>{r}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="label">Estado</label>
-                    <select
-                      className="input"
-                      value={userDraft.status}
-                      onChange={e => setUserDraft(p => ({ ...p, status: e.target.value }))}
-                    >
-                      {USER_STATUS_OPTIONS.map(s => (
-                        <option key={s.value} value={s.value}>{s.label}</option>
-                      ))}
-                    </select>
+                  <button
+                    className="icon-button"
+                    style={{ width: 36, height: 36 }}
+                    onClick={() => {
+                      if (userFormLoading) return;
+                      setShowUserForm(false);
+                      setUserDraft(createUserDraft());
+                      setUserFormError('');
+                      setUserFormSuccess('');
+                    }}
+                  >
+                    <X size={16} color="#152235" />
+                  </button>
+                </div>
+                <div className="list" style={{ marginTop: 16 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div>
+                      <label className="label">Nombre *</label>
+                      <input
+                        className="input"
+                        value={userDraft.nombre}
+                        onChange={e => setUserDraft(p => ({ ...p, nombre: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Apellido *</label>
+                      <input
+                        className="input"
+                        value={userDraft.apellido}
+                        onChange={e => setUserDraft(p => ({ ...p, apellido: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Email *</label>
+                      <input
+                        className="input"
+                        type="email"
+                        value={userDraft.email}
+                        onChange={e => setUserDraft(p => ({ ...p, email: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Teléfono *</label>
+                      <input
+                        className="input"
+                        value={userDraft.telefono}
+                        onChange={e => setUserDraft(p => ({ ...p, telefono: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Rol global</label>
+                      <select
+                        className="input"
+                        value={userDraft.role}
+                        onChange={e => setUserDraft(p => ({ ...p, role: e.target.value }))}
+                      >
+                        {USER_ROLE_OPTIONS.map(r => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label">Estado</label>
+                      <select
+                        className="input"
+                        value={userDraft.status}
+                        onChange={e => setUserDraft(p => ({ ...p, status: e.target.value }))}
+                      >
+                        {USER_STATUS_OPTIONS.map(s => (
+                          <option key={s.value} value={s.value}>{s.label}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                   {userFormError && (
                     <div style={{ color: '#be123c', fontSize: 13 }}>{userFormError}</div>
@@ -2369,15 +2359,16 @@ export default function SuperadminWorkbench({
                   {userFormSuccess && (
                     <div style={{ color: '#15803d', fontSize: 13 }}>{userFormSuccess}</div>
                   )}
-                  <div className="toolbar">
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
                     <Button
-                      variant="ghost"
+                      variant="secondary"
                       onClick={() => {
                         setShowUserForm(false);
                         setUserDraft(createUserDraft());
                         setUserFormError('');
                         setUserFormSuccess('');
                       }}
+                      disabled={userFormLoading}
                     >
                       Cancelar
                     </Button>
@@ -2388,7 +2379,7 @@ export default function SuperadminWorkbench({
                     </Button>
                   </div>
                 </div>
-              </Panel>
+              </div>
             </div>
           )}
           {deleteUserModal && (
@@ -2427,41 +2418,6 @@ export default function SuperadminWorkbench({
                     }}
                   >
                     {deleteUserLoading ? 'Eliminando...' : 'Eliminar definitivamente'}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-          {removeUserModal && (
-            <div className="lot-wizard-overlay" onClick={() => !removeUserLoading && setRemoveUserModal(null)}>
-              <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 420 }}>
-                <div className="lot-wizard-header">
-                  <div>
-                    <h3>¿Quitar de esta organización?</h3>
-                    <p>Podés volver a asignarlo más adelante.</p>
-                  </div>
-                  <button className="icon-button" style={{ width: 36, height: 36 }} onClick={() => !removeUserLoading && setRemoveUserModal(null)}><X size={16} color="#152235" /></button>
-                </div>
-                <p style={{ marginTop: 12 }}>
-                  Vas a quitar a <strong>{removeUserModal?.nombre}</strong> ({removeUserModal?.email}) de esta organización. Deja de tener acceso acá, pero su cuenta y su historial se conservan.
-                </p>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
-                  <Button variant="secondary" onClick={() => setRemoveUserModal(null)} disabled={removeUserLoading}>Cancelar</Button>
-                  <Button
-                    onClick={async () => {
-                      setRemoveUserLoading(true);
-                      try {
-                        await handleRemoveFromOrg(removeUserModal.id);
-                        setRemoveUserModal(null);
-                      } catch (err) {
-                        alert(err?.message || 'No se pudo quitar el usuario.');
-                      } finally {
-                        setRemoveUserLoading(false);
-                      }
-                    }}
-                    disabled={removeUserLoading}
-                  >
-                    {removeUserLoading ? 'Quitando...' : 'Quitar de la organización'}
                   </Button>
                 </div>
               </div>
