@@ -217,6 +217,8 @@ export default function SuperadminWorkbench({
   const userFormRef = React.useRef(null);
   const [deleteUserModal, setDeleteUserModal] = React.useState(null); // { id, nombre, email }
   const [deleteUserLoading, setDeleteUserLoading] = React.useState(false);
+  const [removeUserModal, setRemoveUserModal] = React.useState(null); // { id, nombre, email }
+  const [removeUserLoading, setRemoveUserLoading] = React.useState(false);
 
   const [logoDraft, setLogoDraft] = React.useState(logoUrl || '');
   const [logoFile, setLogoFile] = React.useState(null);
@@ -528,15 +530,14 @@ export default function SuperadminWorkbench({
   const handleRemoveFromOrg = async (userId) => {
     if (!activeOrgId) return;
     if (!userId) {
-      alert('No se pudo identificar el usuario a quitar.');
-      return;
+      throw new Error('No se pudo identificar el usuario a quitar.');
     }
     try {
       await removeUserFromOrganization(activeOrgId, userId);
       await loadOrgUsers();
     } catch (err) {
       console.error('Error desasociando usuario:', err);
-      alert(err?.message || 'No se pudo quitar el usuario de la organización.');
+      throw err;
     }
   };
   const loadSpecialBases = React.useCallback(async () => {
@@ -2194,7 +2195,11 @@ export default function SuperadminWorkbench({
                             size="sm"
                             variant="ghost"
                             icon={<X size={14} />}
-                            onClick={() => handleRemoveFromOrg(userId)}
+                            onClick={() => setRemoveUserModal({
+                              id: userId,
+                              nombre: `${u.nombre} ${u.apellido}`.trim(),
+                              email: u.email
+                            })}
                           >
                             Quitar
                           </Button>
@@ -2422,6 +2427,41 @@ export default function SuperadminWorkbench({
                     }}
                   >
                     {deleteUserLoading ? 'Eliminando...' : 'Eliminar definitivamente'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+          {removeUserModal && (
+            <div className="lot-wizard-overlay" onClick={() => !removeUserLoading && setRemoveUserModal(null)}>
+              <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 420 }}>
+                <div className="lot-wizard-header">
+                  <div>
+                    <h3>¿Quitar de esta organización?</h3>
+                    <p>Podés volver a asignarlo más adelante.</p>
+                  </div>
+                  <button className="icon-button" style={{ width: 36, height: 36 }} onClick={() => !removeUserLoading && setRemoveUserModal(null)}><X size={16} color="#152235" /></button>
+                </div>
+                <p style={{ marginTop: 12 }}>
+                  Vas a quitar a <strong>{removeUserModal?.nombre}</strong> ({removeUserModal?.email}) de esta organización. Deja de tener acceso acá, pero su cuenta y su historial se conservan.
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
+                  <Button variant="secondary" onClick={() => setRemoveUserModal(null)} disabled={removeUserLoading}>Cancelar</Button>
+                  <Button
+                    onClick={async () => {
+                      setRemoveUserLoading(true);
+                      try {
+                        await handleRemoveFromOrg(removeUserModal.id);
+                        setRemoveUserModal(null);
+                      } catch (err) {
+                        alert(err?.message || 'No se pudo quitar el usuario.');
+                      } finally {
+                        setRemoveUserLoading(false);
+                      }
+                    }}
+                    disabled={removeUserLoading}
+                  >
+                    {removeUserLoading ? 'Quitando...' : 'Quitar de la organización'}
                   </Button>
                 </div>
               </div>
