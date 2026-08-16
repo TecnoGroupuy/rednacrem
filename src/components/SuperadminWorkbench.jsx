@@ -53,6 +53,7 @@ const createUserDraft = (overrides = {}) => ({
   apellido: '',
   email: '',
   telefono: '',
+  password: '',
   role: DEFAULT_USER_ROLE,
   status: DEFAULT_USER_STATUS,
   reason: DEFAULT_USER_REASON,
@@ -213,6 +214,7 @@ export default function SuperadminWorkbench({
   const [userFormError, setUserFormError] = React.useState('');
   const [userFormSuccess, setUserFormSuccess] = React.useState('');
   const [userFormLoading, setUserFormLoading] = React.useState(false);
+  const [createdUserModal, setCreatedUserModal] = React.useState(null); // { email, password, usedDefault }
   const [deleteUserModal, setDeleteUserModal] = React.useState(null); // { id, nombre, email }
   const [deleteUserLoading, setDeleteUserLoading] = React.useState(false);
 
@@ -957,6 +959,9 @@ export default function SuperadminWorkbench({
       status,
       reason: reasonValue || DEFAULT_USER_REASON
     };
+    if (!userDraft.id && userDraft.password.trim()) {
+      payload.temporaryPassword = userDraft.password.trim();
+    }
 
     try {
       if (userDraft.id) {
@@ -970,6 +975,11 @@ export default function SuperadminWorkbench({
           : '/superadmin/users';
         const created = await api.post(url, payload);
         logActivityEvent({ entidad: 'usuario', entidadId: created.id, tipo: 'alta', descripcion: 'Usuario creado: ' + created.nombre, usuarioId: 'usr-001' });
+        setCreatedUserModal({
+          email,
+          password: userDraft.password.trim() || null,
+          usedDefault: !userDraft.password.trim()
+        });
         setUserFormSuccess(
           activeOrgId
             ? 'Usuario creado y asignado a la organización.'
@@ -2328,6 +2338,22 @@ export default function SuperadminWorkbench({
                         onChange={e => setUserDraft(p => ({ ...p, telefono: e.target.value }))}
                       />
                     </div>
+                    {!userDraft.id && (
+                      <div style={{ gridColumn: '1 / -1' }}>
+                        <label className="label">Contraseña provisoria</label>
+                        <input
+                          className="input"
+                          type="text"
+                          placeholder="Dejar vacío para usar la contraseña por defecto"
+                          value={userDraft.password}
+                          onChange={e => setUserDraft(p => ({ ...p, password: e.target.value }))}
+                          autoComplete="new-password"
+                        />
+                        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+                          Si no ingresás una, el sistema usa la contraseña provisoria por defecto configurada en el servidor.
+                        </div>
+                      </div>
+                    )}
                     <div>
                       <label className="label">Rol global</label>
                       <select
@@ -2420,6 +2446,53 @@ export default function SuperadminWorkbench({
                   >
                     {deleteUserLoading ? 'Eliminando...' : 'Eliminar definitivamente'}
                   </Button>
+                </div>
+              </div>
+            </div>
+          )}
+          {createdUserModal && (
+            <div className="lot-wizard-overlay" onClick={() => setCreatedUserModal(null)}>
+              <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 460 }}>
+                <div className="lot-wizard-header">
+                  <div>
+                    <h3>Usuario creado</h3>
+                    <p>Compartí estas credenciales para el primer ingreso.</p>
+                  </div>
+                  <button className="icon-button" style={{ width: 36, height: 36 }} onClick={() => setCreatedUserModal(null)}>
+                    <X size={16} color="#152235" />
+                  </button>
+                </div>
+                <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
+                  <div>
+                    <label className="label">Email</label>
+                    <div className="input" style={{ background: '#f8fafc' }}>{createdUserModal.email}</div>
+                  </div>
+                  <div>
+                    <label className="label">Contraseña provisoria</label>
+                    <div className="input" style={{ background: '#f8fafc', fontFamily: 'monospace' }}>
+                      {createdUserModal.password || '(contraseña por defecto del servidor)'}
+                    </div>
+                  </div>
+                  {createdUserModal.usedDefault && (
+                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                      No se ingresó una contraseña personalizada, así que se usó la contraseña por defecto del servidor.
+                    </div>
+                  )}
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
+                    También se envió un email automático a {createdUserModal.email} con estas credenciales. Al ingresar por primera vez, el sistema le va a pedir definir una contraseña nueva.
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      const text = `Email: ${createdUserModal.email}\nContraseña: ${createdUserModal.password || '(usar la contraseña por defecto del servidor)'}`;
+                      navigator.clipboard?.writeText(text);
+                    }}
+                  >
+                    Copiar credenciales
+                  </Button>
+                  <Button onClick={() => setCreatedUserModal(null)}>Listo</Button>
                 </div>
               </div>
             </div>
