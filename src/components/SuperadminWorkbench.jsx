@@ -980,6 +980,7 @@ export default function SuperadminWorkbench({
           password: userDraft.password.trim() || null,
           usedDefault: !userDraft.password.trim()
         });
+        setShowUserForm(false);
         setUserFormSuccess(
           activeOrgId
             ? 'Usuario creado y asignado a la organización.'
