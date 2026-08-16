@@ -2401,6 +2401,7 @@ export default function SuperadminWorkbench({
                     onClick={async () => {
                       setDeleteUserLoading(true);
                       try {
+                        const api = getApiClient();
                         await api.del(`/organizations/${activeOrgId}/users/${deleteUserModal.id}/full`);
                         setDeleteUserModal(null);
                         await loadOrgUsers();
