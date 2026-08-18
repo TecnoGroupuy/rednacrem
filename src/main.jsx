@@ -4482,14 +4482,13 @@ const formatCurrency = (value) => {
         cargarFamiliares();
       }, [activeTab, cargarFamiliares, drawerContact?.id, isRecupero]);
 
-      const familiaresConProducto = React.useMemo(() => (
+      const familiaresResumen = React.useMemo(() => (
         (Array.isArray(familiares) ? familiares : [])
           .map((item) => {
             const nombre = [item?.nombre, item?.apellido].filter(Boolean).join(' ').trim() || 'Contacto';
             const producto = item?.nombre_producto || item?.producto || item?.nombreProducto || item?.producto_nombre || item?.servicio || '';
-            return producto ? { nombre, producto } : null;
+            return { nombre, producto: String(producto || '').trim() };
           })
-          .filter(Boolean)
       ), [familiares]);
 
       const closeDrawer = () => {
@@ -5411,7 +5410,7 @@ const formatCurrency = (value) => {
                                   <span><strong>Precio:</strong> {priceValue}</span>
                                   <span><strong>Motivo:</strong> {motivoInfo.label}</span>
                                 </div>
-                                {familiaresConProducto.length ? (
+                                {familiaresResumen.length ? (
                                   <div style={{
                                     display: 'flex',
                                     flexDirection: 'column',
