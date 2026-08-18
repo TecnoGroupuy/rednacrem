@@ -4020,7 +4020,6 @@ const formatCurrency = (value) => {
       }, [normalizeResultadoGestion]);
 
       React.useEffect(() => {
-        if (!isRecupero) return;
         const contactId = drawerContact?.id || null;
         if (!contactId) {
           setHistorialGestiones([]);
