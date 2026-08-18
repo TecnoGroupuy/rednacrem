@@ -5418,11 +5418,11 @@ const formatCurrency = (value) => {
                                     borderTop: '1px solid rgba(255,255,255,0.22)'
                                   }}>
                                     <div style={{ fontSize: 11, opacity: 0.9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6 }}>
-                                      {familiaresConProducto.length === 1 ? 'Otro familiar' : 'Otros familiares'}
+                                      Grupo familiar
                                     </div>
-                                    {familiaresConProducto.map((item) => (
+                                    {familiaresResumen.map((item) => (
                                       <div key={`${item.nombre}-${item.producto}`} style={{ fontSize: 12, lineHeight: 1.4 }}>
-                                        <strong>{item.nombre}:</strong> {item.producto}
+                                        <strong>{item.nombre}</strong>{item.producto ? `: ${item.producto}` : ''}
                                       </div>
                                     ))}
                                   </div>
