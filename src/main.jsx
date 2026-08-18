@@ -4055,7 +4055,7 @@ const formatCurrency = (value) => {
           }
         })();
         return () => { cancelled = true; };
-      }, [drawerContact, isRecupero]); // eslint-disable-line react-hooks/exhaustive-deps
+      }, [drawerContact?.id, drawerContact?.contact_id, isRecupero]); // eslint-disable-line react-hooks/exhaustive-deps
 
       const [activeTab, setActiveTab] = React.useState('datos');
       const [estadoGestion, setEstadoGestion] = React.useState('');
@@ -4495,7 +4495,7 @@ const formatCurrency = (value) => {
                 ...prev,
                 ...freshContact,
                 contact_id: prev.contact_id || freshContact.contact_id || contactId,
-                id: freshContact?.id || prev.id
+                id: prev.id
               };
             });
           } catch {
