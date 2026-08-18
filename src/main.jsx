@@ -4020,7 +4020,9 @@ const formatCurrency = (value) => {
       }, [normalizeResultadoGestion]);
 
       React.useEffect(() => {
-        const contactId = drawerContact?.id || null;
+        const contactId = isRecupero
+          ? (drawerContact?.contact_id || drawerContact?.contactId || drawerContact?.contacto_id || drawerContact?.id || null)
+          : (drawerContact?.id || null);
         if (!contactId) {
           setHistorialGestiones([]);
           setHistorialLoading(false);
@@ -4457,7 +4459,9 @@ const formatCurrency = (value) => {
       }, [drawerContact?.id]);
 
       const cargarFamiliares = React.useCallback(() => {
-        const contactId = drawerContact?.id;
+        const contactId = isRecupero
+          ? (drawerContact?.contact_id || drawerContact?.contactId || drawerContact?.contacto_id || drawerContact?.id)
+          : drawerContact?.id;
         if (!contactId || familiaresLoaded || familiaresLoading) return;
         const api = getApiClient();
         setFamiliaresLoading(true);
@@ -4474,20 +4478,23 @@ const formatCurrency = (value) => {
           .finally(() => {
             setFamiliaresLoading(false);
           });
-      }, [drawerContact?.id, familiaresLoaded, familiaresLoading]);
+      }, [drawerContact?.contactId, drawerContact?.contact_id, drawerContact?.contacto_id, drawerContact?.id, familiaresLoaded, familiaresLoading, isRecupero]);
 
       React.useEffect(() => {
         if (!isRecupero || activeTab !== 'datos' || !drawerContact?.id) return;
+        const contactId = drawerContact?.contact_id || drawerContact?.contactId || drawerContact?.contacto_id || drawerContact?.id;
+        if (!contactId) return;
         let cancelled = false;
         (async () => {
           try {
-            const freshContact = await fetchClientDetail(drawerContact.id);
+            const freshContact = await fetchClientDetail(contactId);
             if (cancelled || !freshContact) return;
             setDrawerContact((prev) => {
               if (!prev || String(prev.id) !== String(drawerContact.id)) return prev;
               return {
                 ...prev,
                 ...freshContact,
+                contact_id: prev.contact_id || freshContact.contact_id || contactId,
                 id: freshContact?.id || prev.id
               };
             });
@@ -4496,7 +4503,7 @@ const formatCurrency = (value) => {
           }
         })();
         return () => { cancelled = true; };
-      }, [activeTab, drawerContact?.id, isRecupero]);
+      }, [activeTab, drawerContact?.contactId, drawerContact?.contact_id, drawerContact?.contacto_id, drawerContact?.id, isRecupero]);
 
       React.useEffect(() => {
         if (!isRecupero || activeTab !== 'datos' || !drawerContact?.id) return;
