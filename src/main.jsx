@@ -4478,6 +4478,28 @@ const formatCurrency = (value) => {
 
       React.useEffect(() => {
         if (!isRecupero || activeTab !== 'datos' || !drawerContact?.id) return;
+        let cancelled = false;
+        (async () => {
+          try {
+            const freshContact = await fetchClientDetail(drawerContact.id);
+            if (cancelled || !freshContact) return;
+            setDrawerContact((prev) => {
+              if (!prev || String(prev.id) !== String(drawerContact.id)) return prev;
+              return {
+                ...prev,
+                ...freshContact,
+                id: freshContact?.id || prev.id
+              };
+            });
+          } catch {
+            // silencioso: si falla, mantener el snapshot original del listado
+          }
+        })();
+        return () => { cancelled = true; };
+      }, [activeTab, drawerContact?.id, isRecupero]);
+
+      React.useEffect(() => {
+        if (!isRecupero || activeTab !== 'datos' || !drawerContact?.id) return;
         cargarFamiliares();
       }, [activeTab, cargarFamiliares, drawerContact?.id, isRecupero]);
 
