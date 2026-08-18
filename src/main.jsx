@@ -4477,6 +4477,21 @@ const formatCurrency = (value) => {
           });
       }, [drawerContact?.id, familiaresLoaded, familiaresLoading]);
 
+      React.useEffect(() => {
+        if (!isRecupero || activeTab !== 'datos' || !drawerContact?.id) return;
+        cargarFamiliares();
+      }, [activeTab, cargarFamiliares, drawerContact?.id, isRecupero]);
+
+      const familiaresConProducto = React.useMemo(() => (
+        (Array.isArray(familiares) ? familiares : [])
+          .map((item) => {
+            const nombre = [item?.nombre, item?.apellido].filter(Boolean).join(' ').trim() || 'Contacto';
+            const producto = item?.nombre_producto || item?.producto || item?.nombreProducto || item?.producto_nombre || item?.servicio || '';
+            return producto ? { nombre, producto } : null;
+          })
+          .filter(Boolean)
+      ), [familiares]);
+
       const closeDrawer = () => {
         if (!estadoGestion) {
           setActiveTab('gestion');
@@ -5396,6 +5411,24 @@ const formatCurrency = (value) => {
                                   <span><strong>Precio:</strong> {priceValue}</span>
                                   <span><strong>Motivo:</strong> {motivoInfo.label}</span>
                                 </div>
+                                {familiaresConProducto.length ? (
+                                  <div style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: 4,
+                                    paddingTop: 8,
+                                    borderTop: '1px solid rgba(255,255,255,0.22)'
+                                  }}>
+                                    <div style={{ fontSize: 11, opacity: 0.9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6 }}>
+                                      {familiaresConProducto.length === 1 ? 'Otro familiar' : 'Otros familiares'}
+                                    </div>
+                                    {familiaresConProducto.map((item) => (
+                                      <div key={`${item.nombre}-${item.producto}`} style={{ fontSize: 12, lineHeight: 1.4 }}>
+                                        <strong>{item.nombre}:</strong> {item.producto}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : null}
                               </div>
 
                               <div style={{
