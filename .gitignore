@@ -11,3 +11,8 @@ yarn-error.log*
 pnpm-debug.log*
 .vscode/
 .idea/
+.claude/
+.tmp-*
+tmp-*
+tmp_*.jsx
+*.patch
