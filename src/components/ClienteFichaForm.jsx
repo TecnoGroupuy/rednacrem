@@ -682,8 +682,8 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
   const isRednacremOrg = String(activeOrgId || '') === REDNACREM_ORG_ID;
   const certificateButtonStyle = {
     border: 'none',
-    background: isRednacremOrg ? '#eef2ff' : '#f1f5f9',
-    color: isRednacremOrg ? '#334155' : '#94a3b8',
+    background: '#eef2ff',
+    color: '#334155',
     borderRadius: 12,
     padding: '10px 14px',
     cursor: downloading ? 'progress' : 'pointer',
@@ -792,16 +792,18 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
             <p style={headerMeta}>Ficha del cliente</p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <h2 style={{ margin: '6px 0', fontSize: 24, fontWeight: 700, color: '#111827' }}>{formatField(client.nombre || client.name || editDraft.nombre)}</h2>
-              <button
-                type="button"
-                aria-label="Descargar certificado"
-                title={isRednacremOrg ? 'Descargar certificado' : 'Certificado no disponible para esta organización todavía'}
-                onClick={handleDownloadPdf}
-                style={certificateButtonStyle}
-              >
-                <FileDown size={18} color={isRednacremOrg ? '#334155' : '#94a3b8'} />
-                <span>{downloading ? 'Descargando...' : 'Certificado'}</span>
-              </button>
+              {isRednacremOrg ? (
+                <button
+                  type="button"
+                  aria-label="Descargar certificado"
+                  title="Descargar certificado"
+                  onClick={handleDownloadPdf}
+                  style={certificateButtonStyle}
+                >
+                  <FileDown size={18} color="#334155" />
+                  <span>{downloading ? 'Descargando...' : 'Certificado'}</span>
+                </button>
+              ) : null}
             </div>
           </div>
           <button
