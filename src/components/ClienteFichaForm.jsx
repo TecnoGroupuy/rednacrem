@@ -476,11 +476,14 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
     client.product?.product_id,
     client.producto?.product_id
   );
-  const bajaProductId = pickField(
+  const currentContactProductId = pickField(
     primaryProduct?.id,
     primaryProduct?.contactProductId,
     primaryProduct?.contact_product_id,
-    primaryProduct?.contactProduct?.id,
+    primaryProduct?.contactProduct?.id
+  );
+  const bajaProductId = pickField(
+    currentContactProductId,
     currentProductId
   );
   const primaryKey = primaryProduct
@@ -662,8 +665,11 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
   };
 
   const handleSaveProducto = async () => {
-    if (!client?.id) return;
-    await api.patch(`/clients/${client.id}/producto`, { product_id: newProductId });
+    if (!client?.id || !currentContactProductId || !newProductId) return;
+    await api.patch(`/clients/${client.id}/producto`, {
+      product_id: newProductId,
+      contact_product_id: currentContactProductId
+    });
     setEditingProducto(false);
     await refreshFicha();
   };
