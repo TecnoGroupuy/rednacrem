@@ -1,7 +1,7 @@
 ﻿import React, { useEffect, useState } from 'react';
 import { X, Phone, Check, XCircle, Edit3, FileDown, ChevronDown, Pencil, AlertTriangle } from 'lucide-react';
 import { updateContact, downloadClientDocument, notifyClientDocumentSent } from '../services/clientsService.js';
-import { getApiClient } from '../services/apiClient.js';
+import { getActiveOrganizationId, getApiClient } from '../services/apiClient.js';
 import { fetchClientDetail } from '../services/clientDetailService.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 
@@ -108,6 +108,8 @@ const inputStyle = {
   borderRadius: 10,
   border: '1px solid #e5e7eb'
 };
+
+const REDNACREM_ORG_ID = '9223d62d-f558-4f4c-b9bd-9dcea9888a0e';
 
 const formatField = (value) => (value ? String(value) : '—');
 const pickField = (...values) => {
@@ -253,6 +255,7 @@ const buildDraftFromClient = (client) => {
 export default function ClienteFichaForm({ open, client, onClose, onUpdated, detailError = '', viewerRole = '' }) {
   const api = getApiClient();
   const { user: authUser } = useAuth();
+  const activeOrgId = getActiveOrganizationId();
   const [isEditing, setIsEditing] = React.useState(false);
   const [editDraft, setEditDraft] = React.useState(buildDraftFromClient(client || {}));
   const [editError, setEditError] = React.useState('');
@@ -676,6 +679,22 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
 
   const supervisorName = [authUser?.nombre, authUser?.apellido].filter(Boolean).join(' ') || authUser?.name || authUser?.email || 'Usuario';
   const canBajarServicio = ['supervisor', 'superadministrador'].includes(viewerRole) && !isBaja && Boolean(client?.id && bajaProductId);
+  const isRednacremOrg = String(activeOrgId || '') === REDNACREM_ORG_ID;
+  const certificateButtonStyle = {
+    border: 'none',
+    background: isRednacremOrg ? '#eef2ff' : '#f1f5f9',
+    color: isRednacremOrg ? '#334155' : '#94a3b8',
+    borderRadius: 12,
+    padding: '10px 14px',
+    cursor: downloading ? 'progress' : 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+    fontSize: 13,
+    fontWeight: 700,
+    opacity: downloading ? 0.7 : 1,
+    boxShadow: 'none'
+  };
 
   const openBajaServicioModal = async () => {
     setBajaMotivoSelected('');
@@ -775,11 +794,13 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
               <h2 style={{ margin: '6px 0', fontSize: 24, fontWeight: 700, color: '#111827' }}>{formatField(client.nombre || client.name || editDraft.nombre)}</h2>
               <button
                 type="button"
-                aria-label="Descargar PDF"
+                aria-label="Descargar certificado"
+                title={isRednacremOrg ? 'Descargar certificado' : 'Certificado no disponible para esta organización todavía'}
                 onClick={handleDownloadPdf}
-                style={{ border: 'none', background: '#eef2ff', borderRadius: '50%', width: 42, height: 42, cursor: downloading ? 'progress' : 'pointer', display: 'grid', placeItems: 'center', opacity: downloading ? 0.7 : 1 }}
+                style={certificateButtonStyle}
               >
-                <FileDown size={20} color="#334155" />
+                <FileDown size={18} color={isRednacremOrg ? '#334155' : '#94a3b8'} />
+                <span>{downloading ? 'Descargando...' : 'Certificado'}</span>
               </button>
             </div>
           </div>
