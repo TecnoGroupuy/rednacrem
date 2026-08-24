@@ -97,10 +97,13 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const [importRows, setImportRows] = React.useState([]);
   const [importErrors, setImportErrors] = React.useState([]);
   const [importSummary, setImportSummary] = React.useState(null);
+  const [importPreviewLoading, setImportPreviewLoading] = React.useState(false);
+  const [importPreviewNotice, setImportPreviewNotice] = React.useState('');
   const [importLoading, setImportLoading] = React.useState(false);
   const [importResult, setImportResult] = React.useState(null);
   const [importStep, setImportStep] = React.useState(1);
   const [importStats, setImportStats] = React.useState(null);
+  const importPreviewRequestRef = React.useRef('');
   const lastPayloadRef = React.useRef('');
   const requestIdRef = React.useRef('');
   const lastInputAtRef = React.useRef(0);
@@ -760,10 +763,13 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     setImportRows([]);
     setImportErrors([]);
     setImportSummary(null);
+    setImportPreviewLoading(false);
+    setImportPreviewNotice('');
     setImportLoading(false);
     setImportResult(null);
     setImportStep(1);
     setImportStats(null);
+    importPreviewRequestRef.current = '';
   };
 
   const applyColumnFilters = () => {
@@ -1204,6 +1210,151 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   };
 
   const normalizeHeader = (value) => String(value || '').trim().toLowerCase();
+  const normalizeImportHeader = (value) => normalizeHeader(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  const PREVIEW_ROW_STATUS_META = {
+    ok: { label: 'Listo', background: '#E1F5EE', color: '#0F6E56' },
+    sin_documento: { label: 'Sin documento', background: '#FEF2F2', color: '#B91C1C' },
+    duplicado_real: { label: 'Duplicado real', background: '#FAEEDA', color: '#854F0B' },
+    grupo_familiar: { label: 'Grupo familiar', background: '#E6F1FB', color: '#185FA5' },
+    requiere_revision: { label: 'Requiere revisión', background: '#FCE7F3', color: '#9D174D' },
+    cliente_activo: { label: 'Cliente activo', background: '#EEF2FF', color: '#4338CA' }
+  };
+  const PREVIEW_TIMEOUT_MS = 8000;
+
+  const isPriceHeader = (header) => {
+    const normalized = normalizeImportHeader(header);
+    return normalized === 'precio'
+      || normalized === 'precio del producto'
+      || normalized === 'precio producto'
+      || normalized === 'precio anterior'
+      || normalized === 'precio de venta (mensual)'
+      || normalized.includes('precio');
+  };
+
+  const getPreviewRowStatus = (row) => {
+    const code = !row.documento ? 'sin_documento' : 'ok';
+    return {
+      code,
+      label: PREVIEW_ROW_STATUS_META[code]?.label || 'Listo'
+    };
+  };
+
+  const getRowStatusBadgeStyle = (statusCode) => {
+    const meta = PREVIEW_ROW_STATUS_META[statusCode] || PREVIEW_ROW_STATUS_META.ok;
+    return {
+      background: meta.background,
+      color: meta.color
+    };
+  };
+
+  const normalizePreviewStatusCode = (value) => {
+    const normalized = normalizeImportHeader(value).replace(/\s+/g, '_');
+    const allowed = ['ok', 'duplicado_real', 'grupo_familiar', 'requiere_revision', 'cliente_activo', 'sin_documento'];
+    return allowed.includes(normalized) ? normalized : '';
+  };
+
+  const normalizeRecuperoPreviewResponse = (payload) => {
+    const rowsRaw = Array.isArray(payload?.rows) ? payload.rows : null;
+    const summaryRaw = payload?.summary && typeof payload.summary === 'object' ? payload.summary : null;
+    if (!rowsRaw || !summaryRaw) {
+      throw new Error('El preview devolvió un formato inesperado.');
+    }
+    const rows = rowsRaw.map((row) => {
+      const rowNumber = Number(row?.rowNumber ?? row?.row_number ?? row?.row ?? row?.lineNumber ?? row?.line_number);
+      const code = normalizePreviewStatusCode(row?.status ?? row?.classification ?? row?.resultado ?? row?.result);
+      if (!Number.isFinite(rowNumber) || !code) {
+        throw new Error('El preview devolvió filas con un formato inesperado.');
+      }
+      return {
+        rowNumber,
+        rowStatus: {
+          code,
+          label: PREVIEW_ROW_STATUS_META[code]?.label || code
+        }
+      };
+    });
+    const pickSummaryCount = (key) => Number(
+      summaryRaw?.[key]
+      ?? summaryRaw?.[key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())]
+      ?? 0
+    ) || 0;
+    return {
+      rows,
+      summary: {
+        ok: pickSummaryCount('ok'),
+        duplicado_real: pickSummaryCount('duplicado_real'),
+        grupo_familiar: pickSummaryCount('grupo_familiar'),
+        requiere_revision: pickSummaryCount('requiere_revision'),
+        cliente_activo: pickSummaryCount('cliente_activo'),
+        sin_documento: pickSummaryCount('sin_documento')
+      }
+    };
+  };
+
+  const buildLocalImportSummary = (rows) => {
+    const missingDocumentCount = rows.filter((row) => row.rowStatus?.code === 'sin_documento').length;
+    return {
+      total: rows.length,
+      missingDocument: missingDocumentCount,
+      previewSource: 'local',
+      previewAvailable: false,
+      backendSummary: null,
+      // Este neto solo descuenta filas sin documento. Duplicados/clientes activos
+      // seguirán dependiendo del preview backend cuando exista ese endpoint.
+      readyToImport: Math.max(0, rows.length - missingDocumentCount)
+    };
+  };
+
+  const applyPreviewRowsToImportRows = (baseRows, previewRows) => {
+    const rowsByNumber = new Map(previewRows.map((row) => [row.rowNumber, row.rowStatus]));
+    return baseRows.map((row) => {
+      const previewStatus = rowsByNumber.get(row.rowNumber);
+      if (!previewStatus) return row;
+      return { ...row, rowStatus: previewStatus };
+    });
+  };
+
+  const fetchRecuperoImportPreview = async (file, baseRows) => {
+    const requestId = `preview_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    importPreviewRequestRef.current = requestId;
+    setImportPreviewLoading(true);
+    setImportPreviewNotice('');
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await Promise.race([
+        api.post('/api/recupero/importaciones/preview', formData),
+        new Promise((_, reject) => {
+          window.setTimeout(() => reject(new Error('PREVIEW_TIMEOUT')), PREVIEW_TIMEOUT_MS);
+        })
+      ]);
+      if (importPreviewRequestRef.current !== requestId) return;
+      const normalized = normalizeRecuperoPreviewResponse(response);
+      setImportRows((prev) => applyPreviewRowsToImportRows(prev, normalized.rows));
+      setImportSummary((prev) => ({
+        ...(prev || buildLocalImportSummary(baseRows)),
+        previewSource: 'backend',
+        previewAvailable: true,
+        backendSummary: normalized.summary,
+        readyToImport: normalized.summary.ok + normalized.summary.grupo_familiar + normalized.summary.requiere_revision
+      }));
+    } catch (err) {
+      if (importPreviewRequestRef.current !== requestId) return;
+      console.warn('RECUPERO_PREVIEW_ERROR', err);
+      setImportSummary((prev) => prev || buildLocalImportSummary(baseRows));
+      setImportPreviewNotice(
+        err?.message === 'PREVIEW_TIMEOUT'
+          ? 'El resumen real todavía no respondió. Mostramos un conteo local provisorio.'
+          : 'No pudimos verificar todavía duplicados y clientes activos. Mostramos un conteo local provisorio.'
+      );
+    } finally {
+      if (importPreviewRequestRef.current === requestId) {
+        setImportPreviewLoading(false);
+      }
+    }
+  };
 
   const parseCsvPreview = (text) => {
     const lines = text.split(/\r?\n/).filter((l) => l.trim().length);
@@ -1256,6 +1407,9 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     setImportResult(null);
     setImportStats(null);
     setImportStep(1);
+    importPreviewRequestRef.current = '';
+    setImportPreviewLoading(false);
+    setImportPreviewNotice('');
     if (!file) { resetImportState(); return; }
     if (!file.name.toLowerCase().endsWith('.csv')) {
       setImportErrors(['El archivo debe ser .csv']);
@@ -1284,16 +1438,16 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
         return;
       }
       const delimiter = text.includes(';') ? ';' : ',';
-      const headers = lines[0].split(delimiter).map((h) => h.trim().toLowerCase());
+      const headers = lines[0].split(delimiter).map((h) => normalizeImportHeader(h));
       const idxNombre = headers.findIndex((h) => h === 'nombres' || h === 'nombre');
       const idxApellido = headers.findIndex((h) => h === 'apellidos' || h === 'apellido');
       const idxDoc = headers.findIndex((h) => h === 'documento');
-      const idxTel = headers.findIndex((h) => h === 'telefono' || h === 'teléfono' || h === 'tel\u00e9fono' || h.includes('tel'));
+      const idxTel = headers.findIndex((h) => h === 'telefono' || h.includes('tel'));
       const idxCelular = headers.findIndex((h) => h === 'celular' || h.includes('celular'));
-      const idxEstado = headers.findIndex((h) => h === 'estado' || h === 'ultimo estado' || h === 'último estado');
+      const idxEstado = headers.findIndex((h) => h === 'estado' || h === 'ultimo estado');
       const idxFechaBaja = headers.findIndex((h) => h === 'fecha de baja');
       const idxPlan = headers.findIndex((h) => h === 'plan contratado' || h === 'plan');
-      const idxPrecio = headers.findIndex((h) => h === 'precio');
+      const idxPrecio = headers.findIndex((h) => isPriceHeader(h));
       if (idxNombre === -1 || idxApellido === -1 || (idxDoc === -1 && idxTel === -1)) {
         setImportErrors(['El CSV debe tener columnas: Nombres, Apellidos y al menos Documento o Teléfono.']);
         setImportRows([]);
@@ -1307,7 +1461,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
         const nombre = get(cells, idxNombre);
         const apellido = get(cells, idxApellido);
         if (!nombre && !apellido) continue;
-        rows.push({
+        const row = {
           nombre,
           apellido,
           documento: get(cells, idxDoc),
@@ -1316,11 +1470,15 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
           fecha_baja: get(cells, idxFechaBaja),
           plan: get(cells, idxPlan),
           precio: get(cells, idxPrecio),
-        });
+          rowNumber: i + 1,
+        };
+        row.rowStatus = getPreviewRowStatus(row);
+        rows.push(row);
       }
       setImportRows(rows);
       setImportErrors([]);
-      setImportSummary({ total: rows.length });
+      setImportSummary(buildLocalImportSummary(rows));
+      void fetchRecuperoImportPreview(file, rows);
     };
     reader.readAsArrayBuffer(file);
   };
@@ -2947,6 +3105,18 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
 
               {importStep === 2 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {(() => {
+                    const backendSummary = importSummary?.backendSummary || {};
+                    const summaryItems = importSummary?.previewAvailable ? [
+                      { label: 'OK', value: backendSummary.ok ?? 0, color: '#0F6E56' },
+                      { label: 'Duplicado real', value: backendSummary.duplicado_real ?? 0, color: '#854F0B' },
+                      { label: 'Grupo familiar', value: backendSummary.grupo_familiar ?? 0, color: '#185FA5' },
+                      { label: 'Requiere revisión', value: backendSummary.requiere_revision ?? 0, color: '#9D174D' },
+                      { label: 'Cliente activo', value: backendSummary.cliente_activo ?? 0, color: '#4338CA' },
+                      { label: 'Sin documento', value: backendSummary.sin_documento ?? 0, color: '#B91C1C' }
+                    ] : [];
+                    return (
+                      <>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <div style={{ fontSize: 13, fontWeight: 500 }}>{importFile?.name}</div>
@@ -2957,8 +3127,8 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
                     {[
-                      { label: 'Total filas', value: importRows.length, color: 'var(--color-text-primary)' },
-                      { label: 'Listos para importar', value: importRows.length, color: '#0F6E56' },
+                      { label: 'Total filas', value: importSummary?.total ?? importRows.length, color: 'var(--color-text-primary)' },
+                      { label: 'Listos para importar', value: importSummary?.readyToImport ?? importRows.length, color: '#0F6E56' },
                     ].map(({ label, value, color }) => (
                       <div key={label} style={{ background: 'var(--color-background-secondary)', borderRadius: 8, padding: '10px 14px' }}>
                         <div style={{ fontSize: 20, fontWeight: 500, color }}>{value}</div>
@@ -2966,6 +3136,52 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                       </div>
                     ))}
                   </div>
+
+                  {importPreviewLoading && (
+                    <div style={{
+                      padding: '10px 12px',
+                      borderRadius: 8,
+                      background: '#E6F1FB',
+                      border: '0.5px solid #B5D4F4',
+                      fontSize: 12,
+                      color: '#185FA5'
+                    }}>
+                      Verificando duplicados, clientes activos y filas con revisión desde el backend…
+                    </div>
+                  )}
+
+                  {importSummary?.previewAvailable && (
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                      gap: 10
+                    }}>
+                      {summaryItems.map(({ label, value, color }) => (
+                        <div key={label} style={{
+                          background: 'var(--color-background-secondary)',
+                          borderRadius: 8,
+                          padding: '10px 12px',
+                          border: '0.5px solid var(--color-border-tertiary)'
+                        }}>
+                          <div style={{ fontSize: 18, fontWeight: 600, color }}>{value}</div>
+                          <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 2 }}>{label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {importPreviewNotice && (
+                    <div style={{
+                      padding: '10px 12px',
+                      borderRadius: 8,
+                      background: '#FFF7ED',
+                      border: '0.5px solid #FDBA74',
+                      fontSize: 12,
+                      color: '#9A3412'
+                    }}>
+                      {importPreviewNotice}
+                    </div>
+                  )}
 
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 8 }}>
                     <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -2987,7 +3203,20 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                       <tbody>
                         {importRows.slice(0, 8).map((row, idx) => (
                           <tr key={idx} style={{ borderTop: '0.5px solid var(--color-border-tertiary)' }}>
-                            <td style={{ padding: '6px 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.documento || '—'}</td>
+                            <td style={{ padding: '6px 8px' }}>
+                              <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.documento || '—'}</div>
+                              <span style={{
+                                display: 'inline-flex',
+                                marginTop: 4,
+                                padding: '2px 6px',
+                                borderRadius: 999,
+                                fontSize: 10,
+                                fontWeight: 500,
+                                ...getRowStatusBadgeStyle(row.rowStatus?.code)
+                              }}>
+                                {row.rowStatus?.label || 'Listo'}
+                              </span>
+                            </td>
                             <td style={{ padding: '6px 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.nombre || '—'}</td>
                             <td style={{ padding: '6px 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.apellido || '—'}</td>
                             <td style={{ padding: '6px 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.telefono || '—'}</td>
@@ -3006,8 +3235,14 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                   </div>
 
                   <div style={{ padding: '10px 12px', borderRadius: 8, background: '#FAEEDA44', border: '0.5px solid #FAC77566', fontSize: 12, color: '#854F0B' }}>
-                    Los duplicados y clientes activos serán excluidos automáticamente durante la importación.
+                    {importSummary?.previewAvailable
+                      ? `Se importarán ${importSummary.readyToImport} filas (${importSummary.backendSummary?.ok ?? 0} OK, ${importSummary.backendSummary?.grupo_familiar ?? 0} grupo familiar, ${importSummary.backendSummary?.requiere_revision ?? 0} requieren revisión). Se excluirán ${importSummary.backendSummary?.duplicado_real ?? 0} duplicados reales, ${importSummary.backendSummary?.cliente_activo ?? 0} clientes activos y ${importSummary.backendSummary?.sin_documento ?? 0} filas sin documento.`
+                      : (importPreviewNotice || 'Los duplicados y clientes activos se verificarán en cuanto responda el preview del backend. Mientras tanto mostramos un conteo local provisorio.')}
                   </div>
+
+                      </>
+                    );
+                  })()}
 
                 </div>
               )}
