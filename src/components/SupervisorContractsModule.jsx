@@ -48,7 +48,7 @@ const FILTER_COLUMN_CONFIG = {
 
 export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const api = React.useMemo(() => getApiClient(), []);
-  const [vistaActual, setVistaActual] = React.useState('importaciones'); // 'importaciones' | 'contactos' | 'lotes' | 'mis-candidatos' | 'detalle-lote'
+  const [vistaActual, setVistaActual] = React.useState('contactos'); // 'importaciones' | 'contactos' | 'lotes' | 'mis-candidatos' | 'detalle-lote'
   const [metrics, setMetrics] = React.useState({ total: 0, disponibles: 0, enLote: 0, recuperados: 0, rechazados: 0 });
   const [items, setItems] = React.useState([]);
   const [columnFiltersDraft, setColumnFiltersDraft] = React.useState({ ...COLUMN_FILTERS_INITIAL });
@@ -1718,7 +1718,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                 <Button variant="ghost" onClick={() => downloadRowsAsCsv(exportState.rows, exportState.fileName)} disabled={!exportState.rows?.length}>
                   Exportar
                 </Button>
-                <Button onClick={() => setShowImportModal(true)} style={{ background: '#0F766E', color: '#fff' }}>
+                <Button onClick={() => { resetImportState(); setShowImportModal(true); }} style={{ background: '#0F766E', color: '#fff' }}>
                   Importar CSV
                 </Button>
               </div>

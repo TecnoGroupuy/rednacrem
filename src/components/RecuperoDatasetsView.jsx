@@ -54,6 +54,7 @@ const formatDateTime = (value) => {
 
 const formatCount = (value) => asNumber(value).toLocaleString('es-UY');
 const safeValue = (value, fallback = '-') => asText(value) || fallback;
+const formatPercent = (value) => (value === null || value === undefined || value === '' ? '—' : `${value}%`);
 
 const calcRate = (part, total) => {
   if (!total) return 0;
@@ -68,6 +69,18 @@ const getSummaryValue = (summary, keys, fallback = 0) => {
   return fallback;
 };
 
+const getEffectivenessValue = (source) => {
+  const direct = source?.efectividad ?? source?.effectiveness;
+  if (direct !== undefined && direct !== null && direct !== '') {
+    return asNumber(direct, 0);
+  }
+  const recuperado = getSummaryValue(source, ['recuperado', 'recuperados', 'recovered']);
+  const rechazado = getSummaryValue(source, ['rechazado', 'rechazados', 'rejected']);
+  const denominator = recuperado + rechazado;
+  if (!denominator) return null;
+  return calcRate(recuperado, denominator);
+};
+
 const normalizeSummary = (response) => {
   const payload = extractPayload(response);
   const summary = payload?.summary && typeof payload.summary === 'object' ? payload.summary : payload;
@@ -79,8 +92,7 @@ const normalizeSummary = (response) => {
   const recuperado = getSummaryValue(summary, ['recuperado', 'recuperados', 'recovered']);
   const rechazado = getSummaryValue(summary, ['rechazado', 'rechazados', 'rejected']);
   const datoErroneo = getSummaryValue(summary, ['dato_erroneo', 'datoErroneo', 'invalid_data']);
-  const gestionadoTotal = Math.max(enGestion + recuperado + rechazado, 0);
-  const efectividad = getSummaryValue(summary, ['efectividad', 'effectiveness'], calcRate(recuperado, Math.max(gestionadoTotal - datoErroneo, 1)));
+  const efectividad = getEffectivenessValue(summary);
   return {
     totalImportadas,
     depuradas,
@@ -122,7 +134,7 @@ const normalizeDataset = (item, index) => {
     rechazado,
     datoErroneo,
     avance: getSummaryValue(item, ['avance', 'progress', 'progress_pct'], calcRate(cerrados, Math.max(filas - excluidos, 1))),
-    efectividad: getSummaryValue(item, ['efectividad', 'effectiveness'], calcRate(recuperado, Math.max(enGestion + recuperado + rechazado, 1))),
+    efectividad: getEffectivenessValue(item),
     gruposFamiliares: getSummaryValue(item, ['grupos_familiares', 'family_groups']),
     duplicados: getSummaryValue(item, ['duplicados', 'duplicates']),
     activosExcluidos: getSummaryValue(item, ['activos', 'clientes_activos', 'active_clients']),
@@ -295,6 +307,7 @@ export default function RecuperoDatasetsView({
   const [poolRows, setPoolRows] = React.useState([]);
   const [poolLoading, setPoolLoading] = React.useState(false);
   const [poolError, setPoolError] = React.useState('');
+  const [poolNotice, setPoolNotice] = React.useState('');
   const [selectedPoolIds, setSelectedPoolIds] = React.useState([]);
   const [poolAssignOpen, setPoolAssignOpen] = React.useState(false);
   const [poolAssignSellerId, setPoolAssignSellerId] = React.useState('');
@@ -388,31 +401,21 @@ export default function RecuperoDatasetsView({
   const loadPool = React.useCallback(async () => {
     setPoolLoading(true);
     setPoolError('');
-    const fallbackPaths = [
-      '/recovery/pool',
-      '/recovery/datasets/pool',
-      '/recovery/candidates?status=pendiente'
-    ];
-    let lastError = null;
-    for (const path of fallbackPaths) {
-      try {
-        const response = await api.get(path);
-        setPoolRows(normalizePool(response));
-        onSync();
-        setPoolLoading(false);
-        return;
-      } catch (err) {
-        lastError = err;
-        if (![404, 405].includes(Number(err?.status || 0))) break;
+    setPoolNotice('');
+    try {
+      const response = await api.get('/api/recupero/contactos?estado=disponible');
+      const rows = normalizePool(response);
+      setPoolRows(rows);
+      if (rows.length && rows.every((row) => !row.datasetId && !row.datasetName)) {
+        setPoolNotice('El endpoint real del pool no expone dataset_id ni nombre de dataset por candidato. La columna de origen queda pendiente hasta ajustar ese contrato.');
       }
+      onSync();
+    } catch (err) {
+      setPoolError(err?.message || 'No se pudo cargar el pool total de bajas.');
+      setPoolRows([]);
+    } finally {
+      setPoolLoading(false);
     }
-    setPoolError(
-      [404, 405].includes(Number(lastError?.status || 0))
-        ? 'No encontramos un endpoint directo para el pool global cruzando datasets. Hace falta confirmar ese contrato antes de conectarlo.'
-        : (lastError?.message || 'No se pudo cargar el pool total de bajas.')
-    );
-    setPoolRows([]);
-    setPoolLoading(false);
   }, [api, onSync]);
 
   React.useEffect(() => {
@@ -472,7 +475,7 @@ export default function RecuperoDatasetsView({
           rechazado: row.rechazado,
           dato_erroneo: row.datoErroneo,
           avance: `${row.avance}%`,
-          efectividad: `${row.efectividad}%`
+          efectividad: formatPercent(row.efectividad)
         }))
       });
       return;
@@ -489,7 +492,7 @@ export default function RecuperoDatasetsView({
           rechazado: row.rechazado,
           dato_erroneo: row.datoErroneo,
           avance: `${row.avance}%`,
-          efectividad: `${row.efectividad}%`
+          efectividad: formatPercent(row.efectividad)
         }))
       });
       return;
@@ -646,7 +649,7 @@ export default function RecuperoDatasetsView({
           { label: 'En gestion', value: formatCount(summary.enGestion), color: '#A16207', sub: 'con intento, sin cierre' },
           { label: 'Recuperado', value: formatCount(summary.recuperado), color: '#15803D', sub: `${calcRate(summary.recuperado, summary.baseUtil)}% de la base util` },
           { label: 'Rechazado', value: formatCount(summary.rechazado), color: '#B91C1C', sub: `${calcRate(summary.rechazado, summary.baseUtil)}% de la base util` },
-          { label: 'Efectividad', value: `${summary.efectividad}%`, color: '#0F766E', sub: 'recuperado / gestionado' }
+          { label: 'Efectividad', value: formatPercent(summary.efectividad), color: '#0F766E', sub: 'excluye dato erroneo' }
         ].map((card) => (
           <div key={card.label} style={{ background: '#fff', borderRadius: 14, padding: '16px 18px', border: card.label === 'Efectividad' ? '1px solid rgba(15,118,110,0.45)' : '0.5px solid var(--color-border-tertiary)' }}>
             <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{card.label}</div>
@@ -748,7 +751,7 @@ export default function RecuperoDatasetsView({
                               <div style={{ width: `${calcRate(dataset.rechazado, dataset.filas)}%`, background: '#B91C1C' }} />
                               <div style={{ width: `${calcRate(dataset.datoErroneo, dataset.filas)}%`, background: '#9CA3AF' }} />
                             </div>
-                            <div style={{ marginTop: 6, fontSize: 12, color: 'var(--color-text-secondary)' }}>{dataset.avance}% cerrado · efect. {dataset.efectividad}%</div>
+                            <div style={{ marginTop: 6, fontSize: 12, color: 'var(--color-text-secondary)' }}>{dataset.avance}% cerrado · efect. {formatPercent(dataset.efectividad)}</div>
                           </div>
                         </td>
                       </tr>
@@ -915,7 +918,7 @@ export default function RecuperoDatasetsView({
                     <td style={{ color: '#B91C1C', fontWeight: 800 }}>{formatCount(row.rechazado)}</td>
                     <td>{formatCount(row.datoErroneo)}</td>
                     <td>{row.avance}%</td>
-                    <td>{row.efectividad}%</td>
+                    <td>{formatPercent(row.efectividad)}</td>
                   </tr>
                 ))}
                 {!sellerRowsLoading && sellerRows.length === 0 ? (
@@ -939,6 +942,7 @@ export default function RecuperoDatasetsView({
           )}
         >
           {poolError ? <div style={{ marginBottom: 12, color: '#B91C1C', fontWeight: 700 }}>{poolError}</div> : null}
+          {poolNotice ? <div style={{ marginBottom: 12, color: '#92400E', fontWeight: 700 }}>{poolNotice}</div> : null}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
             <input className="input" placeholder="Buscar por dataset, documento, contacto o plan..." value={poolSearch} onChange={(event) => setPoolSearch(event.target.value)} style={{ minWidth: 260, flex: '1 1 260px' }} />
             <Button variant="ghost" onClick={() => downloadCsv(filteredPoolRows.map((row) => ({
