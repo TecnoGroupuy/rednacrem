@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAuth } from '../auth/AuthProvider.jsx';
 import { formatDate } from '../utils/dateFormat.js';
 
 const PAGE_SIZE = 50;
@@ -83,6 +84,8 @@ export default function RecuperoMyCandidatesView({
   onSync = () => {},
   onExportStateChange = () => {}
 }) {
+  const { rolReal } = useAuth();
+  const isSupervisorView = rolReal === 'supervisor' || rolReal === 'superadministrador';
   const [tab, setTab] = React.useState('nuevos');
   const [search, setSearch] = React.useState('');
   const [searchDebounced, setSearchDebounced] = React.useState('');
@@ -101,6 +104,14 @@ export default function RecuperoMyCandidatesView({
 
   const loadRows = React.useCallback(async () => {
     if (!active) return;
+    if (isSupervisorView) {
+      setRows([]);
+      setTotal(0);
+      setTotalPages(1);
+      setTabCounts({ nuevos: 0, no_contesta: 0 });
+      setError('');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -141,7 +152,7 @@ export default function RecuperoMyCandidatesView({
     } finally {
       setLoading(false);
     }
-  }, [active, api, onSync, page, searchDebounced, tab]);
+  }, [active, api, isSupervisorView, onSync, page, searchDebounced, tab]);
 
   React.useEffect(() => {
     loadRows();
@@ -153,6 +164,13 @@ export default function RecuperoMyCandidatesView({
 
   React.useEffect(() => {
     if (!active) return;
+    if (isSupervisorView) {
+      onExportStateChange({
+        fileName: `recupero-mis-candidatos-${tab}.csv`,
+        rows: []
+      });
+      return;
+    }
     onExportStateChange({
       fileName: `recupero-mis-candidatos-${tab}.csv`,
       rows: rows.map((row, index) => ({
@@ -165,18 +183,31 @@ export default function RecuperoMyCandidatesView({
         estado: normalizeStatus(row?.estado_venta || row?.status).label
       }))
     });
-  }, [active, onExportStateChange, rows, tab]);
+  }, [active, isSupervisorView, onExportStateChange, rows, tab]);
 
   return (
     <Panel
       title="Mis candidatos"
       subtitle="Asignados al vendedor desde Recupero"
       action={(
-        <Button variant="ghost" onClick={() => loadRows()}>
+        <Button variant="ghost" onClick={() => loadRows()} disabled={isSupervisorView}>
           Actualizar
         </Button>
       )}
     >
+      {isSupervisorView ? (
+        <div style={{
+          padding: '16px 18px',
+          borderRadius: 12,
+          background: '#F8F7F4',
+          border: '1px solid rgba(148,163,184,0.35)',
+          color: 'var(--color-text-secondary)',
+          lineHeight: 1.55
+        }}>
+          Esta vista muestra los candidatos asignados a tu propio usuario. Para ver el rendimiento de tu equipo, andá a la pestaña "Por vendedor" dentro de Importaciones.
+        </div>
+      ) : (
+        <>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
         {TABS.map((item) => {
           const selected = item.key === tab;
@@ -273,6 +304,8 @@ export default function RecuperoMyCandidatesView({
           </Button>
         </div>
       </div>
+        </>
+      )}
     </Panel>
   );
 }
