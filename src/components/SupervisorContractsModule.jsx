@@ -2,8 +2,16 @@
 import { Filter, RefreshCw, X, Upload, Columns, ChevronDown } from 'lucide-react';
 import { getApiClient } from '../services/apiClient.js';
 import { formatDate } from '../utils/dateFormat.js';
+import RecuperoDatasetsView from './RecuperoDatasetsView.jsx';
+import RecuperoMyCandidatesView from './RecuperoMyCandidatesView.jsx';
 
 const PAGE_SIZE = 50;
+const RECUPERO_TOP_TABS = [
+  { key: 'importaciones', label: 'Importaciones' },
+  { key: 'contactos', label: 'Contactos' },
+  { key: 'lotes', label: 'Lotes' },
+  { key: 'mis-candidatos', label: 'Mis candidatos' }
+];
 
 const COLUMN_FILTERS_INITIAL = {
   contacto: '',
@@ -40,7 +48,7 @@ const FILTER_COLUMN_CONFIG = {
 
 export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const api = React.useMemo(() => getApiClient(), []);
-  const [vistaActual, setVistaActual] = React.useState('disponibles'); // 'disponibles' | 'lotes' | 'detalle-lote'
+  const [vistaActual, setVistaActual] = React.useState('importaciones'); // 'importaciones' | 'contactos' | 'lotes' | 'mis-candidatos' | 'detalle-lote'
   const [metrics, setMetrics] = React.useState({ total: 0, disponibles: 0, enLote: 0, recuperados: 0, rechazados: 0 });
   const [items, setItems] = React.useState([]);
   const [columnFiltersDraft, setColumnFiltersDraft] = React.useState({ ...COLUMN_FILTERS_INITIAL });
@@ -117,6 +125,9 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const [showDetalleSearch, setShowDetalleSearch] = React.useState(false);
   const [showInformeModal, setShowInformeModal] = React.useState(false);
   const [informeModalLoteId, setInformeModalLoteId] = React.useState('');
+  const [lastSyncAt, setLastSyncAt] = React.useState(null);
+  const [syncNow, setSyncNow] = React.useState(Date.now());
+  const [exportState, setExportState] = React.useState({ fileName: 'recupero.csv', rows: [] });
 
   const isImportSuccess = (result) => {
     if (!result) return false;
@@ -277,6 +288,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       const response = await api.get('/api/recupero/lotes');
       const itemsList = response?.items || response?.data?.items || response?.lotes || response?.data?.lotes || [];
       setLotesCreados(Array.isArray(itemsList) ? itemsList : []);
+      setLastSyncAt(Date.now());
     } catch (err) {
       setLotesError(err?.message || 'No se pudieron cargar los lotes.');
       setLotesCreados([]);
@@ -292,6 +304,39 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     if (Number.isNaN(parsed.getTime())) return '—';
     return parsed.toLocaleString('es-UY', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   };
+
+  const markSync = React.useCallback(() => {
+    setLastSyncAt(Date.now());
+  }, []);
+
+  React.useEffect(() => {
+    const timer = setInterval(() => setSyncNow(Date.now()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const syncLabel = React.useMemo(() => {
+    if (!lastSyncAt) return 'Sincronizado con Clientes · pendiente';
+    const diffMinutes = Math.max(0, Math.floor((syncNow - lastSyncAt) / 60000));
+    if (diffMinutes < 1) return 'Sincronizado con Clientes · hace instantes';
+    if (diffMinutes === 1) return 'Sincronizado con Clientes · hace 1 min';
+    return `Sincronizado con Clientes · hace ${diffMinutes} min`;
+  }, [lastSyncAt, syncNow]);
+
+  const downloadRowsAsCsv = React.useCallback((rows, fileName) => {
+    if (!Array.isArray(rows) || !rows.length) return;
+    const headers = Object.keys(rows[0]);
+    const escape = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const csv = [headers.join(','), ...rows.map((row) => headers.map((key) => escape(row[key])).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName || 'recupero-export.csv';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }, []);
 
   const formatLoteConfig = (lote) => {
     const raw = lote?.configuracion || lote?.filtros || lote?.filters || lote?.criteria || lote?.segmento || lote?.segment || null;
@@ -452,6 +497,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
         if (!active) return;
         setDetalleMetrics(m);
         setDetalleContacts(Array.isArray(contacts) ? contacts : []);
+        setLastSyncAt(Date.now());
       })
       .catch((err) => {
         if (!active) return;
@@ -492,6 +538,65 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     || row?.contacto
     || '—'
   ), []);
+
+  React.useEffect(() => {
+    if (vistaActual === 'contactos') {
+      setExportState({
+        fileName: `recupero-contactos-${activeTab}.csv`,
+        rows: visibleItems.map((row) => ({
+          contacto: getContactoNombre(row),
+          documento: row?.documento || '',
+          telefono: row?.telefono || row?.celular || '',
+          producto: row?.producto || row?.nombre_producto || '',
+          precio: row?.precio || '',
+          motivo_baja: row?.motivo_baja || '',
+          fecha_baja: row?.fecha_baja || '',
+          vendedor_asignado: getVendedorAsignado(row) || '',
+          lote: getNombreLote(row) || '',
+          estado: getUltimoEstado(row) || row?.estado || ''
+        }))
+      });
+      return;
+    }
+
+    if (vistaActual === 'lotes') {
+      setExportState({
+        fileName: 'recupero-lotes.csv',
+        rows: lotesCreados.map((lote) => ({
+          id: asLotId(lote),
+          nombre: asLotName(lote),
+          creado: asLotCreatedAt(lote) || '',
+          vendedor: asLotSellerName(lote),
+          contactos: asLotCount(lote),
+          configuracion: formatLoteConfig(lote)
+        }))
+      });
+      return;
+    }
+
+    if (vistaActual === 'detalle-lote') {
+      setExportState({
+        fileName: `recupero-lote-${loteSeleccionado?.id || 'detalle'}.csv`,
+        rows: detalleContacts.map((row) => ({
+          contacto: getContactoNombre(row),
+          documento: row?.documento || '',
+          telefono: row?.telefono || row?.celular || '',
+          producto: row?.producto || row?.nombre_producto || '',
+          motivo_baja: row?.motivo_baja || '',
+          fecha_baja: row?.fecha_baja || '',
+          estado: row?.estado || row?.estado_venta || ''
+        }))
+      });
+    }
+  }, [
+    activeTab,
+    detalleContacts,
+    getContactoNombre,
+    lotesCreados,
+    loteSeleccionado?.id,
+    vistaActual,
+    visibleItems
+  ]);
 
   const getEstadoBadge = React.useCallback((row) => {
     const estado = String(row.estado || '').trim().toLowerCase();
@@ -594,7 +699,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     return {
       tab: activeTab,
       filters,
-      sort: vistaActual === 'disponibles'
+      sort: vistaActual === 'contactos'
         ? { field: 'fecha_baja', dir: sortDir }
         : (orden.campo ? { field: orden.campo, dir: orden.direccion } : null),
       columns: visibleColumns.length ? visibleColumns : allColumns.map((col) => col.id),
@@ -666,6 +771,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
           total: Number.isFinite(totalCount) ? totalCount : prev.total
         }));
       }
+      setLastSyncAt(Date.now());
     } catch (err) {
       if (requestIdRef.current !== requestId) return;
       console.debug('[recupero][error]', { requestId, ms: Date.now() - startedAt, message: err?.message || err });
@@ -704,10 +810,12 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const payloadKey = React.useMemo(() => JSON.stringify(buildSearchPayload()), [buildSearchPayload]);
 
   React.useEffect(() => {
+    if (vistaActual !== 'contactos') return;
     loadRecupero();
-  }, [payloadKey, loadRecupero]);
+  }, [payloadKey, loadRecupero, vistaActual]);
 
   React.useEffect(() => {
+    if (vistaActual !== 'contactos') return;
     // Periodic refetch to keep Recupero in sync (skip while user is typing).
     const intervalMs = 45000;
     const timer = setInterval(() => {
@@ -715,7 +823,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       loadRecupero({ force: true });
     }, intervalMs);
     return () => clearInterval(timer);
-  }, [loadRecupero, payloadKey]);
+  }, [loadRecupero, payloadKey, vistaActual]);
 
   React.useEffect(() => {
     setPage(1);
@@ -1555,58 +1663,84 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       <section className="content-grid">
         <Panel
           className="span-12"
-          title={vistaActual === 'detalle-lote' ? null : 'Recupero de clientes'}
-          subtitle={vistaActual === 'detalle-lote' ? null : 'Cartera de clientes para reconversión'}
-          action={vistaActual === 'detalle-lote' ? null : (
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                onClick={() => { setVistaActual('disponibles'); setLoteSeleccionado(null); }}
-                style={{
-                  padding: '8px 12px',
-                  borderRadius: 10,
-                  border: vistaActual === 'disponibles' ? '1px solid #0F766E' : '1px solid rgba(148,163,184,0.45)',
-                  background: vistaActual === 'disponibles' ? '#0F766E' : 'transparent',
-                  color: vistaActual === 'disponibles' ? '#fff' : 'var(--color-text-secondary)',
-                  fontWeight: 700,
-                  fontSize: 12,
-                  cursor: 'pointer'
-                }}
-              >
-                Ver disponibles
-              </button>
-              <button
-                type="button"
-                onClick={() => { setVistaActual('lotes'); setLoteSeleccionado(null); }}
-                style={{
-                  padding: '8px 12px',
-                  borderRadius: 10,
-                  border: vistaActual === 'lotes' ? '1px solid #0F766E' : '1px solid rgba(148,163,184,0.45)',
-                  background: vistaActual === 'lotes' ? '#0F766E' : 'transparent',
-                  color: vistaActual === 'lotes' ? '#fff' : 'var(--color-text-secondary)',
-                  fontWeight: 700,
-                  fontSize: 12,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8
-                }}
-              >
-                Mis lotes
-                <span style={{
-                  fontSize: 11,
-                  fontWeight: 800,
-                  padding: '2px 8px',
-                  borderRadius: 999,
-                  background: vistaActual === 'lotes' ? 'rgba(255,255,255,0.2)' : 'rgba(15,118,110,0.10)',
-                  color: vistaActual === 'lotes' ? '#fff' : '#0F766E'
-                }}>
-                  {lotesCreados.length}
-                </span>
-              </button>
-            </div>
-          )}
+          title={null}
+          subtitle={null}
+          action={null}
         >
+          <div style={{ display: 'grid', gap: 18 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 12, background: '#0F766E', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 20, fontWeight: 900 }}>
+                    R
+                  </div>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--color-text-primary)' }}>
+                    Recupero
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {RECUPERO_TOP_TABS.map((tab) => {
+                    const activeTopTab = tab.key === 'lotes'
+                      ? (vistaActual === 'lotes' || vistaActual === 'detalle-lote')
+                      : vistaActual === tab.key;
+                    return (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        onClick={() => {
+                          setVistaActual(tab.key);
+                          if (tab.key !== 'lotes') setLoteSeleccionado(null);
+                        }}
+                        style={{
+                          padding: '9px 14px',
+                          borderRadius: 12,
+                          border: activeTopTab ? '1px solid rgba(15,118,110,0.18)' : '1px solid transparent',
+                          background: activeTopTab ? '#E7F6F2' : 'transparent',
+                          color: activeTopTab ? '#0F766E' : 'var(--color-text-primary)',
+                          fontWeight: 800,
+                          fontSize: 14,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {tab.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 12, border: '1px solid rgba(148,163,184,0.35)', background: '#fff', color: 'var(--color-text-primary)', fontSize: 13, fontWeight: 600 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 999, background: '#16A34A', display: 'inline-block' }} />
+                  {syncLabel}
+                </div>
+                <Button variant="ghost" onClick={() => downloadRowsAsCsv(exportState.rows, exportState.fileName)} disabled={!exportState.rows?.length}>
+                  Exportar
+                </Button>
+                <Button onClick={() => setShowImportModal(true)} style={{ background: '#0F766E', color: '#fff' }}>
+                  Importar CSV
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Legacy flows stay intact; this patch only reorganizes them under the new tab shell. */}
+
+          {(vistaActual === 'importaciones') && (
+            <RecuperoDatasetsView
+              Panel={Panel}
+              Button={Button}
+              Tag={Tag}
+              api={api}
+              active={vistaActual === 'importaciones'}
+              sellers={sellers}
+              loadAssignableSellers={loadSellers}
+              onSync={markSync}
+              onExportStateChange={setExportState}
+            />
+          )}
+
           {vistaActual === 'lotes' && (
             <div>
               {lotesLoading ? <div style={{ marginBottom: 12, color: 'var(--muted)' }}>Cargando lotes...</div> : null}
@@ -2044,7 +2178,19 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
             </div>
           )}
 
-          {vistaActual === 'disponibles' && (
+          {vistaActual === 'mis-candidatos' && (
+            <RecuperoMyCandidatesView
+              Panel={Panel}
+              Button={Button}
+              Tag={Tag}
+              api={api}
+              active={vistaActual === 'mis-candidatos'}
+              onSync={markSync}
+              onExportStateChange={setExportState}
+            />
+          )}
+
+          {vistaActual === 'contactos' && (
             <>
             <div style={{
               display: 'grid',
@@ -2222,9 +2368,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                 Columnas
               </Button>
               <Button variant="ghost" icon={<RefreshCw size={16} />} onClick={() => loadRecupero({ force: true })}>Actualizar</Button>
-              <Button className="recupero-import-btn" variant="secondary" icon={<Upload size={16} />} onClick={() => { resetImportState(); setShowImportModal(true); }}>
-                Importar CSV
-              </Button>
             </div>
 
             {activeTab === 'disponibles' && (
