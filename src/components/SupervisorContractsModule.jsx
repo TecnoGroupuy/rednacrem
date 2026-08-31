@@ -437,6 +437,12 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const asLotCount = (lote) => Number(formatLoteCount(lote) || 0);
   const asLotSellerName = (lote) => formatLoteSeller(lote);
   const asLotSellers = (lote) => (Array.isArray(lote?.vendedores) ? lote.vendedores : []);
+  const formatSellerListLabel = (sellerList = []) => (
+    (Array.isArray(sellerList) ? sellerList : [])
+      .map((seller) => `${seller?.nombre || ''} ${seller?.apellido || ''}`.trim())
+      .filter(Boolean)
+      .join(', ')
+  );
 
   const buildSelectedLot = React.useCallback((lote) => {
     if (!lote) return null;
@@ -734,16 +740,27 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     setVistaActual('detalle-lote');
   }, [buildSelectedLot]);
 
-  const refreshSelectedLot = React.useCallback(async (lotId) => {
+  const refreshSelectedLot = React.useCallback(async (lotId, options = {}) => {
     if (!lotId) return null;
     const nextLotes = await loadLotesCreados();
     const refreshedLot = (Array.isArray(nextLotes) ? nextLotes : []).find((lot) => asLotId(lot) === String(lotId));
-    const nextSelected = buildSelectedLot(refreshedLot);
+    let nextSelected = buildSelectedLot(refreshedLot);
+    if (
+      nextSelected
+      && Array.isArray(options.preserveVendedores)
+      && !Array.isArray(refreshedLot?.vendedores)
+    ) {
+      nextSelected = {
+        ...nextSelected,
+        vendedores: options.preserveVendedores,
+        sellerName: formatSellerListLabel(options.preserveVendedores) || nextSelected.sellerName
+      };
+    }
     if (nextSelected) {
       setLoteSeleccionado(nextSelected);
     }
     return nextSelected;
-  }, [buildSelectedLot, loadLotesCreados]);
+  }, [buildSelectedLot, formatSellerListLabel, loadLotesCreados]);
 
   const openAddSellerModal = React.useCallback(() => {
     if (!loteSeleccionado?.id) return;
@@ -796,15 +813,35 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       if (!response.ok || !data?.ok) {
         throw new Error(data?.message || 'No se pudo agregar el vendedor.');
       }
-      await refreshSelectedLot(loteSeleccionado.id);
+      const optimisticVendedores = Array.isArray(data?.distribution)
+        ? data.distribution.map((item) => ({
+            id: String(item?.seller_id || ''),
+            nombre: item?.nombre || '',
+            apellido: '',
+            total_contactos: Number(item?.cantidad || 0),
+            gestionados: Number(item?.gestionados || 0)
+          }))
+        : null;
+      if (optimisticVendedores?.length) {
+        setLoteSeleccionado((prev) => (
+          prev ? {
+            ...prev,
+            vendedores: optimisticVendedores,
+            sellerName: formatSellerListLabel(optimisticVendedores) || prev.sellerName
+          } : prev
+        ));
+      }
       closeAddSellerModal();
       setSellerMutationFeedback({ type: 'success', message: 'Vendedor agregado al lote correctamente.' });
+      void refreshSelectedLot(loteSeleccionado.id, {
+        preserveVendedores: optimisticVendedores
+      });
     } catch (err) {
       setAddSellerError(err?.message || 'No se pudo agregar el vendedor.');
     } finally {
       setSellerMutationLoading(false);
     }
-  }, [addSellerTarget, buildAuthHeaders, closeAddSellerModal, loteSeleccionado?.id, refreshSelectedLot]);
+  }, [addSellerTarget, buildAuthHeaders, closeAddSellerModal, formatSellerListLabel, loteSeleccionado?.id, refreshSelectedLot]);
 
   const handleRemoveSeller = React.useCallback(async () => {
     if (!loteSeleccionado?.id || !removeModal?.sellerId) return;
