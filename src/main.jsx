@@ -6,12 +6,12 @@ import { buildCognitoHostedUiLogoutUrl, cognitoAuthConfig } from './auth/cognito
 import './tailwind.css';
 import {
   Menu, X, Bell, Search, ChevronDown, ChevronUp, Briefcase, Users, UserCheck, Building2, Phone,
-  Activity, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, AlertTriangle,
+  Activity, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, AlertTriangle, Ambulance,
   DollarSign, Target, Download, Layers, Eye, Calendar, PhoneCall, CreditCard, FileText,
   Filter, Plus, CheckCircle2, Clock, Settings, Zap, BarChart3, Flame, Edit3, MoreHorizontal, Trash2,
   MessageSquare, Send, Headphones, Headset, Bot, User, Hash, Upload, LogOut, Coffee, Bath, PersonStanding,
   PauseCircle, XCircle, Webhook,
-  Info, Shield, ChevronRight, RefreshCw
+  Info, Shield, ChevronRight, RefreshCw, MapPin, Star, Package, HeartPulse
 } from 'lucide-react';
 import {
   ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip,
@@ -102,8 +102,15 @@ import SupervisorRegistrationRequestsModule from './components/SupervisorRegistr
 import CampanasRedesModule from './components/CampanasRedesModule.jsx';
 import EquipoVentaModule from './components/EquipoVentaModule.jsx';
 import ClienteFichaForm from './components/ClienteFichaForm.jsx';
+import MonitorScreen from './modules/operaciones/monitor/MonitorScreen.jsx';
 import PanelControlModule from './components/PanelControlModule.jsx';
 import ProfileModal from './components/ProfileModal.jsx';
+import FlotasScreen from './modules/operaciones/flotas/FlotasScreen.jsx';
+import RrhhScreen from './modules/operaciones/rrhh/RrhhScreen.jsx';
+import ServiciosScreen from './modules/operaciones/servicios/ServiciosScreen.jsx';
+import EconomatoScreen from './modules/operaciones/economato/EconomatoScreen.jsx';
+import EquiposScreen from './modules/operaciones/equipos/EquiposScreen.jsx';
+import TurnosScreen from './modules/operaciones/turnos/TurnosScreen.jsx';
 import BotonVistaRol from './components/BotonVistaRol.jsx';
 import UiRoleGate from './components/UiRoleGate.jsx';
 import RealRoleGate from './components/RealRoleGate.jsx';
@@ -194,6 +201,13 @@ const ROLE_NAV = [
       { path: 'sa_conexiones', label: 'Conexiones', caption: 'Webhooks externos', roles: ['superadministrador'], icon: Webhook },
       { path: 'dashboard', label: 'Monitor', caption: 'Resumen principal', roles: ['director', 'supervisor', 'vendedor', 'operaciones'], icon: Activity },
       { path: 'panel_control', label: 'Panel de control', caption: 'Resumen del día', roles: ['director', 'supervisor'], icon: BarChart3 },
+      { path: 'operaciones/monitor', label: 'Monitor', caption: 'Seguimiento operativo', roles: ['director', 'operaciones'], icon: Activity },
+      { path: 'operaciones/flotas', label: 'Flotas', caption: 'Vehiculos y mantenimiento', roles: ['director', 'operaciones'], icon: Ambulance },
+      { path: 'operaciones/rrhh', label: 'RRHH', caption: 'Dotación y legajos', roles: ['director', 'operaciones'], icon: Users },
+      { path: 'operaciones/servicios', label: 'Servicios', caption: 'Despacho y seguimiento', roles: ['director', 'operaciones'], icon: PhoneCall },
+      { path: 'operaciones/economato', label: 'Economato', caption: 'Stock y movimientos', roles: ['director', 'operaciones'], icon: Package },
+      { path: 'operaciones/equipos', label: 'Equipos', caption: 'Biomédicos y revisiones', roles: ['director', 'operaciones'], icon: HeartPulse },
+      { path: 'operaciones/turnos', label: 'Turnos', caption: 'Cobertura y cambios', roles: ['director', 'operaciones'], icon: Calendar },
       { path: 'contactos', label: 'Contacto', caption: 'Base comercial', roles: ['director', 'vendedor'], icon: Users },
       { path: 'soporte', label: 'Atención al cliente', caption: 'Tickets y llamadas', roles: ['atencion_cliente'], icon: Headphones, badge: 12 },
       { path: 'recupero', label: 'Recupero', caption: 'Cartera en baja', roles: ['vendedor', 'atencion_cliente'], icon: FileText },
@@ -214,6 +228,182 @@ const ROLE_NAV = [
       { path: 'reportes', label: 'Reportes', caption: 'Exportables', roles: ['director', 'supervisor'], icon: BarChart3 },
       { path: 'config', label: 'Configuración', caption: 'Parámetros del sistema', roles: ['director'], icon: Settings }
     ];
+
+const NAV_GROUP_DEFINITIONS = [
+  {
+    key: 'operaciones',
+    label: 'Operaciones',
+    caption: 'Monitor y gestión operativa',
+    icon: Briefcase,
+    childPaths: [
+      'operaciones/monitor',
+      'operaciones/flotas',
+      'operaciones/rrhh',
+      'operaciones/servicios',
+      'operaciones/economato',
+      'operaciones/equipos',
+      'operaciones/turnos',
+      // Agregar aquí los próximos hermanos del módulo:
+      // 'operaciones/calidad'
+    ]
+  }
+];
+const SU_EMERGENCIA_ORG_ID = 'ec63de4e-8ac3-4054-a4c7-8ceae5c76ddd';
+
+const RRHH_BASE_DATE = new Date('2026-08-30T00:00:00');
+const RRHH_AVATAR_BACKGROUNDS = ['#0f766e', '#2563eb', '#d97706', '#be123c', '#7c3aed', '#0891b2'];
+const RRHH_STATUS_META = {
+  activo: { label: 'Activo', variant: 'success', borderColor: 'rgba(16, 185, 129, 0.45)' },
+  licencia: { label: 'Licencia', variant: 'warning', borderColor: 'rgba(245, 158, 11, 0.45)' },
+  suspendido: { label: 'Suspendido', variant: 'danger', borderColor: 'rgba(239, 68, 68, 0.45)' },
+  baja: { label: 'Baja', variant: 'info', borderColor: 'rgba(148, 163, 184, 0.45)' }
+};
+
+const RRHH_PEOPLE = [
+  {
+    id: 'rrhh-001',
+    firstName: 'Lucia',
+    lastName: 'Mendez',
+    primaryRole: 'Coordinadora de base',
+    roles: ['Coordinadora de base', 'Primeros auxilios', 'Referente de turnos'],
+    base: 'Base Centro',
+    status: 'activo',
+    tipoPersonal: 'interno',
+    company: '',
+    document: '4.112.334-8',
+    birthDate: '1989-04-12',
+    phone: '099 431 220',
+    email: 'lucia.mendez@suemergencia.com.uy',
+    address: 'Bulevar Artigas 1450, Montevideo',
+    habilitaciones: [
+      { label: 'Libreta profesional', value: 'Cat. E', expiresAt: '2026-11-25' },
+      { label: 'Credencial de acceso', value: 'Nivel 3', expiresAt: '2027-02-18' }
+    ],
+    capacitaciones: [
+      { label: 'RCP y DEA', value: 'Actualizada', expiresAt: '2026-09-14' },
+      { label: 'Manejo de incidentes', value: 'Aprobada', expiresAt: '2026-12-20' }
+    ],
+    healthCard: { number: 'CS-88124', expiresAt: '2026-10-06' }
+  },
+  {
+    id: 'rrhh-002',
+    firstName: 'Martin',
+    lastName: 'Suarez',
+    primaryRole: 'Chofer de ambulancia',
+    roles: ['Chofer de ambulancia', 'Apoyo logístico'],
+    base: 'Base Prado',
+    status: 'licencia',
+    tipoPersonal: 'interno',
+    company: '',
+    document: '3.998.211-4',
+    birthDate: '1992-09-03',
+    phone: '098 540 119',
+    email: 'martin.suarez@suemergencia.com.uy',
+    address: 'Juan Carlos Blanco 2811, Montevideo',
+    habilitaciones: [
+      { label: 'Libreta profesional', value: 'Cat. F', expiresAt: '2026-09-05' },
+      { label: 'Permiso nocturno', value: 'Habilitado', expiresAt: '2026-12-01' }
+    ],
+    capacitaciones: [
+      { label: 'Conducción defensiva', value: 'Recertificar', expiresAt: '2026-09-18' },
+      { label: 'Bioseguridad', value: 'Vigente', expiresAt: '2026-11-30' }
+    ],
+    healthCard: { number: 'CS-74211', expiresAt: '2026-08-21' }
+  },
+  {
+    id: 'rrhh-003',
+    firstName: 'Noelia',
+    lastName: 'Pereyra',
+    primaryRole: 'Paramédica',
+    roles: ['Paramédica', 'Cobertura de eventos'],
+    base: 'Base Costa',
+    status: 'activo',
+    tipoPersonal: 'externo',
+    company: 'Cobertura Med SRL',
+    document: '4.556.983-1',
+    birthDate: '1995-01-29',
+    phone: '094 220 876',
+    email: 'noelia.pereyra@coberturamed.com',
+    address: 'Av. Giannattasio km 22, Ciudad de la Costa',
+    habilitaciones: [
+      { label: 'Registro MSP', value: 'Paramédico', expiresAt: '2026-12-18' },
+      { label: 'Acceso a flota', value: 'Unidad liviana', expiresAt: '2026-09-20' }
+    ],
+    capacitaciones: [
+      { label: 'Trauma prehospitalario', value: 'Acreditada', expiresAt: '2026-10-28' },
+      { label: 'Triage', value: 'Acreditada', expiresAt: '2026-09-09' }
+    ],
+    healthCard: { number: 'CS-91882', expiresAt: '2027-01-11' }
+  },
+  {
+    id: 'rrhh-004',
+    firstName: 'Diego',
+    lastName: 'Acosta',
+    primaryRole: 'Técnico de mantenimiento',
+    roles: ['Técnico de mantenimiento', 'Servicios generales'],
+    base: 'Base Centro',
+    status: 'suspendido',
+    tipoPersonal: 'externo',
+    company: 'InfraSalud SAS',
+    document: '4.210.665-0',
+    birthDate: '1986-06-17',
+    phone: '091 775 302',
+    email: 'diego.acosta@infrasalud.com',
+    address: 'Camino Maldonado 4431, Montevideo',
+    habilitaciones: [
+      { label: 'Trabajo en altura', value: 'No vigente', expiresAt: '2026-08-28' },
+      { label: 'Electricidad BT', value: 'Certificado', expiresAt: '2026-11-08' }
+    ],
+    capacitaciones: [
+      { label: 'Seguridad industrial', value: 'Pendiente de refresco', expiresAt: '2026-09-01' },
+      { label: 'Uso de extintores', value: 'Aprobada', expiresAt: '2026-12-12' }
+    ],
+    healthCard: { number: 'CS-66440', expiresAt: '2026-09-29' }
+  },
+  {
+    id: 'rrhh-005',
+    firstName: 'Sofia',
+    lastName: 'Lemos',
+    primaryRole: 'Administrativa RRHH',
+    roles: ['Administrativa RRHH', 'Legajos', 'Control documental'],
+    base: 'Base Centro',
+    status: 'baja',
+    tipoPersonal: 'interno',
+    company: '',
+    document: '4.003.774-2',
+    birthDate: '1990-12-08',
+    phone: '097 331 944',
+    email: 'sofia.lemos@suemergencia.com.uy',
+    address: 'Garibaldi 2320, Montevideo',
+    habilitaciones: [
+      { label: 'Acceso documental', value: 'Revocado', expiresAt: '2026-08-10' },
+      { label: 'Firma interna', value: 'Inactiva', expiresAt: '2026-08-10' }
+    ],
+    capacitaciones: [
+      { label: 'Protección de datos', value: 'Vencida', expiresAt: '2026-08-15' },
+      { label: 'Onboarding interno', value: 'Vigente', expiresAt: '2026-10-01' }
+    ],
+    healthCard: { number: 'CS-55201', expiresAt: '2026-07-30' }
+  }
+];
+
+const getRrhhPersonName = (person) => [person.firstName, person.lastName].filter(Boolean).join(' ').trim();
+const getRrhhInitials = (person) => `${person.firstName?.[0] || ''}${person.lastName?.[0] || ''}`.toUpperCase() || 'RR';
+const formatRrhhDate = (value) => {
+  if (!value) return 'Sin dato';
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString('es-UY', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+const getExpiryMeta = (expiresAt) => {
+  if (!expiresAt) return { variant: 'info', label: 'Sin fecha', helper: 'Sin vencimiento informado' };
+  const target = new Date(`${expiresAt}T00:00:00`);
+  const diffDays = Math.ceil((target.getTime() - RRHH_BASE_DATE.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return { variant: 'danger', label: `Vencida ${formatRrhhDate(expiresAt)}`, helper: 'Documento vencido' };
+  if (diffDays <= 30) return { variant: 'warning', label: `Vence ${formatRrhhDate(expiresAt)}`, helper: `Faltan ${diffDays} días` };
+  return { variant: 'success', label: `Vigente hasta ${formatRrhhDate(expiresAt)}`, helper: `${diffDays} días restantes` };
+};
+const getRrhhStatusMeta = (status) => RRHH_STATUS_META[status] || { label: status || 'Sin estado', variant: 'info', borderColor: 'rgba(59, 130, 246, 0.45)' };
 
 const statusVariant = (label) => {
   if (['Al día', 'Al dia', 'Gestionado', 'Finalizado', 'Excelente'].includes(label)) return 'success';
@@ -5290,7 +5480,7 @@ const formatCurrency = (value) => {
                               <div className="person-badge">{initials(contact.name)}</div>
                               <strong>
                                 {isCaliente ? (
-                                  <span title="Dato reciente (menos de 48hs)" style={{ marginRight: 6, fontSize: 12 }}>🔥</span>
+                                  <span title="Dato reciente (menos de 48hs)" style={{ marginRight: 6, fontSize: 12 }}>ðŸ”¥</span>
                                 ) : null}
                                 {contact.name}
                               </strong>
@@ -6705,7 +6895,7 @@ const formatCurrency = (value) => {
                               <td>
                                 <strong>
                                   {isCaliente ? (
-                                    <span title="Dato reciente (menos de 48hs)" style={{ marginRight: 6, fontSize: 12 }}>🔥</span>
+                                    <span title="Dato reciente (menos de 48hs)" style={{ marginRight: 6, fontSize: 12 }}>ðŸ”¥</span>
                                   ) : null}
                                   {[row.nombre, row.apellido].filter(Boolean).join(' ') || '—'}
                                 </strong>
@@ -6827,7 +7017,7 @@ const formatCurrency = (value) => {
                             <div className="agenda-card-top">
                               <div style={{ fontWeight: 800, color: '#0f172a' }}>
                                 {isCaliente ? (
-                                  <span title="Dato reciente (menos de 48hs)" style={{ marginRight: 6, fontSize: 12 }}>🔥</span>
+                                  <span title="Dato reciente (menos de 48hs)" style={{ marginRight: 6, fontSize: 12 }}>ðŸ”¥</span>
                                 ) : null}
                                 {[row.nombre, row.apellido].filter(Boolean).join(' ') || '—'}
                                 {row.origen === 'recupero' ? (
@@ -8094,7 +8284,7 @@ const formatCurrency = (value) => {
             const parsedMonths = rawItems
               .map((item) => {
                 const month = Number(item?.month ?? item?.mes ?? String(item).slice(5, 7));
-                const year = Number(item?.year ?? item?.anio ?? item?.['año'] ?? item?.año ?? String(item).slice(0, 4));
+                const year = Number(item?.year ?? item?.anio ?? item?.['año'] ?? String(item).slice(0, 4));
                 if (!month || !year) return null;
                 const countRaw = item?.total_ventas ?? null;
                 const count = countRaw == null ? null : Number(countRaw);
@@ -10397,7 +10587,7 @@ const formatCurrency = (value) => {
                                 </span>
                               </span>
                               <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                                Último dato:{' '}
+                      Último dato:{' '}
                                 <span style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>
                                   {new Date(informe.ultimo_dato).toLocaleDateString('es-UY')}
                                 </span>
@@ -11054,7 +11244,7 @@ const formatCurrency = (value) => {
 
                       {removeMode === 'pool' && (selectedLot?.vendedores || []).length <= 1 ? (
                         <div style={{ fontSize: 12, background: '#E6F1FB', color: '#185FA5', border: '1px solid #85B7EB', borderRadius: 8, padding: '8px 12px', marginBottom: 16 }}>
-                          Este lote quedarÃ¡ <strong>activo y sin vendedor asignado</strong>. Los contactos pasarÃ¡n al pool para reasignarlos despuÃ©s; esto no finaliza el lote.
+                          Este lote quedará <strong>activo y sin vendedor asignado</strong>. Los contactos pasarán al pool para reasignarlos después; esto no finaliza el lote.
                         </div>
                       ) : null}
                       {['specific', 'roundrobin', 'pool'].map((m) => (
@@ -13779,6 +13969,430 @@ const formatCurrency = (value) => {
       );
     }
 
+    function RrhhStatusTag({ status }) {
+      const meta = getRrhhStatusMeta(status);
+      return <Tag variant={meta.variant}>{meta.label}</Tag>;
+    }
+
+    function RrhhExpiryTag({ expiresAt }) {
+      const meta = getExpiryMeta(expiresAt);
+      return <Tag variant={meta.variant}>{meta.label}</Tag>;
+    }
+
+    function RrhhKeyValueRow({ label, value, valueNode = null }) {
+      return (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(160px, 220px) minmax(0, 1fr)',
+          gap: 14,
+          alignItems: 'center',
+          padding: '14px 0',
+          borderBottom: '1px solid rgba(148, 163, 184, 0.14)'
+        }}>
+          <div style={{ color: 'rgba(226, 232, 240, 0.74)', fontSize: 13, fontWeight: 600 }}>{label}</div>
+          <div style={{ color: '#f8fafc', fontSize: 14, fontWeight: 500 }}>{valueNode || value || 'Sin dato'}</div>
+        </div>
+      );
+    }
+
+    function RrhhInfoBlock({ title, icon, children, subtitle = '' }) {
+      const IconComp = icon;
+      return (
+        <div style={{
+          background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.92))',
+          border: '1px solid rgba(148, 163, 184, 0.16)',
+          borderRadius: 22,
+          padding: 22,
+          boxShadow: '0 24px 50px rgba(2, 6, 23, 0.28)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+            <div style={{
+              width: 42,
+              height: 42,
+              borderRadius: 14,
+              display: 'grid',
+              placeItems: 'center',
+              background: 'rgba(30, 41, 59, 0.9)',
+              color: '#93c5fd'
+            }}>
+              <IconComp size={20} />
+            </div>
+            <div>
+              <div style={{ color: '#f8fafc', fontSize: 16, fontWeight: 700 }}>{title}</div>
+              {subtitle ? <div style={{ color: 'rgba(226, 232, 240, 0.62)', fontSize: 13 }}>{subtitle}</div> : null}
+            </div>
+          </div>
+          <div>{children}</div>
+        </div>
+      );
+    }
+
+    function RrhhCard({ person, isSelected, onSelect, colorIndex }) {
+      const statusMeta = getRrhhStatusMeta(person.status);
+      const avatarColor = RRHH_AVATAR_BACKGROUNDS[colorIndex % RRHH_AVATAR_BACKGROUNDS.length];
+      const isExternal = person.tipoPersonal === 'externo';
+
+      return (
+        <button
+          type="button"
+          onClick={() => onSelect(person.id)}
+          style={{
+            width: '100%',
+            textAlign: 'left',
+            borderRadius: 24,
+            padding: 22,
+            border: isSelected
+              ? '1px solid rgba(96, 165, 250, 0.9)'
+              : `1px solid ${isExternal ? 'rgba(244, 114, 182, 0.45)' : 'rgba(148, 163, 184, 0.18)'}`,
+            background: isSelected
+              ? 'linear-gradient(180deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.98))'
+              : 'linear-gradient(180deg, rgba(30, 41, 59, 0.92), rgba(15, 23, 42, 0.96))',
+            boxShadow: isSelected ? '0 24px 54px rgba(37, 99, 235, 0.18)' : '0 18px 42px rgba(2, 6, 23, 0.22)',
+            display: 'grid',
+            gap: 14,
+            cursor: 'pointer',
+            color: '#f8fafc'
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+            <div style={{
+              width: 72,
+              height: 72,
+              borderRadius: '50%',
+              background: `radial-gradient(circle at 30% 30%, rgba(255,255,255,0.22), ${avatarColor})`,
+              display: 'grid',
+              placeItems: 'center',
+              fontSize: 24,
+              fontWeight: 800,
+              letterSpacing: '0.04em'
+            }}>
+              {getRrhhInitials(person)}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 8 }}>
+              <RrhhStatusTag status={person.status} />
+              {isExternal ? <Tag variant="info">Externo</Tag> : null}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>{getRrhhPersonName(person)}</div>
+            <div style={{ color: 'rgba(226, 232, 240, 0.82)', fontSize: 14, marginBottom: 4 }}>{person.primaryRole}</div>
+            <div style={{ color: 'rgba(148, 163, 184, 0.96)', fontSize: 13 }}>{person.base}</div>
+          </div>
+          {isExternal ? (
+            <div style={{
+              borderTop: '1px solid rgba(244, 114, 182, 0.22)',
+              paddingTop: 12,
+              color: '#f9a8d4',
+              fontSize: 13,
+              fontWeight: 600
+            }}>
+              {person.company}
+            </div>
+          ) : null}
+        </button>
+      );
+    }
+
+    function RrhhPersonalDetail({ person }) {
+      if (!person) {
+        return (
+          <div style={{
+            minHeight: 420,
+            borderRadius: 28,
+            border: '1px dashed rgba(148, 163, 184, 0.24)',
+            background: 'rgba(15, 23, 42, 0.72)',
+            display: 'grid',
+            placeItems: 'center',
+            padding: 32,
+            textAlign: 'center',
+            color: 'rgba(226, 232, 240, 0.68)'
+          }}>
+            Selecciona una tarjeta para abrir la ficha de personal.
+          </div>
+        );
+      }
+
+      const isExternal = person.tipoPersonal === 'externo';
+      const avatarColor = RRHH_AVATAR_BACKGROUNDS[RRHH_PEOPLE.findIndex((item) => item.id === person.id) % RRHH_AVATAR_BACKGROUNDS.length];
+
+      return (
+        <div style={{ display: 'grid', gap: 18 }}>
+          <div style={{
+            borderRadius: 28,
+            padding: 28,
+            background: 'linear-gradient(145deg, #1e293b 0%, #0f172a 78%)',
+            border: `1px solid ${isExternal ? 'rgba(244, 114, 182, 0.38)' : 'rgba(96, 165, 250, 0.24)'}`,
+            boxShadow: '0 28px 70px rgba(2, 6, 23, 0.34)'
+          }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 20, justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+                <div style={{
+                  width: 88,
+                  height: 88,
+                  borderRadius: '50%',
+                  background: `radial-gradient(circle at 30% 30%, rgba(255,255,255,0.22), ${avatarColor})`,
+                  display: 'grid',
+                  placeItems: 'center',
+                  fontSize: 30,
+                  fontWeight: 800,
+                  color: '#fff'
+                }}>
+                  {getRrhhInitials(person)}
+                </div>
+                <div>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: '#f8fafc' }}>{getRrhhPersonName(person)}</div>
+                  <div style={{ color: '#cbd5e1', fontSize: 15, marginTop: 4 }}>{person.primaryRole}</div>
+                  <div style={{ color: '#93c5fd', fontSize: 14, display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+                    <MapPin size={16} />
+                    <span>{person.base}</span>
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                <RrhhStatusTag status={person.status} />
+                <Tag variant={isExternal ? 'info' : 'success'}>{isExternal ? 'Externo' : 'Interno'}</Tag>
+              </div>
+            </div>
+          </div>
+
+          <RrhhInfoBlock title="Datos generales" icon={User} subtitle="Legajo operativo y datos de contacto">
+            <RrhhKeyValueRow label="Documento" value={person.document} />
+            <RrhhKeyValueRow label="Fecha de nacimiento" value={formatRrhhDate(person.birthDate)} />
+            <RrhhKeyValueRow label="Teléfono" value={person.phone} />
+            <RrhhKeyValueRow label="Email" value={person.email} />
+            <RrhhKeyValueRow label="Domicilio" value={person.address} />
+            <RrhhKeyValueRow label="Estado" valueNode={<RrhhStatusTag status={person.status} />} />
+            <RrhhKeyValueRow label="Tipo de personal" valueNode={<Tag variant={isExternal ? 'info' : 'success'}>{isExternal ? 'Externo' : 'Interno'}</Tag>} />
+            {isExternal ? (
+              <RrhhKeyValueRow
+                label="Empresa contratista"
+                valueNode={(
+                  <button
+                    type="button"
+                    title="Próximo paso: abrir ficha de empresa contratista"
+                    style={{
+                      border: '1px solid rgba(96, 165, 250, 0.35)',
+                      background: 'rgba(30, 41, 59, 0.86)',
+                      color: '#bfdbfe',
+                      borderRadius: 999,
+                      padding: '8px 14px',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {person.company}
+                  </button>
+                )}
+              />
+            ) : null}
+          </RrhhInfoBlock>
+
+          <RrhhInfoBlock title="Roles" icon={Star} subtitle="Roles asignados y foco principal">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+              {person.roles.map((roleItem) => {
+                const isPrimary = roleItem === person.primaryRole;
+                return (
+                  <div
+                    key={roleItem}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '10px 14px',
+                      borderRadius: 999,
+                      background: isPrimary ? 'rgba(245, 158, 11, 0.18)' : 'rgba(148, 163, 184, 0.12)',
+                      border: isPrimary ? '1px solid rgba(245, 158, 11, 0.42)' : '1px solid rgba(148, 163, 184, 0.16)',
+                      color: isPrimary ? '#fde68a' : '#e2e8f0',
+                      fontWeight: 700
+                    }}
+                  >
+                    {isPrimary ? <Star size={14} /> : null}
+                    <span>{roleItem}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </RrhhInfoBlock>
+
+          <RrhhInfoBlock title="Habilitaciones" icon={Shield} subtitle="Permisos y accesos operativos">
+            {person.habilitaciones.map((item) => (
+              <div key={item.label}>
+                <RrhhKeyValueRow
+                  label={item.label}
+                  valueNode={(
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+                      <span>{item.value}</span>
+                      <RrhhExpiryTag expiresAt={item.expiresAt} />
+                    </div>
+                  )}
+                />
+              </div>
+            ))}
+          </RrhhInfoBlock>
+
+          <RrhhInfoBlock title="Capacitaciones" icon={CheckCircle2} subtitle="Acreditaciones y refrescos obligatorios">
+            {person.capacitaciones.map((item) => (
+              <div key={item.label}>
+                <RrhhKeyValueRow
+                  label={item.label}
+                  valueNode={(
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+                      <span>{item.value}</span>
+                      <RrhhExpiryTag expiresAt={item.expiresAt} />
+                    </div>
+                  )}
+                />
+              </div>
+            ))}
+          </RrhhInfoBlock>
+
+          <RrhhInfoBlock title="Carné de salud" icon={Activity} subtitle="Control de aptitud vigente para operación">
+            <RrhhKeyValueRow label="Número" value={person.healthCard?.number || 'Sin dato'} />
+            <RrhhKeyValueRow
+              label="Vencimiento"
+              valueNode={(
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+                  <span>{formatRrhhDate(person.healthCard?.expiresAt)}</span>
+                  <RrhhExpiryTag expiresAt={person.healthCard?.expiresAt} />
+                </div>
+              )}
+            />
+          </RrhhInfoBlock>
+        </div>
+      );
+    }
+
+    function OperationsRrhhModule() {
+      const [search, setSearch] = React.useState('');
+      const [selectedPersonId, setSelectedPersonId] = React.useState(RRHH_PEOPLE[0]?.id || null);
+
+      const filteredPeople = React.useMemo(() => {
+        const term = String(search || '').trim().toLowerCase();
+        if (!term) return RRHH_PEOPLE;
+        return RRHH_PEOPLE.filter((person) => {
+          const values = [
+            getRrhhPersonName(person),
+            person.primaryRole,
+            person.base,
+            person.company,
+            person.document
+          ]
+            .filter(Boolean)
+            .map((value) => String(value).toLowerCase());
+          return values.some((value) => value.includes(term));
+        });
+      }, [search]);
+
+      const selectedPerson = filteredPeople.find((person) => person.id === selectedPersonId)
+        || RRHH_PEOPLE.find((person) => person.id === selectedPersonId)
+        || filteredPeople[0]
+        || null;
+
+      React.useEffect(() => {
+        if (!filteredPeople.length) return;
+        if (!filteredPeople.some((person) => person.id === selectedPersonId)) {
+          setSelectedPersonId(filteredPeople[0].id);
+        }
+      }, [filteredPeople, selectedPersonId]);
+
+      const totalExternos = RRHH_PEOPLE.filter((person) => person.tipoPersonal === 'externo').length;
+      const totalAlertas = RRHH_PEOPLE.reduce((acc, person) => {
+        const expiries = [
+          ...(person.habilitaciones || []).map((item) => item.expiresAt),
+          ...(person.capacitaciones || []).map((item) => item.expiresAt),
+          person.healthCard?.expiresAt
+        ].filter(Boolean);
+        return acc + expiries.filter((dateValue) => getExpiryMeta(dateValue).variant !== 'success').length;
+      }, 0);
+
+      return (
+        <div className="view" style={{ background: 'linear-gradient(180deg, #0f172a 0%, #111827 100%)', minHeight: '100%', color: '#e2e8f0' }}>
+          <section style={{ display: 'grid', gap: 18, marginBottom: 24 }}>
+            <div style={{
+              borderRadius: 30,
+              padding: 28,
+              background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.98))',
+              border: '1px solid rgba(96, 165, 250, 0.18)',
+              boxShadow: '0 30px 80px rgba(2, 6, 23, 0.34)'
+            }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 18 }}>
+                <div style={{ maxWidth: 760 }}>
+                  <Tag variant="info">Operaciones / RRHH</Tag>
+                  <h1 style={{ margin: '14px 0 10px', fontSize: '2rem', lineHeight: 1.1, color: '#f8fafc' }}>Dotación operativa en formato legajo, no en planilla.</h1>
+                  <p style={{ margin: 0, color: '#cbd5e1', fontSize: 15, maxWidth: 640 }}>
+                    La vista prioriza identificación rápida, estado laboral y vigencias documentales en tarjetas y fichas oscuras listas para crecer dentro del módulo Operaciones.
+                  </p>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, flex: '1 1 320px' }}>
+                  <div style={{ borderRadius: 20, background: 'rgba(15, 23, 42, 0.82)', border: '1px solid rgba(148, 163, 184, 0.16)', padding: 16 }}>
+                    <div style={{ color: '#94a3b8', fontSize: 12 }}>Dotación visible</div>
+                    <div style={{ color: '#f8fafc', fontSize: 28, fontWeight: 800 }}>{RRHH_PEOPLE.length}</div>
+                  </div>
+                  <div style={{ borderRadius: 20, background: 'rgba(15, 23, 42, 0.82)', border: '1px solid rgba(148, 163, 184, 0.16)', padding: 16 }}>
+                    <div style={{ color: '#94a3b8', fontSize: 12 }}>Personal tercerizado</div>
+                    <div style={{ color: '#f9a8d4', fontSize: 28, fontWeight: 800 }}>{totalExternos}</div>
+                  </div>
+                  <div style={{ borderRadius: 20, background: 'rgba(15, 23, 42, 0.82)', border: '1px solid rgba(148, 163, 184, 0.16)', padding: 16 }}>
+                    <div style={{ color: '#94a3b8', fontSize: 12 }}>Alertas documentales</div>
+                    <div style={{ color: '#fdba74', fontSize: 28, fontWeight: 800 }}>{totalAlertas}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}>
+              <div className="searchbox" style={{
+                maxWidth: 420,
+                width: '100%',
+                background: 'rgba(15, 23, 42, 0.92)',
+                borderColor: 'rgba(148, 163, 184, 0.18)'
+              }}>
+                <Search size={18} color="#94a3b8" />
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Buscar por nombre, rol, base, empresa o documento..."
+                  style={{ color: '#f8fafc' }}
+                />
+              </div>
+              <div style={{ color: '#94a3b8', fontSize: 13 }}>
+                {filteredPeople.length} persona{filteredPeople.length === 1 ? '' : 's'} visible{filteredPeople.length === 1 ? '' : 's'}
+              </div>
+            </div>
+          </section>
+
+          <section style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 1.05fr) minmax(360px, 1fr)', gap: 22, alignItems: 'start' }}>
+            <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))' }}>
+              {filteredPeople.map((person, index) => (
+                <RrhhCard
+                  key={person.id}
+                  person={person}
+                  isSelected={selectedPerson?.id === person.id}
+                  onSelect={setSelectedPersonId}
+                  colorIndex={index}
+                />
+              ))}
+              {!filteredPeople.length ? (
+                <div style={{
+                  gridColumn: '1 / -1',
+                  borderRadius: 24,
+                  border: '1px dashed rgba(148, 163, 184, 0.24)',
+                  padding: 24,
+                  textAlign: 'center',
+                  color: '#94a3b8',
+                  background: 'rgba(15, 23, 42, 0.78)'
+                }}>
+                  No encontramos personas con esos criterios.
+                </div>
+              ) : null}
+            </div>
+
+            <RrhhPersonalDetail person={selectedPerson} />
+          </section>
+        </div>
+      );
+    }
+
       function ContactsView() {
         const [contactsRows, setContactsRows] = React.useState([]);
         const [contactsLoading, setContactsLoading] = React.useState(true);
@@ -14147,7 +14761,7 @@ const formatCurrency = (value) => {
         if (!contactProductId) return;
         const productLabel = productName || 'este producto';
         const clientLabel = clientName || 'este cliente';
-        const confirmed = window.confirm(`Â¿Seguro que querÃ©s eliminar ${productLabel} de ${clientLabel}? Esta acciÃ³n es definitiva.`);
+        const confirmed = window.confirm(`¿Seguro que querés eliminar ${productLabel} de ${clientLabel}? Esta acción es definitiva.`);
         if (!confirmed) return;
         try {
           await deleteContactProduct(contactProductId, getActiveOrganizationId());
@@ -17545,6 +18159,20 @@ const formatCurrency = (value) => {
     }
 
     const ACTIVE_ORG_STORAGE_KEY = 'rednacrem_active_org';
+    const LOCAL_DEV_ORG_ID_KEY = 'local_dev_org_id';
+    const LOCAL_DEV_ORG_NAME_KEY = 'local_dev_org_name';
+    const readLocalDevOrganization = () => {
+      try {
+        const id = localStorage.getItem(LOCAL_DEV_ORG_ID_KEY);
+        if (!id) return null;
+        return {
+          id,
+          nombre: localStorage.getItem(LOCAL_DEV_ORG_NAME_KEY) || 'Organizacion local'
+        };
+      } catch {
+        return null;
+      }
+    };
 
     function App() {
       const today = new Date().toLocaleDateString('es-UY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -17553,13 +18181,16 @@ const formatCurrency = (value) => {
       const authUser = user;
       const { rolReal, rolEfectivo, esSuperadmin } = useRolEfectivo();
       const role = rolEfectivo;
+      const localDevOrgBootstrap = import.meta.env.DEV ? readLocalDevOrganization() : null;
       const [route, setRoute] = React.useState('dashboard_global');
       const [isDesktop, setIsDesktop] = React.useState(window.innerWidth >= 1024);
       const [monitorSelectedDate, setMonitorSelectedDate] = React.useState(() => new Date());
-      const [activeOrg, setActiveOrg] = React.useState(null);
-      const [myOrgs, setMyOrgs] = React.useState([]);
+      const [activeOrg, setActiveOrg] = React.useState(() => localDevOrgBootstrap);
+      const [myOrgs, setMyOrgs] = React.useState(() => (localDevOrgBootstrap ? [localDevOrgBootstrap] : []));
       const [myOrgsLoading, setMyOrgsLoading] = React.useState(false);
       const [menuOpen, setMenuOpen] = React.useState(window.innerWidth >= 1024);
+      const [expandedNavGroups, setExpandedNavGroups] = React.useState({ operaciones: true });
+      const [sidebarInset, setSidebarInset] = React.useState(0);
       const [estadoUsuario, setEstadoUsuario] = React.useState('disponible');
       const [pausaInicio, setPausaInicio] = React.useState('');
       const [mostrarPausa, setMostrarPausa] = React.useState(false);
@@ -17585,6 +18216,7 @@ const formatCurrency = (value) => {
         createInitialModuleStates({ roleNav: ROLE_NAV, roles: Object.keys(ROLE_META) })
       );
       const topbarRef = React.useRef(null);
+      const sidebarRef = React.useRef(null);
       const agendaNotifiedRef = React.useRef(new Set());
       const [productsCatalog, setProductsCatalog] = React.useState([]);
       const api = React.useMemo(() => getApiClient(), []);
@@ -17609,6 +18241,12 @@ const formatCurrency = (value) => {
         setVendedorNewClientOpen(true);
       };
       const hasRealSuperadminAccess = hasRealRole({ rolReal, allowedRoles: ['superadministrador'] }) && esSuperadmin;
+      const isLocalDevSession = import.meta.env.DEV && authUser?.accessToken === 'dev-token';
+      const isSuEmergenciaActiveOrg = React.useMemo(() => {
+        const activeOrgId = String(activeOrg?.id || activeOrg?.organization_id || '').trim().toLowerCase();
+        const activeOrgName = String(activeOrg?.nombre || activeOrg?.name || '').trim().toLowerCase();
+        return activeOrgId === SU_EMERGENCIA_ORG_ID || activeOrgName === 'su emergencia';
+      }, [activeOrg?.id, activeOrg?.organization_id, activeOrg?.nombre, activeOrg?.name]);
       const canLoadProducts = ['superadministrador', 'supervisor', 'vendedor', 'atencion_cliente'].includes(role);
       const canLoadCommercialData = ['superadministrador', 'supervisor', 'vendedor'].includes(role);
       const resolveLogoUrl = React.useCallback((value) => {
@@ -17625,6 +18263,9 @@ const formatCurrency = (value) => {
         }
         return raw;
       }, []);
+      const displayedBrandLogo = isSuEmergenciaActiveOrg
+        ? resolveLogoUrl(activeOrg?.logo_url || '')
+        : brandLogo;
       const roleNavWithBadges = React.useMemo(
         () => ROLE_NAV.map((item) => {
           if (item.path !== 'soporte') return item;
@@ -17667,6 +18308,7 @@ const formatCurrency = (value) => {
 
       React.useEffect(() => {
         if (!authUser?.id) return;
+        if (isLocalDevSession) return;
         fetchModuleStatesFromApi().then((apiStates) => {
           if (!apiStates) return;
           setModuleStates((prev) => {
@@ -17680,9 +18322,13 @@ const formatCurrency = (value) => {
             return merged;
           });
         });
-      }, [authUser?.id]);
+      }, [authUser?.id, isLocalDevSession]);
 
       React.useEffect(() => {
+        if (isLocalDevSession) {
+          setOrigenDatoOptions([]);
+          return;
+        }
         api.get('/origen-dato/list')
           .then((res) => {
             const rawItems = Array.isArray(res?.items)
@@ -17694,10 +18340,11 @@ const formatCurrency = (value) => {
             }
           })
           .catch(() => {});
-      }, [api]);
+      }, [api, isLocalDevSession]);
 
       React.useEffect(() => {
         if (!authUser) return;
+        if (isLocalDevSession) return;
         api.get('/api/me/modulos')
           .then((res) => {
             const mods = res?.modulos || res?.data?.modulos || null;
@@ -17713,7 +18360,7 @@ const formatCurrency = (value) => {
               .catch(() => {});
           })
           .catch(() => {});
-      }, [api, authUser]);
+      }, [api, authUser, isLocalDevSession]);
 
       React.useEffect(() => {
         if (!authUser?.id) return undefined;
@@ -17770,6 +18417,16 @@ const formatCurrency = (value) => {
       React.useEffect(() => {
         if (!authUser?.id) return;
         if (esSuperadmin) return;
+        if (isLocalDevSession) {
+          const localDevOrg = readLocalDevOrganization();
+          if (localDevOrg) {
+            setMyOrgs([localDevOrg]);
+            setActiveOrg(localDevOrg);
+            setActiveOrganizationId(localDevOrg.id);
+            setMyOrgsLoading(false);
+            return;
+          }
+        }
         let active = true;
         setMyOrgsLoading(true);
         listMyOrganizations()
@@ -17788,11 +18445,39 @@ const formatCurrency = (value) => {
             if (active) setMyOrgsLoading(false);
           });
         return () => { active = false; };
-      }, [authUser?.id, esSuperadmin]);
+      }, [authUser?.id, esSuperadmin, isLocalDevSession]);
 
       React.useEffect(() => {
-        if (!topbarRef.current) return;
+        if (!import.meta.env.DEV) return;
+        if (authUser?.accessToken !== 'dev-token') return;
+        if (activeOrg?.id) return;
+        const localDevOrg = readLocalDevOrganization();
+        if (localDevOrg) {
+          setActiveOrg(localDevOrg);
+          setMyOrgs([localDevOrg]);
+          setActiveOrganizationId(localDevOrg.id);
+          return;
+        }
+        try {
+          const localDevOrgId = localStorage.getItem(LOCAL_DEV_ORG_ID_KEY);
+          const localDevOrgName = localStorage.getItem(LOCAL_DEV_ORG_NAME_KEY) || 'Organización local';
+          if (!localDevOrgId) return;
+          const localDevOrg = { id: localDevOrgId, nombre: localDevOrgName };
+          setActiveOrg(localDevOrg);
+          setMyOrgs([localDevOrg]);
+          setActiveOrganizationId(localDevOrgId);
+        } catch {
+          // no-op
+        }
+      }, [authUser?.accessToken, activeOrg?.id]);
+
+      React.useEffect(() => {
         const root = document.documentElement;
+        if (route === 'operaciones/monitor') {
+          root.style.setProperty('--topbar-offset', '0px');
+          return undefined;
+        }
+        if (!topbarRef.current) return undefined;
         const update = () => {
           if (!topbarRef.current) return;
           const rect = topbarRef.current.getBoundingClientRect();
@@ -17810,22 +18495,50 @@ const formatCurrency = (value) => {
           window.removeEventListener('resize', update);
           if (observer) observer.disconnect();
         };
-      }, []);
+      }, [route]);
+
+      React.useEffect(() => {
+        const updateSidebarInset = () => {
+          if (!sidebarRef.current || !isDesktop) {
+            setSidebarInset(0);
+            return;
+          }
+          const rect = sidebarRef.current.getBoundingClientRect();
+          setSidebarInset(Math.round(rect.right));
+        };
+
+        updateSidebarInset();
+        let observer = null;
+        if (typeof ResizeObserver !== 'undefined' && sidebarRef.current) {
+          observer = new ResizeObserver(updateSidebarInset);
+          observer.observe(sidebarRef.current);
+        }
+        window.addEventListener('resize', updateSidebarInset);
+        return () => {
+          window.removeEventListener('resize', updateSidebarInset);
+          if (observer) observer.disconnect();
+        };
+      }, [isDesktop, menuOpen]);
 
       React.useEffect(() => {
         if (activeOrg?.logo_url) {
           setBrandLogo(resolveLogoUrl(activeOrg.logo_url));
+          return;
         }
-      }, [activeOrg?.logo_url, resolveLogoUrl]);
+        if (isSuEmergenciaActiveOrg) {
+          setBrandLogo(null);
+        }
+      }, [activeOrg?.logo_url, isSuEmergenciaActiveOrg, resolveLogoUrl]);
 
       React.useEffect(() => {
+        if (isSuEmergenciaActiveOrg) return;
         try {
           const stored = localStorage.getItem('rednacrem_logo');
           if (stored && !brandLogo) {
             setBrandLogo(resolveLogoUrl(stored));
           }
         } catch {}
-      }, [brandLogo, resolveLogoUrl]);
+      }, [brandLogo, isSuEmergenciaActiveOrg, resolveLogoUrl]);
 
       React.useEffect(() => {
         try {
@@ -17838,6 +18551,7 @@ const formatCurrency = (value) => {
       }, [brandLogo]);
 
       React.useEffect(() => {
+        if (isLocalDevSession) return undefined;
         let active = true;
         const api = getApiClient();
         const fetchLogo = async () => {
@@ -17854,7 +18568,7 @@ const formatCurrency = (value) => {
         };
         fetchLogo();
         return () => { active = false; };
-      }, [resolveLogoUrl]);
+      }, [resolveLogoUrl, isLocalDevSession]);
 
       const refreshContactsFromService = React.useCallback(async () => {
         const next = await listCommercialContactsAsync();
@@ -17891,6 +18605,14 @@ const formatCurrency = (value) => {
       }, [activeOrg]);
 
       const fetchEstadoActual = React.useCallback(async () => {
+        if (isLocalDevSession) {
+          setEstadoActualLoading(false);
+          setEstadoActualError('');
+          setEstadoUsuario('disponible');
+          setMostrarPausa(false);
+          setPausaInicio('');
+          return;
+        }
         setEstadoActualLoading(true);
         setEstadoActualError('');
         try {
@@ -17927,7 +18649,7 @@ const formatCurrency = (value) => {
         } finally {
           setEstadoActualLoading(false);
         }
-      }, []);
+      }, [isLocalDevSession]);
 
       React.useEffect(() => {
         if (!authUser?.id) return undefined;
@@ -18122,6 +18844,9 @@ const formatCurrency = (value) => {
         setActiveOrg(null);
         try {
           localStorage.removeItem(ACTIVE_ORG_STORAGE_KEY);
+          localStorage.removeItem('local_dev_user_name');
+          localStorage.removeItem(LOCAL_DEV_ORG_ID_KEY);
+          localStorage.removeItem(LOCAL_DEV_ORG_NAME_KEY);
         } catch {
           // no-op
         }
@@ -18176,6 +18901,46 @@ const formatCurrency = (value) => {
         moduleStates,
         isModuleVisible
       });
+      const orgScopedNavItems = React.useMemo(() => {
+        if (!isSuEmergenciaActiveOrg) return navItems;
+        const allowedPaths = new Set(
+          NAV_GROUP_DEFINITIONS
+            .filter((group) => group.key === 'operaciones')
+            .flatMap((group) => group.childPaths)
+        );
+        return navItems.filter((item) => allowedPaths.has(item.path));
+      }, [isSuEmergenciaActiveOrg, navItems]);
+      const showOperationsModule = React.useMemo(() => {
+        return !isSuEmergenciaActiveOrg || orgScopedNavItems.length > 0;
+      }, [isSuEmergenciaActiveOrg, orgScopedNavItems.length]);
+      const navEntries = React.useMemo(() => {
+        const visibleByPath = new Map(orgScopedNavItems.map((item) => [item.path, item]));
+        const activeGroupDefinitions = NAV_GROUP_DEFINITIONS.filter((group) => {
+          if (group.key === 'operaciones') return showOperationsModule;
+          return true;
+        });
+        const groupedPathSet = new Set(activeGroupDefinitions.flatMap((group) => group.childPaths));
+        const insertedGroups = new Set();
+        const entries = [];
+
+        orgScopedNavItems.forEach((item) => {
+          const group = activeGroupDefinitions.find((candidate) => candidate.childPaths.includes(item.path));
+          if (group) {
+            if (insertedGroups.has(group.key)) return;
+            const groupItems = group.childPaths.map((path) => visibleByPath.get(path)).filter(Boolean);
+            if (!groupItems.length) return;
+            entries.push({ type: 'group', ...group, items: groupItems });
+            insertedGroups.add(group.key);
+            return;
+          }
+
+          if (!groupedPathSet.has(item.path)) {
+            entries.push({ type: 'item', item });
+          }
+        });
+
+        return entries;
+      }, [orgScopedNavItems, showOperationsModule]);
       const currentMeta = ROLE_META[effectiveRoleForUi] || ROLE_META.atencion_cliente;
       const sessionUser = user ? {
         name: user.nombre || user.name || 'Usuario',
@@ -18188,27 +18953,36 @@ const formatCurrency = (value) => {
       };
       const notificationUserId = user?.id || rolReal || 'anon';
       const estadoConfig = resolveEstadoUsuario(estadoUsuario);
-      const currentRouteItem = navItems.find((item) => item.path === route);
+      const currentRouteItem = orgScopedNavItems.find((item) => item.path === route);
+      const currentNavGroup = navEntries.find((entry) => entry.type === 'group' && entry.items.some((item) => item.path === route)) || null;
       const isSupportRoute = route === 'soporte';
       const breadcrumbCurrent = isSupportRoute ? 'Atención al cliente' : (currentRouteItem?.label || 'Monitor');
       const roleLabel = effectiveRoleForUi === rolReal ? currentMeta.label : ('Modo vista: ' + currentMeta.label);
       const openNotificationsModule = React.useCallback((requestedRoute) => {
-        const fallbackRoute = navItems.some((item) => item.path === 'sa_logs_actividad')
+        const fallbackRoute = orgScopedNavItems.some((item) => item.path === 'sa_logs_actividad')
           ? 'sa_logs_actividad'
-          : navItems.some((item) => item.path === 'reportes')
+          : orgScopedNavItems.some((item) => item.path === 'reportes')
             ? 'reportes'
-            : 'dashboard';
+            : isSuEmergenciaActiveOrg
+              ? 'operaciones/monitor'
+              : 'dashboard';
         const normalized = typeof requestedRoute === 'string'
           ? { route: requestedRoute }
           : (requestedRoute || {});
         const targetRoute = normalized.route;
-        const canOpenRequested = targetRoute && navItems.some((item) => item.path === targetRoute);
+        const canOpenRequested = targetRoute && orgScopedNavItems.some((item) => item.path === targetRoute);
         setRoute(canOpenRequested ? targetRoute : fallbackRoute);
         if (targetRoute === 'contactos' && normalized.contactId) {
           setSalesSelectedId(normalized.contactId);
         }
         if (!isDesktop) setMenuOpen(false);
-      }, [navItems, isDesktop]);
+      }, [orgScopedNavItems, isDesktop, isSuEmergenciaActiveOrg]);
+
+      React.useEffect(() => {
+        if (!orgScopedNavItems.length) return;
+        if (orgScopedNavItems.some((item) => item.path === route)) return;
+        setRoute(isSuEmergenciaActiveOrg ? 'operaciones/monitor' : orgScopedNavItems[0]?.path || 'dashboard');
+      }, [isSuEmergenciaActiveOrg, orgScopedNavItems, route]);
 
       React.useEffect(() => {
         if (!authUser?.id) return;
@@ -18442,6 +19216,13 @@ const formatCurrency = (value) => {
           );
         }
       if (route === 'soporte' && role === 'atencion_cliente') return <CustomerSupportModule />;
+      if (route === 'operaciones/monitor') return <MonitorScreen />;
+      if (route === 'operaciones/flotas') return <FlotasScreen Button={Button} Panel={Panel} Tag={Tag} />;
+      if (route === 'operaciones/rrhh') return <RrhhScreen Button={Button} Panel={Panel} Tag={Tag} />;
+      if (route === 'operaciones/servicios') return <ServiciosScreen Button={Button} Panel={Panel} Tag={Tag} />;
+      if (route === 'operaciones/economato') return <EconomatoScreen Button={Button} Panel={Panel} Tag={Tag} />;
+      if (route === 'operaciones/equipos') return <EquiposScreen Button={Button} Panel={Panel} Tag={Tag} />;
+      if (route === 'operaciones/turnos') return <TurnosScreen Button={Button} Panel={Panel} Tag={Tag} />;
       if (route === 'servicios') return <OperationsDashboard />;
       if (route === 'campanas_redes') {
         return (
@@ -18486,7 +19267,7 @@ const formatCurrency = (value) => {
           <div className="noise"></div>
           <div className="app-shell">
             {!isDesktop && menuOpen ? <div className="mobile-overlay" onClick={() => setMenuOpen(false)}></div> : null}
-            <aside className={'sidebar ' + (menuOpen ? 'open' : 'closed')}>
+            <aside ref={sidebarRef} className={'sidebar ' + (menuOpen ? 'open' : 'closed')}>
               <div className="sidebar-brand">
                 <div className="brand-row">
                   {/*
@@ -18503,8 +19284,19 @@ const formatCurrency = (value) => {
                     style={canSwitchOrg ? { cursor: 'pointer' } : {}}
                     title={canSwitchOrg ? 'Cambiar organización' : ''}
                   >
-                    {brandLogo ? (
-                      <img src={brandLogo} alt="Logo organización" className="brand-logo-image" />
+                    {displayedBrandLogo ? (
+                      <img src={displayedBrandLogo} alt="Logo organización" className="brand-logo-image" />
+                    ) : isSuEmergenciaActiveOrg ? (
+                      <span style={{
+                        fontFamily: 'var(--font-sans)',
+                        fontSize: 16,
+                        fontWeight: 700,
+                        letterSpacing: '-0.2px',
+                        color: '#f1f5f9',
+                        textAlign: 'center'
+                      }}>
+                        SU Emergencia
+                      </span>
                     ) : (
                       <span style={{
                         fontFamily: 'var(--font-sans)',
@@ -18525,7 +19317,48 @@ const formatCurrency = (value) => {
               <div className="sidebar-nav-region">
                 <div className="sidebar-section-label">Navegación</div>
                 <div className="nav-list">
-                  {navItems.map((item) => {
+                  {navEntries.map((entry) => {
+                    if (entry.type === 'group') {
+                      const GroupIcon = entry.icon;
+                      const isGroupActive = entry.items.some((item) => item.path === route);
+                      const isGroupExpanded = isGroupActive || !!expandedNavGroups[entry.key];
+                      return (
+                        <div key={entry.key} style={{ display: 'grid', gap: 6 }}>
+                          <button
+                            className={'nav-item ' + (isGroupActive ? 'active' : '')}
+                            onClick={() => setExpandedNavGroups((prev) => ({ ...prev, [entry.key]: !isGroupExpanded }))}
+                            title=""
+                            aria-expanded={isGroupExpanded}
+                          >
+                            <div className="nav-icon"><GroupIcon size={18} /></div>
+                            <div className="nav-meta"><div className="nav-title">{entry.label}</div><div className="nav-caption">{entry.caption}</div></div>
+                            {isGroupExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                          </button>
+                          {isGroupExpanded ? (
+                            <div style={{ display: 'grid', gap: 6, paddingLeft: 18 }}>
+                              {entry.items.map((item) => {
+                                const NavIcon = item.icon;
+                                return (
+                                  <button
+                                    key={item.path}
+                                    className={'nav-item ' + (route === item.path ? 'active' : '')}
+                                    onClick={() => { setRoute(item.path); if (!isDesktop) setMenuOpen(false); }}
+                                    title=""
+                                    style={{ paddingLeft: 10 }}
+                                  >
+                                    <div className="nav-icon"><NavIcon size={18} /></div>
+                                    <div className="nav-meta"><div className="nav-title">{item.label}</div><div className="nav-caption">{item.caption}</div></div>
+                                    {item.badge ? <div className="nav-badge">{item.badge}</div> : null}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    }
+
+                    const item = entry.item;
                     const NavIcon = item.icon;
                     return (
                       <button
@@ -18555,8 +19388,19 @@ const formatCurrency = (value) => {
               />
             </aside>
 
-            <main className="main">
-              <header className="topbar" ref={topbarRef}>
+            <main
+              className="main"
+              style={route === 'operaciones/monitor'
+                ? {
+                  padding: 0,
+                  margin: 0,
+                  overflow: 'hidden',
+                  marginLeft: isDesktop ? `${sidebarInset}px` : 0,
+                  width: isDesktop && sidebarInset ? `calc(100% - ${sidebarInset}px)` : '100%',
+                }
+                : undefined}
+            >
+              {route !== 'operaciones/monitor' && route !== 'operaciones/turnos' ? <header className="topbar" ref={topbarRef}>
                 <div className="topbar-card glass">
                   <button className="icon-button mobile-toggle" onClick={() => setMenuOpen(true)}><Menu size={20} color="#152235" /></button>
                   <div style={{ minWidth: 0, flex: 1 }}>
@@ -18572,7 +19416,7 @@ const formatCurrency = (value) => {
                           <span> / </span>
                           <span>{currentMeta.label}</span>
                           <span> / </span>
-                          <strong style={{ color: 'var(--text)' }}>{breadcrumbCurrent}</strong>
+                          <strong style={{ color: 'var(--text)' }}>{currentNavGroup ? `${currentNavGroup.label} / ${breadcrumbCurrent}` : breadcrumbCurrent}</strong>
                         </>
                       )}
                     </div>
@@ -18609,7 +19453,7 @@ const formatCurrency = (value) => {
                 </div>
               ) : null}
             </div>
-          </header>
+          </header> : null}
           {inactivityWarning && estadoUsuario === 'disponible' && !mostrarPausa ? (
             <div style={{ margin: '0 24px 12px', padding: '10px 14px', borderRadius: 12, border: '1px solid rgba(251,191,36,0.6)', background: 'rgba(251,191,36,0.15)', color: '#92400e', fontWeight: 600 }}>
               Estás inactivo, tu sesión pasará a inactiva

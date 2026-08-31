@@ -7,13 +7,16 @@
     "dev": "vite --host 127.0.0.1 --port 5173",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1 --port 5173",
-    "start": "npm run dev"
+    "start": "npm run dev",
+    "check:encoding": "node scripts/check-encoding.mjs"
   },
   "dependencies": {
+    "leaflet": "^1.9.4",
     "lucide-react": "^0.552.0",
     "oidc-client-ts": "^3.4.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "react-leaflet": "^5.0.0",
     "react-oidc-context": "^3.3.0",
     "recharts": "^3.2.1",
     "socket.io-client": "^4.7.5"

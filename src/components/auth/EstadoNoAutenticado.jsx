@@ -36,6 +36,17 @@ export default function EstadoNoAutenticado() {
       email: import.meta.env?.VITE_LOCAL_DEV_USER_EMAIL_VENDEDOR || 'vendedor@rednacrem.com',
       sub: 'dev-matias-decker',
       name: 'Matias Decker'
+    },
+    {
+      id: 'operaciones',
+      label: 'Operaciones (SU Emergencia)',
+      email: import.meta.env?.VITE_LOCAL_DEV_USER_EMAIL_OPERACIONES || 'operaciones.su@local.test',
+      sub: 'dev-operaciones-su-emergencia',
+      name: 'Dev Operaciones SU Emergencia',
+      org: {
+        id: 'ec63de4e-8ac3-4054-a4c7-8ceae5c76ddd',
+        nombre: 'SU Emergencia'
+      }
     }
   ];
 
@@ -43,10 +54,18 @@ export default function EstadoNoAutenticado() {
     try {
       localStorage.setItem('local_dev_user_role', preset.id);
       localStorage.setItem('local_dev_user_email', preset.email);
+      localStorage.setItem('local_dev_user_name', preset.name || '');
       if (preset.sub) {
         localStorage.setItem('local_dev_user_sub', preset.sub);
       } else {
         localStorage.removeItem('local_dev_user_sub');
+      }
+      if (preset.org?.id) {
+        localStorage.setItem('local_dev_org_id', preset.org.id);
+        localStorage.setItem('local_dev_org_name', preset.org.nombre || '');
+      } else {
+        localStorage.removeItem('local_dev_org_id');
+        localStorage.removeItem('local_dev_org_name');
       }
     } catch {
       // no-op

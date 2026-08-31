@@ -9,8 +9,8 @@ export default function ProtectedRoute({
 }) {
   const { rolReal, rolEfectivo } = useRolEfectivo();
 
-  // checkBy='effective': solo visualizaciÛn UI
-  // checkBy='real': guard para acciones/rutas sensibles (adem·s de backend)
+  // checkBy='effective': solo visualizaci√≥n UI
+  // checkBy='real': guard para acciones/rutas sensibles (adem√°s de backend)
   const roleForCheck = checkBy === 'real' ? rolReal : rolEfectivo;
   const allowed = !allowRoles.length || allowRoles.includes(roleForCheck);
 
