@@ -18278,30 +18278,11 @@ const formatCurrency = (value) => {
       );
 
       const roleNavResolved = React.useMemo(() => {
-        return roleNavWithBadges
-          .filter((item) => {
-            if (item.path === 'recupero' && modulos?.recupero === false) return false;
-            return true;
-          })
-          .map((item) => {
-            const isOperationsPath = NAV_GROUP_DEFINITIONS
-              .filter((group) => group.key === 'operaciones')
-              .some((group) => group.childPaths.includes(item.path));
-
-            if (!isSuEmergenciaActiveOrg || !isOperationsPath) {
-              return item;
-            }
-
-            if (item.roles.includes('superadministrador')) {
-              return item;
-            }
-
-            return {
-              ...item,
-              roles: [...item.roles, 'superadministrador']
-            };
-          });
-      }, [isSuEmergenciaActiveOrg, roleNavWithBadges, modulos?.recupero]);
+        return roleNavWithBadges.filter((item) => {
+          if (item.path === 'recupero' && modulos?.recupero === false) return false;
+          return true;
+        });
+      }, [roleNavWithBadges, modulos?.recupero]);
 
       React.useEffect(() => {
         const onResize = () => {
