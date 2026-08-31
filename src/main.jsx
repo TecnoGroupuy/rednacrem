@@ -18903,13 +18903,14 @@ const formatCurrency = (value) => {
       });
       const orgScopedNavItems = React.useMemo(() => {
         if (!isSuEmergenciaActiveOrg) return navItems;
+        if (effectiveRoleForUi === 'superadministrador') return navItems;
         const allowedPaths = new Set(
           NAV_GROUP_DEFINITIONS
             .filter((group) => group.key === 'operaciones')
             .flatMap((group) => group.childPaths)
         );
         return navItems.filter((item) => allowedPaths.has(item.path));
-      }, [isSuEmergenciaActiveOrg, navItems]);
+      }, [effectiveRoleForUi, isSuEmergenciaActiveOrg, navItems]);
       const showOperationsModule = React.useMemo(() => {
         return !isSuEmergenciaActiveOrg || orgScopedNavItems.length > 0;
       }, [isSuEmergenciaActiveOrg, orgScopedNavItems.length]);
