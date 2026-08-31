@@ -111,7 +111,8 @@ export function AuthProvider({ children, fallbackRole = null }) {
     const accessToken = sessionData?.accessToken || null;
     const idToken = sessionData?.idToken || null;
     const claims = sessionData?.claims || null;
-    const primaryToken = idToken || accessToken;
+    const isLocalDevSession = import.meta.env.DEV && accessToken === 'dev-token';
+    const primaryToken = isLocalDevSession ? accessToken : (idToken || accessToken);
 
     if (!primaryToken) {
       clearSession();
@@ -140,7 +141,7 @@ export function AuthProvider({ children, fallbackRole = null }) {
       const status = normalizeStatus(me.status);
       const roleFromBackend = me.role || null;
       const roleFallback = buildFallbackRoleFromClaims(claims || {});
-      const isDevToken = import.meta.env.DEV && accessToken === 'dev-token';
+      const isDevToken = isLocalDevSession;
       const role = isDevToken
         ? (roleFallback || roleFromBackend || fallbackRole || null)
         : (roleFromBackend || (ALLOW_CLAIMS_ROLE_FALLBACK ? (roleFallback || fallbackRole) : null) || null);
@@ -211,7 +212,7 @@ export function AuthProvider({ children, fallbackRole = null }) {
         return null;
       }
       // Fallback acotado para Login Dev local sin backend /me.
-      if (import.meta.env.DEV && accessToken === 'dev-token') {
+      if (isLocalDevSession) {
         const fallbackSession = buildDevSessionFallback({ sessionData, claims, fallbackRole });
         if (fallbackSession) {
           setAuthSession(fallbackSession);

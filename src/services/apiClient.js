@@ -40,6 +40,8 @@ const readDevOverride = (key) => {
   }
 };
 
+const isLocalDevToken = (token) => import.meta?.env?.DEV && (token === 'dev-token' || token === 'dev-id');
+
 const isAbsoluteUrl = (path) => /^https?:\/\//i.test(String(path || ''));
 const ensureApiPrefix = (path, baseUrl) => {
   const normalizedPath = String(path || '').trim();
@@ -95,7 +97,7 @@ export function createApiClient({ baseUrl, getAccessToken }) {
     const isBlob = typeof Blob !== 'undefined' && body instanceof Blob;
     const isStringBody = typeof body === 'string';
     const shouldSerializeJson = hasBody && !isFormData && !isBlob && !isStringBody;
-    const isDevToken = import.meta?.env?.DEV && token === 'dev-token';
+    const isDevToken = isLocalDevToken(token);
 
     const finalHeaders = {
       ...(shouldSerializeJson ? { 'Content-Type': 'application/json' } : {}),
@@ -154,7 +156,7 @@ export function createApiClient({ baseUrl, getAccessToken }) {
       return `${rawUrl}${separator}organization_id=${encodeURIComponent(activeOrganizationId)}`;
     })();
     const token = await getAccessToken();
-    const isDevToken = import.meta?.env?.DEV && token === 'dev-token';
+    const isDevToken = isLocalDevToken(token);
 
     const finalHeaders = { ...headers };
     if (isDevToken) {
