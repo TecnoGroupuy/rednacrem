@@ -586,9 +586,24 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     if (!loteSeleccionado?.id) return;
     const refreshedLot = lotesCreados.find((lot) => asLotId(lot) === String(loteSeleccionado.id));
     if (!refreshedLot) return;
-    const nextSelected = buildSelectedLot(refreshedLot);
+    let nextSelected = buildSelectedLot(refreshedLot);
     if (!nextSelected) return;
     setLoteSeleccionado((prev) => {
+      if (
+        prev
+        && Array.isArray(prev.vendedores)
+        && prev.vendedores.length
+        && (
+          !Array.isArray(refreshedLot?.vendedores)
+          || refreshedLot.vendedores.length === 0
+        )
+      ) {
+        nextSelected = {
+          ...nextSelected,
+          vendedores: prev.vendedores,
+          sellerName: formatSellerListLabel(prev.vendedores) || nextSelected.sellerName
+        };
+      }
       const prevSnapshot = JSON.stringify({
         id: prev?.id,
         sellerName: prev?.sellerName,
@@ -603,7 +618,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       });
       return prevSnapshot === nextSnapshot ? prev : nextSelected;
     });
-  }, [buildSelectedLot, lotesCreados, loteSeleccionado?.id, vistaActual]);
+  }, [buildSelectedLot, formatSellerListLabel, lotesCreados, loteSeleccionado?.id, vistaActual]);
 
   const getMotivoColor = (value) => {
     const raw = (value ?? '').toString().trim().toUpperCase();
@@ -748,7 +763,10 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     if (
       nextSelected
       && Array.isArray(options.preserveVendedores)
-      && !Array.isArray(refreshedLot?.vendedores)
+      && (
+        !Array.isArray(refreshedLot?.vendedores)
+        || refreshedLot.vendedores.length === 0
+      )
     ) {
       nextSelected = {
         ...nextSelected,
