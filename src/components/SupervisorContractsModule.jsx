@@ -1,6 +1,6 @@
-﻿import React from 'react';
+import React from 'react';
 import { Filter, RefreshCw, X, Upload, Columns, ChevronDown } from 'lucide-react';
-import { getApiClient } from '../services/apiClient.js';
+import { buildApiUrl, getApiBaseUrl, getAccessToken, getApiClient } from '../services/apiClient.js';
 import { formatDate } from '../utils/dateFormat.js';
 import RecuperoDatasetsView from './RecuperoDatasetsView.jsx';
 import RecuperoMyCandidatesView from './RecuperoMyCandidatesView.jsx';
@@ -45,6 +45,24 @@ const FILTER_COLUMN_CONFIG = {
   lote: { type: 'select', key: 'lote' },
   vendedor_asignado: { type: 'select', key: 'vendedor_asignado' }
 };
+
+const DEV_LOCAL_STORAGE_KEYS = {
+  role: 'local_dev_user_role',
+  email: 'local_dev_user_email',
+  sub: 'local_dev_user_sub'
+};
+
+const readDevOverride = (key) => {
+  try {
+    if (typeof localStorage === 'undefined') return null;
+    const value = localStorage.getItem(key);
+    return value && String(value).trim() ? value : null;
+  } catch {
+    return null;
+  }
+};
+
+const isLocalDevToken = (token) => import.meta?.env?.DEV && (token === 'dev-token' || token === 'dev-id');
 
 export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const api = React.useMemo(() => getApiClient(), []);
@@ -128,6 +146,16 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const [lastSyncAt, setLastSyncAt] = React.useState(null);
   const [syncNow, setSyncNow] = React.useState(Date.now());
   const [exportState, setExportState] = React.useState({ fileName: 'recupero.csv', rows: [] });
+  const [addSellerOpen, setAddSellerOpen] = React.useState(false);
+  const [addSellerTarget, setAddSellerTarget] = React.useState('');
+  const [addSellerError, setAddSellerError] = React.useState('');
+  const [removeModal, setRemoveModal] = React.useState(null);
+  const [removeStep, setRemoveStep] = React.useState(1);
+  const [removeMode, setRemoveMode] = React.useState('specific');
+  const [reassignTarget, setReassignTarget] = React.useState('');
+  const [reassignError, setReassignError] = React.useState('');
+  const [sellerMutationLoading, setSellerMutationLoading] = React.useState(false);
+  const [sellerMutationFeedback, setSellerMutationFeedback] = React.useState({ type: '', message: '' });
 
   const isImportSuccess = (result) => {
     if (!result) return false;
@@ -287,11 +315,14 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     try {
       const response = await api.get('/api/recupero/lotes');
       const itemsList = response?.items || response?.data?.items || response?.lotes || response?.data?.lotes || [];
-      setLotesCreados(Array.isArray(itemsList) ? itemsList : []);
+      const nextItems = Array.isArray(itemsList) ? itemsList : [];
+      setLotesCreados(nextItems);
       setLastSyncAt(Date.now());
+      return nextItems;
     } catch (err) {
       setLotesError(err?.message || 'No se pudieron cargar los lotes.');
       setLotesCreados([]);
+      return [];
     } finally {
       setLotesLoading(false);
     }
@@ -405,6 +436,40 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const asLotCreatedAt = (lote) => lote?.created_at || lote?.fecha_creacion || lote?.createdAt || null;
   const asLotCount = (lote) => Number(formatLoteCount(lote) || 0);
   const asLotSellerName = (lote) => formatLoteSeller(lote);
+  const asLotSellers = (lote) => (Array.isArray(lote?.vendedores) ? lote.vendedores : []);
+
+  const buildSelectedLot = React.useCallback((lote) => {
+    if (!lote) return null;
+    return {
+      ...lote,
+      id: asLotId(lote),
+      nombre: asLotName(lote),
+      createdAt: asLotCreatedAt(lote),
+      sellerName: asLotSellerName(lote),
+      total_contactos: Number(lote?.total_contactos || lote?.contactos || formatLoteCount(lote) || 0),
+      vendedores: asLotSellers(lote)
+    };
+  }, []);
+
+  const buildAuthHeaders = React.useCallback(async () => {
+    const token = await getAccessToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (isLocalDevToken(token)) {
+      const devRoleOverride = readDevOverride(DEV_LOCAL_STORAGE_KEYS.role);
+      const devEmailOverride = readDevOverride(DEV_LOCAL_STORAGE_KEYS.email);
+      const devSubOverride = readDevOverride(DEV_LOCAL_STORAGE_KEYS.sub);
+      headers['X-Dev-Auth'] = 'true';
+      headers['X-Dev-User-Email'] = devEmailOverride || import.meta.env?.VITE_LOCAL_DEV_USER_EMAIL || 'admin@local.test';
+      headers['X-Dev-User-Role'] = devRoleOverride || import.meta.env?.VITE_LOCAL_DEV_USER_ROLE || 'superadministrador';
+      const devSub = devSubOverride || import.meta.env?.VITE_LOCAL_DEV_USER_SUB;
+      if (devSub) {
+        headers['X-Dev-User-Sub'] = devSub;
+      }
+    } else if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    return headers;
+  }, []);
 
   const openInformeModal = React.useCallback((lotId) => {
     if (!lotId) return;
@@ -509,6 +574,30 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       });
     return () => { active = false; };
   }, [api, loteSeleccionado?.id, vistaActual]);
+
+  React.useEffect(() => {
+    if (vistaActual !== 'detalle-lote') return;
+    if (!loteSeleccionado?.id) return;
+    const refreshedLot = lotesCreados.find((lot) => asLotId(lot) === String(loteSeleccionado.id));
+    if (!refreshedLot) return;
+    const nextSelected = buildSelectedLot(refreshedLot);
+    if (!nextSelected) return;
+    setLoteSeleccionado((prev) => {
+      const prevSnapshot = JSON.stringify({
+        id: prev?.id,
+        sellerName: prev?.sellerName,
+        total_contactos: prev?.total_contactos,
+        vendedores: prev?.vendedores
+      });
+      const nextSnapshot = JSON.stringify({
+        id: nextSelected.id,
+        sellerName: nextSelected.sellerName,
+        total_contactos: nextSelected.total_contactos,
+        vendedores: nextSelected.vendedores
+      });
+      return prevSnapshot === nextSnapshot ? prev : nextSelected;
+    });
+  }, [buildSelectedLot, lotesCreados, loteSeleccionado?.id, vistaActual]);
 
   const getMotivoColor = (value) => {
     const raw = (value ?? '').toString().trim().toUpperCase();
@@ -636,6 +725,130 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     setAssignNotes('');
     setAssignHasActiveProduct(false);
   }, []);
+
+  const openLotDetail = React.useCallback((lote) => {
+    const nextLot = buildSelectedLot(lote);
+    if (!nextLot?.id) return;
+    setSellerMutationFeedback({ type: '', message: '' });
+    setLoteSeleccionado(nextLot);
+    setVistaActual('detalle-lote');
+  }, [buildSelectedLot]);
+
+  const refreshSelectedLot = React.useCallback(async (lotId) => {
+    if (!lotId) return null;
+    const nextLotes = await loadLotesCreados();
+    const refreshedLot = (Array.isArray(nextLotes) ? nextLotes : []).find((lot) => asLotId(lot) === String(lotId));
+    const nextSelected = buildSelectedLot(refreshedLot);
+    if (nextSelected) {
+      setLoteSeleccionado(nextSelected);
+    }
+    return nextSelected;
+  }, [buildSelectedLot, loadLotesCreados]);
+
+  const openAddSellerModal = React.useCallback(() => {
+    if (!loteSeleccionado?.id) return;
+    setAddSellerTarget('');
+    setAddSellerError('');
+    setSellerMutationFeedback({ type: '', message: '' });
+    setAddSellerOpen(true);
+    loadSellers();
+  }, [loadSellers, loteSeleccionado?.id]);
+
+  const closeAddSellerModal = React.useCallback(() => {
+    setAddSellerOpen(false);
+    setAddSellerTarget('');
+    setAddSellerError('');
+  }, []);
+
+  const openRemoveSellerModal = React.useCallback((payload, options = {}) => {
+    setRemoveModal(payload);
+    setRemoveStep(options.step || 1);
+    setRemoveMode(options.mode || 'specific');
+    setReassignTarget('');
+    setReassignError('');
+    setSellerMutationFeedback({ type: '', message: '' });
+  }, []);
+
+  const closeRemoveSellerModal = React.useCallback(() => {
+    setRemoveModal(null);
+    setRemoveStep(1);
+    setRemoveMode('specific');
+    setReassignTarget('');
+    setReassignError('');
+  }, []);
+
+  const handleAddSeller = React.useCallback(async () => {
+    if (!loteSeleccionado?.id) return;
+    if (!addSellerTarget) {
+      setAddSellerError('Selecciona un vendedor.');
+      return;
+    }
+    setSellerMutationLoading(true);
+    setAddSellerError('');
+    try {
+      const headers = await buildAuthHeaders();
+      const response = await fetch(buildApiUrl(`/lead-batches/${loteSeleccionado.id}/add-seller`, getApiBaseUrl()), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ seller_id: addSellerTarget })
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.ok) {
+        throw new Error(data?.message || 'No se pudo agregar el vendedor.');
+      }
+      await refreshSelectedLot(loteSeleccionado.id);
+      closeAddSellerModal();
+      setSellerMutationFeedback({ type: 'success', message: 'Vendedor agregado al lote correctamente.' });
+    } catch (err) {
+      setAddSellerError(err?.message || 'No se pudo agregar el vendedor.');
+    } finally {
+      setSellerMutationLoading(false);
+    }
+  }, [addSellerTarget, buildAuthHeaders, closeAddSellerModal, loteSeleccionado?.id, refreshSelectedLot]);
+
+  const handleRemoveSeller = React.useCallback(async () => {
+    if (!loteSeleccionado?.id || !removeModal?.sellerId) return;
+    if (!removeMode) {
+      setReassignError('Selecciona una opcion.');
+      return;
+    }
+    if (removeMode === 'specific' && !reassignTarget) {
+      setReassignError('Selecciona un vendedor destino.');
+      return;
+    }
+    setSellerMutationLoading(true);
+    setReassignError('');
+    try {
+      const headers = await buildAuthHeaders();
+      const response = await fetch(buildApiUrl(`/lead-batches/${loteSeleccionado.id}/remove-seller`, getApiBaseUrl()), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          seller_id: removeModal.sellerId,
+          mode: removeMode,
+          new_seller_id: reassignTarget || undefined
+        })
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.ok) {
+        throw new Error(data?.message || 'No se pudo quitar el vendedor.');
+      }
+      await refreshSelectedLot(loteSeleccionado.id);
+      closeRemoveSellerModal();
+      setSellerMutationFeedback({
+        type: 'success',
+        message: removeMode === 'specific'
+          ? 'Contactos reasignados y vendedor quitado correctamente.'
+          : removeMode === 'roundrobin'
+            ? 'Contactos redistribuidos y vendedor quitado correctamente.'
+            : 'Vendedor quitado; los contactos quedaron sin asignar dentro del lote.'
+      });
+    } catch (err) {
+      setReassignError(err?.message || 'No se pudo completar la operacion.');
+    } finally {
+      setSellerMutationLoading(false);
+    }
+  }, [buildAuthHeaders, closeRemoveSellerModal, loteSeleccionado?.id, reassignTarget, refreshSelectedLot, removeModal?.sellerId, removeMode]);
 
   const getAssignmentLotName = () => {
     const now = new Date();
@@ -1780,14 +1993,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                     : { label: 'Activo', bg: 'rgba(15,118,110,0.10)', color: '#0F766E' };
 
                   const openDetalle = () => {
-                    if (!lotId) return;
-                    setLoteSeleccionado({
-                      id: lotId,
-                      nombre: name,
-                      createdAt,
-                      sellerName
-                    });
-                    setVistaActual('detalle-lote');
+                    openLotDetail(lote);
                   };
 
                   return (
@@ -1922,20 +2128,21 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                   </button>
                   <button
                     type="button"
-                    disabled
+                    onClick={openAddSellerModal}
                     style={{
-                      background: '#fff',
-                      border: '1px solid rgba(148,163,184,0.55)',
+                      background: '#E1F5EE',
+                      border: '1px solid #5DCAA5',
                       borderRadius: 8,
                       padding: '7px 14px',
                       fontSize: 13,
                       fontWeight: 800,
-                      cursor: 'not-allowed',
-                      color: 'var(--color-text-secondary)',
-                      opacity: 0.7
+                      cursor: loteSeleccionado?.id ? 'pointer' : 'not-allowed',
+                      color: '#0F6E56',
+                      opacity: loteSeleccionado?.id ? 1 : 0.7
                     }}
+                    disabled={!loteSeleccionado?.id}
                   >
-                    Reasignar
+                    + Agregar vendedor
                   </button>
                   <button
                     type="button"
@@ -2044,6 +2251,107 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                   ))}
                 </div>
               )}
+
+              <div style={{ marginTop: 14, border: '1px solid rgba(148,163,184,0.35)', borderRadius: 14, padding: 14, background: '#fff' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--color-text-primary)' }}>Vendedores asignados</div>
+                    <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                      Gestion del lote y redistribucion por vendedor.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={openAddSellerModal}
+                    disabled={!loteSeleccionado?.id}
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 800,
+                      color: '#0F6E56',
+                      background: '#E1F5EE',
+                      border: '1px solid #5DCAA5',
+                      borderRadius: 8,
+                      padding: '7px 12px',
+                      cursor: loteSeleccionado?.id ? 'pointer' : 'not-allowed',
+                      opacity: loteSeleccionado?.id ? 1 : 0.7
+                    }}
+                  >
+                    + Agregar vendedor
+                  </button>
+                </div>
+
+                {sellerMutationFeedback.message ? (
+                  <div style={{
+                    marginBottom: 12,
+                    borderRadius: 10,
+                    padding: '10px 12px',
+                    border: sellerMutationFeedback.type === 'error' ? '1px solid #F09595' : '1px solid #5DCAA5',
+                    background: sellerMutationFeedback.type === 'error' ? '#FCEBEB' : '#E1F5EE',
+                    color: sellerMutationFeedback.type === 'error' ? '#A32D2D' : '#0F6E56',
+                    fontSize: 12,
+                    fontWeight: 700
+                  }}>
+                    {sellerMutationFeedback.message}
+                  </div>
+                ) : null}
+
+                {(loteSeleccionado?.vendedores || []).length ? (
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    {(loteSeleccionado?.vendedores || []).map((vendedor) => {
+                      const nombre = `${vendedor?.nombre || ''} ${vendedor?.apellido || ''}`.trim() || vendedor?.email || 'Vendedor';
+                      const iniciales = nombre.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
+                      const total = Number(vendedor?.total_contactos || vendedor?.cantidad || 0);
+                      const gestionados = Number(vendedor?.gestionados || vendedor?.total_gestionado || 0);
+                      const porcentaje = total > 0 ? Math.round((gestionados / total) * 100) : 0;
+                      return (
+                        <div key={vendedor?.id || nombre} style={{ border: '1px solid rgba(148,163,184,0.28)', borderRadius: 12, padding: 12, background: 'var(--color-background-secondary)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                              <div style={{ width: 36, height: 36, borderRadius: 999, background: '#E1F5EE', color: '#0F6E56', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, flexShrink: 0 }}>
+                                {iniciales || '--'}
+                              </div>
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--color-text-primary)' }}>{nombre}</div>
+                                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                                  {total} contactos · {gestionados} gestionados
+                                </div>
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                              <button
+                                type="button"
+                                onClick={() => openRemoveSellerModal({ sellerId: vendedor?.id, sellerName: nombre, contactCount: total, gestionados }, { step: 2, mode: 'specific' })}
+                                style={{ fontSize: 12, fontWeight: 700, color: '#185FA5', background: '#E6F1FB', border: '1px solid #85B7EB', borderRadius: 8, padding: '6px 10px', cursor: 'pointer' }}
+                              >
+                                Reasignar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openRemoveSellerModal({ sellerId: vendedor?.id, sellerName: nombre, contactCount: total, gestionados }, { step: 1, mode: 'specific' })}
+                                style={{ fontSize: 12, fontWeight: 700, color: '#993C1D', background: '#FAECE7', border: '1px solid #F0997B', borderRadius: 8, padding: '6px 10px', cursor: 'pointer' }}
+                              >
+                                Quitar
+                              </button>
+                            </div>
+                          </div>
+                          <div style={{ marginTop: 10 }}>
+                            <div style={{ height: 5, background: 'rgba(148,163,184,0.22)', borderRadius: 999, overflow: 'hidden' }}>
+                              <div style={{ height: '100%', width: `${porcentaje}%`, background: '#0F766E', borderRadius: 999 }} />
+                            </div>
+                            <div style={{ marginTop: 6, fontSize: 11, color: 'var(--color-text-secondary)' }}>
+                              {porcentaje}% gestionado
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                    Sin vendedores asignados.
+                  </div>
+                )}
+              </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 14 }}>
                 <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', fontWeight: 800 }}>
@@ -2991,6 +3299,157 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
 
         </Panel>
       </section>
+
+      {addSellerOpen && (
+        <div className="lot-wizard-overlay" onClick={closeAddSellerModal}>
+          <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 420 }}>
+            <div className="lot-wizard-header">
+              <div style={{ fontWeight: 700 }}>Agregar vendedor al lote</div>
+              <button className="close-btn" onClick={closeAddSellerModal}><X size={16} /></button>
+            </div>
+            <div className="lot-wizard-content">
+              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 12 }}>
+                Lote: <strong>{loteSeleccionado?.nombre || '-'}</strong>
+              </div>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Vendedor</span>
+                <select className="input" value={addSellerTarget} onChange={(event) => { setAddSellerTarget(event.target.value); setAddSellerError(''); }}>
+                  <option value="">Seleccionar...</option>
+                  {sellers
+                    .filter((seller) => !(loteSeleccionado?.vendedores || []).some((assigned) => String(assigned?.id) === String(seller?.id)))
+                    .map((seller) => (
+                      <option key={seller.id || seller.email} value={seller.id}>
+                        {seller.label}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              {addSellerError ? (
+                <div style={{ marginTop: 12, fontSize: 12, color: '#b91c1c', fontWeight: 700 }}>
+                  {addSellerError}
+                </div>
+              ) : null}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '0 24px 24px' }}>
+              <Button variant="ghost" onClick={closeAddSellerModal}>Cancelar</Button>
+              <Button onClick={handleAddSeller} disabled={sellerMutationLoading}>
+                {sellerMutationLoading ? 'Agregando...' : 'Agregar vendedor'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {removeModal && (
+        <div className="lot-wizard-overlay" onClick={closeRemoveSellerModal}>
+          <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 520 }}>
+            <div className="lot-wizard-header">
+              <div style={{ fontWeight: 700 }}>
+                {removeStep === 1 ? 'Quitar vendedor del lote' : 'Redistribuir contactos del vendedor'}
+              </div>
+              <button className="close-btn" onClick={closeRemoveSellerModal}><X size={16} /></button>
+            </div>
+            <div className="lot-wizard-content">
+              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 14 }}>
+                Lote: <strong>{loteSeleccionado?.nombre || '-'}</strong>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(20,34,53,0.04)', border: '1px solid rgba(20,34,53,0.1)', borderRadius: 8, padding: '10px 12px', marginBottom: 14 }}>
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#FAECE7', color: '#993C1D', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+                  {String(removeModal?.sellerName || '').split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || '--'}
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700 }}>{removeModal?.sellerName || 'Vendedor'}</div>
+                  <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>
+                    {Number(removeModal?.contactCount || 0)} contactos · {Number(removeModal?.gestionados || 0)} gestionados
+                  </div>
+                </div>
+              </div>
+
+              {removeStep === 1 ? (
+                <>
+                  <div style={{ fontSize: 12, color: '#A32D2D', background: '#FCEBEB', border: '1px solid #F09595', borderRadius: 8, padding: '10px 12px', marginBottom: 12 }}>
+                    Sus <strong>{Number(removeModal?.contactCount || 0)} contactos</strong> deben reasignarse antes de quitar al vendedor.
+                    {Number(removeModal?.gestionados || 0) > 0 ? ` Las ${Number(removeModal?.gestionados || 0)} gestiones realizadas quedan en su historial.` : ''}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                    <Button variant="ghost" onClick={closeRemoveSellerModal}>Cancelar</Button>
+                    <Button onClick={() => setRemoveStep(2)}>Siguiente</Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ display: 'grid', gap: 10, marginBottom: 14 }}>
+                    {['specific', 'roundrobin', 'pool'].map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => { setRemoveMode(mode); setReassignError(''); }}
+                        style={{
+                          textAlign: 'left',
+                          borderRadius: 10,
+                          border: `1px solid ${removeMode === mode ? '#1D9E75' : 'rgba(20,34,53,0.14)'}`,
+                          background: removeMode === mode ? '#E1F5EE' : '#fff',
+                          padding: '11px 12px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--color-text-primary)' }}>
+                          {mode === 'specific' ? 'Asignar a un vendedor especifico' : mode === 'roundrobin' ? 'Distribuir entre vendedores del lote' : 'Dejar sin asignar (pool)'}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 4 }}>
+                          {mode === 'specific' ? 'Todos los contactos del vendedor salen hacia un unico destino.' : mode === 'roundrobin' ? 'Los contactos se reparten entre los vendedores restantes del lote.' : 'El lote queda activo y los contactos pasan a quedar sin vendedor asignado.'}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  {removeMode === 'pool' && (loteSeleccionado?.vendedores || []).length <= 1 ? (
+                    <div style={{ fontSize: 12, background: '#E6F1FB', color: '#185FA5', border: '1px solid #85B7EB', borderRadius: 8, padding: '8px 12px', marginBottom: 14 }}>
+                      Este lote quedara activo y sin vendedor asignado.
+                    </div>
+                  ) : null}
+
+                  {removeMode === 'specific' ? (
+                    <label style={{ display: 'grid', gap: 6, marginBottom: 14 }}>
+                      <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Nuevo vendedor</span>
+                      <select className="input" value={reassignTarget} onChange={(event) => { setReassignTarget(event.target.value); setReassignError(''); }}>
+                        <option value="">Seleccionar...</option>
+                        {(loteSeleccionado?.vendedores || [])
+                          .filter((seller) => String(seller?.id) !== String(removeModal?.sellerId))
+                          .map((seller) => {
+                            const sellerName = `${seller?.nombre || ''} ${seller?.apellido || ''}`.trim() || seller?.email || 'Vendedor';
+                            return (
+                              <option key={seller.id || sellerName} value={seller.id}>
+                                {sellerName} ({Number(seller?.total_contactos || seller?.cantidad || 0)} contactos)
+                              </option>
+                            );
+                          })}
+                      </select>
+                    </label>
+                  ) : null}
+
+                  {reassignError ? (
+                    <div style={{ marginBottom: 12, fontSize: 12, color: '#b91c1c', fontWeight: 700 }}>
+                      {reassignError}
+                    </div>
+                  ) : null}
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                    <Button variant="ghost" onClick={() => setRemoveStep(1)}>Volver</Button>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <Button variant="ghost" onClick={closeRemoveSellerModal}>Cancelar</Button>
+                      <Button onClick={handleRemoveSeller} disabled={sellerMutationLoading}>
+                        {sellerMutationLoading ? 'Procesando...' : removeMode === 'specific' ? 'Confirmar reasignacion' : 'Confirmar y quitar'}
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAssignModal && (
         <div className="lot-wizard-overlay" onClick={closeAssign}>
