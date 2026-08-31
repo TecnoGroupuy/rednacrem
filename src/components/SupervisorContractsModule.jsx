@@ -2091,22 +2091,27 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
           {vistaActual === 'detalle-lote' && (
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
-                <button
-                  type="button"
-                  onClick={() => { setVistaActual('lotes'); setLoteSeleccionado(null); }}
-                  style={{
-                    background: '#fff',
-                    border: '1px solid rgba(148,163,184,0.45)',
-                    borderRadius: 8,
-                    padding: '7px 14px',
-                    fontSize: 13,
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    color: 'var(--color-text-primary)'
-                  }}
-                >
-                  ← Volver a lotes
-                </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <button
+                    type="button"
+                    onClick={() => { setVistaActual('lotes'); setLoteSeleccionado(null); }}
+                    style={{
+                      background: '#fff',
+                      border: '1px solid rgba(148,163,184,0.45)',
+                      borderRadius: 8,
+                      padding: '7px 14px',
+                      fontSize: 13,
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      color: 'var(--color-text-primary)'
+                    }}
+                  >
+                    ← Volver a lotes
+                  </button>
+                  <div style={{ fontSize: 10, opacity: 0.45, color: 'var(--color-text-secondary)', paddingLeft: 2 }}>
+                    diag build e6013ab-mark
+                  </div>
+                </div>
 
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <button
