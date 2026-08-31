@@ -317,6 +317,7 @@ export default function RecuperoDatasetsView({
   const [rangeDraft, setRangeDraft] = React.useState({ startRow: '', endRow: '', sellerId: '' });
   const [individualSellerId, setIndividualSellerId] = React.useState('');
   const [selectedIndividualIds, setSelectedIndividualIds] = React.useState([]);
+  const [distributeSellerIds, setDistributeSellerIds] = React.useState([]);
   const [configSaving, setConfigSaving] = React.useState(false);
   const [configError, setConfigError] = React.useState('');
   const [configNotice, setConfigNotice] = React.useState('');
@@ -603,6 +604,35 @@ export default function RecuperoDatasetsView({
     }
   };
 
+  const handleDistributeDataset = async () => {
+    if (!selectedDatasetId || distributeSellerIds.length === 0) {
+      setConfigError('Selecciona al menos un vendedor para repartir el dataset.');
+      return;
+    }
+    setConfigSaving(true);
+    setConfigError('');
+    setConfigNotice('');
+    try {
+      const response = await api.post(`/recovery/datasets/${encodeURIComponent(selectedDatasetId)}/distribute`, {
+        seller_ids: distributeSellerIds
+      });
+      const distributedCount = Number(response?.distributed_count ?? response?.distributedCount ?? 0) || 0;
+      setDistributeSellerIds([]);
+      setSelectedIndividualIds([]);
+      setConfigNotice(
+        distributedCount > 0
+          ? `Reparto completado: ${distributedCount} pendientes asignados entre ${distributeSellerIds.length} vendedores.`
+          : 'No habia pendientes disponibles para repartir en este dataset.'
+      );
+      loadDetail(selectedDatasetId);
+      loadOverview();
+    } catch (err) {
+      setConfigError(err?.message || 'No se pudo repartir el dataset.');
+    } finally {
+      setConfigSaving(false);
+    }
+  };
+
   const handlePoolAssign = async () => {
     if (!poolAssignSellerId || !selectedPoolIds.length) return;
     setPoolAssigning(true);
@@ -804,6 +834,45 @@ export default function RecuperoDatasetsView({
                   </select>
                   <div style={{ marginTop: 10 }}>
                     <Button onClick={handleCreateIndividualAssignment} disabled={configSaving || !selectedDatasetId}>Guardar individual</Button>
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--color-background-secondary)', borderRadius: 12, padding: 14, border: '0.5px solid var(--color-border-tertiary)' }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>Repartir entre vendedores</div>
+                  <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 10 }}>
+                    Toma solo pendientes reales del dataset seleccionado y los reparte parejo entre los vendedores marcados.
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 8 }}>
+                    Vendedores elegidos: <strong>{distributeSellerIds.length}</strong>
+                  </div>
+                  <div style={{ display: 'grid', gap: 8, maxHeight: 180, overflowY: 'auto', paddingRight: 4 }}>
+                    {sellers.map((seller) => {
+                      const sellerId = seller.id || seller.email;
+                      const checked = distributeSellerIds.includes(sellerId);
+                      return (
+                        <label key={sellerId} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={configSaving || !selectedDatasetId}
+                            onChange={() => setDistributeSellerIds((prev) => (
+                              prev.includes(sellerId)
+                                ? prev.filter((item) => item !== sellerId)
+                                : [...prev, sellerId]
+                            ))}
+                          />
+                          <span>{seller.label || seller.email || 'Vendedor'}</span>
+                        </label>
+                      );
+                    })}
+                    {!sellers.length ? (
+                      <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>No hay vendedores disponibles para seleccionar.</div>
+                    ) : null}
+                  </div>
+                  <div style={{ marginTop: 10 }}>
+                    <Button onClick={handleDistributeDataset} disabled={configSaving || !selectedDatasetId || !distributeSellerIds.length}>
+                      Repartir
+                    </Button>
                   </div>
                 </div>
 
