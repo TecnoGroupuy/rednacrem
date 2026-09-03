@@ -12978,7 +12978,13 @@ const formatCurrency = (value) => {
                               </div>
                               <div style={{ color: 'var(--muted)', fontSize: '0.86rem', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                                 <span>CI {client.documento} {' · '} {client.telefono || client.celular || '—'} {' · '} {client.productoActualNombre}</span>
-                                {productStatusBadge(client.status || client.estado || client.estadoProducto)}
+                              </div>
+                              <div style={{ color: 'var(--muted)', fontSize: '0.8rem', display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginTop: 4 }}>
+                                <span>Fecha de venta: {formatDateShort(client.fechaVenta) || 'Sin fecha'}</span>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                  Estado de venta:
+                                  {productStatusBadge(client.estadoVenta || client.estado_venta || client.status || client.estado || client.estadoProducto) || 'Sin estado'}
+                                </span>
                               </div>
                             </div>
                             <div className="toolbar" style={{ gap: 6 }}>

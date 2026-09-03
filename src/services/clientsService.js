@@ -376,6 +376,8 @@ export const searchPortfolioClients = async (term) => {
       telefono: client.telefono || client.phone || '',
       celular: client.celular || '',
       productoActualNombre: client.productoActualNombre || client.product || '',
+      fechaVenta: client.fechaVenta || client.fecha_venta || client.fechaAlta || null,
+      estadoVenta: client.estadoVenta || client.estado_venta || client.status || client.estado || client.estadoProducto || '',
       matchedVia: raw.matched_via || raw.matchedVia || '',
       matched_via: raw.matched_via || raw.matchedVia || '',
       familyReferenceName: raw.matched_from_name || raw.matchedFromName || '',
