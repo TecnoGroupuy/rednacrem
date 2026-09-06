@@ -18908,7 +18908,7 @@ const formatCurrency = (value) => {
         isModuleVisible
       });
       const orgScopedNavItems = React.useMemo(() => {
-        if (!isSuEmergenciaActiveOrg) return navItems;
+        if (!isSuEmergenciaActiveOrg || effectiveRoleForUi === 'superadministrador') return navItems;
         const allowedPaths = new Set(
           NAV_GROUP_DEFINITIONS
             .filter((group) => group.key === 'operaciones')
