@@ -4,19 +4,40 @@ import VehiculoList from './VehiculoList.jsx';
 import VehiculoForm from './VehiculoForm.jsx';
 import VehiculoDetail from './VehiculoDetail.jsx';
 import {
-  FLOTAS_BASES,
-  su_vehiculos as initialVehiculos,
-  su_vehiculos_documentos as initialDocumentos,
-  su_vehiculos_mantenimiento as initialMantenimiento,
-  su_vehiculos_equipamiento_checklist as initialChecklist
-} from './flotasMockData.js';
+  listVehiculos,
+  listBases,
+  listVehiculoDocumentosVencimientos,
+  createVehiculo,
+  updateVehiculo,
+  getVehiculoDetail,
+  addVehiculoDocumento,
+  addVehiculoMantenimiento,
+  addVehiculoChecklist
+} from '../../../services/flotasService.js';
 import './flotasStyles.css';
 
-const TODAY = new Date('2026-08-30T00:00:00');
+// El backend descubre las columnas de vencimiento por nombre en runtime (ver
+// getVencimientoColumn en index.mjs): fecha_vencimiento, vencimiento, vence_el,
+// fecha_vence, fecha_expiracion o fecha_vigencia_hasta. Reflejamos la misma lista
+// aca para no asumir un unico nombre de columna.
+const VENCIMIENTO_FIELD_CANDIDATES = [
+  'fecha_vencimiento',
+  'vencimiento',
+  'vence_el',
+  'fecha_vence',
+  'fecha_expiracion',
+  'fecha_vigencia_hasta'
+];
+
+const pickVencimientoValue = (doc) => {
+  for (const key of VENCIMIENTO_FIELD_CANDIDATES) {
+    if (doc && doc[key] !== undefined && doc[key] !== null) return doc[key];
+  }
+  return null;
+};
 
 const emptyVehiculoDraft = {
   id: '',
-  organization_id: 'ec63de4e-8ac3-4054-a4c7-8ceae5c76ddd',
   numero_interno: '',
   matricula: '',
   marca: '',
@@ -47,52 +68,110 @@ const diffDays = (dateValue) => {
   if (!dateValue) return null;
   const target = new Date(`${dateValue}T00:00:00`);
   if (Number.isNaN(target.getTime())) return null;
-  return Math.ceil((target.getTime() - TODAY.getTime()) / (1000 * 60 * 60 * 24));
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 };
 
-const buildId = (prefix) => `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+const formatNumber = (value) => {
+  if (value === null || value === undefined || value === '') return '—';
+  const numeric = Number(value);
+  return Number.isNaN(numeric) ? '—' : numeric.toLocaleString('es-UY');
+};
 
 export default function FlotasScreen({ Button, Panel, Tag }) {
-  const [vehiculos, setVehiculos] = React.useState(initialVehiculos);
-  const [vehiculosDocumentos, setVehiculosDocumentos] = React.useState(initialDocumentos);
-  const [vehiculosMantenimiento, setVehiculosMantenimiento] = React.useState(initialMantenimiento);
-  const [vehiculosChecklist, setVehiculosChecklist] = React.useState(initialChecklist);
+  const [vehiculos, setVehiculos] = React.useState([]);
+  const [bases, setBases] = React.useState([]);
+  const [vencimientos, setVencimientos] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState('');
+
   const [filters, setFilters] = React.useState({ base_id: '', categoria: '', estado_operativo: '' });
   const [vehiculoFormOpen, setVehiculoFormOpen] = React.useState(false);
   const [vehiculoFormMode, setVehiculoFormMode] = React.useState('create');
   const [vehiculoDraft, setVehiculoDraft] = React.useState(emptyVehiculoDraft);
   const [vehiculoErrors, setVehiculoErrors] = React.useState({});
+  const [formSaving, setFormSaving] = React.useState(false);
+  const [formError, setFormError] = React.useState('');
+
   const [selectedVehiculoId, setSelectedVehiculoId] = React.useState(null);
+  const [selectedVehiculoDetail, setSelectedVehiculoDetail] = React.useState(null);
+  const [detailLoading, setDetailLoading] = React.useState(false);
+  const [detailError, setDetailError] = React.useState('');
+  const [actionError, setActionError] = React.useState('');
+  const [detailRefreshToken, setDetailRefreshToken] = React.useState(0);
   const [detailTab, setDetailTab] = React.useState('datos_generales');
 
-  const baseById = React.useMemo(() => Object.fromEntries(FLOTAS_BASES.map((base) => [base.id, base])), []);
+  const loadFlotas = React.useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [vehiculosItems, basesItems, vencimientosItems] = await Promise.all([
+        listVehiculos(),
+        listBases(),
+        listVehiculoDocumentosVencimientos({ days: 30 })
+      ]);
+      setVehiculos(vehiculosItems);
+      setBases(basesItems);
+      setVencimientos(vencimientosItems);
+    } catch (err) {
+      setError(err?.message || 'No se pudieron cargar los vehiculos.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const documentosByVehiculoId = React.useMemo(() => {
+  React.useEffect(() => {
+    loadFlotas();
+  }, [loadFlotas]);
+
+  React.useEffect(() => {
+    if (!selectedVehiculoId) {
+      setSelectedVehiculoDetail(null);
+      setDetailError('');
+      setActionError('');
+      return undefined;
+    }
+    let cancelled = false;
+    setDetailLoading(true);
+    setDetailError('');
+    setActionError('');
+    getVehiculoDetail(selectedVehiculoId)
+      .then((detail) => {
+        if (cancelled) return;
+        if (!detail) {
+          setDetailError('Vehiculo no encontrado.');
+          setSelectedVehiculoDetail(null);
+          return;
+        }
+        setSelectedVehiculoDetail(detail);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setDetailError(err?.message || 'No se pudo cargar el detalle del vehiculo.');
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedVehiculoId, detailRefreshToken]);
+
+  const refreshSelectedDetail = () => setDetailRefreshToken((token) => token + 1);
+
+  const baseById = React.useMemo(() => Object.fromEntries(bases.map((base) => [base.id, base])), [bases]);
+
+  const vencimientosByVehiculoId = React.useMemo(() => {
     const grouped = {};
-    vehiculosDocumentos.forEach((item) => {
-      if (!grouped[item.vehiculo_id]) grouped[item.vehiculo_id] = [];
-      grouped[item.vehiculo_id].push(item);
+    vencimientos.forEach((doc) => {
+      const vehiculoId = doc.vehiculo_id;
+      if (!vehiculoId) return;
+      if (!grouped[vehiculoId]) grouped[vehiculoId] = [];
+      grouped[vehiculoId].push({ ...doc, fecha_vencimiento: pickVencimientoValue(doc) });
     });
     return grouped;
-  }, [vehiculosDocumentos]);
-
-  const mantenimientoByVehiculoId = React.useMemo(() => {
-    const grouped = {};
-    vehiculosMantenimiento.forEach((item) => {
-      if (!grouped[item.vehiculo_id]) grouped[item.vehiculo_id] = [];
-      grouped[item.vehiculo_id].push(item);
-    });
-    return grouped;
-  }, [vehiculosMantenimiento]);
-
-  const checklistByVehiculoId = React.useMemo(() => {
-    const grouped = {};
-    vehiculosChecklist.forEach((item) => {
-      if (!grouped[item.vehiculo_id]) grouped[item.vehiculo_id] = [];
-      grouped[item.vehiculo_id].push(item);
-    });
-    return grouped;
-  }, [vehiculosChecklist]);
+  }, [vencimientos]);
 
   const getDocumentMeta = React.useCallback((dateValue) => {
     const days = diffDays(dateValue);
@@ -110,16 +189,19 @@ export default function FlotasScreen({ Button, Panel, Tag }) {
   }, []);
 
   const getServiceAlertMeta = React.useCallback((vehiculo) => {
-    if (Number(vehiculo.kilometraje) >= Number(vehiculo.proximo_service_km)) return { hasAlert: true, variant: 'danger', label: 'Service vencido por kilometraje' };
-    if (Number(vehiculo.kilometraje) >= Number(vehiculo.proximo_service_km) - 5000) return { hasAlert: true, variant: 'warning', label: 'Service proximo por kilometraje' };
+    const km = Number(vehiculo.kilometraje);
+    const proximoServiceKm = Number(vehiculo.proximo_service_km);
+    if (Number.isNaN(km) || Number.isNaN(proximoServiceKm)) return { hasAlert: false, variant: 'info', label: 'Sin datos de service' };
+    if (km >= proximoServiceKm) return { hasAlert: true, variant: 'danger', label: 'Service vencido por kilometraje' };
+    if (km >= proximoServiceKm - 5000) return { hasAlert: true, variant: 'warning', label: 'Service proximo por kilometraje' };
     return { hasAlert: false, variant: 'success', label: 'Service dentro de rango' };
   }, []);
 
   const rows = React.useMemo(() => vehiculos.map((vehiculo) => ({
     ...vehiculo,
-    documentAlert: getDocumentAlertMeta(documentosByVehiculoId[vehiculo.id] || []),
+    documentAlert: getDocumentAlertMeta(vencimientosByVehiculoId[vehiculo.id] || []),
     serviceAlert: getServiceAlertMeta(vehiculo)
-  })), [vehiculos, documentosByVehiculoId, getDocumentAlertMeta, getServiceAlertMeta]);
+  })), [vehiculos, vencimientosByVehiculoId, getDocumentAlertMeta, getServiceAlertMeta]);
 
   const filteredRows = React.useMemo(() => rows.filter((row) => {
     if (filters.base_id && row.base_id !== filters.base_id) return false;
@@ -127,8 +209,6 @@ export default function FlotasScreen({ Button, Panel, Tag }) {
     if (filters.estado_operativo && row.estado_operativo !== filters.estado_operativo) return false;
     return true;
   }), [rows, filters]);
-
-  const selectedVehiculo = React.useMemo(() => vehiculos.find((item) => item.id === selectedVehiculoId) || null, [vehiculos, selectedVehiculoId]);
 
   const summary = React.useMemo(() => {
     const alerts = rows.filter((row) => row.documentAlert.hasAlert || row.serviceAlert.hasAlert).length;
@@ -155,8 +235,9 @@ export default function FlotasScreen({ Button, Panel, Tag }) {
 
   const openCreate = () => {
     setVehiculoFormMode('create');
-    setVehiculoDraft({ ...emptyVehiculoDraft, id: buildId('veh') });
+    setVehiculoDraft({ ...emptyVehiculoDraft });
     setVehiculoErrors({});
+    setFormError('');
     setVehiculoFormOpen(true);
   };
 
@@ -164,8 +245,9 @@ export default function FlotasScreen({ Button, Panel, Tag }) {
     const vehiculo = vehiculos.find((item) => item.id === vehiculoId);
     if (!vehiculo) return;
     setVehiculoFormMode('edit');
-    setVehiculoDraft({ ...vehiculo });
+    setVehiculoDraft({ ...emptyVehiculoDraft, ...vehiculo });
     setVehiculoErrors({});
+    setFormError('');
     setVehiculoFormOpen(true);
   };
 
@@ -180,62 +262,116 @@ export default function FlotasScreen({ Button, Panel, Tag }) {
     return Object.keys(nextErrors).length === 0;
   };
 
-  const saveVehiculo = () => {
+  const saveVehiculo = async () => {
     if (!validateVehiculoDraft()) return;
 
-    const persisted = {
-      ...vehiculoDraft,
-      anio: Number(vehiculoDraft.anio) || 0,
-      altura_cm: Number(vehiculoDraft.altura_cm) || 0,
-      kilometraje: Number(vehiculoDraft.kilometraje) || 0,
-      proximo_service_km: Number(vehiculoDraft.proximo_service_km) || 0
+    const payload = {
+      numero_interno: vehiculoDraft.numero_interno,
+      matricula: vehiculoDraft.matricula,
+      marca: vehiculoDraft.marca,
+      modelo: vehiculoDraft.modelo,
+      anio: vehiculoDraft.anio === '' ? null : Number(vehiculoDraft.anio),
+      categoria: vehiculoDraft.categoria,
+      modalidad: vehiculoDraft.modalidad,
+      es_backup: Boolean(vehiculoDraft.es_backup),
+      base_id: vehiculoDraft.base_id,
+      altura_cm: vehiculoDraft.altura_cm === '' ? null : Number(vehiculoDraft.altura_cm),
+      capacidad_camilla_articulada: Boolean(vehiculoDraft.capacidad_camilla_articulada),
+      estado_operativo: vehiculoDraft.estado_operativo,
+      kilometraje: vehiculoDraft.kilometraje === '' ? null : Number(vehiculoDraft.kilometraje),
+      proximo_service_km: vehiculoDraft.proximo_service_km === '' ? null : Number(vehiculoDraft.proximo_service_km)
     };
 
-    setVehiculos((prev) => {
-      const exists = prev.some((item) => item.id === persisted.id);
-      if (exists) return prev.map((item) => item.id === persisted.id ? persisted : item);
-      return [persisted, ...prev];
-    });
+    setFormSaving(true);
+    setFormError('');
+    try {
+      const saved = vehiculoFormMode === 'create'
+        ? await createVehiculo(payload)
+        : await updateVehiculo(vehiculoDraft.id, payload);
+      if (!saved) throw new Error('El backend no devolvio el vehiculo guardado.');
 
-    setSelectedVehiculoId(persisted.id);
-    setDetailTab('datos_generales');
-    setVehiculoFormOpen(false);
+      setVehiculos((prev) => {
+        const exists = prev.some((item) => item.id === saved.id);
+        if (exists) return prev.map((item) => item.id === saved.id ? saved : item);
+        return [saved, ...prev];
+      });
+
+      const wasAlreadySelected = selectedVehiculoId === saved.id;
+      setSelectedVehiculoId(saved.id);
+      if (wasAlreadySelected) refreshSelectedDetail();
+      setDetailTab('datos_generales');
+      setVehiculoFormOpen(false);
+    } catch (err) {
+      setFormError(err?.message || 'No se pudo guardar el vehiculo.');
+    } finally {
+      setFormSaving(false);
+    }
   };
 
-  const handleStatusChange = (vehiculoId, nextStatus) => {
+  const handleStatusChange = async (vehiculoId, nextStatus) => {
     if (!statusOptions.includes(nextStatus)) return;
-    setVehiculos((prev) => prev.map((item) => item.id === vehiculoId ? { ...item, estado_operativo: nextStatus } : item));
+    try {
+      const updated = await updateVehiculo(vehiculoId, { estado_operativo: nextStatus });
+      if (!updated) return;
+      setVehiculos((prev) => prev.map((item) => item.id === vehiculoId ? updated : item));
+      setSelectedVehiculoDetail((prev) => (prev && prev.id === vehiculoId ? { ...prev, ...updated } : prev));
+    } catch (err) {
+      setActionError(err?.message || 'No se pudo actualizar el estado operativo.');
+    }
   };
 
-  const addDocumento = (vehiculoId, draft) => {
-    setVehiculosDocumentos((prev) => [
-      { id: buildId('vd'), vehiculo_id: vehiculoId, tipo: draft.tipo, numero: draft.numero, fecha_emision: draft.fecha_emision, fecha_vencimiento: draft.fecha_vencimiento, documento_url: draft.documento_url },
-      ...prev
-    ]);
+  const addDocumento = async (vehiculoId, draft) => {
+    try {
+      await addVehiculoDocumento(vehiculoId, {
+        tipo: draft.tipo,
+        numero: draft.numero,
+        fecha_emision: draft.fecha_emision || null,
+        fecha_vencimiento: draft.fecha_vencimiento || null,
+        documento_url: draft.documento_url || null
+      });
+      refreshSelectedDetail();
+      const items = await listVehiculoDocumentosVencimientos({ days: 30 });
+      setVencimientos(items);
+    } catch (err) {
+      setActionError(err?.message || 'No se pudo guardar el documento.');
+    }
   };
 
-  const addMantenimiento = (vehiculoId, draft) => {
-    setVehiculosMantenimiento((prev) => [
-      { id: buildId('vm'), vehiculo_id: vehiculoId, tipo: draft.tipo, descripcion: draft.descripcion, fecha: draft.fecha, kilometraje_al_momento: Number(draft.kilometraje_al_momento) || 0, costo: Number(draft.costo) || 0, proveedor: draft.proveedor },
-      ...prev
-    ]);
+  const addMantenimiento = async (vehiculoId, draft) => {
+    try {
+      await addVehiculoMantenimiento(vehiculoId, {
+        tipo: draft.tipo,
+        descripcion: draft.descripcion,
+        fecha: draft.fecha || null,
+        kilometraje_al_momento: draft.kilometraje_al_momento === '' ? null : Number(draft.kilometraje_al_momento),
+        costo: draft.costo === '' ? null : Number(draft.costo),
+        proveedor: draft.proveedor || null
+      });
+      refreshSelectedDetail();
+    } catch (err) {
+      setActionError(err?.message || 'No se pudo registrar el mantenimiento.');
+    }
   };
 
-  const addChecklistItem = (vehiculoId, draft) => {
-    setVehiculosChecklist((prev) => [
-      { id: buildId('vc'), vehiculo_id: vehiculoId, item: draft.item, material_id: null, obligatorio: Boolean(draft.obligatorio), presente: Boolean(draft.presente), fecha_verificacion: TODAY.toISOString().slice(0, 10), verificado_por: draft.verificado_por },
-      ...prev
-    ]);
-  };
-
-  const updateChecklistItem = (itemId, changes) => {
-    setVehiculosChecklist((prev) => prev.map((item) => item.id === itemId ? { ...item, ...changes } : item));
+  const addChecklistItem = async (vehiculoId, draft) => {
+    try {
+      await addVehiculoChecklist(vehiculoId, {
+        item: draft.item,
+        obligatorio: Boolean(draft.obligatorio),
+        presente: Boolean(draft.presente),
+        verificado_por: draft.verificado_por || null,
+        fecha_verificacion: new Date().toISOString().slice(0, 10)
+      });
+      refreshSelectedDetail();
+    } catch (err) {
+      setActionError(err?.message || 'No se pudo agregar el item de checklist.');
+    }
   };
 
   return (
     <div className="view flotas-screen flotas-screen-full">
       <section className="content-grid flotas-content-grid">
-        <Panel className="span-12 flotas-hero-panel" title="Flotas" subtitle="Mock operativo alineado con su_vehiculos, documentos, mantenimiento y checklist.">
+        <Panel className="span-12 flotas-hero-panel" title="Flotas" subtitle="Vehiculos, documentos, mantenimiento y checklist de SU Emergencia.">
           <div className="flotas-hero-kpis">
             <div className="flotas-kpi-card">
               <span className="flotas-kpi-label">Vehiculos totales</span>
@@ -261,35 +397,48 @@ export default function FlotasScreen({ Button, Panel, Tag }) {
         </Panel>
 
         <Panel className="span-12" title="Vehiculos" subtitle="Listado en tarjetas con filtros por base, categoria y estado operativo.">
-          <VehiculoList
-            Button={Button}
-            Tag={Tag}
-            rows={filteredRows}
-            filters={filters}
-            bases={FLOTAS_BASES}
-            onFilterChange={(field, value) => setFilters((prev) => ({ ...prev, [field]: value }))}
-            onCreate={openCreate}
-            onView={(vehiculoId) => {
-              setSelectedVehiculoId(vehiculoId);
-              setDetailTab('datos_generales');
-            }}
-            onEdit={openEdit}
-            formatCategoria={formatCategoria}
-            getBaseLabel={getBaseLabel}
-            getStatusVariant={getStatusVariant}
-          />
+          {loading ? (
+            <div className="flotas-empty">Cargando vehiculos...</div>
+          ) : error ? (
+            <div className="flotas-empty" style={{ display: 'flex', alignItems: 'center', gap: 12, color: '#b91c1c' }}>
+              <span>{error}</span>
+              <Button variant="ghost" onClick={loadFlotas}>Reintentar</Button>
+            </div>
+          ) : (
+            <VehiculoList
+              Button={Button}
+              Tag={Tag}
+              rows={filteredRows}
+              filters={filters}
+              bases={bases}
+              formatNumber={formatNumber}
+              onFilterChange={(field, value) => setFilters((prev) => ({ ...prev, [field]: value }))}
+              onCreate={openCreate}
+              onView={(vehiculoId) => {
+                setSelectedVehiculoId(vehiculoId);
+                setDetailTab('datos_generales');
+              }}
+              onEdit={openEdit}
+              formatCategoria={formatCategoria}
+              getBaseLabel={getBaseLabel}
+              getStatusVariant={getStatusVariant}
+            />
+          )}
         </Panel>
       </section>
 
-      {selectedVehiculo ? (
+      {selectedVehiculoId ? (
         <VehiculoDetail
           Button={Button}
           Tag={Tag}
-          vehicle={selectedVehiculo}
-          base={baseById[selectedVehiculo.base_id] || null}
-          documentos={documentosByVehiculoId[selectedVehiculo.id] || []}
-          mantenimiento={mantenimientoByVehiculoId[selectedVehiculo.id] || []}
-          checklist={checklistByVehiculoId[selectedVehiculo.id] || []}
+          vehicle={selectedVehiculoDetail}
+          base={baseById[selectedVehiculoDetail?.base_id] || null}
+          documentos={selectedVehiculoDetail?.documentos || []}
+          mantenimiento={selectedVehiculoDetail?.mantenimiento || []}
+          checklist={selectedVehiculoDetail?.checklist || []}
+          loading={detailLoading}
+          error={detailError}
+          actionError={actionError}
           activeTab={detailTab}
           onTabChange={setDetailTab}
           onClose={() => setSelectedVehiculoId(null)}
@@ -298,12 +447,12 @@ export default function FlotasScreen({ Button, Panel, Tag }) {
           onAddDocumento={addDocumento}
           onAddMantenimiento={addMantenimiento}
           onAddChecklistItem={addChecklistItem}
-          onUpdateChecklistItem={updateChecklistItem}
           getStatusVariant={getStatusVariant}
           getDocumentMeta={getDocumentMeta}
           getDocumentAlertMeta={getDocumentAlertMeta}
           getServiceAlertMeta={getServiceAlertMeta}
           formatCategoria={formatCategoria}
+          formatNumber={formatNumber}
         />
       ) : null}
 
@@ -313,8 +462,10 @@ export default function FlotasScreen({ Button, Panel, Tag }) {
           draft={vehiculoDraft}
           setDraft={setVehiculoDraft}
           formMode={vehiculoFormMode}
-          bases={FLOTAS_BASES}
+          bases={bases}
           errors={vehiculoErrors}
+          saving={formSaving}
+          formError={formError}
           onClose={() => setVehiculoFormOpen(false)}
           onSubmit={saveVehiculo}
         />

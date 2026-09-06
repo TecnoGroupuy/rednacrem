@@ -7,6 +7,8 @@ export default function VehiculoForm({
   formMode,
   bases,
   errors,
+  saving,
+  formError,
   onClose,
   onSubmit
 }) {
@@ -93,9 +95,13 @@ export default function VehiculoForm({
           </label>
         </div>
 
+        {formError ? <div style={{ color: '#b91c1c', padding: '8px 0' }}>{formError}</div> : null}
+
         <div className="flotas-modal-footer">
-          <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-          <Button onClick={onSubmit}>{formMode === 'create' ? 'Guardar vehiculo' : 'Guardar cambios'}</Button>
+          <Button variant="ghost" onClick={onClose} disabled={saving}>Cancelar</Button>
+          <Button onClick={onSubmit} disabled={saving}>
+            {saving ? 'Guardando...' : (formMode === 'create' ? 'Guardar vehiculo' : 'Guardar cambios')}
+          </Button>
         </div>
       </div>
     </div>

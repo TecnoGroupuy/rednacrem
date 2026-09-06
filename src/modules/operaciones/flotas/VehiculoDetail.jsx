@@ -20,6 +20,9 @@ export default function VehiculoDetail({
   documentos,
   mantenimiento,
   checklist,
+  loading,
+  error,
+  actionError,
   activeTab,
   onTabChange,
   onClose,
@@ -28,12 +31,12 @@ export default function VehiculoDetail({
   onAddDocumento,
   onAddMantenimiento,
   onAddChecklistItem,
-  onUpdateChecklistItem,
   getStatusVariant,
   getDocumentMeta,
   getDocumentAlertMeta,
   getServiceAlertMeta,
-  formatCategoria
+  formatCategoria,
+  formatNumber
 }) {
   const [showDocumentoForm, setShowDocumentoForm] = React.useState(false);
   const [showMantenimientoForm, setShowMantenimientoForm] = React.useState(false);
@@ -50,6 +53,34 @@ export default function VehiculoDetail({
     setMantenimientoDraft(emptyMantenimientoDraft);
     setChecklistDraft(emptyChecklistDraft);
   }, [vehicle?.id]);
+
+  if (loading) {
+    return (
+      <div className="flotas-modal-root" role="dialog" aria-modal="true" aria-label="Ficha de vehiculo">
+        <div className="lot-wizard-overlay" onClick={onClose} />
+        <div className="flotas-detail-panel">
+          <div className="flotas-detail-header">
+            <div>Cargando vehiculo...</div>
+            <Button variant="ghost" onClick={onClose}>Cerrar</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flotas-modal-root" role="dialog" aria-modal="true" aria-label="Ficha de vehiculo">
+        <div className="lot-wizard-overlay" onClick={onClose} />
+        <div className="flotas-detail-panel">
+          <div className="flotas-detail-header">
+            <div>{error}</div>
+            <Button variant="ghost" onClick={onClose}>Cerrar</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!vehicle) return null;
 
@@ -100,6 +131,10 @@ export default function VehiculoDetail({
           </div>
         </div>
 
+        {actionError ? (
+          <div style={{ color: '#b91c1c', padding: '8px 20px' }}>{actionError}</div>
+        ) : null}
+
         <div className="flotas-detail-tabs">
           {TABS.map((tab) => (
             <button key={tab.key} type="button" className={activeTab === tab.key ? 'active' : ''} onClick={() => onTabChange(tab.key)}>
@@ -118,20 +153,19 @@ export default function VehiculoDetail({
                 </div>
                 <div className="flotas-kv-list">
                   <div><span>id</span><strong>{vehicle.id}</strong></div>
-                  <div><span>organization_id</span><strong>{vehicle.organization_id}</strong></div>
-                  <div><span>numero_interno</span><strong>{vehicle.numero_interno}</strong></div>
-                  <div><span>matricula</span><strong>{vehicle.matricula}</strong></div>
-                  <div><span>marca</span><strong>{vehicle.marca}</strong></div>
-                  <div><span>modelo</span><strong>{vehicle.modelo}</strong></div>
-                  <div><span>anio</span><strong>{vehicle.anio}</strong></div>
-                  <div><span>categoria</span><strong>{vehicle.categoria}</strong></div>
+                  <div><span>numero_interno</span><strong>{vehicle.numero_interno || '—'}</strong></div>
+                  <div><span>matricula</span><strong>{vehicle.matricula || '—'}</strong></div>
+                  <div><span>marca</span><strong>{vehicle.marca || '—'}</strong></div>
+                  <div><span>modelo</span><strong>{vehicle.modelo || '—'}</strong></div>
+                  <div><span>anio</span><strong>{vehicle.anio ?? '—'}</strong></div>
+                  <div><span>categoria</span><strong>{vehicle.categoria || '—'}</strong></div>
                   <div><span>modalidad</span><strong>{vehicle.modalidad || 'Sin dato'}</strong></div>
                   <div><span>es_backup</span><strong>{vehicle.es_backup ? 'true' : 'false'}</strong></div>
-                  <div><span>base_id</span><strong>{vehicle.base_id}</strong></div>
-                  <div><span>altura_cm</span><strong>{vehicle.altura_cm}</strong></div>
+                  <div><span>base_id</span><strong>{vehicle.base_id || '—'}</strong></div>
+                  <div><span>altura_cm</span><strong>{vehicle.altura_cm ?? '—'}</strong></div>
                   <div><span>capacidad_camilla_articulada</span><strong>{vehicle.capacidad_camilla_articulada ? 'true' : 'false'}</strong></div>
-                  <div><span>kilometraje</span><strong>{vehicle.kilometraje.toLocaleString('es-UY')}</strong></div>
-                  <div><span>proximo_service_km</span><strong>{vehicle.proximo_service_km.toLocaleString('es-UY')}</strong></div>
+                  <div><span>kilometraje</span><strong>{formatNumber(vehicle.kilometraje)}</strong></div>
+                  <div><span>proximo_service_km</span><strong>{formatNumber(vehicle.proximo_service_km)}</strong></div>
                 </div>
               </section>
 
@@ -250,8 +284,8 @@ export default function VehiculoDetail({
                     </div>
                     <div className="flotas-doc-grid">
                       <span>Descripcion</span><strong>{item.descripcion}</strong>
-                      <span>Kilometraje al momento</span><strong>{Number(item.kilometraje_al_momento).toLocaleString('es-UY')}</strong>
-                      <span>Costo</span><strong>$ {Number(item.costo).toLocaleString('es-UY')}</strong>
+                      <span>Kilometraje al momento</span><strong>{formatNumber(item.kilometraje_al_momento)}</strong>
+                      <span>Costo</span><strong>{item.costo === null || item.costo === undefined ? '—' : `$ ${formatNumber(item.costo)}`}</strong>
                       <span>Proveedor</span><strong>{item.proveedor || 'Sin dato'}</strong>
                     </div>
                   </article>
@@ -290,6 +324,9 @@ export default function VehiculoDetail({
                 </div>
               ) : null}
 
+              {/* El backend no expone un endpoint PATCH para items de checklist ya
+                  existentes (solo POST para crear y GET para listar), asi que los
+                  items cargados se muestran de solo lectura. */}
               <div className="flotas-checklist-list">
                 {checklist.map((item) => (
                   <article key={item.id} className={`flotas-checklist-card ${item.presente ? 'ok' : 'missing'}`}>
@@ -301,19 +338,7 @@ export default function VehiculoDetail({
                       <Tag variant={item.presente ? 'success' : 'danger'}>{item.presente ? 'presente' : 'faltante'}</Tag>
                     </div>
                     <div className="flotas-checklist-controls">
-                      <label className="flotas-inline-check">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(item.presente)}
-                          onChange={(event) => onUpdateChecklistItem(item.id, { presente: event.target.checked, fecha_verificacion: new Date().toISOString().slice(0, 10) })}
-                        />
-                        <span>Presente</span>
-                      </label>
-                      <input
-                        value={item.verificado_por || ''}
-                        onChange={(event) => onUpdateChecklistItem(item.id, { verificado_por: event.target.value, fecha_verificacion: item.fecha_verificacion || new Date().toISOString().slice(0, 10) })}
-                        placeholder="Verificado por"
-                      />
+                      <div className="flotas-subtle">Verificado por: {item.verificado_por || 'Sin dato'}</div>
                       <div className="flotas-subtle">Ultima verificacion: {item.fecha_verificacion || 'Sin fecha'}</div>
                     </div>
                   </article>

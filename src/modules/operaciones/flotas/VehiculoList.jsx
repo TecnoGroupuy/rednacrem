@@ -13,7 +13,8 @@ export default function VehiculoList({
   onEdit,
   formatCategoria,
   getBaseLabel,
-  getStatusVariant
+  getStatusVariant,
+  formatNumber
 }) {
   return (
     <div className="flotas-stack">
@@ -92,12 +93,12 @@ export default function VehiculoList({
                   <span className="flotas-meta-label">Kilometraje</span>
                   <strong className="flotas-inline-strong">
                     <Gauge size={14} />
-                    <span>{row.kilometraje.toLocaleString('es-UY')} km</span>
+                    <span>{formatNumber(row.kilometraje)} km</span>
                   </strong>
                 </div>
                 <div className="flotas-stat">
                   <span className="flotas-meta-label">Proximo service</span>
-                  <strong>{row.proximo_service_km.toLocaleString('es-UY')} km</strong>
+                  <strong>{formatNumber(row.proximo_service_km)} km</strong>
                 </div>
               </div>
 
