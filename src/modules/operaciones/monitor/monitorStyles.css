@@ -928,14 +928,14 @@
 
 .map-legend {
   position: absolute;
-  bottom: 16px;
-  left: 16px;
+  top: 20px;
+  right: 20px;
   background: rgba(15, 23, 42, 0.92);
   border: 1px solid #334155;
   border-radius: 8px;
   padding: 10px 14px;
   font-size: 11px;
-  z-index: 500;
+  z-index: 1000;
 }
 
 .map-legend-title {

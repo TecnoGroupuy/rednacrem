@@ -1,6 +1,6 @@
 export const bases = [
   { id: 'b1', nombre: 'Pando', departamento: 'Canelones', direccion: 'Solis 932', lat: -34.7184, lng: -55.9627, moviles_minimos_habilitados: 3 },
-  { id: 'b2', nombre: 'Barros Blancos', departamento: 'Canelones', direccion: 'Ruta 8 km 37', lat: -34.7044, lng: -55.9037, moviles_minimos_habilitados: 2 },
+  { id: 'b2', nombre: 'Barros Blancos', departamento: 'Canelones', direccion: 'Ruta 8 km 37', lat: -34.7534, lng: -56.0009, moviles_minimos_habilitados: 2 },
   { id: 'b3', nombre: 'Salinas', departamento: 'Canelones', direccion: 'Norte, esquina IB', lat: -34.7761, lng: -55.8487, moviles_minimos_habilitados: 2 },
   { id: 'b4', nombre: 'Atlantida', departamento: 'Canelones', direccion: 'Atlantida', lat: -34.7796, lng: -55.7569, moviles_minimos_habilitados: 2 },
 ];
@@ -28,13 +28,15 @@ export const personalPorBase = {
   ],
 };
 
+// Posición fija en base — sin GPS real todavía. Reemplazar por tracking en vivo cuando se conecte la API real.
+// Todos los estados operativos: offset de 0.0021° al oeste/este (~192 m de la base, ~384 m entre móviles).
 export const vehiculos = [
-  { id: 'v1', numero_interno: 'M-101', base_id: 'b1', categoria: 'AVA', estado_operativo: 'disponible', lat: -34.73, lng: -55.97, servicio_actual_id: null },
-  { id: 'v2', numero_interno: 'M-205', base_id: 'b2', categoria: 'basico', estado_operativo: 'en_servicio', lat: -34.83, lng: -55.63, servicio_actual_id: 's1' },
-  { id: 'v3', numero_interno: 'M-112', base_id: 'b2', categoria: 'pediatrico', estado_operativo: 'en_base', lat: -34.82042, lng: -55.61958, servicio_actual_id: null },
-  { id: 'v4', numero_interno: 'M-098', base_id: 'b3', categoria: 'AVA', estado_operativo: 'mantenimiento', lat: -34.54962, lng: -56.02948, servicio_actual_id: null },
-  { id: 'v5', numero_interno: 'M-220', base_id: 'b4', categoria: 'basico', estado_operativo: 'en_servicio', lat: -34.73, lng: -55.79, servicio_actual_id: 's2' },
-  { id: 'v6', numero_interno: 'M-130', base_id: 'b1', categoria: 'AVA', estado_operativo: 'disponible', lat: -34.71, lng: -55.95, servicio_actual_id: null },
+  { id: 'v1', numero_interno: 'M-101', base_id: 'b1', categoria: 'AVA', estado_operativo: 'disponible', lat: -34.7184, lng: -55.9648, servicio_actual_id: null },
+  { id: 'v2', numero_interno: 'M-205', base_id: 'b2', categoria: 'basico', estado_operativo: 'en_servicio', lat: -34.7534, lng: -56.0030, servicio_actual_id: 's1' },
+  { id: 'v3', numero_interno: 'M-112', base_id: 'b2', categoria: 'pediatrico', estado_operativo: 'en_base', lat: -34.7534, lng: -55.9988, servicio_actual_id: null },
+  { id: 'v4', numero_interno: 'M-098', base_id: 'b3', categoria: 'AVA', estado_operativo: 'mantenimiento', lat: -34.7761, lng: -55.8508, servicio_actual_id: null },
+  { id: 'v5', numero_interno: 'M-220', base_id: 'b4', categoria: 'basico', estado_operativo: 'en_servicio', lat: -34.7796, lng: -55.7590, servicio_actual_id: 's2' },
+  { id: 'v6', numero_interno: 'M-130', base_id: 'b1', categoria: 'AVA', estado_operativo: 'disponible', lat: -34.7184, lng: -55.9606, servicio_actual_id: null },
 ];
 
 export const serviciosActivos = [
@@ -44,18 +46,3 @@ export const serviciosActivos = [
   { id: 's4', prioridad: 'P2', tipo: 'Trauma pediatrico', vehiculo_id: 'v3', hora_solicitud: new Date(Date.now() - 31 * 60 * 1000).toISOString() },
   { id: 's5', prioridad: 'P3', tipo: 'Traslado programado', vehiculo_id: 'v1', hora_solicitud: new Date(Date.now() - 45 * 60 * 1000).toISOString() },
 ];
-
-export function startVehicleSimulation(setVehicles) {
-  const intervalId = window.setInterval(() => {
-    setVehicles((previous) => previous.map((vehicle) => {
-      if (vehicle.estado_operativo === 'mantenimiento' || vehicle.estado_operativo === 'en_base') {
-        return vehicle;
-      }
-      const deltaLat = (Math.random() - 0.5) * 0.002;
-      const deltaLng = (Math.random() - 0.5) * 0.002;
-      return { ...vehicle, lat: vehicle.lat + deltaLat, lng: vehicle.lng + deltaLng };
-    }));
-  }, 7000);
-
-  return () => window.clearInterval(intervalId);
-}

@@ -5,7 +5,6 @@ import MonitorMap from './MonitorMap.jsx';
 import {
   bases,
   personalPorBase,
-  startVehicleSimulation,
   vehiculos,
 } from './monitorMockData.js';
 import './monitorStyles.css';
@@ -38,15 +37,10 @@ const BASES_FIT_PADDING = [48, 48];
 const BASE_FOCUS_ZOOM = 15;
 
 export default function MonitorScreen() {
-  const [vehicles, setVehicles] = useState(vehiculos);
+  const vehicles = vehiculos;
   const [selectedBaseId, setSelectedBaseId] = useState(null);
   const mapRef = useRef(null);
   const clock = useClock();
-
-  useEffect(() => {
-    const cleanup = startVehicleSimulation(setVehicles);
-    return cleanup;
-  }, []);
 
   const disponibles = vehicles.filter((vehicle) => vehicle.estado_operativo === 'disponible').length;
   const enServicio = vehicles.filter((vehicle) => vehicle.estado_operativo === 'en_servicio').length;
