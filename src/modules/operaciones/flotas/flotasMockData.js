@@ -1,6 +1,6 @@
 export const FLOTAS_BASES = [
   { id: 'b1', nombre: 'Pando', departamento: 'Canelones', direccion: 'Solis 932', lat: -34.7184, lng: -55.9627, moviles_minimos_habilitados: 3 },
-  { id: 'b2', nombre: 'Barros Blancos', departamento: 'Canelones', direccion: 'Ruta 8 km 37', lat: -34.7044, lng: -55.9037, moviles_minimos_habilitados: 2 },
+  { id: 'b2', nombre: 'Barros Blancos', departamento: 'Canelones', direccion: 'Ruta 8 km 37', lat: -34.7534, lng: -56.0009, moviles_minimos_habilitados: 2 },
   { id: 'b3', nombre: 'Salinas', departamento: 'Canelones', direccion: 'Norte, esquina IB', lat: -34.7761, lng: -55.8487, moviles_minimos_habilitados: 2 },
   { id: 'b4', nombre: 'Atlantida', departamento: 'Canelones', direccion: 'Atlantida', lat: -34.7796, lng: -55.7569, moviles_minimos_habilitados: 2 }
 ];
