@@ -1,5 +1,5 @@
 import React from 'react';
-import { Ambulance, AlertTriangle, Clock3, Edit3, Eye, Gauge, MapPin, Wrench } from 'lucide-react';
+import { Ambulance, AlertTriangle, Clock3, Edit3, Eye, Gauge, MapPin, Shield, Wrench } from 'lucide-react';
 
 export default function VehiculoList({
   Button,
@@ -16,6 +16,84 @@ export default function VehiculoList({
   getStatusVariant,
   formatNumber
 }) {
+  const renderCard = (row) => (
+    <article
+      key={row.id}
+      className={`flotas-card ${row.documentAlert.hasAlert || row.serviceAlert.hasAlert ? 'has-alert' : ''}`}
+      role="button"
+      tabIndex={0}
+      onClick={() => onView(row.id)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onView(row.id);
+        }
+      }}
+    >
+      <div className="flotas-card-top">
+        <div className="flotas-identity">
+          <div className="flotas-icon-shell">
+            <Ambulance size={20} />
+          </div>
+          <div>
+            <div className="flotas-number">{row.numero_interno}</div>
+            <div className="flotas-subtle">{formatCategoria(row.categoria)} · {row.marca} {row.modelo}</div>
+          </div>
+        </div>
+        <div className="flotas-card-actions" onClick={(event) => event.stopPropagation()}>
+          <Button variant="ghost" icon={<Eye size={16} />} onClick={() => onView(row.id)}>Ver</Button>
+          <Button variant="ghost" icon={<Edit3 size={16} />} onClick={() => onEdit(row.id)}>Editar</Button>
+        </div>
+      </div>
+
+      <div className="flotas-card-meta">
+        <div className="flotas-meta-block">
+          <span className="flotas-meta-label">Base asignada</span>
+          <strong className="flotas-inline-strong">
+            <MapPin size={14} />
+            <span>{getBaseLabel(row.base_id)}</span>
+          </strong>
+        </div>
+        <div className="flotas-meta-block">
+          <span className="flotas-meta-label">Estado operativo</span>
+          {row.es_backup ? (
+            <Tag variant="ghost">Backup</Tag>
+          ) : (
+            <Tag variant={getStatusVariant(row.estado_operativo)}>{row.estado_operativo}</Tag>
+          )}
+        </div>
+      </div>
+
+      <div className="flotas-card-stats">
+        <div className="flotas-stat">
+          <span className="flotas-meta-label">Kilometraje</span>
+          <strong className="flotas-inline-strong">
+            <Gauge size={14} />
+            <span>{formatNumber(row.kilometraje)} km</span>
+          </strong>
+        </div>
+        <div className="flotas-stat">
+          <span className="flotas-meta-label">Proximo service</span>
+          <strong>{formatNumber(row.proximo_service_km)} km</strong>
+        </div>
+      </div>
+
+      <div className="flotas-card-banners">
+        <div className={`flotas-banner ${row.documentAlert.variant}`}>
+          {row.documentAlert.hasAlert ? <AlertTriangle size={16} /> : <Clock3 size={16} />}
+          <span>{row.documentAlert.label}</span>
+        </div>
+        <div className={`flotas-banner ${row.serviceAlert.variant}`}>
+          <Wrench size={16} />
+          <span>{row.serviceAlert.label}</span>
+        </div>
+      </div>
+    </article>
+  );
+
+  const vehiculosOperativos = rows.filter((row) => !row.es_backup);
+  const vehiculosBackup = rows.filter((row) => row.es_backup);
+
   return (
     <div className="flotas-stack">
       <div className="flotas-toolbar">
@@ -43,78 +121,31 @@ export default function VehiculoList({
       </div>
 
       {rows.length ? (
-        <div className="flotas-grid">
-          {rows.map((row) => (
-            <article
-              key={row.id}
-              className={`flotas-card ${row.documentAlert.hasAlert || row.serviceAlert.hasAlert ? 'has-alert' : ''}`}
-              role="button"
-              tabIndex={0}
-              onClick={() => onView(row.id)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  onView(row.id);
-                }
-              }}
-            >
-              <div className="flotas-card-top">
-                <div className="flotas-identity">
-                  <div className="flotas-icon-shell">
-                    <Ambulance size={20} />
-                  </div>
-                  <div>
-                    <div className="flotas-number">{row.numero_interno}</div>
-                    <div className="flotas-subtle">{formatCategoria(row.categoria)} · {row.marca} {row.modelo}</div>
-                  </div>
-                </div>
-                <div className="flotas-card-actions" onClick={(event) => event.stopPropagation()}>
-                  <Button variant="ghost" icon={<Eye size={16} />} onClick={() => onView(row.id)}>Ver</Button>
-                  <Button variant="ghost" icon={<Edit3 size={16} />} onClick={() => onEdit(row.id)}>Editar</Button>
-                </div>
+        <>
+          {vehiculosOperativos.length ? (
+            <div className="flotas-stack">
+              <div className="flotas-section-title">
+                <Ambulance size={18} />
+                <span>En funcionamiento operativo</span>
               </div>
+              <div className="flotas-grid">
+                {vehiculosOperativos.map(renderCard)}
+              </div>
+            </div>
+          ) : null}
 
-              <div className="flotas-card-meta">
-                <div className="flotas-meta-block">
-                  <span className="flotas-meta-label">Base asignada</span>
-                  <strong className="flotas-inline-strong">
-                    <MapPin size={14} />
-                    <span>{getBaseLabel(row.base_id)}</span>
-                  </strong>
-                </div>
-                <div className="flotas-meta-block">
-                  <span className="flotas-meta-label">Estado operativo</span>
-                  <Tag variant={getStatusVariant(row.estado_operativo)}>{row.estado_operativo}</Tag>
-                </div>
+          {vehiculosBackup.length ? (
+            <div className="flotas-stack">
+              <div className="flotas-section-title">
+                <Shield size={18} />
+                <span>En backup</span>
               </div>
-
-              <div className="flotas-card-stats">
-                <div className="flotas-stat">
-                  <span className="flotas-meta-label">Kilometraje</span>
-                  <strong className="flotas-inline-strong">
-                    <Gauge size={14} />
-                    <span>{formatNumber(row.kilometraje)} km</span>
-                  </strong>
-                </div>
-                <div className="flotas-stat">
-                  <span className="flotas-meta-label">Proximo service</span>
-                  <strong>{formatNumber(row.proximo_service_km)} km</strong>
-                </div>
+              <div className="flotas-grid">
+                {vehiculosBackup.map(renderCard)}
               </div>
-
-              <div className="flotas-card-banners">
-                <div className={`flotas-banner ${row.documentAlert.variant}`}>
-                  {row.documentAlert.hasAlert ? <AlertTriangle size={16} /> : <Clock3 size={16} />}
-                  <span>{row.documentAlert.label}</span>
-                </div>
-                <div className={`flotas-banner ${row.serviceAlert.variant}`}>
-                  <Wrench size={16} />
-                  <span>{row.serviceAlert.label}</span>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
+            </div>
+          ) : null}
+        </>
       ) : (
         <div className="flotas-empty">No hay vehiculos que coincidan con los filtros.</div>
       )}
