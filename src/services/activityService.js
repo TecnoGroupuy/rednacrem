@@ -142,6 +142,31 @@ export const markAllAsRead = ({ userId = 'anon', limit = 15 } = {}) => {
 export const getUnreadCount = ({ userId = 'anon', limit = 15 } = {}) =>
   listNotifications({ userId, limit }).filter((item) => !item.read).length;
 
+const newNotificationListeners = new Set();
+
+// Se llama desde logActivityEvent, el mismo lugar que hace parpadear la
+// tarjeta de usuario del sidebar (unreadNotifications > 0 en main.jsx), para
+// que el toast y el indicador salgan del mismo evento en vez de duplicar
+// la logica de "que cuenta como notificacion".
+export const subscribeToNewNotifications = (listener) => {
+  if (typeof listener !== 'function') return () => {};
+  newNotificationListeners.add(listener);
+  return () => {
+    newNotificationListeners.delete(listener);
+  };
+};
+
+const notifyNewNotification = (record) => {
+  const notification = toNotification(record, record.usuarioId);
+  newNotificationListeners.forEach((listener) => {
+    try {
+      listener(notification);
+    } catch {
+      // un listener roto no debe impedir que se registre el evento
+    }
+  });
+};
+
 export const logActivityEvent = (payload) => {
   const now = new Date().toISOString();
   const record = {
@@ -154,6 +179,7 @@ export const logActivityEvent = (payload) => {
     createdAt: now
   };
   activitiesStore = [record, ...activitiesStore];
+  notifyNewNotification(record);
   return toUiActivity(record);
 };
 

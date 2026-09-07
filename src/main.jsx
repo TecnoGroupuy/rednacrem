@@ -70,7 +70,8 @@ import {
   markAsRead,
   markAllAsRead,
   getUnreadCount,
-  logActivityEvent
+  logActivityEvent,
+  subscribeToNewNotifications
 } from './services/activityService.js';
 import { listPendingRegistrationRequests } from './services/supervisorApprovalsService.js';
 import {
@@ -1145,6 +1146,61 @@ const formatCurrency = (value) => {
               </div>
             )
           ) : null}
+        </div>
+      );
+    }
+
+    const TOAST_AUTO_DISMISS_MS = 8000;
+
+    function NotificationToasts() {
+      const [toasts, setToasts] = React.useState([]);
+      const timersRef = React.useRef({});
+
+      const dismissToast = React.useCallback((toastId) => {
+        setToasts((prev) => prev.filter((toast) => toast.toastId !== toastId));
+        if (timersRef.current[toastId]) {
+          window.clearTimeout(timersRef.current[toastId]);
+          delete timersRef.current[toastId];
+        }
+      }, []);
+
+      React.useEffect(() => {
+        const unsubscribe = subscribeToNewNotifications((notification) => {
+          const toastId = notification.id + '-' + Date.now();
+          setToasts((prev) => [...prev, { ...notification, toastId }]);
+          timersRef.current[toastId] = window.setTimeout(() => {
+            dismissToast(toastId);
+          }, TOAST_AUTO_DISMISS_MS);
+        });
+        return () => {
+          unsubscribe();
+          Object.values(timersRef.current).forEach((timerId) => window.clearTimeout(timerId));
+          timersRef.current = {};
+        };
+      }, [dismissToast]);
+
+      if (!toasts.length) return null;
+
+      return (
+        <div className="toast-stack" aria-live="polite">
+          {toasts.map((toast) => {
+            const typeMeta = notificationTypeMeta[toast.type] || notificationTypeMeta.info;
+            const ToastIcon = typeMeta.icon;
+            return (
+              <div key={toast.toastId} className="toast-card" style={{ borderLeftColor: typeMeta.color }}>
+                <div className="toast-icon" style={{ background: typeMeta.background, color: typeMeta.color }}>
+                  <ToastIcon size={16} />
+                </div>
+                <div className="toast-body">
+                  <div className="toast-title">{toast.title}</div>
+                  <p className="toast-description">{toast.description}</p>
+                </div>
+                <button className="toast-close" onClick={() => dismissToast(toast.toastId)} aria-label="Cerrar notificación">
+                  <X size={14} />
+                </button>
+              </div>
+            );
+          })}
         </div>
       );
     }
@@ -19470,6 +19526,7 @@ const formatCurrency = (value) => {
           </div>
 
           {mostrarPausa ? <PauseOverlay status={estadoConfig} startedAt={pausaInicio} onResume={volverAlTrabajo} /> : null}
+          <NotificationToasts />
           <ProfileModal isOpen={showProfileModal} onClose={handleCloseProfile} user={currentUser} roleMeta={ROLE_META} onSave={handleSaveProfile} />
           {vendedorNewClientOpen && (
             <NuevoClienteVendedor

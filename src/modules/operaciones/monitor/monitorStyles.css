@@ -492,7 +492,10 @@
   border: none;
   border-radius: 0;
   box-shadow: none;
-  z-index: 1000;
+  /* Por encima del techo real de Leaflet (popupPane: 700), no un numero
+     arbitrario. Debe quedar por debajo de .toast-stack (800, index.html)
+     para que los toasts de notificaciones no queden tapados en Monitor. */
+  z-index: 750;
   overflow: hidden;
   animation: slideIn 0.2s ease;
 }
@@ -935,7 +938,9 @@
   border-radius: 8px;
   padding: 10px 14px;
   font-size: 11px;
-  z-index: 1000;
+  /* Ver comentario de .base-panel: 750, por encima del techo de Leaflet
+     (700) y por debajo de .toast-stack (800). */
+  z-index: 750;
 }
 
 .map-legend-title {
