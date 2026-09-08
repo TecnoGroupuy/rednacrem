@@ -18307,7 +18307,6 @@ const formatCurrency = (value) => {
       }, []);
 
       const [expandedNavGroups, setExpandedNavGroups] = React.useState({ operaciones: true });
-      const [sidebarInset, setSidebarInset] = React.useState(0);
       const [estadoUsuario, setEstadoUsuario] = React.useState('disponible');
       const [pausaInicio, setPausaInicio] = React.useState('');
       const [mostrarPausa, setMostrarPausa] = React.useState(false);
@@ -18621,54 +18620,23 @@ const formatCurrency = (value) => {
         };
       }, [route]);
 
-      React.useEffect(() => {
-        const updateSidebarInset = () => {
-          if (!sidebarRef.current || !isDesktop) {
-            setSidebarInset(0);
-            return;
-          }
-          const rect = sidebarRef.current.getBoundingClientRect();
-          setSidebarInset(Math.round(rect.right));
-        };
-
-        updateSidebarInset();
-
-        // El .sidebar anima su posicion con `transition: transform 240ms
-        // ease` (index.html) cada vez que cambia entre 'open'/'closed'. La
-        // medicion de arriba corre en el mismo tick que este efecto (justo
-        // cuando isDesktop/menuOpen cambian), es decir antes de que la
-        // transicion termine, y puede capturar el rect a mitad de camino
-        // (verificado: getBoundingClientRect().right llega a quedar en un
-        // valor negativo, tomado mientras el sidebar todavia estaba
-        // deslizandose desde fuera de pantalla). Nada volvia a corregirlo
-        // despues: ResizeObserver no dispara por cambios de transform (no
-        // altera el tamaño del layout box, solo su posicion pintada), asi
-        // que sidebarInset quedaba pegado en ese valor erroneo de forma
-        // permanente hasta el proximo resize de ventana real. Eso deja
-        // .main con un marginLeft incorrecto (ej. negativo) mientras el
-        // sidebar ya esta visualmente en su lugar, superponiendo el
-        // contenido de .main (mapa incluido) sobre el sidebar. Se corrige
-        // re-midiendo apenas la transicion realmente termina.
-        const sidebarEl = sidebarRef.current;
-        const handleTransitionEnd = (event) => {
-          if (event.propertyName === 'transform') {
-            updateSidebarInset();
-          }
-        };
-        sidebarEl?.addEventListener('transitionend', handleTransitionEnd);
-
-        let observer = null;
-        if (typeof ResizeObserver !== 'undefined' && sidebarRef.current) {
-          observer = new ResizeObserver(updateSidebarInset);
-          observer.observe(sidebarRef.current);
-        }
-        window.addEventListener('resize', updateSidebarInset);
-        return () => {
-          window.removeEventListener('resize', updateSidebarInset);
-          sidebarEl?.removeEventListener('transitionend', handleTransitionEnd);
-          if (observer) observer.disconnect();
-        };
-      }, [isDesktop, menuOpen]);
+      // sidebarInset se calculaba midiendo sidebarRef.current.getBoundingClientRect()
+      // (ResizeObserver + listener de resize +, hasta hace un momento,
+      // tambien transitionend) para saber cuanto espacio reservarle a
+      // .main. Esa medicion era innecesaria: el ancho del .sidebar es una
+      // constante fija en CSS (`.sidebar { width: 300px }`, index.html),
+      // sin variantes por breakpoint ni modo colapsado, asi que el valor
+      // "medido" iba a ser siempre 300 o 0 — nunca otra cosa. Al depender
+      // de una medicion async del DOM quedaba expuesto a toda la familia de
+      // carreras de timing que fuimos encontrando (captura a mitad de la
+      // transicion CSS del sidebar, ResizeObserver que no dispara por
+      // cambios de transform, y en produccion quedaba mal hasta que el
+      // usuario cambiaba el zoom del navegador, que era lo unico que
+      // terminaba disparando un recalculo). Reemplazado por una derivacion
+      // sincronica de isDesktop: sin DOM, sin observers, inmune a esas
+      // carreras.
+      const SIDEBAR_WIDTH_PX = 300; // debe coincidir con .sidebar { width: 300px } en index.html
+      const sidebarInset = isDesktop ? SIDEBAR_WIDTH_PX : 0;
 
       React.useEffect(() => {
         if (activeOrg?.logo_url) {
