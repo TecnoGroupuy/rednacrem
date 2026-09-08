@@ -18632,6 +18632,31 @@ const formatCurrency = (value) => {
         };
 
         updateSidebarInset();
+
+        // El .sidebar anima su posicion con `transition: transform 240ms
+        // ease` (index.html) cada vez que cambia entre 'open'/'closed'. La
+        // medicion de arriba corre en el mismo tick que este efecto (justo
+        // cuando isDesktop/menuOpen cambian), es decir antes de que la
+        // transicion termine, y puede capturar el rect a mitad de camino
+        // (verificado: getBoundingClientRect().right llega a quedar en un
+        // valor negativo, tomado mientras el sidebar todavia estaba
+        // deslizandose desde fuera de pantalla). Nada volvia a corregirlo
+        // despues: ResizeObserver no dispara por cambios de transform (no
+        // altera el tamaño del layout box, solo su posicion pintada), asi
+        // que sidebarInset quedaba pegado en ese valor erroneo de forma
+        // permanente hasta el proximo resize de ventana real. Eso deja
+        // .main con un marginLeft incorrecto (ej. negativo) mientras el
+        // sidebar ya esta visualmente en su lugar, superponiendo el
+        // contenido de .main (mapa incluido) sobre el sidebar. Se corrige
+        // re-midiendo apenas la transicion realmente termina.
+        const sidebarEl = sidebarRef.current;
+        const handleTransitionEnd = (event) => {
+          if (event.propertyName === 'transform') {
+            updateSidebarInset();
+          }
+        };
+        sidebarEl?.addEventListener('transitionend', handleTransitionEnd);
+
         let observer = null;
         if (typeof ResizeObserver !== 'undefined' && sidebarRef.current) {
           observer = new ResizeObserver(updateSidebarInset);
@@ -18640,6 +18665,7 @@ const formatCurrency = (value) => {
         window.addEventListener('resize', updateSidebarInset);
         return () => {
           window.removeEventListener('resize', updateSidebarInset);
+          sidebarEl?.removeEventListener('transitionend', handleTransitionEnd);
           if (observer) observer.disconnect();
         };
       }, [isDesktop, menuOpen]);
