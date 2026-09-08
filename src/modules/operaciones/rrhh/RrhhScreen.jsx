@@ -1,28 +1,42 @@
 import React from 'react';
-import { Briefcase, Building2, Users, AlertTriangle } from 'lucide-react';
 import PersonalList from './PersonalList.jsx';
 import PersonalForm from './PersonalForm.jsx';
 import PersonalDetail from './PersonalDetail.jsx';
 import EmpresasContratistasList from './EmpresasContratistasList.jsx';
 import EmpresaContratistaForm from './EmpresaContratistaForm.jsx';
 import {
-  RRHH_BASES,
   RRHH_ROLE_OPTIONS,
-  su_personal as initialPersonal,
-  su_personal_roles as initialRoles,
-  su_personal_habilitaciones as initialHabilitaciones,
-  su_personal_capacitaciones as initialCapacitaciones,
-  su_personal_carnet_salud as initialCarnetSalud,
   su_empresas_contratistas as initialEmpresas
 } from './rrhhMockData.js';
+import {
+  listPersonal,
+  getPersonalDetail,
+  createPersonal,
+  updatePersonal,
+  listPersonalVencimientos,
+  addPersonalRole,
+  deletePersonalRole,
+  addHabilitacion,
+  addCapacitacion,
+  addCarnetSalud
+} from '../../../services/rrhhService.js';
+import { listBases } from '../../../services/flotasService.js';
+import { getMissingFields } from './PersonalDetail.jsx';
 import './rrhhStyles.css';
 
-const TODAY = new Date('2026-08-30T00:00:00');
-const AVATAR_COLORS = ['#0f766e', '#2563eb', '#d97706', '#be123c', '#0891b2', '#7c3aed'];
+// bases y personal ahora salen del backend real (rrhhService.js /
+// flotasService.js, mismo patron que ya usa Flotas). RRHH_ROLE_OPTIONS sigue
+// siendo un enum estatico del lado del frontend -- no hay una tabla catalogo
+// de roles en el backend (rol es texto libre en su_personal_roles), asi que
+// no hay nada que "fetchear" ahi, es analogo a los enums de estado que
+// FlotasScreen mantiene localmente.
+//
+// su_empresas_contratistas sigue siendo mock (ver Tarea 0): no existe ningun
+// endpoint de backend para esa tabla todavia. EmpresasContratistasList /
+// EmpresaContratistaForm quedan fuera de alcance, sin conectar.
 
 const emptyPersonalDraft = {
   id: '',
-  organization_id: 'ec63de4e-8ac3-4054-a4c7-8ceae5c76ddd',
   nombre: '',
   apellido: '',
   documento: '',
@@ -62,37 +76,52 @@ const docStatusToVariant = {
   en_tramite: 'warning'
 };
 
+// Las columnas de fecha de su_personal_* se confirmaron por nombre contra
+// produccion, no por tipo de dato exacto. Segun como esten tipadas
+// (date vs. timestamptz/text), el backend puede devolver "2026-01-10" o
+// "2026-01-10T03:00:00.000Z" -- se normaliza a solo fecha antes de operar,
+// para no romper el calculo de dias ni mostrar la hora en la UI.
+export const toDateOnly = (value) => {
+  if (!value) return '';
+  const str = String(value);
+  return str.length > 10 && str.includes('T') ? str.slice(0, 10) : str;
+};
+
 const diffDays = (dateValue) => {
-  if (!dateValue) return null;
-  const target = new Date(`${dateValue}T00:00:00`);
+  const dateOnly = toDateOnly(dateValue);
+  if (!dateOnly) return null;
+  const target = new Date(`${dateOnly}T00:00:00`);
   if (Number.isNaN(target.getTime())) return null;
-  return Math.ceil((target.getTime() - TODAY.getTime()) / (1000 * 60 * 60 * 24));
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 };
 
 const getVencimientoMeta = (dateValue) => {
   const days = diffDays(dateValue);
+  const dateOnly = toDateOnly(dateValue);
   if (days === null) return { variant: 'info', label: 'Sin fecha' };
-  if (days < 0) return { variant: 'danger', label: `Vencida ${dateValue}` };
-  if (days <= 30) return { variant: 'warning', label: `Vence ${dateValue}` };
-  return { variant: 'success', label: `Vigente ${dateValue}` };
+  if (days < 0) return { variant: 'danger', label: `Vencida ${dateOnly}` };
+  if (days <= 30) return { variant: 'warning', label: `Vence ${dateOnly}` };
+  return { variant: 'success', label: `Vigente ${dateOnly}` };
 };
 
 const formatRol = (value) => String(value || '').replaceAll('_', ' ');
-const initials = (personal) => `${personal.nombre?.[0] || ''}${personal.apellido?.[0] || ''}`.toUpperCase() || 'SU';
 
-const getDocumentAlertLevel = (items = [], dateField = 'fecha_vencimiento') => {
-  const levels = items.map((item) => diffDays(item?.[dateField]));
+const getDocumentAlertLevel = (items = []) => {
+  const levels = items.map((item) => diffDays(item?.fecha_vencimiento));
   if (levels.some((days) => days !== null && days < 0)) return 'danger';
   if (levels.some((days) => days !== null && days <= 30)) return 'warning';
   return 'success';
 };
 
 export default function RrhhScreen({ Button, Panel, Tag }) {
-  const [suPersonal, setSuPersonal] = React.useState(initialPersonal);
-  const [suPersonalRoles, setSuPersonalRoles] = React.useState(initialRoles);
-  const [suPersonalHabilitaciones] = React.useState(initialHabilitaciones);
-  const [suPersonalCapacitaciones] = React.useState(initialCapacitaciones);
-  const [suPersonalCarnetSalud] = React.useState(initialCarnetSalud);
+  const [personal, setPersonal] = React.useState([]);
+  const [bases, setBases] = React.useState([]);
+  const [vencimientos, setVencimientos] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState('');
+
   const [suEmpresasContratistas, setSuEmpresasContratistas] = React.useState(initialEmpresas);
   const [filters, setFilters] = React.useState({
     base_id: '',
@@ -103,126 +132,172 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
   const [personalFormOpen, setPersonalFormOpen] = React.useState(false);
   const [personalFormMode, setPersonalFormMode] = React.useState('create');
   const [personalDraft, setPersonalDraft] = React.useState(emptyPersonalDraft);
-  const [personalRolesDraft, setPersonalRolesDraft] = React.useState([]);
   const [personalErrors, setPersonalErrors] = React.useState({});
+  const [formSaving, setFormSaving] = React.useState(false);
+  const [formError, setFormError] = React.useState('');
+
   const [selectedPersonalId, setSelectedPersonalId] = React.useState(null);
+  const [selectedPersonalDetail, setSelectedPersonalDetail] = React.useState(null);
+  const [detailLoading, setDetailLoading] = React.useState(false);
+  const [detailError, setDetailError] = React.useState('');
+  const [actionError, setActionError] = React.useState('');
+  const [detailRefreshToken, setDetailRefreshToken] = React.useState(0);
   const [detailTab, setDetailTab] = React.useState('datos_generales');
+
   const [empresasOpen, setEmpresasOpen] = React.useState(false);
   const [empresaFormOpen, setEmpresaFormOpen] = React.useState(false);
   const [empresaFormMode, setEmpresaFormMode] = React.useState('create');
   const [empresaDraft, setEmpresaDraft] = React.useState(emptyEmpresaDraft);
 
+  const loadRrhh = React.useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [personalItems, basesItems, vencimientosItems] = await Promise.all([
+        listPersonal(),
+        listBases(),
+        listPersonalVencimientos({ days: 30 })
+      ]);
+      setPersonal(personalItems);
+      setBases(basesItems);
+      setVencimientos(vencimientosItems);
+    } catch (err) {
+      setError(err?.message || 'No se pudo cargar el personal.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    loadRrhh();
+  }, [loadRrhh]);
+
+  React.useEffect(() => {
+    if (!selectedPersonalId) {
+      setSelectedPersonalDetail(null);
+      setDetailError('');
+      setActionError('');
+      return undefined;
+    }
+    let cancelled = false;
+    setDetailLoading(true);
+    setDetailError('');
+    setActionError('');
+    getPersonalDetail(selectedPersonalId)
+      .then((detail) => {
+        if (cancelled) return;
+        if (!detail) {
+          setDetailError('Funcionario no encontrado.');
+          setSelectedPersonalDetail(null);
+          return;
+        }
+        setSelectedPersonalDetail(detail);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setDetailError(err?.message || 'No se pudo cargar la ficha del funcionario.');
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPersonalId, detailRefreshToken]);
+
+  const refreshSelectedDetail = () => setDetailRefreshToken((token) => token + 1);
+
   const baseById = React.useMemo(
-    () => Object.fromEntries(RRHH_BASES.map((base) => [base.id, base])),
-    []
+    () => Object.fromEntries(bases.map((base) => [base.id, base])),
+    [bases]
   );
 
-  const empresaById = React.useMemo(
-    () => Object.fromEntries(suEmpresasContratistas.map((empresa) => [empresa.id, empresa])),
-    [suEmpresasContratistas]
-  );
-
-  const rolesByPersonalId = React.useMemo(() => {
+  const vencimientosByPersonalId = React.useMemo(() => {
     const grouped = {};
-    suPersonalRoles.forEach((role) => {
-      if (!grouped[role.personal_id]) grouped[role.personal_id] = [];
-      grouped[role.personal_id].push(role);
+    vencimientos.forEach((item) => {
+      const personalId = item.personal_id;
+      if (!personalId) return;
+      if (!grouped[personalId]) grouped[personalId] = [];
+      grouped[personalId].push(item);
     });
     return grouped;
-  }, [suPersonalRoles]);
+  }, [vencimientos]);
 
-  const habilitacionesByPersonalId = React.useMemo(() => {
-    const grouped = {};
-    suPersonalHabilitaciones.forEach((item) => {
-      if (!grouped[item.personal_id]) grouped[item.personal_id] = [];
-      grouped[item.personal_id].push(item);
-    });
-    return grouped;
-  }, [suPersonalHabilitaciones]);
-
-  const capacitacionesByPersonalId = React.useMemo(() => {
-    const grouped = {};
-    suPersonalCapacitaciones.forEach((item) => {
-      if (!grouped[item.personal_id]) grouped[item.personal_id] = [];
-      grouped[item.personal_id].push(item);
-    });
-    return grouped;
-  }, [suPersonalCapacitaciones]);
-
-  const carnetByPersonalId = React.useMemo(
-    () => Object.fromEntries(suPersonalCarnetSalud.map((item) => [item.personal_id, item])),
-    [suPersonalCarnetSalud]
-  );
-
+  // GET /operaciones/personal no trae los roles de cada persona (serian N+1
+  // consultas para mostrar "rol principal" en cada tarjeta de la lista), asi
+  // que la lista muestra en su lugar cuantos campos opcionales le faltan
+  // completar -- dato que ya viene en la misma fila y es mas util dado que
+  // la carga va a ser parcial a proposito. Los roles reales se ven en la
+  // ficha (PersonalDetail), que si trae `roles` en el detalle.
   const personalRows = React.useMemo(() => (
-    suPersonal.map((personal, index) => {
-      const roles = rolesByPersonalId[personal.id] || [];
-      const rolPrincipal = roles.find((item) => item.rol_principal)?.rol || '';
-      const empresa = personal.empresa_contratista_id ? empresaById[personal.empresa_contratista_id] : null;
-      return {
-        ...personal,
-        nombreCompleto: `${personal.nombre} ${personal.apellido}`.trim(),
-        rolPrincipal,
-        empresaRazonSocial: empresa?.razon_social || '',
-        estadoLabel: personal.estado,
-        avatarContent: personal.foto_url ? '' : initials(personal),
-        avatarBackground: personal.foto_url
-          ? `center / cover no-repeat url(${personal.foto_url})`
-          : `linear-gradient(135deg, ${AVATAR_COLORS[index % AVATAR_COLORS.length]}, rgba(15, 23, 42, 0.88))`
-      };
-    })
-  ), [suPersonal, rolesByPersonalId, empresaById]);
+    personal.map((item) => ({
+      ...item,
+      nombreCompleto: `${item.nombre} ${item.apellido}`.trim(),
+      missingCount: getMissingFields(item).length
+    }))
+  ), [personal]);
 
   const filteredRows = React.useMemo(() => personalRows.filter((row) => {
     if (filters.base_id && row.base_id !== filters.base_id) return false;
     if (filters.estado && row.estado !== filters.estado) return false;
     if (filters.tipo_personal && row.tipo_personal !== filters.tipo_personal) return false;
-    if (filters.rol && row.rolPrincipal !== filters.rol && !(rolesByPersonalId[row.id] || []).some((item) => item.rol === filters.rol)) return false;
     return true;
-  }), [personalRows, filters, rolesByPersonalId]);
-
-  const selectedPersonal = React.useMemo(
-    () => suPersonal.find((item) => item.id === selectedPersonalId) || null,
-    [suPersonal, selectedPersonalId]
-  );
+  }), [personalRows, filters]);
 
   const getBaseLabel = React.useCallback((baseId) => baseById[baseId]?.nombre || 'Sin base', [baseById]);
   const getStatusVariant = React.useCallback((status) => statusToVariant[status] || 'info', []);
   const getDocumentStatusVariant = React.useCallback((status) => docStatusToVariant[status] || 'info', []);
 
   const getAlertMeta = React.useCallback((row) => {
-    const habilitaciones = habilitacionesByPersonalId[row.id] || [];
-    const capacitaciones = capacitacionesByPersonalId[row.id] || [];
-    const carnet = carnetByPersonalId[row.id] ? [carnetByPersonalId[row.id]] : [];
-    const levels = [
-      getDocumentAlertLevel(habilitaciones),
-      getDocumentAlertLevel(capacitaciones),
-      getDocumentAlertLevel(carnet)
-    ];
-    if (levels.includes('danger')) return { hasAlert: true, variant: 'danger', label: 'Documentacion vencida' };
-    if (levels.includes('warning')) return { hasAlert: true, variant: 'warning', label: 'Proximo a vencer' };
+    const items = vencimientosByPersonalId[row.id] || [];
+    const level = getDocumentAlertLevel(items);
+    if (level === 'danger') return { hasAlert: true, variant: 'danger', label: 'Documentación vencida' };
+    if (level === 'warning') return { hasAlert: true, variant: 'warning', label: 'Próximo a vencer' };
     return { hasAlert: false, variant: 'success', label: 'Sin alertas' };
-  }, [habilitacionesByPersonalId, capacitacionesByPersonalId, carnetByPersonalId]);
+  }, [vencimientosByPersonalId]);
+
+  // El filtro por rol es el unico que no se puede resolver client-side: a
+  // diferencia de base_id/estado/tipo_personal (columnas de su_personal, ya
+  // presentes en cada fila), el rol vive en su_personal_roles y GET
+  // /operaciones/personal no lo trae (evita N+1 al listar). El backend si
+  // soporta filtrar por rol via query param (EXISTS contra
+  // su_personal_roles), asi que ese filtro puntual dispara un refetch en vez
+  // de filtrar sobre datos que no tenemos.
+  const applyRoleFilter = React.useCallback(async (rol) => {
+    setLoading(true);
+    setError('');
+    try {
+      const items = await listPersonal(rol ? { rol } : {});
+      setPersonal(items);
+    } catch (err) {
+      setError(err?.message || 'No se pudo filtrar por rol.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const handleFilterChange = (field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
+    if (field === 'rol') {
+      applyRoleFilter(value);
+    }
   };
 
   const openCreatePersonal = () => {
     setPersonalFormMode('create');
-    setPersonalDraft({ ...emptyPersonalDraft, id: `p${Date.now()}` });
-    setPersonalRolesDraft([]);
+    setPersonalDraft({ ...emptyPersonalDraft });
     setPersonalErrors({});
+    setFormError('');
     setPersonalFormOpen(true);
   };
 
   const openEditPersonal = (personalId) => {
-    const personal = suPersonal.find((item) => item.id === personalId);
-    if (!personal) return;
+    const item = personal.find((row) => row.id === personalId);
+    if (!item) return;
     setPersonalFormMode('edit');
-    setPersonalDraft({ ...personal });
-    setPersonalRolesDraft((rolesByPersonalId[personalId] || []).map((item) => ({ ...item })));
+    setPersonalDraft({ ...emptyPersonalDraft, ...item });
     setPersonalErrors({});
+    setFormError('');
     setPersonalFormOpen(true);
   };
 
@@ -230,44 +305,53 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
     const nextErrors = {};
     if (!personalDraft.nombre.trim()) nextErrors.nombre = 'El nombre es obligatorio.';
     if (!personalDraft.apellido.trim()) nextErrors.apellido = 'El apellido es obligatorio.';
-    if (!personalDraft.documento.trim()) nextErrors.documento = 'El documento es obligatorio.';
-    if (!personalDraft.base_id) nextErrors.base_id = 'Selecciona una base.';
-    if (personalDraft.tipo_personal === 'externo' && !personalDraft.empresa_contratista_id) {
-      nextErrors.empresa_contratista_id = 'Selecciona una empresa contratista para personal externo.';
-    }
-    if (!personalRolesDraft.length) nextErrors.roles = 'Debes asignar al menos un rol.';
-    if (personalRolesDraft.length && !personalRolesDraft.some((item) => item.rol_principal)) {
-      nextErrors.roles = 'Marca un rol principal.';
-    }
     setPersonalErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
 
-  const savePersonal = () => {
+  const savePersonal = async () => {
     if (!validatePersonalDraft()) return;
 
-    const persistedPersonal = {
-      ...personalDraft,
-      empresa_contratista_id: personalDraft.tipo_personal === 'externo' ? personalDraft.empresa_contratista_id : ''
+    const payload = {
+      nombre: personalDraft.nombre,
+      apellido: personalDraft.apellido,
+      documento: personalDraft.documento || null,
+      fecha_nacimiento: personalDraft.fecha_nacimiento || null,
+      telefono: personalDraft.telefono || null,
+      email: personalDraft.email || null,
+      domicilio: personalDraft.domicilio || null,
+      base_id: personalDraft.base_id || null,
+      estado: personalDraft.estado,
+      fecha_ingreso: personalDraft.fecha_ingreso || null,
+      fecha_egreso: personalDraft.fecha_egreso || null,
+      tipo_personal: personalDraft.tipo_personal,
+      empresa_contratista_id: null
     };
 
-    setSuPersonal((prev) => {
-      const exists = prev.some((item) => item.id === persistedPersonal.id);
-      if (exists) return prev.map((item) => item.id === persistedPersonal.id ? persistedPersonal : item);
-      return [persistedPersonal, ...prev];
-    });
+    setFormSaving(true);
+    setFormError('');
+    try {
+      const saved = personalFormMode === 'create'
+        ? await createPersonal(payload)
+        : await updatePersonal(personalDraft.id, payload);
+      if (!saved) throw new Error('El backend no devolvió el funcionario guardado.');
 
-    setSuPersonalRoles((prev) => {
-      const nextRoles = personalRolesDraft.map((item, index) => ({
-        ...item,
-        id: item.id || `pr-${persistedPersonal.id}-${index + 1}`,
-        personal_id: persistedPersonal.id
-      }));
-      return [...prev.filter((item) => item.personal_id !== persistedPersonal.id), ...nextRoles];
-    });
+      setPersonal((prev) => {
+        const exists = prev.some((item) => item.id === saved.id);
+        if (exists) return prev.map((item) => item.id === saved.id ? saved : item);
+        return [saved, ...prev];
+      });
 
-    setSelectedPersonalId(persistedPersonal.id);
-    setPersonalFormOpen(false);
+      const wasAlreadySelected = selectedPersonalId === saved.id;
+      setSelectedPersonalId(saved.id);
+      if (wasAlreadySelected) refreshSelectedDetail();
+      setDetailTab('datos_generales');
+      setPersonalFormOpen(false);
+    } catch (err) {
+      setFormError(err?.message || 'No se pudo guardar el funcionario.');
+    } finally {
+      setFormSaving(false);
+    }
   };
 
   const openDetail = (personalId) => {
@@ -279,31 +363,65 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
     setSelectedPersonalId(null);
   };
 
-  const addRoleToSelected = () => {
-    if (!selectedPersonalId) return;
-    const available = RRHH_ROLE_OPTIONS.find((role) => !(rolesByPersonalId[selectedPersonalId] || []).some((item) => item.rol === role));
-    if (!available) return;
-    setSuPersonalRoles((prev) => [
-      ...prev,
-      {
-        id: `pr-${selectedPersonalId}-${Date.now()}`,
-        personal_id: selectedPersonalId,
-        rol: available,
-        rol_principal: !(rolesByPersonalId[selectedPersonalId] || []).length
-      }
-    ]);
+  const refreshVencimientos = async () => {
+    try {
+      const items = await listPersonalVencimientos({ days: 30 });
+      setVencimientos(items);
+    } catch {
+      // No bloquea el flujo principal si falla solo el refresco de alertas.
+    }
   };
 
-  const removeRoleFromSelected = (roleId) => {
-    const current = rolesByPersonalId[selectedPersonalId] || [];
-    const remaining = current.filter((item) => item.id !== roleId);
-    setSuPersonalRoles((prev) => prev.filter((item) => item.id !== roleId));
-    if (remaining.length && !remaining.some((item) => item.rol_principal)) {
-      const nextPrimaryId = remaining[0].id;
-      setSuPersonalRoles((prev) => prev.map((item) => {
-        if (item.id === nextPrimaryId) return { ...item, rol_principal: true };
-        return item;
-      }));
+  const handleAddRole = async (rol, { rol_principal } = {}) => {
+    if (!selectedPersonalId) return;
+    try {
+      await addPersonalRole(selectedPersonalId, { rol, rol_principal: Boolean(rol_principal) });
+      refreshSelectedDetail();
+    } catch (err) {
+      setActionError(err?.message || 'No se pudo agregar el rol.');
+    }
+  };
+
+  const handleRemoveRole = async (roleId) => {
+    if (!selectedPersonalId) return;
+    try {
+      await deletePersonalRole(selectedPersonalId, roleId);
+      refreshSelectedDetail();
+    } catch (err) {
+      setActionError(err?.message || 'No se pudo quitar el rol.');
+    }
+  };
+
+  const handleAddHabilitacion = async (draft) => {
+    if (!selectedPersonalId) return;
+    try {
+      await addHabilitacion(selectedPersonalId, draft);
+      refreshSelectedDetail();
+      refreshVencimientos();
+    } catch (err) {
+      setActionError(err?.message || 'No se pudo guardar la habilitación.');
+    }
+  };
+
+  const handleAddCapacitacion = async (draft) => {
+    if (!selectedPersonalId) return;
+    try {
+      await addCapacitacion(selectedPersonalId, draft);
+      refreshSelectedDetail();
+      refreshVencimientos();
+    } catch (err) {
+      setActionError(err?.message || 'No se pudo guardar la capacitación.');
+    }
+  };
+
+  const handleAddCarnetSalud = async (draft) => {
+    if (!selectedPersonalId) return;
+    try {
+      await addCarnetSalud(selectedPersonalId, draft);
+      refreshSelectedDetail();
+      refreshVencimientos();
+    } catch (err) {
+      setActionError(err?.message || 'No se pudo guardar el carné de salud.');
     }
   };
 
@@ -336,47 +454,59 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
         <Panel
           className="span-12 rrhh-main-panel"
           title="Personal"
-          subtitle="Listado mock con filtros controlados y alertas documentales"
+          subtitle="Listado conectado al backend real, con filtros y alertas documentales."
         >
-          <PersonalList
-            Button={Button}
-            Tag={Tag}
-            rows={filteredRows}
-            filters={filters}
-            bases={RRHH_BASES}
-            roleOptions={RRHH_ROLE_OPTIONS}
-            onFilterChange={handleFilterChange}
-            onCreate={openCreatePersonal}
-            onView={openDetail}
-            onEdit={openEditPersonal}
-            formatRol={formatRol}
-            getBaseLabel={getBaseLabel}
-            getStatusVariant={getStatusVariant}
-            getAlertMeta={getAlertMeta}
-          />
+          {loading ? (
+            <div className="rrhh-empty rrhh-empty-surface">Cargando personal...</div>
+          ) : error ? (
+            <div className="rrhh-empty rrhh-empty-surface" style={{ display: 'flex', alignItems: 'center', gap: 12, color: '#b91c1c' }}>
+              <span>{error}</span>
+              <Button variant="ghost" onClick={loadRrhh}>Reintentar</Button>
+            </div>
+          ) : (
+            <PersonalList
+              Button={Button}
+              Tag={Tag}
+              rows={filteredRows}
+              filters={filters}
+              bases={bases}
+              roleOptions={RRHH_ROLE_OPTIONS}
+              onFilterChange={handleFilterChange}
+              onCreate={openCreatePersonal}
+              onView={openDetail}
+              onEdit={openEditPersonal}
+              formatRol={formatRol}
+              getBaseLabel={getBaseLabel}
+              getStatusVariant={getStatusVariant}
+              getAlertMeta={getAlertMeta}
+            />
+          )}
         </Panel>
       </section>
 
-      {selectedPersonal ? (
+      {selectedPersonalId ? (
         <PersonalDetail
           Button={Button}
           Tag={Tag}
-          personal={selectedPersonal}
-          roles={rolesByPersonalId[selectedPersonal.id] || []}
-          habilitaciones={habilitacionesByPersonalId[selectedPersonal.id] || []}
-          capacitaciones={capacitacionesByPersonalId[selectedPersonal.id] || []}
-          carnetSalud={carnetByPersonalId[selectedPersonal.id] || null}
-          empresa={selectedPersonal.empresa_contratista_id ? empresaById[selectedPersonal.empresa_contratista_id] : null}
+          personal={selectedPersonalDetail}
+          loading={detailLoading}
+          error={detailError}
+          actionError={actionError}
           activeTab={detailTab}
           onTabChange={setDetailTab}
           onClose={closeDetail}
+          onEdit={openEditPersonal}
+          roleOptions={RRHH_ROLE_OPTIONS}
           formatRol={formatRol}
           getBaseLabel={getBaseLabel}
           getStatusVariant={getStatusVariant}
           getDocumentStatusVariant={getDocumentStatusVariant}
           getVencimientoMeta={getVencimientoMeta}
-          onAddRole={addRoleToSelected}
-          onRemoveRole={removeRoleFromSelected}
+          onAddRole={handleAddRole}
+          onRemoveRole={handleRemoveRole}
+          onAddHabilitacion={handleAddHabilitacion}
+          onAddCapacitacion={handleAddCapacitacion}
+          onAddCarnetSalud={handleAddCarnetSalud}
         />
       ) : null}
 
@@ -386,16 +516,13 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
           draft={personalDraft}
           setDraft={setPersonalDraft}
           formMode={personalFormMode}
-          bases={RRHH_BASES}
-          empresas={suEmpresasContratistas}
-          roleOptions={RRHH_ROLE_OPTIONS}
-          rolesDraft={personalRolesDraft}
-          setRolesDraft={setPersonalRolesDraft}
+          bases={bases}
           errors={personalErrors}
+          saving={formSaving}
+          formError={formError}
           onClose={() => setPersonalFormOpen(false)}
           onSubmit={savePersonal}
           onOpenEmpresas={() => setEmpresasOpen(true)}
-          formatRol={formatRol}
         />
       ) : null}
 
@@ -406,7 +533,7 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
             <div className="rrhh-modal-header">
               <div>
                 <h3>Empresas contratistas</h3>
-                <p>Vista reutilizable para RRHH y selector del formulario.</p>
+                <p>Catálogo de referencia (mock) -- todavía no hay endpoint de backend para esta tabla.</p>
               </div>
               <Button variant="ghost" onClick={() => setEmpresasOpen(false)}>Cerrar</Button>
             </div>

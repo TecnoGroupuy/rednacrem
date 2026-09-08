@@ -471,6 +471,63 @@
   grid-column: 1 / -1;
 }
 
+.rrhh-inline-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rrhh-inline-form {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(51, 65, 85, 0.78);
+  background: rgba(15, 23, 42, 0.62);
+  margin-bottom: 14px;
+}
+
+.rrhh-inline-form input,
+.rrhh-inline-form select {
+  min-height: 42px;
+  border-radius: 14px;
+  border: 1px solid var(--rrhh-line);
+  background: rgba(15, 23, 42, 0.88);
+  color: var(--rrhh-text);
+  padding: 0 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.rrhh-inline-form input:focus,
+.rrhh-inline-form select:focus {
+  outline: none;
+  border-color: rgba(251, 146, 60, 0.5);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.18);
+}
+
+.rrhh-form-error {
+  margin: 0 20px 14px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  color: #fca5a5;
+  font-size: 13px;
+}
+
+.rrhh-inline-hint {
+  color: var(--rrhh-muted);
+  font-size: 13px;
+  padding: 4px 2px 18px;
+}
+
+.rrhh-missing-value {
+  color: #fdba74;
+  font-style: italic;
+  font-weight: 600;
+}
+
 .rrhh-form-section {
   margin-top: 22px;
   display: grid;

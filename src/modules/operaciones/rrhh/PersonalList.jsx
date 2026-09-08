@@ -83,16 +83,18 @@ export default function PersonalList({
 
                 <div className="rrhh-person-card-body">
                   <div className="rrhh-person-meta">
-                    <span className="rrhh-person-meta-label">Rol principal</span>
-                    <strong>{row.rolPrincipal ? formatRol(row.rolPrincipal) : 'Sin rol principal'}</strong>
-                  </div>
-                  <div className="rrhh-person-meta">
                     <span className="rrhh-person-meta-label">Base asignada</span>
                     <strong className="rrhh-person-base">
                       <MapPin size={14} />
                       <span>{getBaseLabel(row.base_id)}</span>
                     </strong>
                   </div>
+                  {row.missingCount ? (
+                    <div className="rrhh-person-meta">
+                      <span className="rrhh-person-meta-label">Datos pendientes</span>
+                      <strong>{row.missingCount} campo{row.missingCount === 1 ? '' : 's'} sin completar</strong>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="rrhh-person-card-tags">
