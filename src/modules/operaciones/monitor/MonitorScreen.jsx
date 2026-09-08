@@ -92,7 +92,15 @@ export default function MonitorScreen() {
     try {
       const [basesItems, vehiculosItems] = await Promise.all([listBases(), listVehiculos()]);
       setBases(basesItems);
-      setVehiculos(vehiculosItems);
+      // Los backups (es_backup = true) no son moviles operativos: no van en
+      // Monitor (ni mapa, ni panel lateral, ni contadores del header). Se
+      // filtran aca, una sola vez y lo antes posible -- todo lo que consume
+      // `vehiculos` mas abajo (header, BasesVehiculosPanel,
+      // vehiclesWithCoords/MonitorMap) ya recibe la lista sin backups, sin
+      // tener que acordarse de filtrar en cada punto de consumo. Flotas no
+      // pasa por aca -- sigue usando su propio fetch y su seccion "En
+      // backup" separada, sin cambios.
+      setVehiculos(vehiculosItems.filter((vehiculo) => !vehiculo.es_backup));
     } catch (err) {
       setError(err?.message || 'No se pudieron cargar los datos de monitoreo.');
     } finally {
