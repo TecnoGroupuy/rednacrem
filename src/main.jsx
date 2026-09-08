@@ -11,7 +11,7 @@ import {
   Filter, Plus, CheckCircle2, Clock, Settings, Zap, BarChart3, Flame, Edit3, MoreHorizontal, Trash2,
   MessageSquare, Send, Headphones, Headset, Bot, User, Hash, Upload, LogOut, Coffee, Bath, PersonStanding,
   PauseCircle, XCircle, Webhook,
-  Info, Shield, ChevronRight, RefreshCw, MapPin, Star, Package, HeartPulse
+  Info, Shield, ChevronRight, RefreshCw, MapPin, Star, Package, HeartPulse, Loader2
 } from 'lucide-react';
 import {
   ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip,
@@ -18250,6 +18250,18 @@ const formatCurrency = (value) => {
       const [activeOrg, setActiveOrg] = React.useState(() => localDevOrgBootstrap);
       const [myOrgs, setMyOrgs] = React.useState(() => (localDevOrgBootstrap ? [localDevOrgBootstrap] : []));
       const [myOrgsLoading, setMyOrgsLoading] = React.useState(false);
+      // "Todavia no se resolvio" vs "se resolvio sin organizacion" son casos
+      // distintos de activeOrg=null, asi que se modelan con un flag aparte en
+      // vez de sobrecargar activeOrg con undefined/null/objeto. El bootstrap
+      // de dev local ya tiene el dato de forma sincronica (localStorage), asi
+      // que arranca resuelto; superadmin tampoco pasa por el fetch de
+      // /me/organizations (elige org explicitamente via OrganizationSelectorScreen),
+      // asi que tambien arranca resuelto. Solo la sesion OIDC real (no dev, no
+      // superadmin) empieza sin resolver hasta que el efecto de mas abajo
+      // termine el fetch real.
+      const [isActiveOrgResolved, setIsActiveOrgResolved] = React.useState(
+        () => Boolean(localDevOrgBootstrap) || esSuperadmin
+      );
       const [menuOpen, setMenuOpen] = React.useState(window.innerWidth >= 1024);
       const [expandedNavGroups, setExpandedNavGroups] = React.useState({ operaciones: true });
       const [sidebarInset, setSidebarInset] = React.useState(0);
@@ -18478,7 +18490,10 @@ const formatCurrency = (value) => {
 
       React.useEffect(() => {
         if (!authUser?.id) return;
-        if (esSuperadmin) return;
+        if (esSuperadmin) {
+          setIsActiveOrgResolved(true);
+          return;
+        }
         if (isLocalDevSession) {
           const localDevOrg = readLocalDevOrganization();
           if (localDevOrg) {
@@ -18486,6 +18501,7 @@ const formatCurrency = (value) => {
             setActiveOrg(localDevOrg);
             setActiveOrganizationId(localDevOrg.id);
             setMyOrgsLoading(false);
+            setIsActiveOrgResolved(true);
             return;
           }
         }
@@ -18504,7 +18520,10 @@ const formatCurrency = (value) => {
             if (!active) setMyOrgs([]);
           })
           .finally(() => {
-            if (active) setMyOrgsLoading(false);
+            if (active) {
+              setMyOrgsLoading(false);
+              setIsActiveOrgResolved(true);
+            }
           });
         return () => { active = false; };
       }, [authUser?.id, esSuperadmin, isLocalDevSession]);
@@ -19298,6 +19317,19 @@ const formatCurrency = (value) => {
       }
       return <PlaceholderView title={navItems.find((item) => item.path === route)?.label || 'Módulo'} subtitle="La estructura ya está integrada al sistema. Se puede profundizar con formularios, reglas de negocio, estados y persistencia cuando lo definas." cta="Volver al foco" />;
     };
+
+    if (!isActiveOrgResolved) {
+      return (
+        <div className="view" style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}>
+          <div className="panel" style={{ width: 'min(480px, 100%)', textAlign: 'center' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, color: 'var(--muted)' }}>
+              <Loader2 size={18} className="spin" />
+              Cargando organización...
+            </div>
+          </div>
+        </div>
+      );
+    }
 
     if (esSuperadmin && !activeOrg) {
       return (
