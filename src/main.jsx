@@ -18263,6 +18263,49 @@ const formatCurrency = (value) => {
         () => Boolean(localDevOrgBootstrap) || esSuperadmin
       );
       const [menuOpen, setMenuOpen] = React.useState(window.innerWidth >= 1024);
+
+      // isDesktop y menuOpen se calculaban una sola vez al montar y nunca se
+      // recalculaban: si la ventana cruzaba el breakpoint de 1024px (la misma
+      // media query de index.html, @media (max-width: 1023px)) sin un
+      // reload, el CSS del sidebar reaccionaba en el momento pero el estado
+      // de React quedaba con el valor viejo. Eso rompe dos cosas distintas:
+      // 1) el marginLeft/width inline de .main (que depende de isDesktop, ver
+      //    mas abajo en el JSX) queda calculado para el ancho anterior,
+      //    dejando .main y sus hijos (ej. .monitor-map-area) mal
+      //    dimensionados de forma persistente; 2) la clase 'closed' del
+      //    <aside className={'sidebar ' + (menuOpen ? 'open' : 'closed')}>
+      //    aplica `transform: translateX(-102%)` de forma incondicional (no
+      //    solo dentro del media query, index.html:57), asi que si menuOpen
+      //    quedaba en false (por ej. al haber achicado la ventana a mobile)
+      //    el sidebar seguia oculto aunque isDesktop ya fuera true de nuevo.
+      // Por eso ambos se sincronizan juntos, y solo en el momento en que el
+      // breakpoint realmente se cruza (no en cada resize dentro del mismo
+      // modo, para no pisar un toggle manual del usuario en mobile).
+      // Debounce de 150ms para no recalcular en cada pixel del arrastre.
+      const isDesktopRef = React.useRef(isDesktop);
+      React.useEffect(() => {
+        isDesktopRef.current = isDesktop;
+      }, [isDesktop]);
+
+      React.useEffect(() => {
+        let timeoutId = null;
+        const handleResize = () => {
+          if (timeoutId) window.clearTimeout(timeoutId);
+          timeoutId = window.setTimeout(() => {
+            const nextIsDesktop = window.innerWidth >= 1024;
+            if (nextIsDesktop !== isDesktopRef.current) {
+              setIsDesktop(nextIsDesktop);
+              setMenuOpen(nextIsDesktop);
+            }
+          }, 150);
+        };
+        window.addEventListener('resize', handleResize);
+        return () => {
+          window.removeEventListener('resize', handleResize);
+          if (timeoutId) window.clearTimeout(timeoutId);
+        };
+      }, []);
+
       const [expandedNavGroups, setExpandedNavGroups] = React.useState({ operaciones: true });
       const [sidebarInset, setSidebarInset] = React.useState(0);
       const [estadoUsuario, setEstadoUsuario] = React.useState('disponible');

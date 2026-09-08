@@ -41,7 +41,20 @@ function MapLayoutSync() {
 
     syncSize();
     window.addEventListener('resize', syncSize);
-    return () => window.removeEventListener('resize', syncSize);
+
+    // ResizeObserver sobre el contenedor propio del mapa: a diferencia del
+    // listener de window.resize de arriba, tambien cubre cambios de layout
+    // que no disparan un resize de ventana (ej. el sidebar colapsando o
+    // expandiendo, o cualquier otro reflow del padre que cambie el ancho
+    // disponible sin que cambie el tamaño de la ventana en si).
+    const container = map.getContainer();
+    const resizeObserver = new ResizeObserver(syncSize);
+    resizeObserver.observe(container);
+
+    return () => {
+      window.removeEventListener('resize', syncSize);
+      resizeObserver.disconnect();
+    };
   }, [map]);
 
   return null;
