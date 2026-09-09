@@ -51,7 +51,13 @@ const emptyPersonalDraft = {
   fecha_ingreso: '',
   fecha_egreso: '',
   tipo_personal: 'interno',
-  empresa_contratista_id: ''
+  empresa_contratista_id: '',
+  // `rol` no es una columna de su_personal -- es el rol inicial que se le
+  // va a asignar a la persona recien creada (o a una que todavia no tiene
+  // ninguno) via un POST aparte a /operaciones/personal/:id/roles despues
+  // de guardarla. regimen_turno si es columna real de su_personal.
+  rol: '',
+  regimen_turno: null
 };
 
 const emptyEmpresaDraft = {
@@ -137,6 +143,10 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
   const [personalFormOpen, setPersonalFormOpen] = React.useState(false);
   const [personalFormMode, setPersonalFormMode] = React.useState('create');
   const [personalDraft, setPersonalDraft] = React.useState(emptyPersonalDraft);
+  // Cuantos roles tiene YA la persona que se esta editando (0 en modo
+  // crear). Determina si PersonalForm muestra el selector de "rol inicial"
+  // o el mensaje de "se gestiona desde la ficha" -- ver PersonalForm.jsx.
+  const [personalExistingRolesCount, setPersonalExistingRolesCount] = React.useState(0);
   const [personalErrors, setPersonalErrors] = React.useState({});
   const [formSaving, setFormSaving] = React.useState(false);
   const [formError, setFormError] = React.useState('');
@@ -275,6 +285,7 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
   const openCreatePersonal = () => {
     setPersonalFormMode('create');
     setPersonalDraft({ ...emptyPersonalDraft });
+    setPersonalExistingRolesCount(0);
     setPersonalErrors({});
     setFormError('');
     setPersonalFormOpen(true);
@@ -284,7 +295,11 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
     const item = personal.find((row) => row.id === personalId);
     if (!item) return;
     setPersonalFormMode('edit');
-    setPersonalDraft({ ...emptyPersonalDraft, ...item });
+    // `rol` se resetea siempre a '' aca: es el selector de "rol inicial a
+    // asignar", no un reflejo de los roles ya existentes de la persona (esos
+    // se gestionan desde la ficha, ver personalExistingRolesCount).
+    setPersonalDraft({ ...emptyPersonalDraft, ...item, rol: '' });
+    setPersonalExistingRolesCount((item.roles || []).length);
     setPersonalErrors({});
     setFormError('');
     setPersonalFormOpen(true);
@@ -314,8 +329,24 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
       fecha_ingreso: personalDraft.fecha_ingreso || null,
       fecha_egreso: personalDraft.fecha_egreso || null,
       tipo_personal: personalDraft.tipo_personal,
-      empresa_contratista_id: null
+      empresa_contratista_id: null,
+      regimen_turno: personalDraft.regimen_turno || null
     };
+
+    // Mergea la respuesta del backend sobre el item que ya tenia en estado
+    // local, en vez de reemplazarlo tal cual. Hace falta porque PATCH
+    // /operaciones/personal/:id no devuelve `roles` en su respuesta (a
+    // diferencia de POST y de GET /operaciones/personal) -- reemplazar el
+    // item directo con la respuesta del PATCH le borraria los roles ya
+    // cargados del estado local (no de la base) hasta el proximo reload,
+    // haciendolo aparecer como "Sin rol asignado" en la jerarquia despues
+    // de guardar cualquier edicion, aunque nunca haya perdido el rol de
+    // verdad.
+    const mergePersonalItem = (previous, updated) => ({
+      ...previous,
+      ...updated,
+      roles: updated.roles ?? previous?.roles ?? []
+    });
 
     setFormSaving(true);
     setFormError('');
@@ -325,14 +356,42 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
         : await updatePersonal(personalDraft.id, payload);
       if (!saved) throw new Error('El backend no devolvió el funcionario guardado.');
 
+      const previousItem = personal.find((item) => item.id === saved.id) || null;
+      let savedMerged = mergePersonalItem(previousItem, saved);
+
+      // Solo se ofrece elegir un rol inicial cuando la persona todavia no
+      // tenia ninguno (personalExistingRolesCount === 0 -- ver
+      // PersonalForm.jsx). Si se eligio uno, se encadena el POST del rol
+      // DESPUES de guardar la persona: si este segundo paso falla, la
+      // persona ya quedo guardada -- no se revierte nada ni se borra, se
+      // muestra un error claro para completarlo despues desde la ficha, y
+      // el formulario queda abierto (no se pierde de vista el aviso).
+      if (!personalExistingRolesCount && personalDraft.rol) {
+        try {
+          const roleItem = await addPersonalRole(saved.id, { rol: personalDraft.rol, rol_principal: true });
+          savedMerged = { ...savedMerged, roles: [...(savedMerged.roles || []), roleItem].filter(Boolean) };
+        } catch (roleErr) {
+          setPersonal((prev) => {
+            const exists = prev.some((item) => item.id === savedMerged.id);
+            if (exists) return prev.map((item) => item.id === savedMerged.id ? savedMerged : item);
+            return [savedMerged, ...prev];
+          });
+          setFormError(
+            `El funcionario se guardó correctamente, pero no se pudo asignar el rol "${formatRol(personalDraft.rol)}": ${roleErr?.message || 'error desconocido'}. Completalo después desde la ficha ("Ver").`
+          );
+          setFormSaving(false);
+          return;
+        }
+      }
+
       setPersonal((prev) => {
-        const exists = prev.some((item) => item.id === saved.id);
-        if (exists) return prev.map((item) => item.id === saved.id ? saved : item);
-        return [saved, ...prev];
+        const exists = prev.some((item) => item.id === savedMerged.id);
+        if (exists) return prev.map((item) => item.id === savedMerged.id ? savedMerged : item);
+        return [savedMerged, ...prev];
       });
 
-      const wasAlreadySelected = selectedPersonalId === saved.id;
-      setSelectedPersonalId(saved.id);
+      const wasAlreadySelected = selectedPersonalId === savedMerged.id;
+      setSelectedPersonalId(savedMerged.id);
       if (wasAlreadySelected) refreshSelectedDetail();
       setDetailTab('datos_generales');
       setPersonalFormOpen(false);
@@ -504,12 +563,19 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
           setDraft={setPersonalDraft}
           formMode={personalFormMode}
           bases={bases}
+          roleOptions={RRHH_ROLE_OPTIONS}
+          formatRol={formatRol}
+          existingRolesCount={personalExistingRolesCount}
           errors={personalErrors}
           saving={formSaving}
           formError={formError}
           onClose={() => setPersonalFormOpen(false)}
           onSubmit={savePersonal}
           onOpenEmpresas={() => setEmpresasOpen(true)}
+          onManageRoles={() => {
+            setPersonalFormOpen(false);
+            openDetail(personalDraft.id);
+          }}
         />
       ) : null}
 

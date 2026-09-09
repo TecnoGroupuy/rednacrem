@@ -68,7 +68,7 @@ export function buildPersonalHierarchy(personal = []) {
   const medicos = rest.filter((p) => hasRole(p, ROLES.MEDICO) && !medicinaLeaderIds.has(p.id));
   const medicina = finalizeArea({
     key: 'medicina',
-    label: 'Medicina',
+    label: 'Médicos',
     leaderRoleLabel: 'Jefe/a médico/a',
     leaders: medicinaLeaders,
     subgroups: [

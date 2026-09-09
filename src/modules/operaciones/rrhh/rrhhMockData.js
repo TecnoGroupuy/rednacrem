@@ -5,6 +5,9 @@ export const RRHH_BASES = [
   { id: 'b4', nombre: 'Atlantida' }
 ];
 
+// Los 13 valores confirmados del CHECK constraint de su_personal_roles.rol
+// en produccion (los ultimos 3 se agregaron para la jerarquia de RRHH:
+// Direccion_tecnica, Jefe_de_choferes, Economato).
 export const RRHH_ROLE_OPTIONS = [
   'Chofer',
   'Enfermero',
@@ -15,7 +18,10 @@ export const RRHH_ROLE_OPTIONS = [
   'Jefe_medico',
   'Jefe_de_enfermeria',
   'Quimica',
-  'Mantenimiento'
+  'Mantenimiento',
+  'Direccion_tecnica',
+  'Jefe_de_choferes',
+  'Economato'
 ];
 
 export const su_empresas_contratistas = [
