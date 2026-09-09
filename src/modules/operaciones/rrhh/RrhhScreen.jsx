@@ -22,6 +22,7 @@ import {
 } from '../../../services/rrhhService.js';
 import { listBases } from '../../../services/flotasService.js';
 import { getMissingFields } from './PersonalDetail.jsx';
+import { buildPersonalHierarchy } from './personalHierarchy.js';
 import './rrhhStyles.css';
 
 // bases y personal ahora salen del backend real (rrhhService.js /
@@ -123,11 +124,15 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
   const [error, setError] = React.useState('');
 
   const [suEmpresasContratistas, setSuEmpresasContratistas] = React.useState(initialEmpresas);
+  // El filtro de rol se saca: la agrupacion jerarquica ya lo reemplaza (cada
+  // persona aparece en la seccion de su rol). tipo_personal tambien se saca
+  // como filtro global -- ahora es el criterio de sub-agrupacion de
+  // Medicina (Internos/Contratados); un filtro global de tipo_personal
+  // interactuaria raro con esa subseccion (ej. filtrar "solo externos"
+  // vaciaria "Internos" en todos lados sin razon relacionada a Medicina).
   const [filters, setFilters] = React.useState({
     base_id: '',
-    rol: '',
-    estado: '',
-    tipo_personal: ''
+    estado: ''
   });
   const [personalFormOpen, setPersonalFormOpen] = React.useState(false);
   const [personalFormMode, setPersonalFormMode] = React.useState('create');
@@ -240,9 +245,16 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
   const filteredRows = React.useMemo(() => personalRows.filter((row) => {
     if (filters.base_id && row.base_id !== filters.base_id) return false;
     if (filters.estado && row.estado !== filters.estado) return false;
-    if (filters.tipo_personal && row.tipo_personal !== filters.tipo_personal) return false;
     return true;
   }), [personalRows, filters]);
+
+  // roles y regimen_turno ya vienen en cada fila desde GET
+  // /operaciones/personal (fix de N+1) -- buildPersonalHierarchy es pura,
+  // solo agrupa lo que ya tenemos, sin fetches adicionales.
+  const personalHierarchy = React.useMemo(
+    () => buildPersonalHierarchy(filteredRows),
+    [filteredRows]
+  );
 
   const getBaseLabel = React.useCallback((baseId) => baseById[baseId]?.nombre || 'Sin base', [baseById]);
   const getStatusVariant = React.useCallback((status) => statusToVariant[status] || 'info', []);
@@ -256,31 +268,8 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
     return { hasAlert: false, variant: 'success', label: 'Sin alertas' };
   }, [vencimientosByPersonalId]);
 
-  // El filtro por rol es el unico que no se puede resolver client-side: a
-  // diferencia de base_id/estado/tipo_personal (columnas de su_personal, ya
-  // presentes en cada fila), el rol vive en su_personal_roles y GET
-  // /operaciones/personal no lo trae (evita N+1 al listar). El backend si
-  // soporta filtrar por rol via query param (EXISTS contra
-  // su_personal_roles), asi que ese filtro puntual dispara un refetch en vez
-  // de filtrar sobre datos que no tenemos.
-  const applyRoleFilter = React.useCallback(async (rol) => {
-    setLoading(true);
-    setError('');
-    try {
-      const items = await listPersonal(rol ? { rol } : {});
-      setPersonal(items);
-    } catch (err) {
-      setError(err?.message || 'No se pudo filtrar por rol.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   const handleFilterChange = (field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
-    if (field === 'rol') {
-      applyRoleFilter(value);
-    }
   };
 
   const openCreatePersonal = () => {
@@ -467,15 +456,13 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
             <PersonalList
               Button={Button}
               Tag={Tag}
-              rows={filteredRows}
+              hierarchy={personalHierarchy}
               filters={filters}
               bases={bases}
-              roleOptions={RRHH_ROLE_OPTIONS}
               onFilterChange={handleFilterChange}
               onCreate={openCreatePersonal}
               onView={openDetail}
               onEdit={openEditPersonal}
-              formatRol={formatRol}
               getBaseLabel={getBaseLabel}
               getStatusVariant={getStatusVariant}
               getAlertMeta={getAlertMeta}

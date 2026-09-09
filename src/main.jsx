@@ -19531,7 +19531,7 @@ const formatCurrency = (value) => {
                 }
                 : undefined}
             >
-              {route !== 'operaciones/monitor' && route !== 'operaciones/turnos' ? <header className="topbar" ref={topbarRef}>
+              {route !== 'operaciones/monitor' && route !== 'operaciones/turnos' && route !== 'operaciones/rrhh' ? <header className="topbar" ref={topbarRef}>
                 <div className="topbar-card glass">
                   <button className="icon-button mobile-toggle" onClick={() => setMenuOpen(true)}><Menu size={20} color="#152235" /></button>
                   <div style={{ minWidth: 0, flex: 1 }}>

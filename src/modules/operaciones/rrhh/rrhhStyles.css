@@ -245,8 +245,20 @@
 }
 
 .rrhh-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-weight: 700;
   color: var(--rrhh-text);
+}
+
+.rrhh-leader-icon {
+  color: #fbbf24;
+  flex-shrink: 0;
+}
+
+.rrhh-person-card.leader {
+  box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.4), 0 18px 36px rgba(2, 6, 23, 0.22);
 }
 
 .rrhh-subtle {
@@ -706,6 +718,86 @@
   color: inherit;
   cursor: pointer;
   padding: 0;
+}
+
+/* Vista jerarquica de Personal (secciones colapsables por area) */
+
+.rrhh-hierarchy-top {
+  border-radius: 22px;
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  background: rgba(251, 191, 36, 0.06);
+  padding: 18px;
+}
+
+.rrhh-hierarchy-section {
+  border-radius: 22px;
+  border: 1px solid var(--rrhh-line);
+  background: rgba(15, 23, 42, 0.5);
+  overflow: hidden;
+}
+
+.rrhh-hierarchy-section-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  background: transparent;
+  border: 0;
+  color: var(--rrhh-text);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+
+.rrhh-hierarchy-section-header:hover {
+  background: rgba(51, 65, 85, 0.28);
+}
+
+.rrhh-hierarchy-section-title {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.rrhh-hierarchy-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(51, 65, 85, 0.9);
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.rrhh-hierarchy-attention-icon {
+  color: #fbbf24;
+  margin-left: auto;
+}
+
+.rrhh-hierarchy-section-body {
+  display: grid;
+  gap: 18px;
+  padding: 0 20px 20px;
+}
+
+.rrhh-subgroup {
+  display: grid;
+  gap: 12px;
+}
+
+.rrhh-subgroup-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #cbd5e1;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 @media (max-width: 900px) {
