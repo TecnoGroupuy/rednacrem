@@ -1,19 +1,24 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { MapContainer, Pane, Polygon, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import BaseMarker from './BaseMarker.jsx';
 import VehicleMarker from './VehicleMarker.jsx';
 
-const COVERAGE_COLOR = '#f97316';
+// Verde azulado (teal), elegido para que se distinga con claridad del verde
+// amarillento que usa OpenStreetMap para parques/areas verdes (ej. Isla de
+// Flores en la captura de referencia).
+const COVERAGE_COLOR = '#0d9488';
 const COVERAGE_NOTICE = 'Área de cobertura de SU Emergencia — Fuente: material institucional oficial de la cooperativa. Aproximación visual, no representa límites cartográficos exactos.';
 
 // Trazado manual suministrado a partir del material institucional; no es un archivo GIS.
-// 16 vértices y repetición de Toledo para cerrar el polígono, en el orden indicado.
+// Segunda vuelta (2026-09-06) comparando contra el folleto oficial: saca
+// Neptunia, El Pinar y Gral. Líber Seregni (el folleto los muestra sin
+// sombrear) y reordena el borde este para pegarse a la costa real
+// (Atlántida -> Parque del Plata -> Costa Azul -> La Floresta) en vez de
+// cortar tierra adentro antes de tiempo.
 const COVERAGE_POLYGON = [
   [-34.7403, -56.0925], // Toledo
-  [-34.7534, -56.0724], // Casarino
   [-34.7338, -56.0327], // Joaquín Suárez
-  [-34.7534, -56.0009], // Barros Blancos
   [-34.7184, -55.9627], // Pando
   [-34.6924, -55.8983], // Empalme Olmos
   [-34.6836, -55.7022], // Soca
@@ -23,9 +28,8 @@ const COVERAGE_POLYGON = [
   [-34.7506, -55.7099], // Parque del Plata
   [-34.7796, -55.7569], // Atlántida
   [-34.7761, -55.8487], // Salinas
-  [-34.7869, -55.8798], // Neptunia
-  [-34.7963, -55.9096], // El Pinar
-  [-34.8183, -56.0155], // Gral. Líber Seregni
+  [-34.7534, -56.0009], // Barros Blancos
+  [-34.7534, -56.0724], // Casarino
   [-34.7403, -56.0925], // Cierre en Toledo
 ];
 
@@ -84,6 +88,8 @@ export default function MonitorMap({
   const [showCoverage, setShowCoverage] = useState(true);
   const [isLegendExpanded, setIsLegendExpanded] = useState(false);
 
+  const baseById = useMemo(() => Object.fromEntries(bases.map((base) => [base.id, base])), [bases]);
+
   return (
     <div className="monitor-map-area">
       <MapContainer
@@ -102,7 +108,7 @@ export default function MonitorMap({
           {showCoverage && (
             <Polygon
               positions={COVERAGE_POLYGON}
-              pathOptions={{ color: COVERAGE_COLOR, fillColor: COVERAGE_COLOR, fillOpacity: 0.12, opacity: 0.9, weight: 2 }}
+              pathOptions={{ color: COVERAGE_COLOR, fillColor: COVERAGE_COLOR, fillOpacity: 0.16, opacity: 0.9, weight: 2 }}
             >
               <Tooltip sticky opacity={1}>
                 <div style={{ maxWidth: 280, whiteSpace: 'normal' }}>{COVERAGE_NOTICE}</div>
@@ -114,14 +120,19 @@ export default function MonitorMap({
         {bases.map((base) => (
           <BaseMarker key={base.id} base={base} onClick={onBaseClick} />
         ))}
-        {vehicles.map((vehicle) => (
-          <VehicleMarker
-            key={vehicle.id}
-            vehicle={vehicle}
-            servicio={serviciosActivos.find((servicio) => servicio.vehiculo_id === vehicle.id) || null}
-            onClick={onVehicleClick}
-          />
-        ))}
+        {vehicles.map((vehicle) => {
+          const base = baseById[vehicle.base_id];
+          const sideOffset = base && vehicle.lng !== base.lng ? Math.sign(vehicle.lng - base.lng) : 1;
+          return (
+            <VehicleMarker
+              key={vehicle.id}
+              vehicle={vehicle}
+              servicio={serviciosActivos.find((servicio) => servicio.vehiculo_id === vehicle.id) || null}
+              onClick={onVehicleClick}
+              sideOffset={sideOffset}
+            />
+          );
+        })}
       </MapContainer>
 
       <div className="map-legend" style={{ maxHeight: 'calc(100% - 32px)', maxWidth: 'calc(100% - 32px)', overflowY: 'auto', boxSizing: 'border-box' }}>

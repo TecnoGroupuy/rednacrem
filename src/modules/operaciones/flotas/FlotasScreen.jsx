@@ -6,6 +6,7 @@ import VehiculoDetail from './VehiculoDetail.jsx';
 import {
   listVehiculos,
   listBases,
+  createBase,
   listVehiculoDocumentosVencimientos,
   createVehiculo,
   updateVehiculo,
@@ -308,6 +309,13 @@ export default function FlotasScreen({ Button, Panel, Tag }) {
     }
   };
 
+  const handleQuickCreateBase = async (nombre) => {
+    const created = await createBase({ nombre });
+    if (!created) throw new Error('El backend no devolvio la base creada.');
+    setBases((prev) => [...prev, created]);
+    return created;
+  };
+
   const handleStatusChange = async (vehiculoId, nextStatus) => {
     if (!statusOptions.includes(nextStatus)) return;
     try {
@@ -466,6 +474,8 @@ export default function FlotasScreen({ Button, Panel, Tag }) {
           errors={vehiculoErrors}
           saving={formSaving}
           formError={formError}
+          setFormError={setFormError}
+          onCreateBase={handleQuickCreateBase}
           onClose={() => setVehiculoFormOpen(false)}
           onSubmit={saveVehiculo}
         />

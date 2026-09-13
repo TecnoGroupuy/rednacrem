@@ -1,5 +1,7 @@
 import React from 'react';
 
+const QUICK_CREATE_BASE_VALUE = '__quick_create_base__';
+
 export default function VehiculoForm({
   Button,
   draft,
@@ -9,11 +11,37 @@ export default function VehiculoForm({
   errors,
   saving,
   formError,
+  setFormError,
+  onCreateBase,
   onClose,
   onSubmit
 }) {
+  const [quickCreateBaseOpen, setQuickCreateBaseOpen] = React.useState(false);
+  const [quickCreateBaseNombre, setQuickCreateBaseNombre] = React.useState('');
+  const [quickCreateBaseSaving, setQuickCreateBaseSaving] = React.useState(false);
+
   const setField = (field, value) => {
     setDraft((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const closeQuickCreateBase = () => {
+    setQuickCreateBaseOpen(false);
+    setQuickCreateBaseNombre('');
+  };
+
+  const handleQuickCreateBaseSubmit = async () => {
+    const nombre = quickCreateBaseNombre.trim();
+    if (!nombre) return;
+    setQuickCreateBaseSaving(true);
+    try {
+      const created = await onCreateBase(nombre);
+      setField('base_id', created.id);
+      closeQuickCreateBase();
+    } catch (err) {
+      setFormError(err?.message || 'No se pudo crear la base.');
+    } finally {
+      setQuickCreateBaseSaving(false);
+    }
   };
 
   return (
@@ -67,9 +95,20 @@ export default function VehiculoForm({
           </label>
           <label>
             <span>Base</span>
-            <select value={draft.base_id} onChange={(event) => setField('base_id', event.target.value)}>
+            <select
+              value={draft.base_id}
+              onChange={(event) => {
+                const value = event.target.value;
+                if (value === QUICK_CREATE_BASE_VALUE) {
+                  setQuickCreateBaseOpen(true);
+                  return;
+                }
+                setField('base_id', value);
+              }}
+            >
               <option value="">Seleccionar base</option>
               {bases.map((base) => <option key={base.id} value={base.id}>{base.nombre}</option>)}
+              <option value={QUICK_CREATE_BASE_VALUE}>+ Crear nueva base...</option>
             </select>
             {errors.base_id ? <small>{errors.base_id}</small> : null}
           </label>
@@ -94,6 +133,26 @@ export default function VehiculoForm({
             <span>Es backup</span>
           </label>
         </div>
+
+        {quickCreateBaseOpen ? (
+          <div className="flotas-inline-form">
+            <label>
+              <span>Nombre de la nueva base</span>
+              <input
+                autoFocus
+                value={quickCreateBaseNombre}
+                onChange={(event) => setQuickCreateBaseNombre(event.target.value)}
+                placeholder="Ej: Pando"
+              />
+            </label>
+            <div className="flotas-inline-actions">
+              <Button variant="ghost" onClick={closeQuickCreateBase} disabled={quickCreateBaseSaving}>Cancelar</Button>
+              <Button onClick={handleQuickCreateBaseSubmit} disabled={quickCreateBaseSaving || !quickCreateBaseNombre.trim()}>
+                {quickCreateBaseSaving ? 'Creando...' : 'Crear base'}
+              </Button>
+            </div>
+          </div>
+        ) : null}
 
         {formError ? <div style={{ color: '#b91c1c', padding: '8px 0' }}>{formError}</div> : null}
 

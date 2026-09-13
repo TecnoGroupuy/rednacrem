@@ -87,3 +87,8 @@ export async function listBases() {
   const response = await api.get('/operaciones/bases');
   return response?.items || [];
 }
+
+export async function createBase(payload) {
+  const response = await api.post('/operaciones/bases', payload);
+  return response?.item || null;
+}

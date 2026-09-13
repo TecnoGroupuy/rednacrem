@@ -1802,7 +1802,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     reader.onload = () => {
       const buffer = reader.result;
       let text = new TextDecoder('utf-8').decode(buffer);
-      if (text.includes('\ufffd') || /Ã[©±³¡­\u009a\u00ba]/.test(text)) {
+      if (text.includes('\ufffd') || /\u00c3[\u00a9\u00b1\u00b3\u00a1\u00ad\u009a\u00ba]/.test(text)) {
         text = new TextDecoder('windows-1252').decode(buffer);
       }
       text = text.replace(/^\uFEFF/, '');
