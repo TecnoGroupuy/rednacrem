@@ -109,6 +109,17 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const [lotesLoading, setLotesLoading] = React.useState(false);
   const [lotesError, setLotesError] = React.useState('');
   const [lotesMetrics, setLotesMetrics] = React.useState({});
+  const [showCreateLoteModal, setShowCreateLoteModal] = React.useState(false);
+  const [createLoteNombre, setCreateLoteNombre] = React.useState('');
+  const [createLoteSaving, setCreateLoteSaving] = React.useState(false);
+  const [createLoteError, setCreateLoteError] = React.useState('');
+  const [addDataOpen, setAddDataOpen] = React.useState(false);
+  const [addDataContacts, setAddDataContacts] = React.useState([]);
+  const [addDataLoading, setAddDataLoading] = React.useState(false);
+  const [addDataError, setAddDataError] = React.useState('');
+  const [addDataSelectedIds, setAddDataSelectedIds] = React.useState([]);
+  const [addDataSaving, setAddDataSaving] = React.useState(false);
+  const [cerrarLoteLoading, setCerrarLoteLoading] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState('disponibles');
   const [segmentoRecupero, setSegmentoRecupero] = React.useState('prioritario'); // 'prioritario' | 'resto'
   const prioritarioCutoffDate = React.useMemo(() => {
@@ -797,6 +808,110 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     setAddSellerTarget('');
     setAddSellerError('');
   }, []);
+
+  const closeCreateLoteModal = React.useCallback(() => {
+    setShowCreateLoteModal(false);
+    setCreateLoteNombre('');
+    setCreateLoteError('');
+  }, []);
+
+  const handleCreateLoteVacio = React.useCallback(async () => {
+    const nombre = createLoteNombre.trim();
+    if (!nombre) return;
+    setCreateLoteSaving(true);
+    setCreateLoteError('');
+    try {
+      // TODO: migrar a /recovery/* — POST /api/recupero/lotes no crea una fila en
+      // lead_batches, así que un lote sin contactos no va a listarse hoy en
+      // GET /api/recupero/lotes hasta que se resuelva esa migración.
+      await api.post('/api/recupero/lotes', { nombre, contact_ids: [], seller_ids: [] });
+      closeCreateLoteModal();
+      loadLotesCreados();
+    } catch (err) {
+      setCreateLoteError(err?.message || 'No se pudo crear el lote.');
+    } finally {
+      setCreateLoteSaving(false);
+    }
+  }, [api, closeCreateLoteModal, createLoteNombre, loadLotesCreados]);
+
+  const openAddDataModal = React.useCallback(async () => {
+    if (!loteSeleccionado?.id) return;
+    setAddDataOpen(true);
+    setAddDataError('');
+    setAddDataSelectedIds([]);
+    setAddDataLoading(true);
+    try {
+      const response = await api.post('/api/recupero/contactos/search', {
+        tab: 'disponibles',
+        filters: {},
+        page: 1,
+        limit: 100
+      });
+      const rows = response?.items || response?.data?.items || [];
+      setAddDataContacts(Array.isArray(rows) ? rows : []);
+    } catch (err) {
+      setAddDataError(err?.message || 'No se pudieron cargar los contactos disponibles.');
+      setAddDataContacts([]);
+    } finally {
+      setAddDataLoading(false);
+    }
+  }, [api, loteSeleccionado?.id]);
+
+  const closeAddDataModal = React.useCallback(() => {
+    setAddDataOpen(false);
+    setAddDataContacts([]);
+    setAddDataSelectedIds([]);
+    setAddDataError('');
+  }, []);
+
+  const toggleAddDataSelection = React.useCallback((id) => {
+    setAddDataSelectedIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
+  }, []);
+
+  const handleConfirmAddData = React.useCallback(async () => {
+    if (!loteSeleccionado?.id || !addDataSelectedIds.length) return;
+    setAddDataSaving(true);
+    setAddDataError('');
+    try {
+      const sellerIds = (loteSeleccionado?.vendedores || []).map((seller) => seller?.id).filter(Boolean);
+      // TODO: no existe hoy un endpoint que vincule contactos a un lote de Recupero
+      // ya creado (batch_id). Como mejor esfuerzo, se asignan al mismo vendedor del
+      // lote — falta la vinculación formal cuando el backend la soporte.
+      await api.post('/api/recupero/lotes', {
+        nombre: loteSeleccionado?.nombre || getAssignmentLotName(),
+        contact_ids: addDataSelectedIds,
+        seller_ids: sellerIds
+      });
+      closeAddDataModal();
+      await refreshSelectedLot(loteSeleccionado.id);
+      await loadLotesCreados();
+    } catch (err) {
+      setAddDataError(err?.message || 'No se pudo agregar los datos al lote.');
+    } finally {
+      setAddDataSaving(false);
+    }
+  }, [addDataSelectedIds, api, closeAddDataModal, loadLotesCreados, loteSeleccionado, refreshSelectedLot]);
+
+  const handleCerrarLote = React.useCallback(async () => {
+    if (!loteSeleccionado?.id) return;
+    setCerrarLoteLoading(true);
+    setSellerMutationFeedback({ type: '', message: '' });
+    try {
+      // TODO: confirmar que este lote tenga una fila real en lead_batches — si no,
+      // este PUT no tiene efecto (ver auditoría de backend sobre POST /api/recupero/lotes).
+      await api.put(`/lead-batches/${loteSeleccionado.id}`, { estado: 'finalizado' });
+      setSellerMutationFeedback({ type: 'success', message: 'Lote cerrado.' });
+      await refreshSelectedLot(loteSeleccionado.id);
+      await loadLotesCreados();
+    } catch (err) {
+      setSellerMutationFeedback({
+        type: 'error',
+        message: err?.message || 'No se pudo cerrar el lote (el backend puede no soportarlo todavía para Recupero).'
+      });
+    } finally {
+      setCerrarLoteLoading(false);
+    }
+  }, [api, loadLotesCreados, loteSeleccionado, refreshSelectedLot]);
 
   const openRemoveSellerModal = React.useCallback((payload, options = {}) => {
     setRemoveModal(payload);
@@ -2023,6 +2138,9 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
 
           {vistaActual === 'lotes' && (
             <div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+                <Button onClick={() => setShowCreateLoteModal(true)}>+ Crear lote</Button>
+              </div>
               {lotesLoading ? <div style={{ marginBottom: 12, color: 'var(--muted)' }}>Cargando lotes...</div> : null}
               {lotesError ? <div style={{ marginBottom: 12, color: '#b91c1c', fontWeight: 700 }}>{lotesError}</div> : null}
               {!lotesLoading && !lotesCreados.length ? (
@@ -2055,9 +2173,11 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                     ? Math.round((totalGestionados / totalContactos) * 100)
                     : 0;
                   const isCompletado = totalContactos > 0 && totalGestionados >= totalContactos;
-                  const estadoBadge = isCompletado
-                    ? { label: 'Completado', bg: 'rgba(148,163,184,0.22)', color: 'var(--color-text-secondary)' }
-                    : { label: 'Activo', bg: 'rgba(15,118,110,0.10)', color: '#0F766E' };
+                  const manualEstado = String(lote?.estado || lote?.status || '').toLowerCase();
+                  const isCerrado = manualEstado === 'finalizado' || manualEstado === 'cerrado' || isCompletado;
+                  const estadoBadge = isCerrado
+                    ? { label: 'Cerrado', bg: 'rgba(148,163,184,0.22)', color: 'var(--color-text-secondary)' }
+                    : { label: 'Abierto', bg: '#E1F5EE', color: '#0F6E56' };
 
                   const openDetalle = () => {
                     openLotDetail(lote);
@@ -2175,15 +2295,31 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                   >
                     ← Volver a lotes
                   </button>
-                  <div style={{ fontSize: 10, opacity: 0.45, color: 'var(--color-text-secondary)', paddingLeft: 2 }}>
-                    diag build e6013ab-mark
-                  </div>
                 </div>
 
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <button
                     type="button"
-                    disabled
+                    onClick={openAddDataModal}
+                    disabled={!loteSeleccionado?.id}
+                    style={{
+                      background: '#E1F5EE',
+                      border: '1px solid #5DCAA5',
+                      borderRadius: 8,
+                      padding: '7px 14px',
+                      fontSize: 13,
+                      fontWeight: 800,
+                      cursor: loteSeleccionado?.id ? 'pointer' : 'not-allowed',
+                      color: '#0F6E56',
+                      opacity: loteSeleccionado?.id ? 1 : 0.7
+                    }}
+                  >
+                    Agregar datos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCerrarLote}
+                    disabled={!loteSeleccionado?.id || cerrarLoteLoading}
                     style={{
                       background: '#fff',
                       border: '1px solid rgba(148,163,184,0.55)',
@@ -2191,12 +2327,12 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                       padding: '7px 14px',
                       fontSize: 13,
                       fontWeight: 800,
-                      cursor: 'not-allowed',
-                      color: 'var(--color-text-secondary)',
-                      opacity: 0.7
+                      cursor: loteSeleccionado?.id ? 'pointer' : 'not-allowed',
+                      color: 'var(--color-text-primary)',
+                      opacity: loteSeleccionado?.id ? 1 : 0.7
                     }}
                   >
-                    Agregar datos
+                    {cerrarLoteLoading ? 'Cerrando...' : 'Cerrar lote'}
                   </button>
                   <button
                     type="button"
@@ -2248,9 +2384,11 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                   + Number(informe?.total_incontactables || 0);
                 const pctAvance = totalContactos > 0 ? Math.round((totalGestionados / totalContactos) * 100) : 0;
                 const isCompletado = totalContactos > 0 && totalGestionados >= totalContactos;
-                const statusBadge = isCompletado
-                  ? { label: 'Completado', bg: '#E1F5EE', color: '#0F6E56' }
-                  : { label: 'Activo', bg: '#FAEEDA', color: '#854F0B' };
+                const manualEstadoDetalle = String(loteSeleccionado?.estado || loteSeleccionado?.status || '').toLowerCase();
+                const isCerradoDetalle = manualEstadoDetalle === 'finalizado' || manualEstadoDetalle === 'cerrado' || isCompletado;
+                const statusBadge = isCerradoDetalle
+                  ? { label: 'Cerrado', bg: 'rgba(148,163,184,0.22)', color: 'var(--color-text-secondary)' }
+                  : { label: 'Abierto', bg: '#E1F5EE', color: '#0F6E56' };
                 return (
                   <div style={{
                     border: '1px solid rgba(148,163,184,0.35)',
@@ -3312,6 +3450,97 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
 
         </Panel>
       </section>
+
+      {showCreateLoteModal && (
+        <div className="lot-wizard-overlay" onClick={closeCreateLoteModal}>
+          <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 420 }}>
+            <div className="lot-wizard-header">
+              <div style={{ fontWeight: 700 }}>Crear lote</div>
+              <button className="close-btn" onClick={closeCreateLoteModal}><X size={16} /></button>
+            </div>
+            <div className="lot-wizard-content">
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Nombre del lote</span>
+                <input
+                  className="input"
+                  autoFocus
+                  value={createLoteNombre}
+                  onChange={(event) => { setCreateLoteNombre(event.target.value); setCreateLoteError(''); }}
+                  placeholder="Ej: Sin liquidez"
+                />
+              </label>
+              {createLoteError ? (
+                <div style={{ marginTop: 12, fontSize: 12, color: '#b91c1c', fontWeight: 700 }}>
+                  {createLoteError}
+                </div>
+              ) : null}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '0 24px 24px' }}>
+              <Button variant="ghost" onClick={closeCreateLoteModal}>Cancelar</Button>
+              <Button onClick={handleCreateLoteVacio} disabled={!createLoteNombre.trim() || createLoteSaving}>
+                {createLoteSaving ? 'Creando...' : 'Crear lote'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {addDataOpen && (
+        <div className="lot-wizard-overlay" onClick={closeAddDataModal}>
+          <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 560 }}>
+            <div className="lot-wizard-header">
+              <div style={{ fontWeight: 700 }}>Agregar datos al lote</div>
+              <button className="close-btn" onClick={closeAddDataModal}><X size={16} /></button>
+            </div>
+            <div className="lot-wizard-content">
+              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 12 }}>
+                Lote: <strong>{loteSeleccionado?.nombre || '-'}</strong> · Seleccionados: <strong>{addDataSelectedIds.length}</strong>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 12, background: 'var(--color-background-secondary)', borderRadius: 8, padding: '8px 10px' }}>
+                Estos contactos se asignan al mismo vendedor del lote. La vinculación formal al lote
+                como entidad está pendiente de una migración de backend.
+              </div>
+              {addDataError ? (
+                <div style={{ marginBottom: 12, fontSize: 12, color: '#b91c1c', fontWeight: 700 }}>
+                  {addDataError}
+                </div>
+              ) : null}
+              <div style={{ maxHeight: 320, overflowY: 'auto', border: '0.5px solid var(--color-border-tertiary)', borderRadius: 10 }}>
+                {addDataLoading ? (
+                  <div style={{ padding: 16, color: 'var(--color-text-secondary)' }}>Cargando contactos disponibles...</div>
+                ) : addDataContacts.length === 0 ? (
+                  <div style={{ padding: 16, color: 'var(--color-text-secondary)' }}>No hay contactos disponibles.</div>
+                ) : (
+                  addDataContacts.map((contact) => (
+                    <label
+                      key={contact.id}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderBottom: '0.5px solid var(--color-border-tertiary)', cursor: 'pointer' }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={addDataSelectedIds.includes(contact.id)}
+                        onChange={() => toggleAddDataSelection(contact.id)}
+                      />
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)' }}>{getContactoNombre(contact)}</div>
+                        <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                          {contact.producto_anterior || contact.nombre_producto || '—'} · {contact.fecha_baja ? formatDate(contact.fecha_baja) : '—'}
+                        </div>
+                      </div>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '0 24px 24px' }}>
+              <Button variant="ghost" onClick={closeAddDataModal}>Cancelar</Button>
+              <Button onClick={handleConfirmAddData} disabled={!addDataSelectedIds.length || addDataSaving}>
+                {addDataSaving ? 'Agregando...' : `Agregar (${addDataSelectedIds.length})`}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {addSellerOpen && (
         <div className="lot-wizard-overlay" onClick={closeAddSellerModal}>
