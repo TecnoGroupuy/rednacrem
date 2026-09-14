@@ -3288,11 +3288,11 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                     />
                   </th>
                   <th style={recuperoThStyle}>Contacto</th>
-                  <th style={recuperoThStyle}>Producto anterior</th>
+                  <th style={recuperoThStyle}>Producto</th>
                   <th style={recuperoThStyle}>Motivo de baja</th>
                   <th style={recuperoThStyle}>Fecha de baja</th>
                   <th style={recuperoThStyle}>Vendedor origen</th>
-                  <th style={recuperoThStyle}>Acciones</th>
+                  <th style={{ ...recuperoThStyle, width: 56, whiteSpace: 'nowrap' }}>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -3339,9 +3339,6 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                                 style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', textAlign: 'left' }}
                               >
                                 <div style={{ fontWeight: 700, color: 'var(--color-text-primary)' }}>{nombre}</div>
-                                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                                  {[formatTelefono(row.telefono), formatTelefono(row.celular)].filter(Boolean).filter((v, i, arr) => arr.indexOf(v) === i).join(' · ') || '—'}
-                                </div>
                               </button>
                             </div>
                           </div>
@@ -3375,7 +3372,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                             </span>
                           )}
                         </td>
-                        <td style={recuperoTdStyle}>
+                        <td style={{ ...recuperoTdStyle, width: 56, whiteSpace: 'nowrap' }}>
                           <div data-row-menu style={{ position: 'relative', display: 'inline-block' }}>
                             <button
                               type="button"
@@ -3443,7 +3440,11 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                                   </div>
                                   <div>
                                     <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Teléfono</div>
-                                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{row.telefono || row.celular || row.phone || '—'}</div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{formatTelefono(row.telefono) || formatTelefono(row.celular) || row.phone || '—'}</div>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Producto</div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{row.nombre_producto || row.producto_anterior || '—'}</div>
                                   </div>
                                   <div>
                                     <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Precio</div>
@@ -3462,8 +3463,8 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                                     <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{row.forma_pago || row.medio_pago || row.medioPago || '—'}</div>
                                   </div>
                                   <div>
-                                    <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Vendedor original</div>
-                                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{row.vendedor_original || row.vendedorOriginal || row.vendedor_asignado_original || '—'}</div>
+                                    <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Vendedor origen</div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{row.vendedor_origen || '—'}</div>
                                   </div>
                                   <div>
                                     <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Fecha de alta original</div>
