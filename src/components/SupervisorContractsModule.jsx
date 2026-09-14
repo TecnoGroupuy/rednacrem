@@ -110,6 +110,18 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const [lotesError, setLotesError] = React.useState('');
   const [lotesMetrics, setLotesMetrics] = React.useState({});
   const [activeTab, setActiveTab] = React.useState('disponibles');
+  const [segmentoRecupero, setSegmentoRecupero] = React.useState('prioritario'); // 'prioritario' | 'resto'
+  const prioritarioCutoffDate = React.useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - RECUPERO_PRIORITARIO_MESES);
+    return cutoff.toISOString().slice(0, 10);
+  }, []);
+  const restoCutoffDate = React.useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - RECUPERO_PRIORITARIO_MESES);
+    cutoff.setDate(cutoff.getDate() - 1);
+    return cutoff.toISOString().slice(0, 10);
+  }, []);
   const [tabCounts, setTabCounts] = React.useState({
     disponibles: 0,
     nuevo: 0,
@@ -200,17 +212,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const visibleItems = React.useMemo(() => (
     Array.isArray(items) ? items.map(normalizeRecuperoRow) : []
   ), [items, normalizeRecuperoRow]);
-
-  const tabsOperativos = [
-    { key: 'disponibles', label: 'Disponibles' },
-    { key: 'nuevo', label: 'Nuevo' },
-    { key: 'no_contesta', label: 'No contesta' },
-    { key: 'rellamar', label: 'Rellamar' },
-    { key: 'seguimiento', label: 'Seguimiento' },
-    { key: 'rechazados', label: 'Rechazos' },
-    { key: 'dato_erroneo', label: 'Dato erróneo' },
-    { key: 'recuperados', label: 'Recuperados' },
-  ];
 
   const allColumns = React.useMemo(() => ([
     { id: 'contacto', label: 'Contacto', required: true },
@@ -939,6 +940,16 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   };
 
   const buildFiltersPayload = React.useCallback(() => {
+    const manualDesde = columnFiltersApplied.fecha_baja_desde || '';
+    const manualHasta = columnFiltersApplied.fecha_baja_hasta || '';
+    // Segmentación Prioritario (bajas <= 3 meses) / Resto de la cartera: se combina
+    // con el filtro manual de fecha_baja tomando el corte más restrictivo de cada lado.
+    const fechaBajaDesde = vistaActual === 'recupero' && segmentoRecupero === 'prioritario'
+      ? [manualDesde, prioritarioCutoffDate].filter(Boolean).sort().pop()
+      : manualDesde;
+    const fechaBajaHasta = vistaActual === 'recupero' && segmentoRecupero === 'resto'
+      ? [manualHasta, restoCutoffDate].filter(Boolean).sort()[0]
+      : manualHasta;
     const payload = {
       contacto: columnFiltersApplied.contacto?.trim() || '',
       documento: columnFiltersApplied.documento?.trim() || '',
@@ -947,8 +958,8 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       edad_max: toNumberOrNull(columnFiltersApplied.edad_max),
       precio_min: toNumberOrNull(columnFiltersApplied.precio_min),
       precio_max: toNumberOrNull(columnFiltersApplied.precio_max),
-      fecha_baja_desde: columnFiltersApplied.fecha_baja_desde || '',
-      fecha_baja_hasta: columnFiltersApplied.fecha_baja_hasta || '',
+      fecha_baja_desde: fechaBajaDesde || '',
+      fecha_baja_hasta: fechaBajaHasta || '',
       motivo_baja: Array.isArray(columnFiltersApplied.motivo_baja) ? columnFiltersApplied.motivo_baja : [],
       ultimo_estado: Array.isArray(columnFiltersApplied.ultimo_estado) ? columnFiltersApplied.ultimo_estado : [],
       producto: Array.isArray(columnFiltersApplied.producto) ? columnFiltersApplied.producto : [],
@@ -962,7 +973,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
       if (Array.isArray(value) && !value.length) delete payload[key];
     });
     return payload;
-  }, [columnFiltersApplied]);
+  }, [columnFiltersApplied, prioritarioCutoffDate, restoCutoffDate, segmentoRecupero, vistaActual]);
 
   const buildSearchPayload = React.useCallback(() => {
     const filters = buildFiltersPayload();
@@ -1097,7 +1108,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
 
   React.useEffect(() => {
     setPage(1);
-  }, [orden, activeTab, sortDir, visibleColumns]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [orden, activeTab, sortDir, visibleColumns, segmentoRecupero]); // eslint-disable-line react-hooks/exhaustive-deps
 
   React.useEffect(() => {
     if (activeTab !== 'disponibles' && selectedIds.length) {
@@ -1913,6 +1924,8 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     if (!assignSellerId) return;
     setCreatingLot(true);
     try {
+      // TODO: migrar a /recovery/* — este endpoint no conecta con lead_batches hoy,
+      // por lo que el lote resultante no aparece en GET /api/recupero/lotes.
       await api.post('/api/recupero/lotes', {
         nombre: getAssignmentLotName(),
         contact_ids: assignContactIds,
@@ -1987,9 +2000,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                 </div>
                 <Button variant="ghost" onClick={() => downloadRowsAsCsv(exportState.rows, exportState.fileName)} disabled={!exportState.rows?.length}>
                   Exportar
-                </Button>
-                <Button onClick={() => { resetImportState(); setShowImportModal(true); }} style={{ background: '#0F766E', color: '#fff' }}>
-                  Importar CSV
                 </Button>
               </div>
             </div>
@@ -2652,100 +2662,40 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-            {tabsOperativos.map((tab) => (
-              (() => {
-                const isActive = activeTab === tab.key;
-                const count = (
-                  tab.key === 'disponibles' ? tabCounts.disponibles
-                    : tab.key === 'nuevo' ? tabCounts.nuevo
-                      : tab.key === 'no_contesta' ? tabCounts.no_contesta
-                        : tab.key === 'rellamar' ? tabCounts.rellamar
-                          : tab.key === 'seguimiento' ? tabCounts.seguimiento
-                            : tab.key === 'rechazados' ? tabCounts.rechazos
-                              : tab.key === 'dato_erroneo' ? tabCounts.dato_erroneo
-                    : tab.key === 'recuperados' ? tabCounts.recuperados
-                                : 0
-                );
-                return (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => setActiveTab(tab.key)}
-                    style={{
-                      padding: '8px 16px',
-                      borderRadius: 8,
-                      border: isActive ? 'none' : '0.5px solid var(--color-border-tertiary)',
-                      background: isActive ? '#0F766E' : '#fff',
-                      color: isActive ? '#fff' : 'var(--color-text-secondary)',
-                      fontWeight: 700,
-                      fontSize: 13,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {tab.label}
-                    <span style={{
-                      fontSize: 11,
-                      padding: '1px 7px',
-                      borderRadius: 10,
-                      marginLeft: 6,
-                      background: isActive ? 'rgba(255,255,255,0.2)' : '#F1EFE8',
-                      color: isActive ? 'white' : '#5F5E5A',
-                      fontWeight: 500
-                    }}>
-                      {Number(count || 0).toLocaleString('es-UY')}
-                    </span>
-                  </button>
-                );
-              })()
-            ))}
+          <div style={{ display: 'flex', gap: 20, borderBottom: '1px solid var(--color-border-tertiary)', marginBottom: 16 }}>
+            {[
+              { key: 'prioritario', label: 'Prioritario', hint: `bajas de los últimos ${RECUPERO_PRIORITARIO_MESES} meses` },
+              { key: 'resto', label: 'Resto de la cartera', hint: 'resto de la cartera' }
+            ].map((segmento) => {
+              const isActive = segmentoRecupero === segmento.key;
+              return (
+                <button
+                  key={segmento.key}
+                  type="button"
+                  onClick={() => setSegmentoRecupero(segmento.key)}
+                  style={{
+                    padding: '10px 2px',
+                    border: 'none',
+                    borderBottom: isActive ? '2px solid #0F766E' : '2px solid transparent',
+                    background: 'transparent',
+                    color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                    fontWeight: isActive ? 700 : 600,
+                    fontSize: 14,
+                    cursor: 'pointer'
+                  }}
+                  title={segmento.hint}
+                >
+                  {segmento.label}
+                </button>
+              );
+            })}
           </div>
-
-          <style>{`
-            @keyframes recuperoImportPulse {
-              0%, 100% {
-                box-shadow: 0 0 0 rgba(56, 189, 248, 0.0), 0 10px 24px rgba(14, 116, 144, 0.20);
-                transform: translateY(0);
-              }
-              50% {
-                box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.12), 0 16px 30px rgba(37, 99, 235, 0.30);
-                transform: translateY(-1px);
-              }
-            }
-            @keyframes recuperoImportSheen {
-              0% { transform: translateX(-140%) skewX(-18deg); opacity: 0; }
-              20% { opacity: 0.32; }
-              60% { opacity: 0.18; }
-              100% { transform: translateX(220%) skewX(-18deg); opacity: 0; }
-            }
-            .button.recupero-import-btn {
-              position: relative;
-              overflow: hidden;
-              border: 1px solid rgba(125, 211, 252, 0.55) !important;
-              background: linear-gradient(135deg, #0f4c81 0%, #2563eb 45%, #38bdf8 100%) !important;
-              color: #f8fbff !important;
-              box-shadow: 0 10px 24px rgba(14, 116, 144, 0.20);
-              animation: recuperoImportPulse 2.8s ease-in-out infinite;
-            }
-            .button.recupero-import-btn svg {
-              color: #dbeafe !important;
-            }
-            .button.recupero-import-btn::before {
-              content: '';
-              position: absolute;
-              inset: 0;
-              background: linear-gradient(100deg, transparent 20%, rgba(255,255,255,0.42) 50%, transparent 80%);
-              animation: recuperoImportSheen 2.6s linear infinite;
-              pointer-events: none;
-            }
-            .button.recupero-import-btn:hover {
-              filter: brightness(1.05);
-              transform: translateY(-1px);
-            }
-          `}</style>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: 12, flexWrap: 'wrap' }}>
             <div className="toolbar" style={{ gap: 10, marginBottom: 0, alignItems: 'center', flexWrap: 'wrap' }}>
+              <Button onClick={() => { resetImportState(); setShowImportModal(true); }} icon={<Upload size={16} />} style={{ background: '#0F766E', color: '#fff' }}>
+                Importar CSV
+              </Button>
               {activeFilterCount > 0 && (
                 <Button variant="ghost" icon={<Filter size={16} />} onClick={clearAllFilters}>
                   Limpiar filtros
@@ -3150,7 +3100,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                   <th style={{ textAlign: 'left' }}>Motivo de baja</th>
                   <th style={{ textAlign: 'left' }}>Fecha de baja</th>
                   <th style={{ textAlign: 'left' }}>Vendedor origen</th>
-                  <th style={{ textAlign: 'left' }}>Estado</th>
                   <th style={{ textAlign: 'left' }}>Acciones</th>
                 </tr>
               </thead>
@@ -3159,7 +3108,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                   const nombre = getContactoNombre(row);
                   const initials = nombre.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
                   const motivoInfo = getMotivoInfo(row);
-                  const estadoBadge = getEstadoBadge(row);
                   const fechaBaja = row.fecha_baja || row.fechaBaja || null;
                   const isExpanded = String(expandedRowId) === String(row.id);
                   const toggleExpand = () => setExpandedRowId((prev) => (String(prev) === String(row.id) ? null : row.id));
@@ -3226,20 +3174,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                         </td>
                         <td style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
                           {row.vendedor_origen || '—'}
-                        </td>
-                        <td>
-                          <span style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            padding: '4px 10px',
-                            borderRadius: 999,
-                            background: estadoBadge.bg,
-                            color: estadoBadge.color,
-                            fontSize: 12,
-                            fontWeight: 700
-                          }}>
-                            {estadoBadge.label}
-                          </span>
                         </td>
                         <td>
                           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
