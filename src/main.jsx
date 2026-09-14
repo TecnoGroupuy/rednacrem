@@ -9113,6 +9113,12 @@ const formatCurrency = (value) => {
       const [addSellerError, setAddSellerError] = React.useState('');
       const [redistributeLoadingState, setRedistributeLoadingState] = React.useState('');
       const [redistributeFeedback, setRedistributeFeedback] = React.useState({ type: '', message: '' });
+      const [assignPoolOpen, setAssignPoolOpen] = React.useState(false);
+      const [assignPoolSelectedContactIds, setAssignPoolSelectedContactIds] = React.useState([]);
+      const [assignPoolSelectedSellerIds, setAssignPoolSelectedSellerIds] = React.useState([]);
+      const [assignPoolEstadoFilter, setAssignPoolEstadoFilter] = React.useState('todos');
+      const [assignPoolLoading, setAssignPoolLoading] = React.useState(false);
+      const [assignPoolError, setAssignPoolError] = React.useState('');
       const [addDataToLotOpen, setAddDataToLotOpen] = React.useState(false);
       const [addDataWizardStep, setAddDataWizardStep] = React.useState(1);
       const [addDataSelected, setAddDataSelected] = React.useState([]); // contact ids seleccionados
@@ -10228,6 +10234,124 @@ const formatCurrency = (value) => {
         }
       };
 
+      const ASSIGN_POOL_STATES = ['nuevo', 'no_contesta', 'rellamar', 'seguimiento'];
+
+      const getContactEstado = (c) => String(c?.status ?? c?.estado_venta ?? '').toLowerCase();
+      const getContactSellerId = (c) => (
+        c?.seller_id ?? c?.sellerId ?? c?.assignedToId ?? c?.assigned_to ?? c?.vendedor_id ?? c?.vendedorId ?? null
+      );
+
+      const assignPoolFreeContacts = React.useMemo(() => {
+        if (!selectedLot) return [];
+        return (selectedLot.contacts || []).filter((c) => (
+          ASSIGN_POOL_STATES.includes(getContactEstado(c)) && !getContactSellerId(c)
+        ));
+      }, [selectedLot]);
+
+      const assignPoolVisibleContacts = React.useMemo(() => (
+        assignPoolEstadoFilter === 'todos'
+          ? assignPoolFreeContacts
+          : assignPoolFreeContacts.filter((c) => getContactEstado(c) === assignPoolEstadoFilter)
+      ), [assignPoolFreeContacts, assignPoolEstadoFilter]);
+
+      const openAssignPoolModal = React.useCallback(() => {
+        setAssignPoolSelectedContactIds([]);
+        setAssignPoolSelectedSellerIds([]);
+        setAssignPoolEstadoFilter('todos');
+        setAssignPoolError('');
+        setAssignPoolOpen(true);
+      }, []);
+
+      const closeAssignPoolModal = React.useCallback(() => {
+        setAssignPoolOpen(false);
+        setAssignPoolSelectedContactIds([]);
+        setAssignPoolSelectedSellerIds([]);
+        setAssignPoolError('');
+      }, []);
+
+      const toggleAssignPoolContact = (id) => {
+        setAssignPoolSelectedContactIds((prev) => (
+          prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+        ));
+      };
+
+      const toggleAssignPoolSeller = (id) => {
+        setAssignPoolSelectedSellerIds((prev) => (
+          prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+        ));
+      };
+
+      const toggleAssignPoolSelectAllVisible = () => {
+        const visibleIds = assignPoolVisibleContacts.map((c) => c.id);
+        setAssignPoolSelectedContactIds((prev) => {
+          const allSelected = visibleIds.length > 0 && visibleIds.every((id) => prev.includes(id));
+          if (allSelected) return prev.filter((id) => !visibleIds.includes(id));
+          return Array.from(new Set([...prev, ...visibleIds]));
+        });
+      };
+
+      const confirmAssignPool = async () => {
+        if (!selectedLot?.id) return;
+        if (!assignPoolSelectedContactIds.length || !assignPoolSelectedSellerIds.length) return;
+        setAssignPoolLoading(true);
+        setAssignPoolError('');
+        try {
+          // TODO: esperar endpoint assign-pool (tarea de backend, POST /lead-batches/:id/assign-pool
+          // todavía no existe). Este fetch va a fallar con 404 hasta que se aplique esa tarea.
+          const res = await fetch(buildApiUrl(`/lead-batches/${selectedLot.id}/assign-pool`, getApiBaseUrl()), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(accessToken) },
+            body: JSON.stringify({
+              contact_ids: assignPoolSelectedContactIds,
+              seller_ids: assignPoolSelectedSellerIds
+            })
+          });
+          let data = null;
+          try {
+            data = await res.json();
+          } catch {
+            throw new Error(`El servidor respondió con un error (${res.status}). El endpoint assign-pool todavía no está disponible.`);
+          }
+          if (res.status === 404) {
+            throw new Error('El endpoint assign-pool todavía no está disponible en el backend (ver TODO en el código).');
+          }
+          if (!res.ok || !data?.ok) {
+            throw new Error(data?.message || `No se pudo asignar los contactos seleccionados (${res.status}).`);
+          }
+
+          if (data.distribution?.length) {
+            setSelectedLotOverride((prev) => {
+              const base = prev && String(prev.id) === String(selectedLot.id) ? prev : selectedLot;
+              return applyDistributionToLot(base, data.distribution);
+            });
+          }
+
+          const unassigned = Array.isArray(data.unassigned_contact_ids)
+            ? data.unassigned_contact_ids
+            : (Array.isArray(data.skipped_contact_ids) ? data.skipped_contact_ids : []);
+
+          const lotId = selectedLot.id;
+          setSelectedLotOverride(null);
+          if (typeof fetchLots === 'function') {
+            await fetchLots();
+          }
+          setSelectedLotId(lotId);
+
+          if (unassigned.length) {
+            setAssignPoolError(
+              `${unassigned.length} contacto(s) no se pudieron asignar (probablemente tomados por otra acción mientras tanto). El resto se asignó correctamente.`
+            );
+            setAssignPoolSelectedContactIds(unassigned);
+          } else {
+            closeAssignPoolModal();
+          }
+        } catch (err) {
+          setAssignPoolError(err.message || 'No se pudo asignar los contactos seleccionados.');
+        } finally {
+          setAssignPoolLoading(false);
+        }
+      };
+
       const reactivateErrorNumber = async (id) => {
         await onReactivateError(id);
       };
@@ -10508,6 +10632,12 @@ const formatCurrency = (value) => {
                             onClick={() => setAddSellerOpen(true)}
                             style={{ fontSize: 11, fontWeight: 500, color: '#0F6E56', background: '#E1F5EE', border: '1px solid #5DCAA5', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
                           >+ Agregar vendedor</button>
+                          <button
+                            onClick={openAssignPoolModal}
+                            disabled={!(selectedLot.vendedores?.length)}
+                            style={{ fontSize: 11, fontWeight: 500, color: '#0F6E56', background: '#E1F5EE', border: '1px solid #5DCAA5', borderRadius: 6, padding: '4px 10px', cursor: !(selectedLot.vendedores?.length) ? 'not-allowed' : 'pointer', opacity: !(selectedLot.vendedores?.length) ? 0.6 : 1 }}
+                            title={!(selectedLot.vendedores?.length) ? 'El lote necesita al menos un vendedor asignado' : undefined}
+                          >Asignar datos libres</button>
                         </div>
                       </div>
                       {redistributeFeedback.message ? (
@@ -11438,6 +11568,136 @@ const formatCurrency = (value) => {
                         setReassignLoading(false);
                       }
                     }} disabled={reassignLoading}>Agregar</Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* MODAL: ASIGNAR DATOS LIBRES */}
+            {assignPoolOpen && selectedLot && (
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+                <div style={{ background: '#FFFFFF', borderRadius: 12, padding: 24, width: 720, maxWidth: '92vw', maxHeight: '86vh', display: 'flex', flexDirection: 'column', border: '1px solid rgba(20,34,53,0.12)', boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 4 }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 2 }}>Asignar datos libres</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                        Lote: <strong>{selectedLot.name}</strong> · {assignPoolFreeContacts.length} contacto(s) sin vendedor
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={closeAssignPoolModal}
+                      style={{ background: 'rgba(20,34,53,0.04)', border: '1px solid rgba(20,34,53,0.12)', cursor: 'pointer', color: 'var(--muted)', display: 'flex', alignItems: 'center', padding: 6, borderRadius: 8 }}
+                      title="Cerrar"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  {assignPoolError && (
+                    <div style={{ fontSize: 12, color: '#A32D2D', background: '#FCEBEB', border: '1px solid #F09595', borderRadius: 8, padding: '8px 12px', margin: '10px 0' }}>
+                      {assignPoolError}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '12px 0 8px' }}>
+                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>Filtrar por estado:</span>
+                    {['todos', ...ASSIGN_POOL_STATES].map((estado) => (
+                      <button
+                        key={estado}
+                        type="button"
+                        onClick={() => setAssignPoolEstadoFilter(estado)}
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          padding: '4px 10px',
+                          borderRadius: 999,
+                          cursor: 'pointer',
+                          border: `1px solid ${assignPoolEstadoFilter === estado ? '#1D9E75' : 'rgba(20,34,53,0.14)'}`,
+                          background: assignPoolEstadoFilter === estado ? '#E1F5EE' : '#fff',
+                          color: assignPoolEstadoFilter === estado ? '#0F6E56' : 'var(--muted)'
+                        }}
+                      >
+                        {estado === 'todos' ? 'Todos' : estado.replace('_', ' ')}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div style={{ border: '1px solid rgba(20,34,53,0.1)', borderRadius: 8, overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'rgba(20,34,53,0.03)', borderBottom: '1px solid rgba(20,34,53,0.08)' }}>
+                      <input
+                        type="checkbox"
+                        checked={assignPoolVisibleContacts.length > 0 && assignPoolVisibleContacts.every((c) => assignPoolSelectedContactIds.includes(c.id))}
+                        onChange={toggleAssignPoolSelectAllVisible}
+                        aria-label="Seleccionar todos los contactos visibles"
+                      />
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
+                        Contacto
+                      </span>
+                      <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--muted)' }}>
+                        {assignPoolSelectedContactIds.length} seleccionado(s)
+                      </span>
+                    </div>
+                    <div style={{ overflowY: 'auto', flex: 1 }}>
+                      {assignPoolVisibleContacts.length === 0 ? (
+                        <div style={{ padding: 16, fontSize: 13, color: 'var(--muted)' }}>
+                          No hay contactos libres {assignPoolEstadoFilter !== 'todos' ? `en estado "${assignPoolEstadoFilter}"` : 'en este lote'}.
+                        </div>
+                      ) : assignPoolVisibleContacts.map((c) => (
+                        <label
+                          key={c.id}
+                          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderBottom: '1px solid rgba(20,34,53,0.06)', cursor: 'pointer' }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={assignPoolSelectedContactIds.includes(c.id)}
+                            onChange={() => toggleAssignPoolContact(c.id)}
+                          />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600 }}>{c.name || c.nombre || 'Sin nombre'}</div>
+                            <div style={{ fontSize: 12, color: 'var(--muted)' }}>{c.phone || c.telefono || '—'}</div>
+                          </div>
+                          <SalesStatusBadge status={getContactEstado(c)} small />
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 14 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 6 }}>Vendedor(es) destino</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, maxHeight: 120, overflowY: 'auto' }}>
+                      {(selectedLot.vendedores || []).length === 0 ? (
+                        <div style={{ fontSize: 12, color: 'var(--muted)' }}>Este lote todavía no tiene vendedores asignados.</div>
+                      ) : (selectedLot.vendedores || []).map((v) => {
+                        const nombre = `${v.nombre || ''} ${v.apellido || ''}`.trim() || 'Vendedor';
+                        const checked = assignPoolSelectedSellerIds.includes(v.id);
+                        return (
+                          <label
+                            key={v.id}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600,
+                              padding: '5px 10px', borderRadius: 999, cursor: 'pointer',
+                              border: `1px solid ${checked ? '#1D9E75' : 'rgba(20,34,53,0.14)'}`,
+                              background: checked ? '#E1F5EE' : '#fff',
+                              color: checked ? '#0F6E56' : 'var(--muted)'
+                            }}
+                          >
+                            <input type="checkbox" checked={checked} onChange={() => toggleAssignPoolSeller(v.id)} style={{ display: 'none' }} />
+                            {nombre}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+                    <Button variant="secondary" onClick={closeAssignPoolModal} disabled={assignPoolLoading}>Cancelar</Button>
+                    <Button
+                      onClick={confirmAssignPool}
+                      disabled={assignPoolLoading || !assignPoolSelectedContactIds.length || !assignPoolSelectedSellerIds.length}
+                    >
+                      {assignPoolLoading ? 'Asignando...' : `Asignar (${assignPoolSelectedContactIds.length})`}
+                    </Button>
                   </div>
                 </div>
               </div>
