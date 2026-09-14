@@ -5,6 +5,7 @@ import { formatDate } from '../utils/dateFormat.js';
 import RecuperoDatasetsView from './RecuperoDatasetsView.jsx';
 import RecuperoMyCandidatesView from './RecuperoMyCandidatesView.jsx';
 import RecuperoProduccionView from './RecuperoProduccionView.jsx';
+import RecuperoResultadosView from './RecuperoResultadosView.jsx';
 
 const PAGE_SIZE = 50;
 const RECUPERO_TOP_TABS = [
@@ -2718,11 +2719,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
           )}
 
           {vistaActual === 'resultados' && (
-            <Panel title="Resultados" subtitle="Próximamente">
-              <div style={{ padding: 16, color: 'var(--color-text-secondary)' }}>
-                Próximamente.
-              </div>
-            </Panel>
+            <RecuperoResultadosView Panel={Panel} />
           )}
 
           {vistaActual === 'recupero' && (
