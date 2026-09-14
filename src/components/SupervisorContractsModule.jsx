@@ -2,8 +2,6 @@ import React from 'react';
 import { Filter, RefreshCw, X, Upload, Columns, ChevronDown } from 'lucide-react';
 import { buildApiUrl, getApiBaseUrl, getAccessToken, getApiClient } from '../services/apiClient.js';
 import { formatDate } from '../utils/dateFormat.js';
-import RecuperoDatasetsView from './RecuperoDatasetsView.jsx';
-import RecuperoMyCandidatesView from './RecuperoMyCandidatesView.jsx';
 import RecuperoProduccionView from './RecuperoProduccionView.jsx';
 import RecuperoResultadosView from './RecuperoResultadosView.jsx';
 
@@ -67,7 +65,7 @@ const readDevOverride = (key) => {
 
 const isLocalDevToken = (token) => import.meta?.env?.DEV && (token === 'dev-token' || token === 'dev-id');
 
-export default function SupervisorContractsModule({ Panel, Button, Tag }) {
+export default function SupervisorContractsModule({ Panel, Button }) {
   const api = React.useMemo(() => getApiClient(), []);
   const [vistaActual, setVistaActual] = React.useState('recupero'); // 'recupero' | 'lotes' | 'detalle-lote' | 'produccion' | 'resultados'
   const [metrics, setMetrics] = React.useState({ total: 0, disponibles: 0, enLote: 0, recuperados: 0, rechazados: 0 });
@@ -722,15 +720,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     vistaActual,
     visibleItems
   ]);
-
-  const getEstadoBadge = React.useCallback((row) => {
-    const estado = String(row.estado || '').trim().toLowerCase();
-    if (estado === 'recuperado') return { label: 'Recuperado', bg: '#BBF7D0', color: '#166534' };
-    if (estado === 'rechazado') return { label: 'Rechazado', bg: '#FAECE7', color: '#993C1D' };
-    if (estado === 'en_gestion') return { label: 'En gestión', bg: '#E1F5EE', color: '#0F6E56' };
-    if (estado === 'fallecido') return { label: 'Fallecido', bg: '#F1EFE8', color: '#5F5E5A' };
-    return { label: 'Disponible', bg: '#FFF8E1', color: '#BA7517' };
-  }, []);
 
   const detectActiveProduct = (row) => Boolean(
     row?.producto_activo
@@ -2121,22 +2110,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
             </div>
           </div>
 
-          {/* Legacy flows stay intact; this patch only reorganizes them under the new tab shell. */}
-
-          {(vistaActual === 'importaciones') && (
-            <RecuperoDatasetsView
-              Panel={Panel}
-              Button={Button}
-              Tag={Tag}
-              api={api}
-              active={vistaActual === 'importaciones'}
-              sellers={sellers}
-              loadAssignableSellers={loadSellers}
-              onSync={markSync}
-              onExportStateChange={setExportState}
-            />
-          )}
-
           {vistaActual === 'lotes' && (
             <div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
@@ -2695,18 +2668,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
                 </table>
               </div>
             </div>
-          )}
-
-          {vistaActual === 'mis-candidatos' && (
-            <RecuperoMyCandidatesView
-              Panel={Panel}
-              Button={Button}
-              Tag={Tag}
-              api={api}
-              active={vistaActual === 'mis-candidatos'}
-              onSync={markSync}
-              onExportStateChange={setExportState}
-            />
           )}
 
           {vistaActual === 'produccion' && (
