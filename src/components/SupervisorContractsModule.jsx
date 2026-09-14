@@ -8,12 +8,12 @@ import RecuperoProduccionView from './RecuperoProduccionView.jsx';
 
 const PAGE_SIZE = 50;
 const RECUPERO_TOP_TABS = [
-  { key: 'importaciones', label: 'Importaciones' },
-  { key: 'contactos', label: 'Contactos' },
+  { key: 'recupero', label: 'Recupero' },
   { key: 'lotes', label: 'Lotes' },
-  { key: 'mis-candidatos', label: 'Mis candidatos' },
-  { key: 'produccion', label: 'En producción' }
+  { key: 'produccion', label: 'En producción' },
+  { key: 'resultados', label: 'Resultados' }
 ];
+const RECUPERO_PRIORITARIO_MESES = 3;
 
 const COLUMN_FILTERS_INITIAL = {
   contacto: '',
@@ -68,7 +68,7 @@ const isLocalDevToken = (token) => import.meta?.env?.DEV && (token === 'dev-toke
 
 export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const api = React.useMemo(() => getApiClient(), []);
-  const [vistaActual, setVistaActual] = React.useState('contactos'); // 'importaciones' | 'contactos' | 'lotes' | 'mis-candidatos' | 'detalle-lote'
+  const [vistaActual, setVistaActual] = React.useState('recupero'); // 'recupero' | 'lotes' | 'detalle-lote' | 'produccion' | 'resultados'
   const [metrics, setMetrics] = React.useState({ total: 0, disponibles: 0, enLote: 0, recuperados: 0, rechazados: 0 });
   const [items, setItems] = React.useState([]);
   const [columnFiltersDraft, setColumnFiltersDraft] = React.useState({ ...COLUMN_FILTERS_INITIAL });
@@ -652,7 +652,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   ), []);
 
   React.useEffect(() => {
-    if (vistaActual === 'contactos') {
+    if (vistaActual === 'recupero') {
       setExportState({
         fileName: `recupero-contactos-${activeTab}.csv`,
         rows: visibleItems.map((row) => ({
@@ -969,7 +969,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
     return {
       tab: activeTab,
       filters,
-      sort: vistaActual === 'contactos'
+      sort: vistaActual === 'recupero'
         ? { field: 'fecha_baja', dir: sortDir }
         : (orden.campo ? { field: orden.campo, dir: orden.direccion } : null),
       columns: visibleColumns.length ? visibleColumns : allColumns.map((col) => col.id),
@@ -1080,12 +1080,12 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
   const payloadKey = React.useMemo(() => JSON.stringify(buildSearchPayload()), [buildSearchPayload]);
 
   React.useEffect(() => {
-    if (vistaActual !== 'contactos') return;
+    if (vistaActual !== 'recupero') return;
     loadRecupero();
   }, [payloadKey, loadRecupero, vistaActual]);
 
   React.useEffect(() => {
-    if (vistaActual !== 'contactos') return;
+    if (vistaActual !== 'recupero') return;
     // Periodic refetch to keep Recupero in sync (skip while user is typing).
     const intervalMs = 45000;
     const timer = setInterval(() => {
@@ -2569,7 +2569,15 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
             />
           )}
 
-          {vistaActual === 'contactos' && (
+          {vistaActual === 'resultados' && (
+            <Panel title="Resultados" subtitle="Próximamente">
+              <div style={{ padding: 16, color: 'var(--color-text-secondary)' }}>
+                Próximamente.
+              </div>
+            </Panel>
+          )}
+
+          {vistaActual === 'recupero' && (
             <>
             <div style={{
               display: 'grid',
