@@ -9061,6 +9061,170 @@ const formatCurrency = (value) => {
       return map[status] || map.sin_asignar;
     };
 
+    // Mide el ancho real del contenedor (no del viewport) via ResizeObserver,
+    // para que las barras de acciones de la pantalla de Lotes colapsen según
+    // el espacio disponible del panel (que cambia con el sidebar abierto/
+    // cerrado, no solo con el ancho de la ventana).
+    function useElementWidth() {
+      const ref = React.useRef(null);
+      const [width, setWidth] = React.useState(null);
+      React.useLayoutEffect(() => {
+        const el = ref.current;
+        if (!el) return undefined;
+        if (typeof ResizeObserver === 'undefined') {
+          setWidth(el.getBoundingClientRect().width);
+          return undefined;
+        }
+        const observer = new ResizeObserver((entries) => {
+          const entry = entries[0];
+          if (entry) setWidth(entry.contentRect.width);
+        });
+        observer.observe(el);
+        return () => observer.disconnect();
+      }, []);
+      return [ref, width];
+    }
+
+    const lotesActionBarButtonBase = {
+      height: 40,
+      borderRadius: 10,
+      padding: '0 14px',
+      fontSize: 13,
+      fontWeight: 600,
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      cursor: 'pointer',
+      whiteSpace: 'nowrap',
+      textTransform: 'none',
+      border: '1px solid rgba(15,23,42,0.16)',
+      background: '#fff',
+      color: 'var(--color-text-secondary, #475569)'
+    };
+    const lotesActionBarButtonPrimary = {
+      ...lotesActionBarButtonBase,
+      border: 'none',
+      background: '#0F766E',
+      color: '#fff'
+    };
+
+    // Barra de acciones responsive "por contenedor" (no por viewport) usada
+    // en la pantalla de Lotes de captación (header "Gestión de lotes" y
+    // panel "Detalle de lote"). >=520px: todo visible con texto. 360-519px:
+    // solo la acción primaria con texto, el resto colapsa en "Más acciones".
+    // <360px: todo, incluida la primaria, pasa a solo-ícono con tooltip.
+    // flexWrap:'wrap' en modo "full" es una red de seguridad: si la suma real
+    // de botones no entra en el ancho medido (fuentes/zoom distintos al
+    // estimado), los botones bajan de línea en vez de cortarse.
+    function LotesActionBar({ actions, menuId, openMenuId, onOpenMenu }) {
+      const [containerRef, width] = useElementWidth();
+      const primaryAction = actions.find((a) => a.primary) || actions[0];
+      const secondaryActions = actions.filter((a) => a !== primaryAction);
+      const mode = width == null || width >= 520 ? 'full' : width >= 360 ? 'collapsed' : 'icon';
+      const menuOpen = openMenuId === menuId;
+
+      const renderButton = (action, { iconOnly = false } = {}) => {
+        const isPrimary = action === primaryAction;
+        const disabled = !!action.disabled;
+        return (
+          <button
+            key={action.key}
+            type="button"
+            onClick={action.onClick}
+            disabled={disabled}
+            title={action.tooltip || action.label}
+            style={{
+              ...(isPrimary ? lotesActionBarButtonPrimary : lotesActionBarButtonBase),
+              ...(iconOnly ? { width: 40, padding: 0 } : {}),
+              ...(disabled ? { cursor: 'not-allowed', opacity: 0.55 } : {})
+            }}
+          >
+            {action.icon}
+            {!iconOnly && <span>{action.loadingLabel || action.label}</span>}
+          </button>
+        );
+      };
+
+      const renderMenuTrigger = ({ iconOnly }) => (
+        <div data-lotes-action-menu style={{ position: 'relative', display: 'inline-block' }}>
+          <button
+            type="button"
+            onClick={() => onOpenMenu(menuOpen ? null : menuId)}
+            title="Más acciones"
+            style={{
+              ...lotesActionBarButtonBase,
+              ...(iconOnly ? { width: 40, padding: 0 } : {})
+            }}
+          >
+            <MoreHorizontal size={16} />
+            {!iconOnly && <span>Más acciones</span>}
+          </button>
+          {menuOpen && (
+            <div style={{
+              position: 'absolute',
+              top: 'calc(100% + 4px)',
+              right: 0,
+              zIndex: 50,
+              background: '#fff',
+              border: '1px solid rgba(15,23,42,0.16)',
+              borderRadius: 10,
+              boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+              minWidth: 210,
+              padding: '6px 0'
+            }}>
+              {secondaryActions.map((action) => (
+                <button
+                  key={action.key}
+                  type="button"
+                  disabled={action.disabled}
+                  title={action.disabled && action.tooltip ? action.tooltip : undefined}
+                  onClick={() => { onOpenMenu(null); action.onClick(); }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '9px 14px',
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: action.disabled ? 'not-allowed' : 'pointer',
+                    opacity: action.disabled ? 0.5 : 1,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    color: 'var(--color-text-primary, #0f172a)'
+                  }}
+                >
+                  {action.icon}
+                  {action.loadingLabel || action.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+
+      return (
+        <div ref={containerRef} style={{ display: 'flex', gap: 8, alignItems: 'center', flex: '1 1 auto', minWidth: 0, flexWrap: mode === 'full' ? 'wrap' : 'nowrap', justifyContent: 'flex-end' }}>
+          {mode === 'full' && actions.map((action) => renderButton(action))}
+          {mode === 'collapsed' && (
+            <>
+              {renderButton(primaryAction)}
+              {renderMenuTrigger({ iconOnly: false })}
+            </>
+          )}
+          {mode === 'icon' && (
+            <>
+              {renderButton(primaryAction, { iconOnly: true })}
+              {renderMenuTrigger({ iconOnly: true })}
+            </>
+          )}
+        </div>
+      );
+    }
+
     function SupervisorModule({ route, contacts, lots, accessToken, activeOrgId, onBulkAssignContacts, onCreateLot, onAssignLotSeller, onCloseLot, onReactivateError, onOpenRoute, origenDatoOptions = [], fetchLots = null }) {
       const { user: authUser } = useAuth();
       const api = React.useMemo(() => getApiClient(), []);
@@ -9091,6 +9255,28 @@ const formatCurrency = (value) => {
       const [lotNameDraft, setLotNameDraft] = React.useState('');
       const [selectedLotId, setSelectedLotId] = React.useState(null);
       const [selectedLotOverride, setSelectedLotOverride] = React.useState(null);
+      const [lotesTableRef, lotesTableWidth] = useElementWidth();
+      const lotesTableNarrow = lotesTableWidth != null && lotesTableWidth < 480;
+      const [openLotesActionMenu, setOpenLotesActionMenu] = React.useState(null);
+      const [openVendorRowMenuId, setOpenVendorRowMenuId] = React.useState(null);
+      React.useEffect(() => {
+        if (!openLotesActionMenu) return undefined;
+        const handleClick = (event) => {
+          if (event.target.closest('[data-lotes-action-menu]')) return;
+          setOpenLotesActionMenu(null);
+        };
+        document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
+      }, [openLotesActionMenu]);
+      React.useEffect(() => {
+        if (!openVendorRowMenuId) return undefined;
+        const handleClick = (event) => {
+          if (event.target.closest('[data-vendor-row-menu]')) return;
+          setOpenVendorRowMenuId(null);
+        };
+        document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
+      }, [openVendorRowMenuId]);
       const [selectedLotMetrics, setSelectedLotMetrics] = React.useState(null);
       const [showLotReportModal, setShowLotReportModal] = React.useState(false);
       const [lotReportTab, setLotReportTab] = React.useState('inventario');
@@ -10382,32 +10568,49 @@ const formatCurrency = (value) => {
               {/* TABLA IZQUIERDA */}
               <Panel className="span-7" title="Gestión de lotes" subtitle="Crea, asigna y controla el avance por lote"
                 action={(
-                  <div className="toolbar">
-                    <Button
-                      variant="ghost"
-                      onClick={() => {
-                        setShowExternalLotModal(true);
-                        setExternalLotName('');
-                        setExternalLotTipo('captacion');
-                        setExternalLotSellers([]);
-                        setExternalLotError('');
-                        setExternalLotCreated(null);
-                      }}
-                    >
-                      + Lote externo
-                    </Button>
-                    <Button icon={<Plus size={16} />} onClick={() => onOpenRoute('lotes_crear')}>Crear lote</Button>
-                  </div>
+                  <LotesActionBar
+                    menuId="lotes-header"
+                    openMenuId={openLotesActionMenu}
+                    onOpenMenu={setOpenLotesActionMenu}
+                    actions={[
+                      {
+                        key: 'crear-lote',
+                        label: 'Crear lote',
+                        icon: <Plus size={16} />,
+                        primary: true,
+                        onClick: () => onOpenRoute('lotes_crear')
+                      },
+                      {
+                        key: 'lote-externo',
+                        label: 'Lote externo',
+                        icon: <Upload size={16} />,
+                        onClick: () => {
+                          setShowExternalLotModal(true);
+                          setExternalLotName('');
+                          setExternalLotTipo('captacion');
+                          setExternalLotSellers([]);
+                          setExternalLotError('');
+                          setExternalLotCreated(null);
+                        }
+                      }
+                    ]}
+                  />
                 )}>
-                <div className="table-wrap">
-                  <table>
+                <div className="table-wrap" ref={lotesTableRef}>
+                  <table style={{ tableLayout: 'fixed', width: '100%' }}>
                     <thead>
-                    <tr><th>Lote</th><th>Contactos</th><th>Estado</th><th>Vendedores</th><th>Creación</th></tr>
+                    <tr>
+                      <th>Lote</th>
+                      <th>Contactos</th>
+                      <th>Estado</th>
+                      <th>Vendedores</th>
+                      {!lotesTableNarrow && <th>Creación</th>}
+                    </tr>
                     </thead>
                     <tbody>
                       {lotesActivos.length > 0 && (
                         <tr>
-                          <td colSpan={5} style={{
+                          <td colSpan={lotesTableNarrow ? 4 : 5} style={{
                             padding: '8px 12px 4px',
                             fontSize: 11,
                             fontWeight: 700,
@@ -10431,13 +10634,14 @@ const formatCurrency = (value) => {
                           <tr key={lot.id} className="support-row"
                             onClick={() => setSelectedLotId(lot.id)}
                             style={{ cursor: 'pointer', background: selectedLot?.id === lot.id ? 'rgba(15,118,110,0.08)' : 'transparent' }}>
-                            <td>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <strong style={{ fontSize: 13 }}>{lot.name || lot.nombre}</strong>
+                            <td style={{ maxWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                                <strong style={{ fontSize: 13, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lot.name || lot.nombre}</strong>
                                 {lot.tipo && (
                                   <span style={{
                                     fontSize: 10, fontWeight: 700,
                                     padding: '1px 6px', borderRadius: 999,
+                                    flexShrink: 0,
                                     background: String(lot.tipo).toLowerCase() === 'recupero'
                                       ? 'rgba(37,99,235,0.1)'
                                       : 'rgba(15,118,110,0.1)',
@@ -10449,22 +10653,26 @@ const formatCurrency = (value) => {
                                   </span>
                                 )}
                               </div>
-                              <div style={{ color: 'var(--muted)', fontSize: 11, marginTop: 2, fontFamily: 'monospace' }}>{lot.id}</div>
+                              {!lotesTableNarrow && (
+                                <div style={{ color: 'var(--muted)', fontSize: 11, marginTop: 2, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lot.id}</div>
+                              )}
                             </td>
                             <td>{lot.count}</td>
                             <td><Tag variant={lotStatusMeta(estadoVal).variant}>{lotStatusMeta(estadoVal).label}</Tag></td>
-                            <td>
-                              <span style={{ fontSize: 13 }}>{first}</span>
-                              {extra > 0 && <span style={{ marginLeft: 6, fontSize: 11, background: 'rgba(20,34,53,0.08)', borderRadius: 10, padding: '1px 7px', color: 'var(--muted)' }}>+{extra}</span>}
+                            <td style={{ maxWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+                                <span style={{ fontSize: 13, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{first}</span>
+                                {extra > 0 && <span style={{ marginLeft: 6, flexShrink: 0, fontSize: 11, background: 'rgba(20,34,53,0.08)', borderRadius: 10, padding: '1px 7px', color: 'var(--muted)' }}>+{extra}</span>}
+                              </div>
                             </td>
-                          <td style={{ fontSize: 12 }}>{lot.createdAt}</td>
+                          {!lotesTableNarrow && <td style={{ fontSize: 12 }}>{lot.createdAt}</td>}
                         </tr>
                         );
                       })}
 
                       {lotesFinalizados.length > 0 && (
                         <tr>
-                          <td colSpan={5} style={{
+                          <td colSpan={lotesTableNarrow ? 4 : 5} style={{
                             padding: '8px 12px 4px',
                             fontSize: 11,
                             fontWeight: 700,
@@ -10488,13 +10696,14 @@ const formatCurrency = (value) => {
                           <tr key={lot.id} className="support-row"
                             onClick={() => setSelectedLotId(lot.id)}
                             style={{ cursor: 'pointer', background: selectedLot?.id === lot.id ? 'rgba(15,118,110,0.08)' : 'transparent', opacity: 0.6 }}>
-                            <td>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <strong style={{ fontSize: 13 }}>{lot.name || lot.nombre}</strong>
+                            <td style={{ maxWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                                <strong style={{ fontSize: 13, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lot.name || lot.nombre}</strong>
                                 {lot.tipo && (
                                   <span style={{
                                     fontSize: 10, fontWeight: 700,
                                     padding: '1px 6px', borderRadius: 999,
+                                    flexShrink: 0,
                                     background: String(lot.tipo).toLowerCase() === 'recupero'
                                       ? 'rgba(37,99,235,0.1)'
                                       : 'rgba(15,118,110,0.1)',
@@ -10506,15 +10715,19 @@ const formatCurrency = (value) => {
                                   </span>
                                 )}
                               </div>
-                              <div style={{ color: 'var(--muted)', fontSize: 11, marginTop: 2, fontFamily: 'monospace' }}>{lot.id}</div>
+                              {!lotesTableNarrow && (
+                                <div style={{ color: 'var(--muted)', fontSize: 11, marginTop: 2, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lot.id}</div>
+                              )}
                             </td>
                             <td>{lot.count}</td>
                             <td><Tag variant={lotStatusMeta(estadoVal).variant}>{lotStatusMeta(estadoVal).label}</Tag></td>
-                            <td>
-                              <span style={{ fontSize: 13 }}>{first}</span>
-                              {extra > 0 && <span style={{ marginLeft: 6, fontSize: 11, background: 'rgba(20,34,53,0.08)', borderRadius: 10, padding: '1px 7px', color: 'var(--muted)' }}>+{extra}</span>}
+                            <td style={{ maxWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+                                <span style={{ fontSize: 13, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{first}</span>
+                                {extra > 0 && <span style={{ marginLeft: 6, flexShrink: 0, fontSize: 11, background: 'rgba(20,34,53,0.08)', borderRadius: 10, padding: '1px 7px', color: 'var(--muted)' }}>+{extra}</span>}
+                              </div>
                             </td>
-                            <td style={{ fontSize: 12 }}>{lot.createdAt || (lot.created_at ? String(lot.created_at).slice(0, 10) : '')}</td>
+                            {!lotesTableNarrow && <td style={{ fontSize: 12 }}>{lot.createdAt || (lot.created_at ? String(lot.created_at).slice(0, 10) : '')}</td>}
                           </tr>
                         );
                       })}
@@ -10600,44 +10813,68 @@ const formatCurrency = (value) => {
 
                     {/* VENDEDORES */}
                     <div style={{ marginTop: 8 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                        <span style={{ fontWeight: 600, fontSize: 13 }}>Vendedores asignados</span>
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <button
-                            onClick={() => { setAddDataToLotOpen(true); resetAddDataWizard(); }}
-                            style={{ fontSize: 11, fontWeight: 500, color: '#185FA5', background: '#E6F1FB', border: '1px solid #85B7EB', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
-                          >+ Agregar datos</button>
-                          <button
-                            onClick={() => {
-                              phoneCheckTokenRef.current++;
-                              setPhoneVerified(false);
-                              setReactivarData(null);
-                              setPhoneWarnings([]);
-                              resetNuevoContactoValidation();
-                              setShowNuevoContactoModal(true);
-                            }}
-                            style={{ fontSize: 11, fontWeight: 500, color: '#185FA5', background: '#E6F1FB', border: '1px solid #85B7EB', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
-                          >+ Nuevo contacto</button>
-                          <button
-                            onClick={() => redistributeLotByState(['no_contesta'], 'Contactos en "No contesta" redistribuidos correctamente.')}
-                            disabled={!(selectedLot.vendedores?.length) || !!redistributeLoadingState}
-                            style={{ fontSize: 11, fontWeight: 500, color: '#185FA5', background: '#F7F1E6', border: '1px solid #D7BF8A', borderRadius: 6, padding: '4px 10px', cursor: !(selectedLot.vendedores?.length) || !!redistributeLoadingState ? 'not-allowed' : 'pointer', opacity: !(selectedLot.vendedores?.length) || !!redistributeLoadingState ? 0.6 : 1 }}
-                          >{redistributeLoadingState === 'no_contesta' ? 'Distribuyendo...' : 'Distribuir no contesta'}</button>
-                          <button
-                            onClick={() => redistributeLotByState(['rellamar'], 'Contactos en "Rellamar" redistribuidos correctamente.')}
-                            disabled={!(selectedLot.vendedores?.length) || !!redistributeLoadingState}
-                            style={{ fontSize: 11, fontWeight: 500, color: '#185FA5', background: '#F7F1E6', border: '1px solid #D7BF8A', borderRadius: 6, padding: '4px 10px', cursor: !(selectedLot.vendedores?.length) || !!redistributeLoadingState ? 'not-allowed' : 'pointer', opacity: !(selectedLot.vendedores?.length) || !!redistributeLoadingState ? 0.6 : 1 }}
-                          >{redistributeLoadingState === 'rellamar' ? 'Distribuyendo...' : 'Distribuir rellamar'}</button>
-                          <button
-                            onClick={() => setAddSellerOpen(true)}
-                            style={{ fontSize: 11, fontWeight: 500, color: '#0F6E56', background: '#E1F5EE', border: '1px solid #5DCAA5', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
-                          >+ Agregar vendedor</button>
-                          <button
-                            onClick={openAssignPoolModal}
-                            disabled={!(selectedLot.vendedores?.length)}
-                            style={{ fontSize: 11, fontWeight: 500, color: '#0F6E56', background: '#E1F5EE', border: '1px solid #5DCAA5', borderRadius: 6, padding: '4px 10px', cursor: !(selectedLot.vendedores?.length) ? 'not-allowed' : 'pointer', opacity: !(selectedLot.vendedores?.length) ? 0.6 : 1 }}
-                            title={!(selectedLot.vendedores?.length) ? 'El lote necesita al menos un vendedor asignado' : undefined}
-                          >Asignar datos libres</button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                        <span style={{ fontWeight: 600, fontSize: 13, flexShrink: 0 }}>Vendedores asignados</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <LotesActionBar
+                            menuId="lote-detail"
+                            openMenuId={openLotesActionMenu}
+                            onOpenMenu={setOpenLotesActionMenu}
+                            actions={[
+                              {
+                                key: 'agregar-vendedor',
+                                label: 'Agregar vendedor',
+                                icon: <Users size={16} />,
+                                primary: true,
+                                onClick: () => setAddSellerOpen(true)
+                              },
+                              {
+                                key: 'agregar-datos',
+                                label: 'Agregar datos',
+                                icon: <Upload size={16} />,
+                                onClick: () => { setAddDataToLotOpen(true); resetAddDataWizard(); }
+                              },
+                              {
+                                key: 'nuevo-contacto',
+                                label: 'Nuevo contacto',
+                                icon: <User size={16} />,
+                                onClick: () => {
+                                  phoneCheckTokenRef.current++;
+                                  setPhoneVerified(false);
+                                  setReactivarData(null);
+                                  setPhoneWarnings([]);
+                                  resetNuevoContactoValidation();
+                                  setShowNuevoContactoModal(true);
+                                }
+                              },
+                              {
+                                key: 'distribuir-no-contesta',
+                                label: 'Distribuir no contesta',
+                                loadingLabel: redistributeLoadingState === 'no_contesta' ? 'Distribuyendo…' : null,
+                                icon: <RefreshCw size={16} />,
+                                disabled: !(selectedLot.vendedores?.length) || !!redistributeLoadingState,
+                                tooltip: !(selectedLot.vendedores?.length) ? 'El lote necesita al menos un vendedor asignado' : undefined,
+                                onClick: () => redistributeLotByState(['no_contesta'], 'Contactos en "No contesta" redistribuidos correctamente.')
+                              },
+                              {
+                                key: 'distribuir-rellamar',
+                                label: 'Distribuir rellamar',
+                                loadingLabel: redistributeLoadingState === 'rellamar' ? 'Distribuyendo…' : null,
+                                icon: <RefreshCw size={16} />,
+                                disabled: !(selectedLot.vendedores?.length) || !!redistributeLoadingState,
+                                tooltip: !(selectedLot.vendedores?.length) ? 'El lote necesita al menos un vendedor asignado' : undefined,
+                                onClick: () => redistributeLotByState(['rellamar'], 'Contactos en "Rellamar" redistribuidos correctamente.')
+                              },
+                              {
+                                key: 'asignar-datos-libres',
+                                label: 'Asignar datos libres',
+                                icon: <Send size={16} />,
+                                disabled: !(selectedLot.vendedores?.length),
+                                tooltip: !(selectedLot.vendedores?.length) ? 'El lote necesita al menos un vendedor asignado' : undefined,
+                                onClick: openAssignPoolModal
+                              }
+                            ]}
+                          />
                         </div>
                       </div>
                       {redistributeFeedback.message ? (
@@ -10662,12 +10899,12 @@ const formatCurrency = (value) => {
                         });
                         return (
                           <div key={v.id} style={{ border: '1px solid rgba(20,34,53,0.1)', borderRadius: 8, padding: '10px 12px', marginBottom: 8, background: 'var(--bg)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                                 <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#E1F5EE', color: '#0F6E56', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>{initials}</div>
-                                <div>
-                                  <div style={{ fontSize: 13, fontWeight: 600 }}>{nombre}</div>
-                                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>{total} contactos · {gestionados} gestionados</div>
+                                <div style={{ minWidth: 0 }}>
+                                  <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nombre}</div>
+                                  <div style={{ fontSize: 11, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{total} contactos · {gestionados} gestionados</div>
                                   {(() => {
                                     const vendedorIncontactable = selectedLotMetrics?.incontactables_por_vendedor
                                       ?.find((item) => String(item.seller_id) === String(v.id));
@@ -10681,15 +10918,45 @@ const formatCurrency = (value) => {
                                   })()}
                                 </div>
                               </div>
-                              <div style={{ display: 'flex', gap: 6 }}>
+                              <div data-vendor-row-menu style={{ position: 'relative', flexShrink: 0 }}>
                                 <button
-                                  onClick={() => openRemoveSellerModal({ sellerId: v.id, sellerName: nombre, contactCount: total, gestionados }, { step: 2, mode: 'specific' })}
-                                  style={{ fontSize: 11, fontWeight: 500, color: '#185FA5', background: '#E6F1FB', border: '1px solid #85B7EB', borderRadius: 6, padding: '4px 9px', cursor: 'pointer' }}
-                                >Reasignar</button>
-                                <button
-                                  onClick={() => openRemoveSellerModal({ sellerId: v.id, sellerName: nombre, contactCount: total, gestionados }, { step: 1, mode: 'specific' })}
-                                  style={{ fontSize: 11, fontWeight: 500, color: '#993C1D', background: '#FAECE7', border: '1px solid #F0997B', borderRadius: 6, padding: '4px 9px', cursor: 'pointer' }}
-                                >Quitar</button>
+                                  type="button"
+                                  onClick={() => setOpenVendorRowMenuId((prev) => (String(prev) === String(v.id) ? null : v.id))}
+                                  style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid rgba(15,23,42,0.16)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                  aria-label="Más acciones del vendedor"
+                                  title="Más acciones"
+                                >
+                                  <MoreHorizontal size={15} />
+                                </button>
+                                {String(openVendorRowMenuId) === String(v.id) && (
+                                  <div style={{
+                                    position: 'absolute',
+                                    top: 'calc(100% + 4px)',
+                                    right: 0,
+                                    zIndex: 50,
+                                    background: '#fff',
+                                    border: '1px solid rgba(15,23,42,0.16)',
+                                    borderRadius: 10,
+                                    boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                                    minWidth: 150,
+                                    padding: '6px 0'
+                                  }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => { setOpenVendorRowMenuId(null); openRemoveSellerModal({ sellerId: v.id, sellerName: nombre, contactCount: total, gestionados }, { step: 2, mode: 'specific' }); }}
+                                      style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 14px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 600, textTransform: 'none', color: 'var(--color-text-primary, #0f172a)' }}
+                                    >
+                                      Reasignar
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => { setOpenVendorRowMenuId(null); openRemoveSellerModal({ sellerId: v.id, sellerName: nombre, contactCount: total, gestionados }, { step: 1, mode: 'specific' }); }}
+                                      style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 14px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 600, textTransform: 'none', color: '#993C1D' }}
+                                    >
+                                      Quitar
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             </div>
                             {/* Barra de progreso por vendedor */}
@@ -10739,7 +11006,7 @@ const formatCurrency = (value) => {
                       const informe = selectedLotMetrics.informe;
                       return (
                         <div style={{
-                          borderTop: '0.5px solid var(--color-border-tertiary)',
+                          borderTop: '0.5px solid rgba(15,23,42,0.16)',
                           paddingTop: 16,
                           marginTop: 8,
                           display: 'flex',
@@ -10763,7 +11030,7 @@ const formatCurrency = (value) => {
                               gap: 16,
                               flexWrap: 'wrap',
                               padding: '8px 0',
-                              borderBottom: '0.5px solid var(--color-border-tertiary)',
+                              borderBottom: '0.5px solid rgba(15,23,42,0.16)',
                               marginBottom: 8
                             }}>
                               <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
@@ -10833,7 +11100,7 @@ const formatCurrency = (value) => {
                                   alignItems: 'center',
                                   gap: 10,
                                   padding: '8px 0',
-                                  borderBottom: i < 6 ? '0.5px solid var(--color-border-tertiary)' : 'none'
+                                  borderBottom: i < 6 ? '0.5px solid rgba(15,23,42,0.16)' : 'none'
                                 }}>
                                   <div style={{
                                     width: 24,
