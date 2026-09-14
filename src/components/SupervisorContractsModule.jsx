@@ -4,13 +4,15 @@ import { buildApiUrl, getApiBaseUrl, getAccessToken, getApiClient } from '../ser
 import { formatDate } from '../utils/dateFormat.js';
 import RecuperoDatasetsView from './RecuperoDatasetsView.jsx';
 import RecuperoMyCandidatesView from './RecuperoMyCandidatesView.jsx';
+import RecuperoProduccionView from './RecuperoProduccionView.jsx';
 
 const PAGE_SIZE = 50;
 const RECUPERO_TOP_TABS = [
   { key: 'importaciones', label: 'Importaciones' },
   { key: 'contactos', label: 'Contactos' },
   { key: 'lotes', label: 'Lotes' },
-  { key: 'mis-candidatos', label: 'Mis candidatos' }
+  { key: 'mis-candidatos', label: 'Mis candidatos' },
+  { key: 'produccion', label: 'En producción' }
 ];
 
 const COLUMN_FILTERS_INITIAL = {
@@ -2555,6 +2557,15 @@ export default function SupervisorContractsModule({ Panel, Button, Tag }) {
               active={vistaActual === 'mis-candidatos'}
               onSync={markSync}
               onExportStateChange={setExportState}
+            />
+          )}
+
+          {vistaActual === 'produccion' && (
+            <RecuperoProduccionView
+              Panel={Panel}
+              api={api}
+              active={vistaActual === 'produccion'}
+              onSync={markSync}
             />
           )}
 
