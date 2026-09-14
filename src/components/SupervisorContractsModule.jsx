@@ -1,5 +1,5 @@
 import React from 'react';
-import { Filter, RefreshCw, X, Upload, Columns, ChevronDown } from 'lucide-react';
+import { Filter, RefreshCw, X, Upload, Columns, ChevronDown, Clock, Archive, MoreHorizontal } from 'lucide-react';
 import { buildApiUrl, getApiBaseUrl, getAccessToken, getApiClient } from '../services/apiClient.js';
 import { formatDate } from '../utils/dateFormat.js';
 import RecuperoProduccionView from './RecuperoProduccionView.jsx';
@@ -100,6 +100,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
   const [assignContactIds, setAssignContactIds] = React.useState([]);
   const [assignSellerId, setAssignSellerId] = React.useState('');
   const [assignNotes, setAssignNotes] = React.useState('');
+  const [assignLoteId, setAssignLoteId] = React.useState('');
   const [assignHasActiveProduct, setAssignHasActiveProduct] = React.useState(false);
   const [sellers, setSellers] = React.useState([]);
   const [creatingLot, setCreatingLot] = React.useState(false);
@@ -121,6 +122,8 @@ export default function SupervisorContractsModule({ Panel, Button }) {
   const [cerrarLoteLoading, setCerrarLoteLoading] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState('disponibles');
   const [segmentoRecupero, setSegmentoRecupero] = React.useState('prioritario'); // 'prioritario' | 'resto'
+  const [segmentoCounts, setSegmentoCounts] = React.useState({ prioritario: null, resto: null });
+  const [segmentoCountsError, setSegmentoCountsError] = React.useState({ prioritario: false, resto: false });
   const prioritarioCutoffDate = React.useMemo(() => {
     const cutoff = new Date();
     cutoff.setMonth(cutoff.getMonth() - RECUPERO_PRIORITARIO_MESES);
@@ -159,6 +162,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
   const lastInputAtRef = React.useRef(0);
   const selectAllRef = React.useRef(null);
   const [expandedRowId, setExpandedRowId] = React.useState(null);
+  const [openRowMenuId, setOpenRowMenuId] = React.useState(null);
   const [detalleMetrics, setDetalleMetrics] = React.useState(null);
   const [detalleContacts, setDetalleContacts] = React.useState([]);
   const [detalleLoading, setDetalleLoading] = React.useState(false);
@@ -655,6 +659,14 @@ export default function SupervisorContractsModule({ Panel, Button }) {
     || null
   );
 
+  const formatTelefono = (value) => {
+    const digits = String(value || '').replace(/\D/g, '');
+    if (!digits) return '';
+    if (digits.length === 9) return digits.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
+    if (digits.length === 8) return digits.replace(/(\d{4})(\d{4})/, '$1 $2');
+    return String(value || '');
+  };
+
   const getContactoNombre = React.useCallback((row) => (
     [row?.nombre, row?.apellido].filter(Boolean).join(' ')
     || [row?.contacto_nombre, row?.contacto_apellido].filter(Boolean).join(' ')
@@ -736,12 +748,14 @@ export default function SupervisorContractsModule({ Panel, Button }) {
     setAssignContactIds(ids);
     setAssignSellerId('');
     setAssignNotes('');
+    setAssignLoteId('');
     const rows = Array.isArray(visibleItems) ? visibleItems : [];
     const hasActive = row ? detectActiveProduct(row) : ids.some((id) => detectActiveProduct(rows.find((it) => String(it?.id) === String(id))));
     setAssignHasActiveProduct(Boolean(hasActive));
     setShowAssignModal(true);
     loadSellers();
-  }, [loadSellers, visibleItems]);
+    loadLotesCreados();
+  }, [loadLotesCreados, loadSellers, visibleItems]);
 
   const closeAssign = React.useCallback(() => {
     setShowAssignModal(false);
@@ -749,6 +763,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
     setAssignSellerId('');
     setAssignNotes('');
     setAssignHasActiveProduct(false);
+    setAssignLoteId('');
   }, []);
 
   const openLotDetail = React.useCallback((lote) => {
@@ -1044,15 +1059,16 @@ export default function SupervisorContractsModule({ Panel, Button }) {
     return errors;
   };
 
-  const buildFiltersPayload = React.useCallback(() => {
+  const buildFiltersPayload = React.useCallback((segmentoOverride) => {
+    const segmentoEfectivo = segmentoOverride || segmentoRecupero;
     const manualDesde = columnFiltersApplied.fecha_baja_desde || '';
     const manualHasta = columnFiltersApplied.fecha_baja_hasta || '';
     // Segmentación Prioritario (bajas <= 3 meses) / Resto de la cartera: se combina
     // con el filtro manual de fecha_baja tomando el corte más restrictivo de cada lado.
-    const fechaBajaDesde = vistaActual === 'recupero' && segmentoRecupero === 'prioritario'
+    const fechaBajaDesde = vistaActual === 'recupero' && segmentoEfectivo === 'prioritario'
       ? [manualDesde, prioritarioCutoffDate].filter(Boolean).sort().pop()
       : manualDesde;
-    const fechaBajaHasta = vistaActual === 'recupero' && segmentoRecupero === 'resto'
+    const fechaBajaHasta = vistaActual === 'recupero' && segmentoEfectivo === 'resto'
       ? [manualHasta, restoCutoffDate].filter(Boolean).sort()[0]
       : manualHasta;
     const payload = {
@@ -1093,6 +1109,42 @@ export default function SupervisorContractsModule({ Panel, Button }) {
       limit: PAGE_SIZE
     };
   }, [activeTab, allColumns, buildFiltersPayload, orden, page, sortDir, vistaActual, visibleColumns]);
+
+  const buildSegmentoCountPayload = React.useCallback((segmento) => ({
+    tab: 'disponibles',
+    filters: buildFiltersPayload(segmento),
+    sort: { field: 'fecha_baja', dir: sortDir },
+    columns: visibleColumns.length ? visibleColumns : allColumns.map((col) => col.id),
+    page: 1,
+    limit: 1
+  }), [allColumns, buildFiltersPayload, sortDir, visibleColumns]);
+
+  const loadSegmentoCounts = React.useCallback(async () => {
+    const extractTotal = (result) => {
+      if (result.status !== 'fulfilled') return { total: null, error: true };
+      const value = result.value;
+      const total = Number(value?.total ?? value?.data?.total);
+      return Number.isFinite(total) ? { total, error: false } : { total: null, error: true };
+    };
+    try {
+      const [prioritarioRes, restoRes] = await Promise.allSettled([
+        api.post('/api/recupero/contactos/search', buildSegmentoCountPayload('prioritario')),
+        api.post('/api/recupero/contactos/search', buildSegmentoCountPayload('resto'))
+      ]);
+      const prioritario = extractTotal(prioritarioRes);
+      const resto = extractTotal(restoRes);
+      setSegmentoCounts({ prioritario: prioritario.total, resto: resto.total });
+      setSegmentoCountsError({ prioritario: prioritario.error, resto: resto.error });
+    } catch {
+      setSegmentoCounts({ prioritario: null, resto: null });
+      setSegmentoCountsError({ prioritario: true, resto: true });
+    }
+  }, [api, buildSegmentoCountPayload]);
+
+  React.useEffect(() => {
+    if (vistaActual !== 'recupero') return;
+    loadSegmentoCounts();
+  }, [vistaActual, loadSegmentoCounts]);
 
   const loadRecupero = React.useCallback(async (options = {}) => {
     const { force = false } = options;
@@ -1427,6 +1479,16 @@ export default function SupervisorContractsModule({ Panel, Button }) {
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [openFilterColumn]);
+
+  React.useEffect(() => {
+    if (!openRowMenuId) return;
+    const handleClick = (event) => {
+      if (event.target.closest('[data-row-menu]')) return;
+      setOpenRowMenuId(null);
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [openRowMenuId]);
 
   const renderColumnFilterPopover = React.useCallback((columnId) => {
     if (openFilterColumn !== columnId) return null;
@@ -2024,27 +2086,45 @@ export default function SupervisorContractsModule({ Panel, Button }) {
     }
   };
 
+  const assignLotesAbiertos = (lotesCreados || []).filter((lote) => {
+    const estado = String(lote?.estado || '').toLowerCase();
+    return estado !== 'finalizado' && estado !== 'cerrado';
+  });
+  const assignSelectedLote = (lotesCreados || []).find((l) => String(asLotId(l)) === String(assignLoteId)) || null;
+  const assignSelectedLoteSellers = assignSelectedLote ? asLotSellers(assignSelectedLote) : [];
+  const assignNeedsSellerPicker = !assignSelectedLoteSellers.length;
+
   const handleConfirmAssign = async () => {
     if (!assignContactIds.length) return;
-    if (!assignSellerId) return;
+    if (!assignLoteId) return;
+    const loteSellerIds = assignSelectedLoteSellers.map((v) => v?.id).filter(Boolean);
+    const sellerIds = loteSellerIds.length ? loteSellerIds : (assignSellerId ? [assignSellerId] : []);
+    if (!sellerIds.length) return;
     setCreatingLot(true);
     try {
-      // TODO: migrar a /recovery/* — este endpoint no conecta con lead_batches hoy,
-      // por lo que el lote resultante no aparece en GET /api/recupero/lotes.
+      // TODO: migrar a /recovery/* — este endpoint no conecta con lead_batches hoy, así
+      // que "lote_id" (para sumar contactos a un lote existente) no tiene efecto real más
+      // allá de reasignar el vendedor de los contactos.
       await api.post('/api/recupero/lotes', {
-        nombre: getAssignmentLotName(),
+        nombre: asLotName(assignSelectedLote) || getAssignmentLotName(),
+        lote_id: assignLoteId,
         contact_ids: assignContactIds,
-        seller_ids: [assignSellerId]
+        seller_ids: sellerIds
       });
       closeAssign();
       setSelectedIds([]);
       loadRecupero({ force: true });
+      loadSegmentoCounts();
     } catch (err) {
       setError(err?.message || 'No se pudo asignar el contacto.');
     } finally {
       setCreatingLot(false);
     }
   };
+
+  const recuperoIconButtonStyle = { width: 40, height: 40, borderRadius: 10, border: '1px solid rgba(15,23,42,0.16)', background: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--color-text-secondary)' };
+  const recuperoThStyle = { textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid rgba(15,23,42,0.16)', position: 'sticky', top: 0, background: '#fff', zIndex: 1 };
+  const recuperoTdStyle = { padding: '10px 12px', borderBottom: '0.5px solid rgba(15,23,42,0.16)' };
 
   return (
     <div className="view">
@@ -2055,57 +2135,64 @@ export default function SupervisorContractsModule({ Panel, Button }) {
           subtitle={null}
           action={null}
         >
-          <div style={{ display: 'grid', gap: 18 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 12, background: '#0F766E', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 20, fontWeight: 900 }}>
-                    R
-                  </div>
-                  <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--color-text-primary)' }}>
-                    Recupero
-                  </div>
-                </div>
+          <div className="recupero-module-scope" style={{ display: 'grid', gap: 18 }}>
+            <style>{`
+              .recupero-module-scope :focus-visible {
+                outline: 2px solid #0F766E;
+                outline-offset: 2px;
+              }
+              .recupero-module-scope .button:disabled {
+                opacity: 1;
+                background: #E5E7EB !important;
+                color: #6B7280 !important;
+                box-shadow: none !important;
+              }
+            `}</style>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: lastSyncAt ? 'var(--color-text-secondary)' : '#B45309', fontSize: 12 }}>
+              <span style={{ width: 6, height: 6, borderRadius: 999, background: lastSyncAt ? '#16A34A' : '#D97706', display: 'inline-block' }} />
+              {syncLabel}
+            </div>
 
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {RECUPERO_TOP_TABS.map((tab) => {
-                    const activeTopTab = tab.key === 'lotes'
-                      ? (vistaActual === 'lotes' || vistaActual === 'detalle-lote')
-                      : vistaActual === tab.key;
-                    return (
-                      <button
-                        key={tab.key}
-                        type="button"
-                        onClick={() => {
-                          setVistaActual(tab.key);
-                          if (tab.key !== 'lotes') setLoteSeleccionado(null);
-                        }}
-                        style={{
-                          padding: '9px 14px',
-                          borderRadius: 12,
-                          border: activeTopTab ? '1px solid rgba(15,118,110,0.18)' : '1px solid transparent',
-                          background: activeTopTab ? '#E7F6F2' : 'transparent',
-                          color: activeTopTab ? '#0F766E' : 'var(--color-text-primary)',
-                          fontWeight: 800,
-                          fontSize: 14,
-                          cursor: 'pointer'
-                        }}
-                      >
-                        {tab.label}
-                      </button>
-                    );
-                  })}
-                </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {RECUPERO_TOP_TABS.map((tab) => {
+                  const activeTopTab = tab.key === 'lotes'
+                    ? (vistaActual === 'lotes' || vistaActual === 'detalle-lote')
+                    : vistaActual === tab.key;
+                  return (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => {
+                        setVistaActual(tab.key);
+                        if (tab.key !== 'lotes') setLoteSeleccionado(null);
+                      }}
+                      style={{
+                        padding: '9px 14px',
+                        borderRadius: 9,
+                        border: activeTopTab ? 'none' : '0.5px solid rgba(15,23,42,0.16)',
+                        background: activeTopTab ? '#E1F5EE' : '#fff',
+                        color: activeTopTab ? '#0F6E56' : 'var(--color-text-secondary)',
+                        fontWeight: activeTopTab ? 700 : 600,
+                        fontSize: 14,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 12, border: '1px solid rgba(148,163,184,0.35)', background: '#fff', color: 'var(--color-text-primary)', fontSize: 13, fontWeight: 600 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 999, background: '#16A34A', display: 'inline-block' }} />
-                  {syncLabel}
-                </div>
-                <Button variant="ghost" onClick={() => downloadRowsAsCsv(exportState.rows, exportState.fileName)} disabled={!exportState.rows?.length}>
+                <Button variant="ghost" onClick={() => downloadRowsAsCsv(exportState.rows, exportState.fileName)} disabled={!exportState.rows?.length} style={{ height: 44, padding: '0 24px', borderRadius: 10, fontSize: 14 }}>
                   Exportar
                 </Button>
+                {vistaActual === 'recupero' && (
+                  <Button onClick={() => { resetImportState(); setShowImportModal(true); }} icon={<Upload size={16} />} style={{ background: '#0F766E', color: '#fff', height: 44, padding: '0 24px', borderRadius: 10, fontSize: 14 }}>
+                    Importar CSV
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -2428,7 +2515,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                       return totalContactos > 0 ? Math.round((totalGestionados / totalContactos) * 100) : 0;
                     })()}%`, color: '#0F766E' }
                   ].map((m) => (
-                    <div key={m.label} style={{ background: 'var(--color-background-secondary)', borderRadius: 12, padding: '14px 16px', border: '0.5px solid var(--color-border-tertiary)' }}>
+                    <div key={m.label} style={{ background: 'var(--color-background-secondary)', borderRadius: 12, padding: '14px 16px', border: '0.5px solid rgba(15,23,42,0.16)' }}>
                       <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', fontWeight: 800 }}>{m.label}</div>
                       <div style={{ fontSize: 24, fontWeight: 900, color: m.color, marginTop: 2 }}>{m.value ?? '—'}</div>
                     </div>
@@ -2685,137 +2772,75 @@ export default function SupervisorContractsModule({ Panel, Button }) {
 
           {vistaActual === 'recupero' && (
             <>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-              gap: '12px',
-              marginBottom: '24px'
-            }}>
-            <div style={{
-              background: 'var(--color-background-secondary)',
-              borderRadius: '8px',
-              padding: '12px 16px',
-            }}>
-              <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
-                Disponibles para recupero
-              </div>
-              <div style={{ fontSize: '28px', fontWeight: '500' }}>
-                {Number((tabCounts.disponibles || 0) || (metrics.disponibles || 0)).toLocaleString('es-UY')}
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
-                sin producto activo
-              </div>
-            </div>
-            <div style={{
-              background: 'var(--color-background-secondary)',
-              borderRadius: '8px',
-              padding: '12px 16px',
-            }}>
-              <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
-                En lote
-              </div>
-              <div style={{ fontSize: '28px', fontWeight: '500' }}>
-                {Number(
-                  (tabCounts.nuevo || 0) +
-                  (tabCounts.no_contesta || 0) +
-                  (tabCounts.rellamar || 0) +
-                  (tabCounts.seguimiento || 0)
-                ).toLocaleString('es-UY')}
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
-                en lotes activos
-              </div>
-            </div>
-            <div style={{
-              background: 'var(--color-background-secondary)',
-              borderRadius: '8px',
-              padding: '12px 16px',
-            }}>
-              <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
-                Recuperados
-              </div>
-              <div style={{ fontSize: '28px', fontWeight: '500', color: 'var(--color-text-success)' }}>
-                {Number(tabCounts.recuperados || 0).toLocaleString('es-UY')}
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
-                volvieron a estar de alta
-              </div>
-            </div>
-            <div style={{
-              background: 'var(--color-background-secondary)',
-              borderRadius: '8px',
-              padding: '12px 16px',
-            }}>
-              <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
-                Rechazados
-              </div>
-              <div style={{ fontSize: '28px', fontWeight: '500', color: 'var(--color-text-danger)' }}>
-                {Number(tabCounts.rechazos || 0).toLocaleString('es-UY')}
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
-                no quisieron volver
-              </div>
-            </div>
+          <div style={{ marginBottom: 16 }}>
+            <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+              {Number(total || 0).toLocaleString('es-UY')} contactos disponibles
+            </span>
           </div>
 
-          <div style={{ display: 'flex', gap: 20, borderBottom: '1px solid var(--color-border-tertiary)', marginBottom: 16 }}>
+          <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
             {[
-              { key: 'prioritario', label: 'Prioritario', hint: `bajas de los últimos ${RECUPERO_PRIORITARIO_MESES} meses` },
-              { key: 'resto', label: 'Resto de la cartera', hint: 'resto de la cartera' }
+              { key: 'prioritario', label: `Prioritario · 0-${RECUPERO_PRIORITARIO_MESES} meses`, Icon: Clock, count: segmentoCounts.prioritario, error: segmentoCountsError.prioritario },
+              { key: 'resto', label: 'Resto de la cartera', Icon: Archive, count: segmentoCounts.resto, error: segmentoCountsError.resto }
             ].map((segmento) => {
               const isActive = segmentoRecupero === segmento.key;
+              const countText = segmento.count !== null
+                ? Number(segmento.count).toLocaleString('es-UY')
+                : (segmento.error ? '—' : '');
               return (
                 <button
                   key={segmento.key}
                   type="button"
                   onClick={() => setSegmentoRecupero(segmento.key)}
                   style={{
-                    padding: '10px 2px',
-                    border: 'none',
-                    borderBottom: isActive ? '2px solid #0F766E' : '2px solid transparent',
-                    background: 'transparent',
-                    color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                    flex: '1 1 0',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    padding: 10,
+                    borderRadius: 8,
+                    border: isActive ? 'none' : '0.5px solid rgba(15,23,42,0.16)',
+                    background: isActive ? '#E1F5EE' : '#fff',
+                    color: isActive ? '#0F6E56' : 'var(--color-text-secondary)',
                     fontWeight: isActive ? 700 : 600,
                     fontSize: 14,
                     cursor: 'pointer'
                   }}
-                  title={segmento.hint}
                 >
-                  {segmento.label}
+                  <segmento.Icon size={16} />
+                  {segmento.label}{countText ? ` (${countText})` : ''}
                 </button>
               );
             })}
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: 12, flexWrap: 'wrap' }}>
-            <div className="toolbar" style={{ gap: 10, marginBottom: 0, alignItems: 'center', flexWrap: 'wrap' }}>
-              <Button onClick={() => { resetImportState(); setShowImportModal(true); }} icon={<Upload size={16} />} style={{ background: '#0F766E', color: '#fff' }}>
-                Importar CSV
-              </Button>
+            <div className="toolbar" style={{ gap: 8, marginBottom: 0, alignItems: 'center', flexWrap: 'wrap' }}>
               {activeFilterCount > 0 && (
-                <Button variant="ghost" icon={<Filter size={16} />} onClick={clearAllFilters}>
+                <Button variant="ghost" icon={<Filter size={16} />} onClick={clearAllFilters} style={{ height: 40, borderRadius: 10 }}>
                   Limpiar filtros
                 </Button>
               )}
-              <Button variant="secondary" icon={<Columns size={16} />} onClick={() => setColumnsPanelOpen((prev) => !prev)}>
-                Columnas
-              </Button>
-              <Button variant="ghost" icon={<RefreshCw size={16} />} onClick={() => loadRecupero({ force: true })}>Actualizar</Button>
+              <button
+                type="button"
+                title="Columnas"
+                aria-label="Columnas"
+                onClick={() => setColumnsPanelOpen((prev) => !prev)}
+                style={recuperoIconButtonStyle}
+              >
+                <Columns size={16} />
+              </button>
+              <button
+                type="button"
+                title="Actualizar"
+                aria-label="Actualizar"
+                onClick={() => loadRecupero({ force: true })}
+                style={recuperoIconButtonStyle}
+              >
+                <RefreshCw size={16} />
+              </button>
             </div>
-
-            {activeTab === 'disponibles' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
-                  Seleccionados: {selectedIds.length}
-                </span>
-                <Button
-                  onClick={() => openAssign(selectedIds)}
-                  disabled={!selectedIds.length}
-                >
-                  Asignar seleccionados ({selectedIds.length})
-                </Button>
-              </div>
-            )}
             </div>
 
           <div style={{
@@ -2827,7 +2852,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
             padding: '12px 16px',
             background: '#F8F7F4',
             borderRadius: 10,
-            border: '0.5px solid var(--color-border-tertiary)'
+            border: '0.5px solid rgba(15,23,42,0.16)'
           }}>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '2 1 200px', minWidth: 180 }}>
@@ -2852,7 +2877,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                 style={{
                   padding: '8px 12px',
                   borderRadius: 8,
-                  border: '0.5px solid var(--color-border-tertiary)',
+                  border: '0.5px solid rgba(15,23,42,0.16)',
                   fontSize: 13,
                   background: '#fff',
                   outline: 'none'
@@ -2875,7 +2900,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                     width: '100%',
                     padding: '8px 32px 8px 12px',
                     borderRadius: 8,
-                    border: '0.5px solid var(--color-border-tertiary)',
+                    border: '0.5px solid rgba(15,23,42,0.16)',
                     background: '#fff',
                     fontSize: 13,
                     textAlign: 'left',
@@ -2898,7 +2923,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                     left: 0,
                     zIndex: 100,
                     background: '#fff',
-                    border: '0.5px solid var(--color-border-tertiary)',
+                    border: '0.5px solid rgba(15,23,42,0.16)',
                     borderRadius: 10,
                     boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
                     minWidth: 220,
@@ -2909,7 +2934,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                     <label style={{
                       display: 'flex', alignItems: 'center', gap: 10,
                       padding: '8px 14px', cursor: 'pointer', fontSize: 13,
-                      borderBottom: '0.5px solid var(--color-border-tertiary)',
+                      borderBottom: '0.5px solid rgba(15,23,42,0.16)',
                       fontWeight: 600
                     }}>
                       <input
@@ -2956,6 +2981,99 @@ export default function SupervisorContractsModule({ Panel, Button }) {
               </div>
             </div>
 
+            <div
+              data-filter-popover
+              style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '1 1 180px', minWidth: 180, position: 'relative' }}
+            >
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Producto anterior
+              </label>
+              <div style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  onClick={() => setOpenFilterColumn((prev) => (prev === 'producto' ? '' : 'producto'))}
+                  style={{
+                    width: '100%',
+                    padding: '8px 32px 8px 12px',
+                    borderRadius: 8,
+                    border: '0.5px solid rgba(15,23,42,0.16)',
+                    background: '#fff',
+                    fontSize: 13,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    color: columnFiltersDraft.producto?.length ? '#0F766E' : 'var(--color-text-secondary)',
+                    fontWeight: columnFiltersDraft.producto?.length ? 600 : 400,
+                    position: 'relative'
+                  }}
+                >
+                  {columnFiltersDraft.producto?.length
+                    ? `${columnFiltersDraft.producto.length} seleccionado${columnFiltersDraft.producto.length > 1 ? 's' : ''}`
+                    : 'Todos los productos'}
+                  <ChevronDown size={14} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-secondary)' }} />
+                </button>
+
+                {openFilterColumn === 'producto' && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 4px)',
+                    left: 0,
+                    zIndex: 100,
+                    background: '#fff',
+                    border: '0.5px solid rgba(15,23,42,0.16)',
+                    borderRadius: 10,
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
+                    minWidth: 220,
+                    maxHeight: 260,
+                    overflowY: 'auto',
+                    padding: '6px 0'
+                  }}>
+                    <label style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '8px 14px', cursor: 'pointer', fontSize: 13,
+                      borderBottom: '0.5px solid rgba(15,23,42,0.16)',
+                      fontWeight: 600
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={!columnFiltersDraft.producto?.length}
+                        onChange={() => setColumnFiltersDraft((prev) => ({ ...prev, producto: [] }))}
+                      />
+                      Todos los productos
+                    </label>
+                    {(filterOptions.productos || []).map((p) => {
+                      const val = typeof p === 'string' ? p : (p.value ?? p);
+                      const lbl = typeof p === 'string' ? p : (p.label ?? val);
+                      const checked = (columnFiltersDraft.producto || []).includes(val);
+                      return (
+                        <label key={val} style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          padding: '8px 14px', cursor: 'pointer', fontSize: 13,
+                          background: checked ? 'rgba(15,118,110,0.06)' : 'transparent'
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              setColumnFiltersDraft((prev) => {
+                                const current = prev.producto || [];
+                                return {
+                                  ...prev,
+                                  producto: checked
+                                    ? current.filter((v) => v !== val)
+                                    : [...current, val]
+                                };
+                              });
+                            }}
+                          />
+                          {lbl}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '1 1 150px', minWidth: 150 }}>
               <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Fecha baja desde
@@ -2967,7 +3085,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                 style={{
                   padding: '8px 12px',
                   borderRadius: 8,
-                  border: '0.5px solid var(--color-border-tertiary)',
+                  border: '0.5px solid rgba(15,23,42,0.16)',
                   fontSize: 13,
                   background: '#fff'
                 }}
@@ -2985,7 +3103,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                 style={{
                   padding: '8px 12px',
                   borderRadius: 8,
-                  border: '0.5px solid var(--color-border-tertiary)',
+                  border: '0.5px solid rgba(15,23,42,0.16)',
                   fontSize: 13,
                   background: '#fff'
                 }}
@@ -2999,7 +3117,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
               <button
                 type="button"
                 onClick={() => {
-                  if (openFilterColumn === 'motivo_baja') setOpenFilterColumn('');
+                  if (openFilterColumn === 'motivo_baja' || openFilterColumn === 'producto') setOpenFilterColumn('');
                   const errors = validateColumnFilters(columnFiltersDraft);
                   setFilterErrors(errors);
                   if (!Object.keys(errors).length) {
@@ -3009,7 +3127,8 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                 }}
                 style={{
                   padding: '8px 20px',
-                  borderRadius: 8,
+                  height: 40,
+                  borderRadius: 10,
                   border: 'none',
                   background: '#0F766E',
                   color: '#fff',
@@ -3020,29 +3139,6 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                 }}
               >
                 Aplicar
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setColumnFiltersDraft({ ...COLUMN_FILTERS_INITIAL });
-                  setColumnFiltersApplied({ ...COLUMN_FILTERS_INITIAL });
-                  setFilterErrors({});
-                  setOpenFilterColumn('');
-                  setPage(1);
-                }}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: 8,
-                  border: '0.5px solid var(--color-border-tertiary)',
-                  background: '#fff',
-                  color: 'var(--color-text-secondary)',
-                  fontWeight: 600,
-                  fontSize: 13,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                Limpiar
               </button>
             </div>
 
@@ -3096,7 +3192,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                   marginLeft: 10,
                   padding: '6px 10px',
                   borderRadius: 8,
-                  border: '0.5px solid var(--color-border-tertiary)',
+                  border: '0.5px solid rgba(15,23,42,0.16)',
                   background: '#fff',
                   color: 'var(--color-text-secondary)',
                   cursor: 'pointer',
@@ -3120,7 +3216,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                   style={{
                     padding: '6px 10px',
                     borderRadius: 8,
-                    border: '0.5px solid var(--color-border-tertiary)',
+                    border: '0.5px solid rgba(15,23,42,0.16)',
                     background: '#fff',
                     color: 'var(--color-text-secondary)',
                     cursor: 'pointer',
@@ -3181,7 +3277,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
             <table>
               <thead>
                 <tr>
-                  <th style={{ width: 36 }}>
+                  <th style={{ ...recuperoThStyle, width: 36, textAlign: 'center' }}>
                     <input
                       ref={selectAllRef}
                       type="checkbox"
@@ -3191,12 +3287,12 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                       aria-label="Seleccionar todos los contactos visibles"
                     />
                   </th>
-                  <th style={{ textAlign: 'left' }}>Contacto</th>
-                  <th style={{ textAlign: 'left' }}>Producto anterior</th>
-                  <th style={{ textAlign: 'left' }}>Motivo de baja</th>
-                  <th style={{ textAlign: 'left' }}>Fecha de baja</th>
-                  <th style={{ textAlign: 'left' }}>Vendedor origen</th>
-                  <th style={{ textAlign: 'left' }}>Acciones</th>
+                  <th style={recuperoThStyle}>Contacto</th>
+                  <th style={recuperoThStyle}>Producto anterior</th>
+                  <th style={recuperoThStyle}>Motivo de baja</th>
+                  <th style={recuperoThStyle}>Fecha de baja</th>
+                  <th style={recuperoThStyle}>Vendedor origen</th>
+                  <th style={recuperoThStyle}>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -3210,7 +3306,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                   return (
                     <React.Fragment key={row.id}>
                       <tr style={{ background: isExpanded ? 'rgba(148,163,184,0.12)' : undefined }}>
-                        <td>
+                        <td style={{ ...recuperoTdStyle, textAlign: 'center' }}>
                           <input
                             type="checkbox"
                             checked={selectedIds.includes(row.id)}
@@ -3219,7 +3315,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                             aria-label="Seleccionar contacto"
                           />
                         </td>
-                        <td>
+                        <td style={recuperoTdStyle}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                             <div style={{
                               width: 34,
@@ -3244,13 +3340,13 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                               >
                                 <div style={{ fontWeight: 700, color: 'var(--color-text-primary)' }}>{nombre}</div>
                                 <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                                  {[row.telefono, row.celular].filter(Boolean).join(' · ') || '—'}
+                                  {[formatTelefono(row.telefono), formatTelefono(row.celular)].filter(Boolean).filter((v, i, arr) => arr.indexOf(v) === i).join(' · ') || '—'}
                                 </div>
                               </button>
                             </div>
                           </div>
                         </td>
-                        <td>
+                        <td style={recuperoTdStyle}>
                           <div style={{ fontWeight: 600, color: 'var(--color-text-primary)', fontSize: 13 }}>
                             {row.nombre_producto || row.producto_anterior || '—'}
                           </div>
@@ -3260,61 +3356,81 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                             </div>
                           )}
                         </td>
-                        <td>
+                        <td style={recuperoTdStyle}>
                           <span style={{ color: motivoInfo.color, fontSize: 12, fontWeight: 500 }}>
                             {motivoInfo.label}
                           </span>
                         </td>
-                        <td style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                        <td style={{ ...recuperoTdStyle, fontSize: 13, color: 'var(--color-text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
                           {row.fecha_baja ? formatDate(row.fecha_baja) : '—'}
                         </td>
-                        <td style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
-                          {row.vendedor_origen || '—'}
+                        <td style={recuperoTdStyle}>
+                          {row.vendedor_origen ? (
+                            <span style={{ display: 'inline-flex', padding: '3px 9px', borderRadius: 999, background: 'rgba(15,118,110,0.08)', color: '#0f766e', fontSize: 12, fontWeight: 600 }}>
+                              {row.vendedor_origen}
+                            </span>
+                          ) : (
+                            <span style={{ display: 'inline-flex', padding: '3px 9px', borderRadius: 999, background: 'rgba(148,163,184,0.18)', color: 'var(--color-text-secondary)', fontSize: 12, fontWeight: 600 }}>
+                              Sin vendedor
+                            </span>
+                          )}
                         </td>
-                        <td>
-                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <td style={recuperoTdStyle}>
+                          <div data-row-menu style={{ position: 'relative', display: 'inline-block' }}>
                             <button
                               type="button"
-                              onClick={() => openAssign([row.id], row)}
-                              style={{
-                                fontSize: 12,
-                                fontWeight: 700,
-                                color: '#0f766e',
-                                background: 'rgba(15,118,110,0.08)',
-                                border: '1px solid rgba(15,118,110,0.22)',
-                                borderRadius: 8,
-                                padding: '6px 10px',
-                                cursor: 'pointer',
-                                whiteSpace: 'nowrap'
-                              }}
-                            >
-                              {getVendedorAsignado(row) ? 'Reasignar' : 'Asignar'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={toggleExpand}
+                              onClick={() => setOpenRowMenuId((prev) => (String(prev) === String(row.id) ? null : row.id))}
                               style={{
                                 width: 34,
                                 height: 34,
                                 borderRadius: 8,
-                                border: '1px solid rgba(148,163,184,0.5)',
+                                border: '0.5px solid rgba(15,23,42,0.16)',
                                 background: '#fff',
                                 cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center'
                               }}
-                              aria-label="Expandir fila"
+                              aria-label="Más acciones"
                             >
-                              <ChevronDown size={16} style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+                              <MoreHorizontal size={16} />
                             </button>
+                            {String(openRowMenuId) === String(row.id) && (
+                              <div style={{
+                                position: 'absolute',
+                                top: 'calc(100% + 4px)',
+                                right: 0,
+                                zIndex: 50,
+                                background: '#fff',
+                                border: '0.5px solid rgba(15,23,42,0.16)',
+                                borderRadius: 10,
+                                boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                                minWidth: 160,
+                                padding: '6px 0'
+                              }}>
+                                <button
+                                  type="button"
+                                  onClick={() => { setOpenRowMenuId(null); openAssign([row.id], row); }}
+                                  style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 14px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)' }}
+                                >
+                                  {getVendedorAsignado(row) ? 'Reasignar' : 'Asignar'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => { setOpenRowMenuId(null); toggleExpand(); }}
+                                  style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 14px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)' }}
+                                >
+                                  {isExpanded ? 'Ocultar detalle' : 'Ver detalle'}
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </td>
                       </tr>
 
                       {isExpanded && (
                         <tr>
-                          <td colSpan={7} style={{ background: 'rgba(148,163,184,0.12)', padding: '12px 14px', borderTop: '0.5px solid var(--color-border-tertiary)' }}>
+                          <td colSpan={7} style={{ background: 'rgba(148,163,184,0.12)', padding: '12px 14px', borderTop: '0.5px solid rgba(15,23,42,0.16)' }}>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                               <div>
                                 <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-secondary)', marginBottom: 8 }}>
@@ -3403,6 +3519,44 @@ export default function SupervisorContractsModule({ Panel, Button }) {
               <Button variant="ghost" disabled={page >= totalPages} onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}>Siguiente</Button>
             </div>
           </div>
+
+          {selectedIds.length > 0 && (
+            <div style={{
+              position: 'fixed',
+              left: '50%',
+              bottom: 24,
+              transform: 'translateX(-50%)',
+              zIndex: 200,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+              padding: '10px 14px',
+              borderRadius: 12,
+              background: '#fff',
+              border: '0.5px solid rgba(15,23,42,0.16)',
+              boxShadow: '0 12px 32px rgba(15,23,42,0.18)'
+            }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>
+                {selectedIds.length} seleccionado{selectedIds.length > 1 ? 's' : ''}
+              </span>
+              <Button onClick={() => openAssign(selectedIds)} style={{ height: 40, borderRadius: 10 }}>
+                Asignar
+              </Button>
+              <Button
+                variant="ghost"
+                style={{ height: 40, borderRadius: 10 }}
+                onClick={() => downloadRowsAsCsv(
+                  visibleItems.filter((row) => selectedIds.includes(row.id)),
+                  'recupero-seleccion.csv'
+                )}
+              >
+                Exportar selección
+              </Button>
+              <Button variant="ghost" style={{ height: 40, borderRadius: 10 }} onClick={() => setSelectedIds([])}>
+                Limpiar
+              </Button>
+            </div>
+          )}
             </>
           )}
 
@@ -3463,7 +3617,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                   {addDataError}
                 </div>
               ) : null}
-              <div style={{ maxHeight: 320, overflowY: 'auto', border: '0.5px solid var(--color-border-tertiary)', borderRadius: 10 }}>
+              <div style={{ maxHeight: 320, overflowY: 'auto', border: '0.5px solid rgba(15,23,42,0.16)', borderRadius: 10 }}>
                 {addDataLoading ? (
                   <div style={{ padding: 16, color: 'var(--color-text-secondary)' }}>Cargando contactos disponibles...</div>
                 ) : addDataContacts.length === 0 ? (
@@ -3472,7 +3626,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                   addDataContacts.map((contact) => (
                     <label
                       key={contact.id}
-                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderBottom: '0.5px solid var(--color-border-tertiary)', cursor: 'pointer' }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderBottom: '0.5px solid rgba(15,23,42,0.16)', cursor: 'pointer' }}
                     >
                       <input
                         type="checkbox"
@@ -3677,16 +3831,34 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                 </div>
               )}
               <label style={{ display: 'grid', gap: 6, marginBottom: 12 }}>
-                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Vendedor</span>
-                <select className="input" value={assignSellerId} onChange={(event) => setAssignSellerId(event.target.value)}>
-                  <option value="">Seleccionar...</option>
-                  {sellers.map((seller) => (
-                    <option key={seller.id || seller.email} value={seller.id}>
-                      {seller.label || seller.nombre || seller.email || 'Vendedor'}
+                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>¿A qué lote?</span>
+                <select className="input" value={assignLoteId} onChange={(event) => { setAssignLoteId(event.target.value); setAssignSellerId(''); }}>
+                  <option value="">Seleccionar lote...</option>
+                  {assignLotesAbiertos.map((lote) => (
+                    <option key={asLotId(lote)} value={asLotId(lote)}>
+                      {asLotName(lote)}
                     </option>
                   ))}
                 </select>
               </label>
+              {assignNeedsSellerPicker ? (
+                <label style={{ display: 'grid', gap: 6, marginBottom: 12 }}>
+                  <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Vendedor</span>
+                  <select className="input" value={assignSellerId} onChange={(event) => setAssignSellerId(event.target.value)}>
+                    <option value="">Seleccionar...</option>
+                    {sellers.map((seller) => (
+                      <option key={seller.id || seller.email} value={seller.id}>
+                        {seller.label || seller.nombre || seller.email || 'Vendedor'}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <div style={{ marginBottom: 12, fontSize: 13 }}>
+                  <span style={{ color: 'var(--color-text-secondary)' }}>Vendedor: </span>
+                  <strong style={{ color: 'var(--color-text-primary)' }}>{asLotSellerName(assignSelectedLote)}</strong>
+                </div>
+              )}
               <label style={{ display: 'grid', gap: 6, marginBottom: 12 }}>
                 <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Notas para el vendedor (opcional)</span>
                 <textarea
@@ -3700,7 +3872,14 @@ export default function SupervisorContractsModule({ Panel, Button }) {
               </label>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                 <Button variant="ghost" onClick={closeAssign} disabled={creatingLot}>Cancelar</Button>
-                <Button onClick={handleConfirmAssign} disabled={!assignSellerId || creatingLot}>
+                <Button
+                  onClick={handleConfirmAssign}
+                  disabled={
+                    creatingLot
+                    || !assignLoteId
+                    || (assignNeedsSellerPicker && !assignSellerId)
+                  }
+                >
                   {creatingLot ? 'Asignando...' : 'Confirmar asignación'}
                 </Button>
               </div>
@@ -3762,7 +3941,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                         const valueNum = Number(row.value || 0);
                         const pct = total > 0 ? Math.round((valueNum / total) * 100) : 0;
                         return (
-                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < 6 ? '0.5px solid var(--color-border-tertiary)' : 'none' }}>
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < 6 ? '0.5px solid rgba(15,23,42,0.16)' : 'none' }}>
                             <div style={{ width: 24, height: 24, borderRadius: 6, background: row.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                               <i className={'ti ' + row.icon} style={{ fontSize: 12, color: row.color }} />
                             </div>
@@ -3810,7 +3989,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
               {[1, 2, 3].map((s) => (
                 <div key={s} style={{
                   flex: 1, height: 5, borderRadius: 3,
-                  background: s < importStep ? '#5DCAA5' : s === importStep ? '#0F766E' : 'var(--color-border-tertiary)',
+                  background: s < importStep ? '#5DCAA5' : s === importStep ? '#0F766E' : 'rgba(15,23,42,0.16)',
                   transition: 'background 0.2s'
                 }} />
               ))}
@@ -3884,7 +4063,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                   <div style={{
                     padding: '12px 14px', borderRadius: 10,
                     background: 'var(--color-background-secondary)',
-                    border: '0.5px solid var(--color-border-tertiary)'
+                    border: '0.5px solid rgba(15,23,42,0.16)'
                   }}>
                     <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
                       Columnas requeridas
@@ -3963,7 +4142,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                           background: 'var(--color-background-secondary)',
                           borderRadius: 8,
                           padding: '10px 12px',
-                          border: '0.5px solid var(--color-border-tertiary)'
+                          border: '0.5px solid rgba(15,23,42,0.16)'
                         }}>
                           <div style={{ fontSize: 18, fontWeight: 600, color }}>{value}</div>
                           <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 2 }}>{label}</div>
@@ -3993,18 +4172,18 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                       Se muestran los datos más relevantes, pero se cargarán todas las columnas del CSV.
                     </span>
                   </div>
-                  <div style={{ border: '0.5px solid var(--color-border-tertiary)', borderRadius: 8, overflowX: 'auto', overflowY: 'auto', maxHeight: 220 }}>
+                  <div style={{ border: '0.5px solid rgba(15,23,42,0.16)', borderRadius: 8, overflowX: 'auto', overflowY: 'auto', maxHeight: 220 }}>
                     <table style={{ width: '100%', minWidth: 700, borderCollapse: 'collapse', fontSize: 12 }}>
                       <thead>
                         <tr style={{ background: 'var(--color-background-secondary)' }}>
                           {['Documento', 'Nombre', 'Apellido', 'Teléfono', 'Plan', 'Precio', 'Motivo baja', 'Fecha baja'].map((h) => (
-                            <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: 11, fontWeight: 500, color: 'var(--color-text-secondary)', borderBottom: '0.5px solid var(--color-border-tertiary)' }}>{h}</th>
+                            <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: 11, fontWeight: 500, color: 'var(--color-text-secondary)', borderBottom: '0.5px solid rgba(15,23,42,0.16)' }}>{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         {importRows.slice(0, 8).map((row, idx) => (
-                          <tr key={idx} style={{ borderTop: '0.5px solid var(--color-border-tertiary)' }}>
+                          <tr key={idx} style={{ borderTop: '0.5px solid rgba(15,23,42,0.16)' }}>
                             <td style={{ padding: '6px 8px' }}>
                               <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.documento || '—'}</div>
                               <span style={{
@@ -4102,7 +4281,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                             </div>
                           </div>
                           <div style={{
-                            border: '0.5px solid var(--color-border-tertiary)',
+                            border: '0.5px solid rgba(15,23,42,0.16)',
                             borderRadius: 8,
                             overflow: 'auto',
                             maxHeight: 200
@@ -4110,14 +4289,14 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                               <thead>
                                 <tr style={{ background: 'var(--color-background-secondary)' }}>
-                                  <th style={{ textAlign: 'left', padding: '6px 10px', fontWeight: 500, color: 'var(--color-text-secondary)', borderBottom: '0.5px solid var(--color-border-tertiary)' }}>Fila</th>
-                                  <th style={{ textAlign: 'left', padding: '6px 10px', fontWeight: 500, color: 'var(--color-text-secondary)', borderBottom: '0.5px solid var(--color-border-tertiary)' }}>Documento</th>
-                                  <th style={{ textAlign: 'left', padding: '6px 10px', fontWeight: 500, color: 'var(--color-text-secondary)', borderBottom: '0.5px solid var(--color-border-tertiary)' }}>Motivo</th>
+                                  <th style={{ textAlign: 'left', padding: '6px 10px', fontWeight: 500, color: 'var(--color-text-secondary)', borderBottom: '0.5px solid rgba(15,23,42,0.16)' }}>Fila</th>
+                                  <th style={{ textAlign: 'left', padding: '6px 10px', fontWeight: 500, color: 'var(--color-text-secondary)', borderBottom: '0.5px solid rgba(15,23,42,0.16)' }}>Documento</th>
+                                  <th style={{ textAlign: 'left', padding: '6px 10px', fontWeight: 500, color: 'var(--color-text-secondary)', borderBottom: '0.5px solid rgba(15,23,42,0.16)' }}>Motivo</th>
                                 </tr>
                               </thead>
                               <tbody>
                                 {importStats.activosDetalle.map((e, i) => (
-                                  <tr key={i} style={{ borderTop: '0.5px solid var(--color-border-tertiary)' }}>
+                                  <tr key={i} style={{ borderTop: '0.5px solid rgba(15,23,42,0.16)' }}>
                                     <td style={{ padding: '6px 10px', color: 'var(--color-text-secondary)' }}>{e.row}</td>
                                     <td style={{ padding: '6px 10px', fontWeight: 500 }}>{e.documento || '-'}</td>
                                     <td style={{ padding: '6px 10px', color: '#185FA5' }}>Cliente activo</td>
@@ -4147,7 +4326,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
               justifyContent: 'flex-end',
               gap: 8,
               padding: '16px 24px 24px',
-              borderTop: '0.5px solid var(--color-border-tertiary)',
+              borderTop: '0.5px solid rgba(15,23,42,0.16)',
               background: 'var(--color-background-primary)',
               flexShrink: 0
             }}>

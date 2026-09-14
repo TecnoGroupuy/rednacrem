@@ -41,8 +41,8 @@ export default function RecuperoResultadosView({ Panel }) {
     return true;
   }), [rows, filtroDesde, filtroHasta, filtroVendedor, filtroMedioPago]);
 
-  const thStyle = { textAlign: 'left', padding: '10px 12px', fontSize: 13, fontWeight: 600, color: 'var(--color-text-secondary)', borderBottom: '1px solid var(--color-border-tertiary)' };
-  const tdStyle = { padding: '10px 12px', borderBottom: '0.5px solid var(--color-border-tertiary)' };
+  const thStyle = { textAlign: 'left', padding: '10px 12px', fontSize: 13, fontWeight: 600, color: 'var(--color-text-secondary)', borderBottom: '1px solid rgba(15,23,42,0.16)' };
+  const tdStyle = { padding: '10px 12px', borderBottom: '0.5px solid rgba(15,23,42,0.16)' };
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
@@ -65,7 +65,7 @@ export default function RecuperoResultadosView({ Panel }) {
         padding: '12px 16px',
         background: '#F8F7F4',
         borderRadius: 10,
-        border: '0.5px solid var(--color-border-tertiary)'
+        border: '0.5px solid rgba(15,23,42,0.16)'
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Desde</label>
