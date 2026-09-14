@@ -3291,7 +3291,6 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                   <th style={recuperoThStyle}>Producto</th>
                   <th style={recuperoThStyle}>Motivo de baja</th>
                   <th style={recuperoThStyle}>Fecha de baja</th>
-                  <th style={recuperoThStyle}>Vendedor origen</th>
                   <th style={{ ...recuperoThStyle, width: 56, whiteSpace: 'nowrap' }}>Acciones</th>
                 </tr>
               </thead>
@@ -3361,17 +3360,6 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                         <td style={{ ...recuperoTdStyle, fontSize: 13, color: 'var(--color-text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
                           {row.fecha_baja ? formatDate(row.fecha_baja) : '—'}
                         </td>
-                        <td style={recuperoTdStyle}>
-                          {row.vendedor_origen ? (
-                            <span style={{ display: 'inline-flex', padding: '3px 9px', borderRadius: 999, background: 'rgba(15,118,110,0.08)', color: '#0f766e', fontSize: 12, fontWeight: 600 }}>
-                              {row.vendedor_origen}
-                            </span>
-                          ) : (
-                            <span style={{ display: 'inline-flex', padding: '3px 9px', borderRadius: 999, background: 'rgba(148,163,184,0.18)', color: 'var(--color-text-secondary)', fontSize: 12, fontWeight: 600 }}>
-                              Sin vendedor
-                            </span>
-                          )}
-                        </td>
                         <td style={{ ...recuperoTdStyle, width: 56, whiteSpace: 'nowrap' }}>
                           <div data-row-menu style={{ position: 'relative', display: 'inline-block' }}>
                             <button
@@ -3427,7 +3415,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
 
                       {isExpanded && (
                         <tr>
-                          <td colSpan={7} style={{ background: 'rgba(148,163,184,0.12)', padding: '12px 14px', borderTop: '0.5px solid rgba(15,23,42,0.16)' }}>
+                          <td colSpan={6} style={{ background: 'rgba(148,163,184,0.12)', padding: '12px 14px', borderTop: '0.5px solid rgba(15,23,42,0.16)' }}>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                               <div>
                                 <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-secondary)', marginBottom: 8 }}>
