@@ -227,6 +227,9 @@ export default function RecuperoProduccionView({
     loadOverview();
   }, [active, loadOverview]);
 
+  const thStyle = { textAlign: 'left', padding: '10px 12px', fontSize: 13, fontWeight: 600, color: 'var(--color-text-secondary)', borderBottom: '1px solid var(--color-border-tertiary)' };
+  const tdStyle = { padding: '10px 12px', borderBottom: '0.5px solid var(--color-border-tertiary)' };
+
   return (
     <div style={{ display: 'grid', gap: 16 }}>
       <div>
@@ -246,17 +249,25 @@ export default function RecuperoProduccionView({
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
         {[
-          { label: 'Base util', value: formatCount(summary.baseUtil), color: 'var(--color-text-primary)', sub: `de ${formatCount(summary.totalImportadas)} filas · ${formatCount(summary.depuradas)} depuradas` },
-          { label: 'Pendiente', value: formatCount(summary.pendiente), color: '#64748B', sub: 'nunca gestionado' },
-          { label: 'En gestion', value: formatCount(summary.enGestion), color: '#A16207', sub: 'con intento, sin cierre' },
-          { label: 'Recuperado', value: formatCount(summary.recuperado), color: '#15803D', sub: `${calcRate(summary.recuperado, summary.baseUtil)}% de la base util` },
-          { label: 'Rechazado', value: formatCount(summary.rechazado), color: '#B91C1C', sub: `${calcRate(summary.rechazado, summary.baseUtil)}% de la base util` },
-          { label: 'Efectividad', value: formatPercent(summary.efectividad), color: '#0F766E', sub: 'excluye dato erroneo' }
+          { label: 'Base util', value: formatCount(summary.baseUtil), color: 'var(--color-text-primary)', accent: false, sub: `de ${formatCount(summary.totalImportadas)} filas · ${formatCount(summary.depuradas)} depuradas` },
+          { label: 'Pendiente', value: formatCount(summary.pendiente), color: '#BA7517', accent: false, sub: 'nunca gestionado' },
+          { label: 'En gestion', value: formatCount(summary.enGestion), color: '#0F6E56', accent: false, sub: 'con intento, sin cierre' },
+          { label: 'Recuperado', value: formatCount(summary.recuperado), color: '#166534', accent: false, sub: `${calcRate(summary.recuperado, summary.baseUtil)}% de la base util` },
+          { label: 'Rechazado', value: formatCount(summary.rechazado), color: '#993C1D', accent: false, sub: `${calcRate(summary.rechazado, summary.baseUtil)}% de la base util` },
+          { label: 'Efectividad', value: formatPercent(summary.efectividad), color: '#0F6E56', accent: true, sub: 'excluye dato erroneo' }
         ].map((card) => (
-          <div key={card.label} style={{ background: '#fff', borderRadius: 14, padding: '16px 18px', border: card.label === 'Efectividad' ? '1px solid rgba(15,118,110,0.45)' : '0.5px solid var(--color-border-tertiary)' }}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{card.label}</div>
-            <div style={{ fontSize: 28, fontWeight: 900, color: card.color, marginTop: 10 }}>{summaryLoading ? '...' : card.value}</div>
-            <div style={{ marginTop: 6, fontSize: 12, color: 'var(--color-text-secondary)' }}>{card.sub}</div>
+          <div
+            key={card.label}
+            style={{
+              background: card.accent ? '#E1F5EE' : '#fff',
+              borderRadius: 12,
+              padding: '14px 16px',
+              border: card.accent ? 'none' : '0.5px solid var(--color-border-tertiary)'
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 700, color: card.accent ? '#0F6E56' : 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{card.label}</div>
+            <div style={{ fontSize: 24, fontWeight: 600, color: card.color, marginTop: 8 }}>{summaryLoading ? '...' : card.value}</div>
+            <div style={{ marginTop: 6, fontSize: 12, color: card.accent ? '#0F6E56' : 'var(--color-text-secondary)' }}>{card.sub}</div>
           </div>
         ))}
       </div>
@@ -266,46 +277,46 @@ export default function RecuperoProduccionView({
           <table>
             <thead>
               <tr>
-                <th>Dataset</th>
-                <th>Filas</th>
-                <th>Excluidos</th>
-                <th>Pend.</th>
-                <th>Gest.</th>
-                <th>Recup.</th>
-                <th>Rech.</th>
-                <th>Dato err.</th>
-                <th>Avance</th>
+                <th style={thStyle}>Dataset</th>
+                <th style={thStyle}>Filas</th>
+                <th style={thStyle}>Excluidos</th>
+                <th style={thStyle}>Pend.</th>
+                <th style={thStyle}>Gest.</th>
+                <th style={thStyle}>Recup.</th>
+                <th style={thStyle}>Rech.</th>
+                <th style={thStyle}>Dato err.</th>
+                <th style={thStyle}>Avance</th>
               </tr>
             </thead>
             <tbody>
               {datasetsLoading ? (
-                <tr><td colSpan={9} style={{ padding: 16, color: 'var(--color-text-secondary)' }}>Cargando datasets...</td></tr>
+                <tr><td colSpan={9} style={{ ...tdStyle, color: 'var(--color-text-secondary)' }}>Cargando datasets...</td></tr>
               ) : datasets.map((dataset) => {
                 const statusMeta = datasetStatusMeta(dataset.estado);
                 return (
                   <tr key={dataset.id}>
-                    <td>
+                    <td style={tdStyle}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <div style={{ fontWeight: 900 }}>{dataset.nombre}</div>
-                        <span style={{ padding: '3px 8px', borderRadius: 999, background: statusMeta.bg, color: statusMeta.color, fontSize: 12, fontWeight: 800 }}>
+                        <div style={{ fontWeight: 600 }}>{dataset.nombre}</div>
+                        <span style={{ padding: '3px 8px', borderRadius: 999, background: statusMeta.bg, color: statusMeta.color, fontSize: 12, fontWeight: 600 }}>
                           {statusMeta.label}
                         </span>
                       </div>
                       <div style={{ marginTop: 4, fontSize: 12, color: 'var(--color-text-secondary)' }}>{safeValue(dataset.archivo)}</div>
                     </td>
-                    <td style={{ fontWeight: 800 }}>{formatCount(dataset.filas)}</td>
-                    <td>{formatCount(dataset.excluidos)}</td>
-                    <td>{formatCount(dataset.pendiente)}</td>
-                    <td style={{ color: '#A16207', fontWeight: 800 }}>{formatCount(dataset.enGestion)}</td>
-                    <td style={{ color: '#15803D', fontWeight: 800 }}>{formatCount(dataset.recuperado)}</td>
-                    <td style={{ color: '#B91C1C', fontWeight: 800 }}>{formatCount(dataset.rechazado)}</td>
-                    <td>{formatCount(dataset.datoErroneo)}</td>
-                    <td>
+                    <td style={{ ...tdStyle, fontWeight: 600 }}>{formatCount(dataset.filas)}</td>
+                    <td style={tdStyle}>{formatCount(dataset.excluidos)}</td>
+                    <td style={{ ...tdStyle, color: '#BA7517' }}>{formatCount(dataset.pendiente)}</td>
+                    <td style={{ ...tdStyle, color: '#0F6E56', fontWeight: 600 }}>{formatCount(dataset.enGestion)}</td>
+                    <td style={{ ...tdStyle, color: '#166534', fontWeight: 600 }}>{formatCount(dataset.recuperado)}</td>
+                    <td style={{ ...tdStyle, color: '#993C1D', fontWeight: 600 }}>{formatCount(dataset.rechazado)}</td>
+                    <td style={tdStyle}>{formatCount(dataset.datoErroneo)}</td>
+                    <td style={tdStyle}>
                       <div style={{ minWidth: 140 }}>
                         <div style={{ height: 8, background: '#E5E7EB', borderRadius: 999, overflow: 'hidden', display: 'flex' }}>
-                          <div style={{ width: `${calcRate(dataset.enGestion, dataset.filas)}%`, background: '#CA8A04' }} />
-                          <div style={{ width: `${calcRate(dataset.recuperado, dataset.filas)}%`, background: '#15803D' }} />
-                          <div style={{ width: `${calcRate(dataset.rechazado, dataset.filas)}%`, background: '#B91C1C' }} />
+                          <div style={{ width: `${calcRate(dataset.enGestion, dataset.filas)}%`, background: '#0F6E56' }} />
+                          <div style={{ width: `${calcRate(dataset.recuperado, dataset.filas)}%`, background: '#166534' }} />
+                          <div style={{ width: `${calcRate(dataset.rechazado, dataset.filas)}%`, background: '#993C1D' }} />
                           <div style={{ width: `${calcRate(dataset.datoErroneo, dataset.filas)}%`, background: '#9CA3AF' }} />
                         </div>
                         <div style={{ marginTop: 6, fontSize: 12, color: 'var(--color-text-secondary)' }}>{dataset.avance}% cerrado · efect. {formatPercent(dataset.efectividad)}</div>
@@ -315,7 +326,7 @@ export default function RecuperoProduccionView({
                 );
               })}
               {!datasetsLoading && datasets.length === 0 ? (
-                <tr><td colSpan={9} style={{ padding: 16, color: 'var(--color-text-secondary)' }}>No hay datasets para mostrar.</td></tr>
+                <tr><td colSpan={9} style={{ ...tdStyle, color: 'var(--color-text-secondary)' }}>No hay datasets para mostrar.</td></tr>
               ) : null}
             </tbody>
           </table>
@@ -330,35 +341,35 @@ export default function RecuperoProduccionView({
           <table>
             <thead>
               <tr>
-                <th>Vendedor</th>
-                <th>Datasets</th>
-                <th>Pend.</th>
-                <th>Gest.</th>
-                <th>Recup.</th>
-                <th>Rech.</th>
-                <th>Dato err.</th>
-                <th>Avance</th>
-                <th>Efect.</th>
+                <th style={thStyle}>Vendedor</th>
+                <th style={thStyle}>Datasets</th>
+                <th style={thStyle}>Pend.</th>
+                <th style={thStyle}>Gest.</th>
+                <th style={thStyle}>Recup.</th>
+                <th style={thStyle}>Rech.</th>
+                <th style={thStyle}>Dato err.</th>
+                <th style={thStyle}>Avance</th>
+                <th style={thStyle}>Efect.</th>
               </tr>
             </thead>
             <tbody>
               {sellerRowsLoading ? (
-                <tr><td colSpan={9} style={{ padding: 16, color: 'var(--color-text-secondary)' }}>Cargando vendedores...</td></tr>
+                <tr><td colSpan={9} style={{ ...tdStyle, color: 'var(--color-text-secondary)' }}>Cargando vendedores...</td></tr>
               ) : sellerRows.map((row) => (
                 <tr key={row.id}>
-                  <td style={{ fontWeight: 800 }}>{row.vendedor}</td>
-                  <td>{formatCount(row.datasets)}</td>
-                  <td>{formatCount(row.pendiente)}</td>
-                  <td style={{ color: '#A16207', fontWeight: 800 }}>{formatCount(row.enGestion)}</td>
-                  <td style={{ color: '#15803D', fontWeight: 800 }}>{formatCount(row.recuperado)}</td>
-                  <td style={{ color: '#B91C1C', fontWeight: 800 }}>{formatCount(row.rechazado)}</td>
-                  <td>{formatCount(row.datoErroneo)}</td>
-                  <td>{row.avance}%</td>
-                  <td>{formatPercent(row.efectividad)}</td>
+                  <td style={{ ...tdStyle, fontWeight: 600 }}>{row.vendedor}</td>
+                  <td style={tdStyle}>{formatCount(row.datasets)}</td>
+                  <td style={{ ...tdStyle, color: '#BA7517' }}>{formatCount(row.pendiente)}</td>
+                  <td style={{ ...tdStyle, color: '#0F6E56', fontWeight: 600 }}>{formatCount(row.enGestion)}</td>
+                  <td style={{ ...tdStyle, color: '#166534', fontWeight: 600 }}>{formatCount(row.recuperado)}</td>
+                  <td style={{ ...tdStyle, color: '#993C1D', fontWeight: 600 }}>{formatCount(row.rechazado)}</td>
+                  <td style={tdStyle}>{formatCount(row.datoErroneo)}</td>
+                  <td style={tdStyle}>{row.avance}%</td>
+                  <td style={tdStyle}>{formatPercent(row.efectividad)}</td>
                 </tr>
               ))}
               {!sellerRowsLoading && sellerRows.length === 0 ? (
-                <tr><td colSpan={9} style={{ padding: 16, color: 'var(--color-text-secondary)' }}>No hay metricas por vendedor para mostrar.</td></tr>
+                <tr><td colSpan={9} style={{ ...tdStyle, color: 'var(--color-text-secondary)' }}>No hay metricas por vendedor para mostrar.</td></tr>
               ) : null}
             </tbody>
           </table>
