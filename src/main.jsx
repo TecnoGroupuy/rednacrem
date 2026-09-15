@@ -9305,6 +9305,11 @@ const formatCurrency = (value) => {
       const [assignPoolEstadoFilter, setAssignPoolEstadoFilter] = React.useState('todos');
       const [assignPoolLoading, setAssignPoolLoading] = React.useState(false);
       const [assignPoolError, setAssignPoolError] = React.useState('');
+      const [assignPoolFetchedContacts, setAssignPoolFetchedContacts] = React.useState([]);
+      const [assignPoolTotal, setAssignPoolTotal] = React.useState(0);
+      const [assignPoolCounts, setAssignPoolCounts] = React.useState({ nuevo: 0, no_contesta: 0, rellamar: 0, seguimiento: 0 });
+      const [assignPoolFetchLoading, setAssignPoolFetchLoading] = React.useState(false);
+      const [assignPoolFetchError, setAssignPoolFetchError] = React.useState('');
       const [addDataToLotOpen, setAddDataToLotOpen] = React.useState(false);
       const [addDataWizardStep, setAddDataWizardStep] = React.useState(1);
       const [addDataSelected, setAddDataSelected] = React.useState([]); // contact ids seleccionados
@@ -10427,12 +10432,36 @@ const formatCurrency = (value) => {
         c?.seller_id ?? c?.sellerId ?? c?.assignedToId ?? c?.assigned_to ?? c?.vendedor_id ?? c?.vendedorId ?? null
       );
 
-      const assignPoolFreeContacts = React.useMemo(() => {
-        if (!selectedLot) return [];
-        return (selectedLot.contacts || []).filter((c) => (
-          ASSIGN_POOL_STATES.includes(getContactEstado(c)) && !getContactSellerId(c)
-        ));
-      }, [selectedLot]);
+      // Trae los contactos libres directo de lead_contact_status vía
+      // GET /lead-batches/:id/free-contacts, no del array `contacts` global del
+      // frontend (ese viene de GET /leads?segment=mixto, sin filtro de lote y
+      // con LIMIT 50 fijo — subcontaba drásticamente en lotes con más de ~50
+      // contactos libres en el resto de la organización, ver incidente Meta).
+      const fetchAssignPoolFreeContacts = React.useCallback(async (lotId) => {
+        if (!lotId) return;
+        setAssignPoolFetchLoading(true);
+        setAssignPoolFetchError('');
+        try {
+          const res = await fetch(
+            buildApiUrl(`/lead-batches/${lotId}/free-contacts?limit=1000`, getApiBaseUrl()),
+            { headers: buildAuthHeaders(accessToken) }
+          );
+          const data = await res.json();
+          if (!data.ok) throw new Error(data.message || 'No se pudo cargar los contactos libres del lote.');
+          setAssignPoolFetchedContacts(data.items || []);
+          setAssignPoolTotal(Number(data.total || 0));
+          setAssignPoolCounts(data.counts || { nuevo: 0, no_contesta: 0, rellamar: 0, seguimiento: 0 });
+        } catch (err) {
+          setAssignPoolFetchError(err.message || 'No se pudo cargar los contactos libres del lote.');
+          setAssignPoolFetchedContacts([]);
+          setAssignPoolTotal(0);
+          setAssignPoolCounts({ nuevo: 0, no_contesta: 0, rellamar: 0, seguimiento: 0 });
+        } finally {
+          setAssignPoolFetchLoading(false);
+        }
+      }, [accessToken]);
+
+      const assignPoolFreeContacts = assignPoolFetchedContacts;
 
       const assignPoolVisibleContacts = React.useMemo(() => (
         assignPoolEstadoFilter === 'todos'
@@ -10446,13 +10475,18 @@ const formatCurrency = (value) => {
         setAssignPoolEstadoFilter('todos');
         setAssignPoolError('');
         setAssignPoolOpen(true);
-      }, []);
+        if (selectedLot?.id) fetchAssignPoolFreeContacts(selectedLot.id);
+      }, [selectedLot?.id, fetchAssignPoolFreeContacts]);
 
       const closeAssignPoolModal = React.useCallback(() => {
         setAssignPoolOpen(false);
         setAssignPoolSelectedContactIds([]);
         setAssignPoolSelectedSellerIds([]);
         setAssignPoolError('');
+        setAssignPoolFetchedContacts([]);
+        setAssignPoolTotal(0);
+        setAssignPoolCounts({ nuevo: 0, no_contesta: 0, rellamar: 0, seguimiento: 0 });
+        setAssignPoolFetchError('');
       }, []);
 
       const toggleAssignPoolContact = (id) => {
@@ -11835,7 +11869,7 @@ const formatCurrency = (value) => {
                     <div>
                       <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 2 }}>Asignar datos libres</div>
                       <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                        Lote: <strong>{selectedLot.name}</strong> · {assignPoolFreeContacts.length} contacto(s) sin vendedor
+                        Lote: <strong>{selectedLot.name}</strong> · {assignPoolFetchLoading ? 'cargando…' : `${assignPoolTotal} contacto(s) sin vendedor`}
                       </div>
                     </div>
                     <button
@@ -11853,8 +11887,20 @@ const formatCurrency = (value) => {
                       {assignPoolError}
                     </div>
                   )}
+                  {assignPoolFetchError && (
+                    <div style={{ fontSize: 12, color: '#A32D2D', background: '#FCEBEB', border: '1px solid #F09595', borderRadius: 8, padding: '8px 12px', margin: '10px 0' }}>
+                      {assignPoolFetchError}
+                      <button
+                        type="button"
+                        onClick={() => fetchAssignPoolFreeContacts(selectedLot.id)}
+                        style={{ marginLeft: 10, border: 'none', background: 'transparent', color: '#A32D2D', fontWeight: 700, textDecoration: 'underline', cursor: 'pointer' }}
+                      >
+                        Reintentar
+                      </button>
+                    </div>
+                  )}
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '12px 0 8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '12px 0 8px', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 12, color: 'var(--muted)' }}>Filtrar por estado:</span>
                     {['todos', ...ASSIGN_POOL_STATES].map((estado) => (
                       <button
@@ -11872,7 +11918,7 @@ const formatCurrency = (value) => {
                           color: assignPoolEstadoFilter === estado ? '#0F6E56' : 'var(--muted)'
                         }}
                       >
-                        {estado === 'todos' ? 'Todos' : estado.replace('_', ' ')}
+                        {estado === 'todos' ? `Todos (${assignPoolTotal})` : `${estado.replace('_', ' ')} (${assignPoolCounts[estado] || 0})`}
                       </button>
                     ))}
                   </div>
@@ -11893,7 +11939,11 @@ const formatCurrency = (value) => {
                       </span>
                     </div>
                     <div style={{ overflowY: 'auto', flex: 1 }}>
-                      {assignPoolVisibleContacts.length === 0 ? (
+                      {assignPoolFetchLoading ? (
+                        <div style={{ padding: 16, fontSize: 13, color: 'var(--muted)' }}>
+                          Cargando contactos libres…
+                        </div>
+                      ) : assignPoolVisibleContacts.length === 0 ? (
                         <div style={{ padding: 16, fontSize: 13, color: 'var(--muted)' }}>
                           No hay contactos libres {assignPoolEstadoFilter !== 'todos' ? `en estado "${assignPoolEstadoFilter}"` : 'en este lote'}.
                         </div>
