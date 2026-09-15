@@ -10598,19 +10598,24 @@ const formatCurrency = (value) => {
                 )}>
                 <div className="table-wrap" ref={lotesTableRef}>
                   <table style={{ tableLayout: 'fixed', width: '100%' }}>
+                    <colgroup>
+                      {!lotesTableNarrow && <col style={{ width: '15%' }} />}
+                      <col style={{ width: lotesTableNarrow ? '58%' : '48%' }} />
+                      <col style={{ width: '17%' }} />
+                      <col style={{ width: lotesTableNarrow ? '25%' : '20%' }} />
+                    </colgroup>
                     <thead>
                     <tr>
-                      <th>Lote</th>
-                      <th>Contactos</th>
-                      <th>Estado</th>
-                      <th>Vendedores</th>
                       {!lotesTableNarrow && <th>Creación</th>}
+                      <th>Lote</th>
+                      <th>Estado</th>
+                      <th>Contactos</th>
                     </tr>
                     </thead>
                     <tbody>
                       {lotesActivos.length > 0 && (
                         <tr>
-                          <td colSpan={lotesTableNarrow ? 4 : 5} style={{
+                          <td colSpan={lotesTableNarrow ? 3 : 4} style={{
                             padding: '8px 12px 4px',
                             fontSize: 11,
                             fontWeight: 700,
@@ -10626,15 +10631,13 @@ const formatCurrency = (value) => {
                       )}
 
                       {lotesActivos.map((lot) => {
-                        const vendNames = lot.vendedores || [];
-                        const first = vendNames[0] ? `${vendNames[0].nombre || ''} ${vendNames[0].apellido || ''}`.trim() : (lot.seller || '-');
-                        const extra = vendNames.length > 1 ? vendNames.length - 1 : 0;
                         const estadoVal = lot.estado || lot.status;
                         return (
                           <tr key={lot.id} className="support-row"
                             onClick={() => setSelectedLotId(lot.id)}
                             style={{ cursor: 'pointer', background: selectedLot?.id === lot.id ? 'rgba(15,118,110,0.08)' : 'transparent' }}>
-                            <td style={{ maxWidth: 0 }}>
+                            {!lotesTableNarrow && <td style={{ fontSize: 12 }}>{lot.createdAt}</td>}
+                            <td>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
                                 <strong style={{ fontSize: 13, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lot.name || lot.nombre}</strong>
                                 {lot.tipo && (
@@ -10657,22 +10660,15 @@ const formatCurrency = (value) => {
                                 <div style={{ color: 'var(--muted)', fontSize: 11, marginTop: 2, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lot.id}</div>
                               )}
                             </td>
-                            <td>{lot.count}</td>
                             <td><Tag variant={lotStatusMeta(estadoVal).variant}>{lotStatusMeta(estadoVal).label}</Tag></td>
-                            <td style={{ maxWidth: 0 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
-                                <span style={{ fontSize: 13, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{first}</span>
-                                {extra > 0 && <span style={{ marginLeft: 6, flexShrink: 0, fontSize: 11, background: 'rgba(20,34,53,0.08)', borderRadius: 10, padding: '1px 7px', color: 'var(--muted)' }}>+{extra}</span>}
-                              </div>
-                            </td>
-                          {!lotesTableNarrow && <td style={{ fontSize: 12 }}>{lot.createdAt}</td>}
+                            <td>{lot.count}</td>
                         </tr>
                         );
                       })}
 
                       {lotesFinalizados.length > 0 && (
                         <tr>
-                          <td colSpan={lotesTableNarrow ? 4 : 5} style={{
+                          <td colSpan={lotesTableNarrow ? 3 : 4} style={{
                             padding: '8px 12px 4px',
                             fontSize: 11,
                             fontWeight: 700,
@@ -10688,15 +10684,13 @@ const formatCurrency = (value) => {
                       )}
 
                       {lotesFinalizados.map((lot) => {
-                        const vendNames = lot.vendedores || [];
-                        const first = vendNames[0] ? `${vendNames[0].nombre || ''} ${vendNames[0].apellido || ''}`.trim() : (lot.seller || '-');
-                        const extra = vendNames.length > 1 ? vendNames.length - 1 : 0;
                         const estadoVal = lot.estado || lot.status;
                         return (
                           <tr key={lot.id} className="support-row"
                             onClick={() => setSelectedLotId(lot.id)}
                             style={{ cursor: 'pointer', background: selectedLot?.id === lot.id ? 'rgba(15,118,110,0.08)' : 'transparent', opacity: 0.6 }}>
-                            <td style={{ maxWidth: 0 }}>
+                            {!lotesTableNarrow && <td style={{ fontSize: 12 }}>{lot.createdAt || (lot.created_at ? String(lot.created_at).slice(0, 10) : '')}</td>}
+                            <td>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
                                 <strong style={{ fontSize: 13, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lot.name || lot.nombre}</strong>
                                 {lot.tipo && (
@@ -10719,15 +10713,8 @@ const formatCurrency = (value) => {
                                 <div style={{ color: 'var(--muted)', fontSize: 11, marginTop: 2, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lot.id}</div>
                               )}
                             </td>
-                            <td>{lot.count}</td>
                             <td><Tag variant={lotStatusMeta(estadoVal).variant}>{lotStatusMeta(estadoVal).label}</Tag></td>
-                            <td style={{ maxWidth: 0 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
-                                <span style={{ fontSize: 13, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{first}</span>
-                                {extra > 0 && <span style={{ marginLeft: 6, flexShrink: 0, fontSize: 11, background: 'rgba(20,34,53,0.08)', borderRadius: 10, padding: '1px 7px', color: 'var(--muted)' }}>+{extra}</span>}
-                              </div>
-                            </td>
-                            {!lotesTableNarrow && <td style={{ fontSize: 12 }}>{lot.createdAt || (lot.created_at ? String(lot.created_at).slice(0, 10) : '')}</td>}
+                            <td>{lot.count}</td>
                           </tr>
                         );
                       })}
