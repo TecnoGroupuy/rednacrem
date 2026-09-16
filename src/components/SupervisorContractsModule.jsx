@@ -2512,7 +2512,14 @@ export default function SupervisorContractsModule({ Panel, Button }) {
             </div>
           )}
 
-          {vistaActual === 'detalle-lote' && (
+          {vistaActual === 'detalle-lote' && (() => {
+            // dataset_status real (no el heurístico "100% gestionado" que usa
+            // el badge Abierto/Cerrado de acá abajo) — un lote solo queda de
+            // solo lectura cuando el backend lo cerró de verdad vía
+            // "Finalizar", no antes. Mismo criterio que ya usa el agrupado
+            // Abiertos/Cerrados del listado de tarjetas.
+            const isLoteCerradoReal = String(loteSeleccionado?.status || loteSeleccionado?.estado || '').toLowerCase() === 'cerrado';
+            return (
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -2535,60 +2542,66 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                 </div>
 
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    onClick={openAddDataModal}
-                    disabled={!loteSeleccionado?.id}
-                    style={{
-                      background: '#E1F5EE',
-                      border: '1px solid #5DCAA5',
-                      borderRadius: 8,
-                      padding: '7px 14px',
-                      fontSize: 13,
-                      fontWeight: 800,
-                      cursor: loteSeleccionado?.id ? 'pointer' : 'not-allowed',
-                      color: '#0F6E56',
-                      opacity: loteSeleccionado?.id ? 1 : 0.7
-                    }}
-                  >
-                    Agregar datos
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCerrarLote}
-                    disabled={!loteSeleccionado?.id || cerrarLoteLoading}
-                    style={{
-                      background: '#fff',
-                      border: '1px solid rgba(148,163,184,0.55)',
-                      borderRadius: 8,
-                      padding: '7px 14px',
-                      fontSize: 13,
-                      fontWeight: 800,
-                      cursor: loteSeleccionado?.id ? 'pointer' : 'not-allowed',
-                      color: 'var(--color-text-primary)',
-                      opacity: loteSeleccionado?.id ? 1 : 0.7
-                    }}
-                  >
-                    {cerrarLoteLoading ? 'Cerrando...' : 'Cerrar lote'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={openAddSellerModal}
-                    style={{
-                      background: '#E1F5EE',
-                      border: '1px solid #5DCAA5',
-                      borderRadius: 8,
-                      padding: '7px 14px',
-                      fontSize: 13,
-                      fontWeight: 800,
-                      cursor: loteSeleccionado?.id ? 'pointer' : 'not-allowed',
-                      color: '#0F6E56',
-                      opacity: loteSeleccionado?.id ? 1 : 0.7
-                    }}
-                    disabled={!loteSeleccionado?.id}
-                  >
-                    + Agregar vendedor
-                  </button>
+                  {!isLoteCerradoReal && (
+                    <button
+                      type="button"
+                      onClick={openAddDataModal}
+                      disabled={!loteSeleccionado?.id}
+                      style={{
+                        background: '#E1F5EE',
+                        border: '1px solid #5DCAA5',
+                        borderRadius: 8,
+                        padding: '7px 14px',
+                        fontSize: 13,
+                        fontWeight: 800,
+                        cursor: loteSeleccionado?.id ? 'pointer' : 'not-allowed',
+                        color: '#0F6E56',
+                        opacity: loteSeleccionado?.id ? 1 : 0.7
+                      }}
+                    >
+                      Agregar datos
+                    </button>
+                  )}
+                  {!isLoteCerradoReal && (
+                    <button
+                      type="button"
+                      onClick={handleCerrarLote}
+                      disabled={!loteSeleccionado?.id || cerrarLoteLoading}
+                      style={{
+                        background: '#fff',
+                        border: '1px solid rgba(148,163,184,0.55)',
+                        borderRadius: 8,
+                        padding: '7px 14px',
+                        fontSize: 13,
+                        fontWeight: 800,
+                        cursor: loteSeleccionado?.id ? 'pointer' : 'not-allowed',
+                        color: 'var(--color-text-primary)',
+                        opacity: loteSeleccionado?.id ? 1 : 0.7
+                      }}
+                    >
+                      {cerrarLoteLoading ? 'Cerrando...' : 'Cerrar lote'}
+                    </button>
+                  )}
+                  {!isLoteCerradoReal && (
+                    <button
+                      type="button"
+                      onClick={openAddSellerModal}
+                      style={{
+                        background: '#E1F5EE',
+                        border: '1px solid #5DCAA5',
+                        borderRadius: 8,
+                        padding: '7px 14px',
+                        fontSize: 13,
+                        fontWeight: 800,
+                        cursor: loteSeleccionado?.id ? 'pointer' : 'not-allowed',
+                        color: '#0F6E56',
+                        opacity: loteSeleccionado?.id ? 1 : 0.7
+                      }}
+                      disabled={!loteSeleccionado?.id}
+                    >
+                      + Agregar vendedor
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => openInformeModal(loteSeleccionado?.id)}
@@ -2707,24 +2720,26 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                       Cantidad de contactos asignados por vendedor. El conteo puede no incluir asignaciones directas muy recientes (pendiente de un fix de backend).
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={openAddSellerModal}
-                    disabled={!loteSeleccionado?.id}
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 800,
-                      color: '#0F6E56',
-                      background: '#E1F5EE',
-                      border: '1px solid #5DCAA5',
-                      borderRadius: 8,
-                      padding: '7px 12px',
-                      cursor: loteSeleccionado?.id ? 'pointer' : 'not-allowed',
-                      opacity: loteSeleccionado?.id ? 1 : 0.7
-                    }}
-                  >
-                    + Agregar vendedor
-                  </button>
+                  {!isLoteCerradoReal && (
+                    <button
+                      type="button"
+                      onClick={openAddSellerModal}
+                      disabled={!loteSeleccionado?.id}
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 800,
+                        color: '#0F6E56',
+                        background: '#E1F5EE',
+                        border: '1px solid #5DCAA5',
+                        borderRadius: 8,
+                        padding: '7px 12px',
+                        cursor: loteSeleccionado?.id ? 'pointer' : 'not-allowed',
+                        opacity: loteSeleccionado?.id ? 1 : 0.7
+                      }}
+                    >
+                      + Agregar vendedor
+                    </button>
+                  )}
                 </div>
 
                 {sellerMutationFeedback.message ? (
@@ -2764,22 +2779,24 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                                 </div>
                               </div>
                             </div>
-                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                              <button
-                                type="button"
-                                onClick={() => openRemoveSellerModal({ sellerId: vendedor?.id, sellerName: nombre, contactCount: total, gestionados }, { step: 2, mode: 'specific' })}
-                                style={{ fontSize: 12, fontWeight: 700, color: '#185FA5', background: '#E6F1FB', border: '1px solid #85B7EB', borderRadius: 8, padding: '6px 10px', cursor: 'pointer' }}
-                              >
-                                Reasignar
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => openRemoveSellerModal({ sellerId: vendedor?.id, sellerName: nombre, contactCount: total, gestionados }, { step: 1, mode: 'specific' })}
-                                style={{ fontSize: 12, fontWeight: 700, color: '#993C1D', background: '#FAECE7', border: '1px solid #F0997B', borderRadius: 8, padding: '6px 10px', cursor: 'pointer' }}
-                              >
-                                Quitar
-                              </button>
-                            </div>
+                            {!isLoteCerradoReal && (
+                              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => openRemoveSellerModal({ sellerId: vendedor?.id, sellerName: nombre, contactCount: total, gestionados }, { step: 2, mode: 'specific' })}
+                                  style={{ fontSize: 12, fontWeight: 700, color: '#185FA5', background: '#E6F1FB', border: '1px solid #85B7EB', borderRadius: 8, padding: '6px 10px', cursor: 'pointer' }}
+                                >
+                                  Reasignar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => openRemoveSellerModal({ sellerId: vendedor?.id, sellerName: nombre, contactCount: total, gestionados }, { step: 1, mode: 'specific' })}
+                                  style={{ fontSize: 12, fontWeight: 700, color: '#993C1D', background: '#FAECE7', border: '1px solid #F0997B', borderRadius: 8, padding: '6px 10px', cursor: 'pointer' }}
+                                >
+                                  Quitar
+                                </button>
+                              </div>
+                            )}
                           </div>
                           <div style={{ marginTop: 10 }}>
                             <div style={{ height: 5, background: 'rgba(148,163,184,0.22)', borderRadius: 999, overflow: 'hidden' }}>
@@ -2943,7 +2960,8 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                 </table>
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {vistaActual === 'produccion' && (
             <RecuperoProduccionView
