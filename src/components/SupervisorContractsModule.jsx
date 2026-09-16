@@ -164,6 +164,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
   const [expandedRowId, setExpandedRowId] = React.useState(null);
   const [openRowMenuId, setOpenRowMenuId] = React.useState(null);
   const [openLoteMenuId, setOpenLoteMenuId] = React.useState(null);
+  const [cerradosExpanded, setCerradosExpanded] = React.useState(false);
   const [finalizeLoteTarget, setFinalizeLoteTarget] = React.useState(null);
   const [finalizeLoteLoading, setFinalizeLoteLoading] = React.useState(false);
   const [finalizeLoteError, setFinalizeLoteError] = React.useState('');
@@ -2280,8 +2281,12 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                 <div style={{ padding: 16, color: 'var(--muted)' }}>No hay lotes creados.</div>
               ) : null}
 
-              <div style={{ display: 'grid', gap: 10 }}>
-                {lotesCreados.map((lote, idx) => {
+              {(() => {
+                const datasetIsCerrado = (lote) => String(lote?.status || lote?.estado || '').toLowerCase() === 'cerrado';
+                const lotesAbiertos = lotesCreados.filter((lote) => !datasetIsCerrado(lote));
+                const lotesCerrados = lotesCreados.filter((lote) => datasetIsCerrado(lote));
+
+                const renderLoteCard = (lote, idx) => {
                   const lotId = asLotId(lote);
                   const name = asLotName(lote);
                   const createdAt = asLotCreatedAt(lote);
@@ -2348,10 +2353,11 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                             <span><strong>{count}</strong> contactos</span>
                           </div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, height: 30 }}>
                           <div style={{
                             width: 30,
                             height: 30,
+                            flexShrink: 0,
                             borderRadius: 999,
                             background: 'rgba(15,118,110,0.10)',
                             color: '#0F766E',
@@ -2363,10 +2369,21 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                           }}>
                             {initials || '—'}
                           </div>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                          <div style={{
+                            height: 30,
+                            display: 'flex',
+                            alignItems: 'center',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color: 'var(--color-text-primary)',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            maxWidth: 140
+                          }}>
                             {sellerName || 'Sin asignar'}
                           </div>
-                          <div data-lote-menu style={{ position: 'relative', display: 'inline-block' }}>
+                          <div data-lote-menu style={{ position: 'relative', display: 'inline-block', height: 30, flexShrink: 0 }}>
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); setOpenLoteMenuId((prev) => (String(prev) === String(lotId) ? null : lotId)); }}
@@ -2446,8 +2463,52 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                       </div>
                     </div>
                   );
-                })}
-              </div>
+                };
+
+                return (
+                  <div>
+                    {lotesAbiertos.length > 0 && (
+                      <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>
+                        Abiertos ({lotesAbiertos.length})
+                      </div>
+                    )}
+                    <div style={{ display: 'grid', gap: 10 }}>
+                      {lotesAbiertos.map((lote, idx) => renderLoteCard(lote, idx))}
+                    </div>
+
+                    {lotesCerrados.length > 0 && (
+                      <div style={{ marginTop: 16 }}>
+                        <button
+                          type="button"
+                          onClick={() => setCerradosExpanded((prev) => !prev)}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: 0,
+                            border: 'none',
+                            background: 'transparent',
+                            cursor: 'pointer',
+                            fontSize: 12,
+                            fontWeight: 800,
+                            color: 'var(--color-text-secondary)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em'
+                          }}
+                        >
+                          <ChevronDown size={14} style={{ transform: cerradosExpanded ? 'none' : 'rotate(-90deg)' }} />
+                          Cerrados ({lotesCerrados.length})
+                        </button>
+                        {cerradosExpanded && (
+                          <div style={{ display: 'grid', gap: 10, marginTop: 10 }}>
+                            {lotesCerrados.map((lote, idx) => renderLoteCard(lote, idx))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
 
