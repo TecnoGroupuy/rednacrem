@@ -167,6 +167,11 @@ export default function SupervisorContractsModule({ Panel, Button }) {
   const [detalleContacts, setDetalleContacts] = React.useState([]);
   const [detalleLoading, setDetalleLoading] = React.useState(false);
   const [detalleError, setDetalleError] = React.useState('');
+  // Respuesta cruda de GET /recovery/datasets/:id — fuente correcta del
+  // detalle de un lote de Recupero (dataset). detalleMetrics/detalleContacts
+  // se derivan de acá (ver el efecto de carga) para no tener que tocar el
+  // resto del componente que ya los consume.
+  const [datasetDetail, setDatasetDetail] = React.useState(null);
   const [detalleSearch, setDetalleSearch] = React.useState('');
   const [showDetalleSearch, setShowDetalleSearch] = React.useState(false);
   const [showInformeModal, setShowInformeModal] = React.useState(false);
@@ -551,44 +556,46 @@ export default function SupervisorContractsModule({ Panel, Button }) {
     setDetalleError('');
     setDetalleMetrics(null);
     setDetalleContacts([]);
-    Promise.all([
-      api.get(`/lead-batches/${encodeURIComponent(loteSeleccionado.id)}/metrics`)
-        .then((res) => (res?.ok ? (res?.data?.data || res?.data) : null))
-        .catch(() => null),
-      (async () => {
-        // Prefer lead_contact_status view (batch_id) when available.
-        try {
-          const assignedRes = await api.get(`/leads/assigned?batch_id=${encodeURIComponent(loteSeleccionado.id)}&page=1&limit=100`);
-          const assignedItems = assignedRes?.data?.contactos
-            || assignedRes?.data?.items
-            || assignedRes?.items
-            || assignedRes?.data
-            || [];
-          const list = Array.isArray(assignedItems) ? assignedItems : [];
-          if (list.length) return list;
-        } catch {}
-
-        // Fallback to recupero endpoint (supports lote_id / lote).
-        try {
-          const res = await api.get(`/api/recupero/contactos?lote_id=${encodeURIComponent(loteSeleccionado.id)}&page=1&limit=100`);
-          const items = res?.items || res?.data?.items || [];
-          const list = Array.isArray(items) ? items : [];
-          if (list.length) return list;
-        } catch {}
-
-        try {
-          const res = await api.get(`/api/recupero/contactos?lote=${encodeURIComponent(loteSeleccionado.id)}&page=1&limit=100`);
-          const items = res?.items || res?.data?.items || [];
-          return Array.isArray(items) ? items : [];
-        } catch {
-          return [];
-        }
-      })()
-    ])
-      .then(([m, contacts]) => {
+    setDatasetDetail(null);
+    // GET /recovery/datasets/:id es la fuente correcta para el detalle de un
+    // lote de Recupero (dataset de recupero_import_jobs) — reemplaza a los 3
+    // fallbacks anteriores (/lead-batches/:id/metrics, /leads/assigned?batch_id=,
+    // /api/recupero/contactos?lote_id=/lote=), que apuntaban a lead_batches /
+    // batch_id, un concepto que recupero_candidatos no usa en la práctica
+    // (la auditoría de esta sesión confirmó que batch_id nunca se escribe
+    // en esa tabla — quedó siempre en NULL).
+    api.get(`/recovery/datasets/${encodeURIComponent(loteSeleccionado.id)}`)
+      .then((res) => {
         if (!active) return;
-        setDetalleMetrics(m);
-        setDetalleContacts(Array.isArray(contacts) ? contacts : []);
+        setDatasetDetail(res || null);
+        const counts = res?.counts || {};
+        setDetalleMetrics({
+          informe: {
+            total_contactos: counts.total || 0,
+            total_vendidos: counts.recovered || 0,
+            total_rechazos: counts.rejected || 0,
+            total_no_contesta: 0,
+            total_dato_erroneo: 0,
+            total_en_proceso: counts.in_progress || 0,
+            total_incontactables: 0
+          }
+        });
+        setDetalleContacts((res?.sample || []).map((row) => ({
+          id: row.row_number,
+          nombre: row.client_name,
+          documento: row.document,
+          telefono: row.phone,
+          motivo_baja: row.churn_reason,
+          producto: row.previous_plan,
+          estado: row.status,
+          estado_venta: row.resultado_gestion,
+          // TODO(backend): GET /recovery/datasets/:id no expone fecha_baja ni
+          // el vendedor asignado por candidato en `sample` todavía — sumar
+          // esas dos columnas a esa query cuando se resuelva la tarea de
+          // backend de la que depende esta pantalla.
+          fecha_baja: null,
+          seller_name: null
+        })));
         setLastSyncAt(Date.now());
       })
       .catch((err) => {
@@ -601,6 +608,27 @@ export default function SupervisorContractsModule({ Panel, Button }) {
       });
     return () => { active = false; };
   }, [api, loteSeleccionado?.id, vistaActual]);
+
+  // Desglose por vendedor: hoy viene de recupero_asignaciones_rango (rangos),
+  // que no ve las asignaciones hechas por /direct-assignments o /distribute
+  // (no escriben ahí) — TODO(backend): corregir para que cuente por
+  // recupero_candidatos.seller_id directo, que sí refleja los 3 mecanismos.
+  React.useEffect(() => {
+    if (!datasetDetail?.assignments) return;
+    setLoteSeleccionado((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        vendedores: datasetDetail.assignments.map((a) => ({
+          id: a.seller_id,
+          nombre: a.seller_name || 'Vendedor',
+          apellido: '',
+          total_contactos: a.counts?.assigned || 0,
+          gestionados: Math.max(0, (a.counts?.assigned || 0) - (a.counts?.pending || 0))
+        }))
+      };
+    });
+  }, [datasetDetail]);
 
   React.useEffect(() => {
     if (vistaActual !== 'detalle-lote') return;
@@ -2549,7 +2577,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                   <div>
                     <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--color-text-primary)' }}>Vendedores asignados</div>
                     <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                      Gestion del lote y redistribucion por vendedor.
+                      Cantidad de contactos asignados por vendedor. El conteo puede no incluir asignaciones directas muy recientes (pendiente de un fix de backend).
                     </div>
                   </div>
                   <button
@@ -2701,14 +2729,23 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                 )}
               </div>
 
-              <div className="table-wrap" style={{ overflowX: 'auto', marginTop: 10 }}>
+              {/* TODO(backend): GET /recovery/datasets/:id devuelve un `sample`
+                  fijo de 5 filas, sin paginación real (?page=/?limit=) — cuando
+                  se resuelva la tarea de backend, cambiar el fetch de arriba
+                  para pedir la página actual y habilitar los botones de abajo. */}
+              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 10, marginBottom: 6 }}>
+                Mostrando los primeros {detalleContacts.length} de {Number(datasetDetail?.counts?.total || 0)} candidatos del lote — paginación completa pendiente de un fix de backend.
+              </div>
+              <div className="table-wrap" style={{ overflowX: 'auto', maxHeight: 420, overflowY: 'auto' }}>
                 <table>
                   <thead>
                     <tr>
-                      <th>Contacto</th>
-                      <th>Producto</th>
-                      <th>Estado</th>
-                      <th>Última gestión</th>
+                      <th style={recuperoThStyle}>Contacto</th>
+                      <th style={recuperoThStyle}>Teléfono</th>
+                      <th style={recuperoThStyle}>Motivo de baja</th>
+                      <th style={recuperoThStyle}>Fecha de baja</th>
+                      <th style={recuperoThStyle}>Vendedor asignado</th>
+                      <th style={recuperoThStyle}>Estado / resultado</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2728,8 +2765,8 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                           || row.name
                           || row.contacto
                           || '—';
-                        const depto = row.departamento || row.depto || row.city || '';
-                        const producto = row.nombre_producto || row.producto || row.producto_anterior || '—';
+                        const telefono = row.telefono || row.celular || row.phone || '—';
+                        const motivoBaja = row.motivo_baja || row.motivo_baja_detalle || '—';
                         const estadoRaw = row.estado_venta || row.ultimo_estado_gestion || row.estado || row.status || '—';
                         const estadoNorm = String(estadoRaw || '').toLowerCase();
                         const estadoMeta = (() => {
@@ -2741,15 +2778,19 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                           if (estadoNorm === 'nuevo' || estadoNorm === 'nuevos') return { bg: '#E1F5EE', color: '#0F6E56', label: 'Nuevo' };
                           return { bg: 'rgba(148,163,184,0.18)', color: 'var(--color-text-secondary)', label: estadoRaw || '—' };
                         })();
-                        const ultima = row.ultima_gestion || row.fecha_ultima_gestion || row.ultima_gestion_real || null;
                         return (
-                          <tr key={row.id || idx}>
-                            <td>
+                          <tr key={row.id ?? idx}>
+                            <td style={recuperoTdStyle}>
                               <div style={{ fontWeight: 900, color: 'var(--color-text-primary)' }}>{fullName}</div>
-                              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 2 }}>{depto || '—'}</div>
                             </td>
-                            <td>{producto}</td>
-                            <td>
+                            <td style={recuperoTdStyle}>{telefono}</td>
+                            <td style={recuperoTdStyle}>{motivoBaja}</td>
+                            {/* fecha_baja y seller_name no vienen todavía de
+                                GET /recovery/datasets/:id — ver TODO(backend)
+                                en el efecto de carga de arriba. */}
+                            <td style={recuperoTdStyle}>{row.fecha_baja ? formatDateTime(row.fecha_baja) : '—'}</td>
+                            <td style={recuperoTdStyle}>{row.seller_name || '—'}</td>
+                            <td style={recuperoTdStyle}>
                               <span style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
@@ -2764,13 +2805,12 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                                 {estadoMeta.label}
                               </span>
                             </td>
-                            <td>{ultima ? formatDateTime(ultima) : '—'}</td>
                           </tr>
                         );
                       })()
                     ))}
                     {!detalleLoading && (!detalleContacts || !detalleContacts.length) ? (
-                      <tr><td colSpan={4} style={{ padding: 14, color: 'var(--muted)' }}>Sin contactos para este lote.</td></tr>
+                      <tr><td colSpan={6} style={{ padding: 14, color: 'var(--muted)' }}>Sin contactos para este lote.</td></tr>
                     ) : null}
                   </tbody>
                 </table>
