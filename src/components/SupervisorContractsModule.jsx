@@ -163,6 +163,10 @@ export default function SupervisorContractsModule({ Panel, Button }) {
   const selectAllRef = React.useRef(null);
   const [expandedRowId, setExpandedRowId] = React.useState(null);
   const [openRowMenuId, setOpenRowMenuId] = React.useState(null);
+  const [openLoteMenuId, setOpenLoteMenuId] = React.useState(null);
+  const [finalizeLoteTarget, setFinalizeLoteTarget] = React.useState(null);
+  const [finalizeLoteLoading, setFinalizeLoteLoading] = React.useState(false);
+  const [finalizeLoteError, setFinalizeLoteError] = React.useState('');
   const [detalleMetrics, setDetalleMetrics] = React.useState(null);
   const [detalleContacts, setDetalleContacts] = React.useState([]);
   const [detalleLoading, setDetalleLoading] = React.useState(false);
@@ -947,6 +951,34 @@ export default function SupervisorContractsModule({ Panel, Button }) {
     }
   }, [api, loadLotesCreados, loteSeleccionado, refreshSelectedLot]);
 
+  const openFinalizeLoteModal = React.useCallback((lote) => {
+    setFinalizeLoteError('');
+    setFinalizeLoteTarget(lote);
+  }, []);
+
+  const closeFinalizeLoteModal = React.useCallback(() => {
+    if (finalizeLoteLoading) return;
+    setFinalizeLoteTarget(null);
+    setFinalizeLoteError('');
+  }, [finalizeLoteLoading]);
+
+  const handleConfirmFinalizeLote = React.useCallback(async () => {
+    const lotId = asLotId(finalizeLoteTarget);
+    if (!lotId) return;
+    setFinalizeLoteLoading(true);
+    setFinalizeLoteError('');
+    try {
+      // Depende de POST /recovery/datasets/:id/finalize (tarea-finalizar-lote-backend.md).
+      await api.post(`/recovery/datasets/${encodeURIComponent(lotId)}/finalize`);
+      setFinalizeLoteTarget(null);
+      await loadLotesCreados();
+    } catch (err) {
+      setFinalizeLoteError(err?.message || 'No se pudo finalizar el lote.');
+    } finally {
+      setFinalizeLoteLoading(false);
+    }
+  }, [api, finalizeLoteTarget, loadLotesCreados]);
+
   const openRemoveSellerModal = React.useCallback((payload, options = {}) => {
     setRemoveModal(payload);
     setRemoveStep(options.step || 1);
@@ -1518,6 +1550,16 @@ export default function SupervisorContractsModule({ Panel, Button }) {
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [openRowMenuId]);
+
+  React.useEffect(() => {
+    if (!openLoteMenuId) return;
+    const handleClick = (event) => {
+      if (event.target.closest('[data-lote-menu]')) return;
+      setOpenLoteMenuId(null);
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [openLoteMenuId]);
 
   const renderColumnFilterPopover = React.useCallback((columnId) => {
     if (openFilterColumn !== columnId) return null;
@@ -2260,6 +2302,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                   const estadoBadge = isCerrado
                     ? { label: 'Cerrado', bg: 'rgba(148,163,184,0.22)', color: 'var(--color-text-secondary)' }
                     : { label: 'Abierto', bg: '#E1F5EE', color: '#0F6E56' };
+                  const canFinalizeLote = !lote?.is_system_dataset && !isCerrado;
 
                   const openDetalle = () => {
                     openLotDetail(lote);
@@ -2322,6 +2365,58 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                           </div>
                           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-primary)' }}>
                             {sellerName || 'Sin asignar'}
+                          </div>
+                          <div data-lote-menu style={{ position: 'relative', display: 'inline-block' }}>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setOpenLoteMenuId((prev) => (String(prev) === String(lotId) ? null : lotId)); }}
+                              style={{
+                                width: 30,
+                                height: 30,
+                                borderRadius: 8,
+                                border: '1px solid rgba(148,163,184,0.45)',
+                                background: '#fff',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'var(--color-text-secondary)'
+                              }}
+                              aria-label="Más acciones"
+                            >
+                              <MoreHorizontal size={16} />
+                            </button>
+                            {String(openLoteMenuId) === String(lotId) && (
+                              <div style={{
+                                position: 'absolute',
+                                top: 'calc(100% + 4px)',
+                                right: 0,
+                                zIndex: 50,
+                                background: '#fff',
+                                border: '0.5px solid rgba(15,23,42,0.16)',
+                                borderRadius: 10,
+                                boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                                minWidth: 160,
+                                padding: '6px 0'
+                              }}>
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); setOpenLoteMenuId(null); openDetalle(); }}
+                                  style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 14px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)' }}
+                                >
+                                  Ver detalle
+                                </button>
+                                {canFinalizeLote && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); setOpenLoteMenuId(null); openFinalizeLoteModal(lote); }}
+                                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 14px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#DC2626' }}
+                                  >
+                                    Finalizar
+                                  </button>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -3583,6 +3678,37 @@ export default function SupervisorContractsModule({ Panel, Button }) {
 
         </Panel>
       </section>
+
+      {finalizeLoteTarget && (
+        <div className="lot-wizard-overlay" onClick={closeFinalizeLoteModal}>
+          <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 420 }}>
+            <div className="lot-wizard-header">
+              <div style={{ fontWeight: 700 }}>Finalizar lote</div>
+              <button className="close-btn" onClick={closeFinalizeLoteModal}><X size={16} /></button>
+            </div>
+            <div className="lot-wizard-content">
+              <p style={{ margin: 0, fontSize: 14, color: 'var(--color-text-primary)' }}>
+                Al finalizar el lote los datos útiles van a lote principal.
+              </p>
+              {finalizeLoteError ? (
+                <div style={{ marginTop: 12, fontSize: 12, color: '#b91c1c', fontWeight: 700 }}>
+                  {finalizeLoteError}
+                </div>
+              ) : null}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '0 24px 24px' }}>
+              <Button variant="ghost" onClick={closeFinalizeLoteModal} disabled={finalizeLoteLoading}>Cancelar</Button>
+              <Button
+                onClick={handleConfirmFinalizeLote}
+                disabled={finalizeLoteLoading}
+                style={{ background: '#DC2626', color: '#fff' }}
+              >
+                {finalizeLoteLoading ? 'Finalizando...' : 'Finalizar'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showCreateLoteModal && (
         <div className="lot-wizard-overlay" onClick={closeCreateLoteModal}>
