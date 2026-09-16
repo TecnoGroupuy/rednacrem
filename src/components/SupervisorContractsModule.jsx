@@ -2460,12 +2460,6 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                           <span style={{ color: 'var(--color-text-secondary)', fontWeight: 800 }}>Pendientes: {Number(counts.pending || 0)}</span>
                         </div>
                       )}
-
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-                        <button type="button" onClick={(e) => { e.stopPropagation(); openDetalle(); }} style={{ padding: '7px 10px', borderRadius: 10, border: '1px solid rgba(148,163,184,0.45)', background: 'transparent', cursor: 'pointer', fontWeight: 800, fontSize: 12, color: 'var(--color-text-secondary)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                          Ver detalle <ChevronDown size={14} style={{ transform: 'rotate(-90deg)' }} />
-                        </button>
-                      </div>
                     </div>
                   );
                 };
