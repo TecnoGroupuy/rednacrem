@@ -402,22 +402,28 @@ export default function SupervisorContractsModule({ Panel, Button }) {
     return text.length > 160 ? `${text.slice(0, 160)}…` : text;
   };
 
-  const formatLoteSeller = (lote) => (
-    lote?.vendedor_asignado
-    || lote?.seller
-    || lote?.seller_name
-    || lote?.vendedor_nombre
-    || (Array.isArray(lote?.vendedores) ? lote.vendedores.map((v) => `${v.nombre || ''} ${v.apellido || ''}`.trim()).join(', ') : '')
-    || 'Sin asignar'
-  );
+  const formatLoteSeller = (lote) => {
+    const assigneesCount = Number(lote?.assignees_count || 0);
+    if (assigneesCount > 1) return `${assigneesCount} vendedores`;
+    return (
+      lote?.assignee_name
+      || lote?.vendedor_asignado
+      || lote?.seller
+      || lote?.seller_name
+      || lote?.vendedor_nombre
+      || (Array.isArray(lote?.vendedores) ? lote.vendedores.map((v) => `${v.nombre || ''} ${v.apellido || ''}`.trim()).join(', ') : '')
+      || 'Sin asignar'
+    );
+  };
 
   const formatLoteCount = (lote) => (
-    lote?.cantidad_datos
-    || lote?.cantidad
-    || lote?.count
-    || lote?.total
-    || lote?.contactos
-    || 0
+    lote?.counts?.total
+    ?? lote?.cantidad_datos
+    ?? lote?.cantidad
+    ?? lote?.count
+    ?? lote?.total
+    ?? lote?.contactos
+    ?? 0
   );
 
   const getFilterOptionsForKey = React.useCallback((key) => {
@@ -522,31 +528,6 @@ export default function SupervisorContractsModule({ Panel, Button }) {
   React.useEffect(() => {
     loadLotesCreados();
   }, [loadLotesCreados]);
-
-  React.useEffect(() => {
-    if (vistaActual !== 'lotes') return;
-    if (!Array.isArray(lotesCreados) || !lotesCreados.length) {
-      setLotesMetrics({});
-      return;
-    }
-    let active = true;
-    (async () => {
-      const metricsMap = {};
-      await Promise.all(
-        lotesCreados.map(async (lote) => {
-          const lotId = asLotId(lote);
-          if (!lotId) return;
-          try {
-            const res = await api.get(`/lead-batches/${encodeURIComponent(lotId)}/metrics`);
-            metricsMap[lotId] = res?.data?.data || res?.data || null;
-          } catch {}
-        })
-      );
-      if (!active) return;
-      setLotesMetrics(metricsMap);
-    })();
-    return () => { active = false; };
-  }, [api, lotesCreados, vistaActual]);
 
   React.useEffect(() => {
     if (vistaActual !== 'detalle-lote') return;
@@ -2265,20 +2246,11 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                   const count = asLotCount(lote);
                   const sellerName = asLotSellerName(lote);
                   const initials = sellerName.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
-                  const informe = lotId ? lotesMetrics?.[lotId]?.informe : null;
-                  const totalContactos = Number(
-                    lote?.total_contactos
-                    || lote?.contactos
-                    || informe?.total_contactos
-                    || count
-                    || 0
-                  );
-                  const totalGestionados = Number(informe?.total_vendidos || 0)
-                    + Number(informe?.total_no_contesta || 0)
-                    + Number(informe?.total_rechazos || 0)
-                    + Number(informe?.total_dato_erroneo || 0)
-                    + Number(informe?.total_en_proceso || 0)
-                    + Number(informe?.total_incontactables || 0);
+                  const counts = lote?.counts || {};
+                  const totalContactos = Number(counts.total ?? count ?? 0);
+                  const totalGestionados = Number(counts.recovered || 0)
+                    + Number(counts.rejected || 0)
+                    + Number(counts.in_progress || 0);
                   const pct = totalContactos > 0
                     ? Math.round((totalGestionados / totalContactos) * 100)
                     : 0;
@@ -2363,13 +2335,12 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                         </div>
                       </div>
 
-                      {informe && (
+                      {totalContactos > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 10, fontSize: 12 }}>
-                          <span style={{ color: '#15803D', fontWeight: 800 }}>Ventas: {Number(informe.total_vendidos || 0)}</span>
-                          <span style={{ color: '#DC2626', fontWeight: 800 }}>Rechazos: {Number(informe.total_rechazos || 0)}</span>
-                          <span style={{ color: '#92400E', fontWeight: 800 }}>No contesta: {Number(informe.total_no_contesta || 0)}</span>
-                          <span style={{ color: 'var(--color-text-secondary)', fontWeight: 800 }}>Dato erróneo: {Number(informe.total_dato_erroneo || 0)}</span>
-                          <span style={{ color: '#639922', fontWeight: 800 }}>Nuevos: {Number(informe.total_nuevos || 0)}</span>
+                          <span style={{ color: '#15803D', fontWeight: 800 }}>Recuperados: {Number(counts.recovered || 0)}</span>
+                          <span style={{ color: '#DC2626', fontWeight: 800 }}>Rechazados: {Number(counts.rejected || 0)}</span>
+                          <span style={{ color: '#92400E', fontWeight: 800 }}>En gestión: {Number(counts.in_progress || 0)}</span>
+                          <span style={{ color: 'var(--color-text-secondary)', fontWeight: 800 }}>Pendientes: {Number(counts.pending || 0)}</span>
                         </div>
                       )}
 
