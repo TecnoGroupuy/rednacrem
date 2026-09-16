@@ -746,7 +746,15 @@ export default function SupervisorContractsModule({ Panel, Button }) {
     || row?.estado_cliente === 'activo'
   );
 
-  const openAssign = React.useCallback((contactIds = [], row = null) => {
+  // Nombres de los lotes fijos por segmento — para preseleccionar el lote
+  // destino del modal "Asignar contacto" según el segmento activo
+  // (Prioritario/Resto). Comparación por substring en minúsculas, no exige
+  // un flag dedicado del backend (que todavía no existe — ver tarea de
+  // backend pendiente). Si no hay match (p. ej. los lotes fijos todavía no
+  // se crearon), simplemente no preselecciona nada, sin romper el flujo.
+  const FIXED_LOTE_MATCH_BY_SEGMENTO = { prioritario: 'prioritario', resto: 'general de recupero' };
+
+  const openAssign = React.useCallback(async (contactIds = [], row = null) => {
     const ids = Array.isArray(contactIds) ? contactIds.filter(Boolean) : [];
     if (!ids.length) return;
     setAssignContactIds(ids);
@@ -758,8 +766,19 @@ export default function SupervisorContractsModule({ Panel, Button }) {
     setAssignHasActiveProduct(Boolean(hasActive));
     setShowAssignModal(true);
     loadSellers();
-    loadLotesCreados();
-  }, [loadLotesCreados, loadSellers, visibleItems]);
+    const freshLotes = await loadLotesCreados();
+    // El supervisor puede seguir cambiando el lote a mano — por ejemplo para
+    // reasignar a un vendedor original específico, independiente del segmento.
+    const matchKey = FIXED_LOTE_MATCH_BY_SEGMENTO[segmentoRecupero];
+    if (matchKey) {
+      const match = (Array.isArray(freshLotes) ? freshLotes : []).find((lote) => (
+        String(asLotName(lote) || '').toLowerCase().includes(matchKey)
+      ));
+      if (match) {
+        setAssignLoteId(asLotId(match));
+      }
+    }
+  }, [loadLotesCreados, loadSellers, segmentoRecupero, visibleItems]);
 
   const closeAssign = React.useCallback(() => {
     setShowAssignModal(false);
