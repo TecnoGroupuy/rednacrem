@@ -431,6 +431,14 @@ export default function SupervisorContractsModule({ Panel, Button }) {
     ?? 0
   );
 
+  // Único criterio de "lote cerrado" para toda la vista de Recupero (badge
+  // de estado, agrupado Abiertos/Cerrados del listado, y bloqueo de
+  // acciones de edición en el detalle) — el campo real dataset_status
+  // (expuesto como status/estado según el objeto), nunca un heurístico como
+  // "100% gestionado": un lote con todo gestionado pero sin finalizar sigue
+  // técnicamente abierto, solo que no le queda nada por trabajar.
+  const isLoteDatasetCerrado = (lote) => String(lote?.status || lote?.estado || '').toLowerCase() === 'cerrado';
+
   const getFilterOptionsForKey = React.useCallback((key) => {
     if (key === 'departamento') return filterOptions.departamentos;
     if (key === 'producto') return filterOptions.productos;
@@ -2282,9 +2290,8 @@ export default function SupervisorContractsModule({ Panel, Button }) {
               ) : null}
 
               {(() => {
-                const datasetIsCerrado = (lote) => String(lote?.status || lote?.estado || '').toLowerCase() === 'cerrado';
-                const lotesAbiertos = lotesCreados.filter((lote) => !datasetIsCerrado(lote));
-                const lotesCerrados = lotesCreados.filter((lote) => datasetIsCerrado(lote));
+                const lotesAbiertos = lotesCreados.filter((lote) => !isLoteDatasetCerrado(lote));
+                const lotesCerrados = lotesCreados.filter((lote) => isLoteDatasetCerrado(lote));
 
                 const renderLoteCard = (lote, idx) => {
                   const lotId = asLotId(lote);
@@ -2301,9 +2308,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                   const pct = totalContactos > 0
                     ? Math.round((totalGestionados / totalContactos) * 100)
                     : 0;
-                  const isCompletado = totalContactos > 0 && totalGestionados >= totalContactos;
-                  const manualEstado = String(lote?.estado || lote?.status || '').toLowerCase();
-                  const isCerrado = manualEstado === 'finalizado' || manualEstado === 'cerrado' || isCompletado;
+                  const isCerrado = isLoteDatasetCerrado(lote);
                   const estadoBadge = isCerrado
                     ? { label: 'Cerrado', bg: 'rgba(148,163,184,0.22)', color: 'var(--color-text-secondary)' }
                     : { label: 'Abierto', bg: '#E1F5EE', color: '#0F6E56' };
@@ -2513,12 +2518,11 @@ export default function SupervisorContractsModule({ Panel, Button }) {
           )}
 
           {vistaActual === 'detalle-lote' && (() => {
-            // dataset_status real (no el heurístico "100% gestionado" que usa
-            // el badge Abierto/Cerrado de acá abajo) — un lote solo queda de
-            // solo lectura cuando el backend lo cerró de verdad vía
-            // "Finalizar", no antes. Mismo criterio que ya usa el agrupado
-            // Abiertos/Cerrados del listado de tarjetas.
-            const isLoteCerradoReal = String(loteSeleccionado?.status || loteSeleccionado?.estado || '').toLowerCase() === 'cerrado';
+            // isLoteDatasetCerrado (dataset_status real) también decide el
+            // badge de esta vista más abajo — un lote solo queda de solo
+            // lectura, y solo muestra badge "Cerrado", cuando el backend lo
+            // cerró de verdad vía "Finalizar", no antes.
+            const isLoteCerradoReal = isLoteDatasetCerrado(loteSeleccionado);
             return (
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -2633,10 +2637,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                   + Number(informe?.total_en_proceso || 0)
                   + Number(informe?.total_incontactables || 0);
                 const pctAvance = totalContactos > 0 ? Math.round((totalGestionados / totalContactos) * 100) : 0;
-                const isCompletado = totalContactos > 0 && totalGestionados >= totalContactos;
-                const manualEstadoDetalle = String(loteSeleccionado?.estado || loteSeleccionado?.status || '').toLowerCase();
-                const isCerradoDetalle = manualEstadoDetalle === 'finalizado' || manualEstadoDetalle === 'cerrado' || isCompletado;
-                const statusBadge = isCerradoDetalle
+                const statusBadge = isLoteCerradoReal
                   ? { label: 'Cerrado', bg: 'rgba(148,163,184,0.22)', color: 'var(--color-text-secondary)' }
                   : { label: 'Abierto', bg: '#E1F5EE', color: '#0F6E56' };
                 return (
