@@ -330,8 +330,12 @@ export default function SupervisorContractsModule({ Panel, Button }) {
     setLotesLoading(true);
     setLotesError('');
     try {
-      const response = await api.get('/api/recupero/lotes');
-      const itemsList = response?.items || response?.data?.items || response?.lotes || response?.data?.lotes || [];
+      // GET /recovery/datasets devuelve un array plano (no {items:[...]}),
+      // cada elemento ya viene como {id, name, status, counts, ...} —
+      // reemplaza a GET /api/recupero/lotes (leía lead_batches, tabla que
+      // POST /api/recupero/lotes nunca escribe).
+      const response = await api.get('/recovery/datasets');
+      const itemsList = Array.isArray(response) ? response : (response?.items || response?.data || []);
       const nextItems = Array.isArray(itemsList) ? itemsList : [];
       setLotesCreados(nextItems);
       setLastSyncAt(Date.now());
@@ -826,10 +830,7 @@ export default function SupervisorContractsModule({ Panel, Button }) {
     setCreateLoteSaving(true);
     setCreateLoteError('');
     try {
-      // TODO: migrar a /recovery/* — POST /api/recupero/lotes no crea una fila en
-      // lead_batches, así que un lote sin contactos no va a listarse hoy en
-      // GET /api/recupero/lotes hasta que se resuelva esa migración.
-      await api.post('/api/recupero/lotes', { nombre, contact_ids: [], seller_ids: [] });
+      await api.post('/recovery/datasets', { dataset_name: nombre });
       closeCreateLoteModal();
       loadLotesCreados();
     } catch (err) {
@@ -2087,8 +2088,11 @@ export default function SupervisorContractsModule({ Panel, Button }) {
   };
 
   const assignLotesAbiertos = (lotesCreados || []).filter((lote) => {
-    const estado = String(lote?.estado || '').toLowerCase();
-    return estado !== 'finalizado' && estado !== 'cerrado';
+    // /recovery/datasets manda `status` (activo|pausado|cerrado) — solo los
+    // datasets activos aceptan asignaciones (mismo chequeo que ya hace el
+    // backend en direct-assignments / assignments).
+    const status = String(lote?.status ?? lote?.estado ?? '').toLowerCase();
+    return status === 'activo';
   });
   const assignSelectedLote = (lotesCreados || []).find((l) => String(asLotId(l)) === String(assignLoteId)) || null;
   const assignSelectedLoteSellers = assignSelectedLote ? asLotSellers(assignSelectedLote) : [];
@@ -2102,15 +2106,13 @@ export default function SupervisorContractsModule({ Panel, Button }) {
     if (!sellerIds.length) return;
     setCreatingLot(true);
     try {
-      // TODO: migrar a /recovery/* — este endpoint no conecta con lead_batches hoy, así
-      // que "lote_id" (para sumar contactos a un lote existente) no tiene efecto real más
-      // allá de reasignar el vendedor de los contactos.
-      await api.post('/api/recupero/lotes', {
-        nombre: asLotName(assignSelectedLote) || getAssignmentLotName(),
-        lote_id: assignLoteId,
-        contact_ids: assignContactIds,
+      const response = await api.post(`/recovery/datasets/${assignLoteId}/direct-assignments`, {
+        candidato_ids: assignContactIds,
         seller_ids: sellerIds
       });
+      if (response?.unassigned?.length) {
+        setError(response.message || `${response.unassigned.length} contacto(s) no se pudieron asignar.`);
+      }
       closeAssign();
       setSelectedIds([]);
       loadRecupero({ force: true });
