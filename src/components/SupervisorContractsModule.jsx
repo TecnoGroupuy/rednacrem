@@ -646,7 +646,9 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
           nombre: a.seller_name || 'Vendedor',
           apellido: '',
           total_contactos: a.counts?.assigned || 0,
-          gestionados: Math.max(0, (a.counts?.assigned || 0) - (a.counts?.pending || 0))
+          gestionados: Math.max(0, (a.counts?.assigned || 0) - (a.counts?.pending || 0)),
+          ventas: a.counts?.recovered || 0,
+          pendientes_gestion: a.counts?.pendientes_gestion || 0
         }))
       };
     });
@@ -2746,88 +2748,99 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
                 ) : null}
 
                 {(loteSeleccionado?.vendedores || []).length ? (
-                  <div style={{ display: 'grid', gap: 10 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12 }}>
                     {(loteSeleccionado?.vendedores || []).map((vendedor) => {
                       const nombre = `${vendedor?.nombre || ''} ${vendedor?.apellido || ''}`.trim() || vendedor?.email || 'Vendedor';
-                      const iniciales = nombre.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
                       const total = Number(vendedor?.total_contactos || vendedor?.cantidad || 0);
                       const gestionados = Number(vendedor?.gestionados || vendedor?.total_gestionado || 0);
-                      const porcentaje = total > 0 ? Math.round((gestionados / total) * 100) : 0;
+                      const ventas = Number(vendedor?.ventas || 0);
+                      const pendientesGestion = Number(vendedor?.pendientes_gestion || 0);
                       return (
-                        <div key={vendedor?.id || nombre} style={{ border: '1px solid rgba(148,163,184,0.28)', borderRadius: 12, padding: 12, background: 'var(--color-background-secondary)' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                              <div style={{ width: 36, height: 36, borderRadius: 999, background: '#E1F5EE', color: '#0F6E56', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, flexShrink: 0 }}>
-                                {iniciales || '--'}
-                              </div>
-                              <div style={{ minWidth: 0 }}>
-                                <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--color-text-primary)' }}>{nombre}</div>
-                                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                                  {total} contactos · {gestionados} gestionados
+                        <div
+                          key={vendedor?.id || nombre}
+                          style={{
+                            position: 'relative',
+                            aspectRatio: '1',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'space-between',
+                            gap: 8,
+                            padding: 14,
+                            borderRadius: 14,
+                            background: '#fff',
+                            border: '1px solid rgba(148,163,184,0.28)',
+                            // Relieve/highlight verde decorativo — da sensación
+                            // de "activo", no depende de ningún estado real de
+                            // conexión del vendedor.
+                            boxShadow: 'inset 0 0 0 3px rgba(29,158,117,0.45)'
+                          }}
+                        >
+                          <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--color-text-primary)', paddingRight: isLoteCerradoReal ? 0 : 30, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {nombre}
+                          </div>
+                          <div style={{ display: 'grid', gap: 4 }}>
+                            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                              Asignados: <strong style={{ color: 'var(--color-text-primary)' }}>{total}</strong>
+                            </div>
+                            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                              Ventas: <strong style={{ color: '#15803D' }}>{ventas}</strong>
+                            </div>
+                            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                              Pendientes: <strong style={{ color: '#92400E' }}>{pendientesGestion}</strong>
+                            </div>
+                          </div>
+                          {!isLoteCerradoReal && (
+                            <div data-vendor-menu style={{ position: 'absolute', top: 10, right: 10 }}>
+                              <button
+                                type="button"
+                                onClick={() => setOpenVendorMenuId((prev) => (String(prev) === String(vendedor?.id) ? null : vendedor?.id))}
+                                style={{
+                                  width: 30,
+                                  height: 30,
+                                  borderRadius: 8,
+                                  border: '1px solid rgba(148,163,184,0.45)',
+                                  background: '#fff',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: 'var(--color-text-secondary)'
+                                }}
+                                aria-label="Más acciones"
+                              >
+                                <MoreHorizontal size={16} />
+                              </button>
+                              {String(openVendorMenuId) === String(vendedor?.id) && (
+                                <div style={{
+                                  position: 'absolute',
+                                  top: 'calc(100% + 4px)',
+                                  right: 0,
+                                  zIndex: 50,
+                                  background: '#fff',
+                                  border: '0.5px solid rgba(15,23,42,0.16)',
+                                  borderRadius: 10,
+                                  boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                                  minWidth: 160,
+                                  padding: '6px 0'
+                                }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setOpenVendorMenuId(null); openRemoveSellerModal({ sellerId: vendedor?.id, sellerName: nombre, contactCount: total, gestionados }, { step: 2, mode: 'specific' }); }}
+                                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 14px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)' }}
+                                  >
+                                    Reasignar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setOpenVendorMenuId(null); openRemoveSellerModal({ sellerId: vendedor?.id, sellerName: nombre, contactCount: total, gestionados }, { step: 1, mode: 'specific' }); }}
+                                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 14px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#993C1D' }}
+                                  >
+                                    Quitar
+                                  </button>
                                 </div>
-                              </div>
+                              )}
                             </div>
-                            {!isLoteCerradoReal && (
-                              <div data-vendor-menu style={{ position: 'relative', display: 'inline-block' }}>
-                                <button
-                                  type="button"
-                                  onClick={() => setOpenVendorMenuId((prev) => (String(prev) === String(vendedor?.id) ? null : vendedor?.id))}
-                                  style={{
-                                    width: 34,
-                                    height: 34,
-                                    borderRadius: 8,
-                                    border: '1px solid rgba(148,163,184,0.45)',
-                                    background: '#fff',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    color: 'var(--color-text-secondary)'
-                                  }}
-                                  aria-label="Más acciones"
-                                >
-                                  <MoreHorizontal size={16} />
-                                </button>
-                                {String(openVendorMenuId) === String(vendedor?.id) && (
-                                  <div style={{
-                                    position: 'absolute',
-                                    top: 'calc(100% + 4px)',
-                                    right: 0,
-                                    zIndex: 50,
-                                    background: '#fff',
-                                    border: '0.5px solid rgba(15,23,42,0.16)',
-                                    borderRadius: 10,
-                                    boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-                                    minWidth: 160,
-                                    padding: '6px 0'
-                                  }}>
-                                    <button
-                                      type="button"
-                                      onClick={() => { setOpenVendorMenuId(null); openRemoveSellerModal({ sellerId: vendedor?.id, sellerName: nombre, contactCount: total, gestionados }, { step: 2, mode: 'specific' }); }}
-                                      style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 14px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)' }}
-                                    >
-                                      Reasignar
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => { setOpenVendorMenuId(null); openRemoveSellerModal({ sellerId: vendedor?.id, sellerName: nombre, contactCount: total, gestionados }, { step: 1, mode: 'specific' }); }}
-                                      style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 14px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#993C1D' }}
-                                    >
-                                      Quitar
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                          <div style={{ marginTop: 10 }}>
-                            <div style={{ height: 5, background: 'rgba(148,163,184,0.22)', borderRadius: 999, overflow: 'hidden' }}>
-                              <div style={{ height: '100%', width: `${porcentaje}%`, background: '#0F766E', borderRadius: 999 }} />
-                            </div>
-                            <div style={{ marginTop: 6, fontSize: 11, color: 'var(--color-text-secondary)' }}>
-                              {porcentaje}% gestionado
-                            </div>
-                          </div>
+                          )}
                         </div>
                       );
                     })}
