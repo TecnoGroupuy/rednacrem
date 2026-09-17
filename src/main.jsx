@@ -19872,7 +19872,14 @@ const formatCurrency = (value) => {
               allowRoles={['supervisor']}
               fallback={<PlaceholderView title="Recupero" subtitle="Sin visibilidad para este rol en la vista actual." cta="Volver al foco" />}
             >
-              <SupervisorContractsModule Panel={Panel} Button={Button} Tag={Tag} />
+              <SupervisorContractsModule
+                Panel={Panel}
+                Button={Button}
+                Tag={Tag}
+                roleMeta={ROLE_META}
+                estadoUsuario={estadoUsuario}
+                onOpenMobileMenu={setMenuOpen}
+              />
             </UiRoleGate>
           );
         }
@@ -20095,7 +20102,7 @@ const formatCurrency = (value) => {
                 }
                 : undefined}
             >
-              {route !== 'operaciones/monitor' && route !== 'operaciones/turnos' && route !== 'operaciones/rrhh' ? <header className="topbar" ref={topbarRef}>
+              {route !== 'operaciones/monitor' && route !== 'operaciones/turnos' && route !== 'operaciones/rrhh' && route !== 'contratos' ? <header className="topbar" ref={topbarRef}>
                 <div className="topbar-card glass">
                   <button className="icon-button mobile-toggle" onClick={() => setMenuOpen(true)}><Menu size={20} color="#152235" /></button>
                   <div style={{ minWidth: 0, flex: 1 }}>

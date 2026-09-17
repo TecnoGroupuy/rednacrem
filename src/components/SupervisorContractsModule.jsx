@@ -1,7 +1,8 @@
 import React from 'react';
-import { Filter, RefreshCw, X, Upload, Columns, ChevronDown, Clock, Archive, MoreHorizontal } from 'lucide-react';
+import { Filter, RefreshCw, X, Upload, Columns, ChevronDown, Clock, Archive, MoreHorizontal, Menu } from 'lucide-react';
 import { buildApiUrl, getApiBaseUrl, getAccessToken, getApiClient } from '../services/apiClient.js';
 import { formatDate } from '../utils/dateFormat.js';
+import { useRolEfectivo } from '../hooks/useRolEfectivo.js';
 import RecuperoProduccionView from './RecuperoProduccionView.jsx';
 import RecuperoResultadosView from './RecuperoResultadosView.jsx';
 
@@ -65,7 +66,18 @@ const readDevOverride = (key) => {
 
 const isLocalDevToken = (token) => import.meta?.env?.DEV && (token === 'dev-token' || token === 'dev-id');
 
-export default function SupervisorContractsModule({ Panel, Button }) {
+export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta, estadoUsuario, onOpenMobileMenu }) {
+  // Esta vista excluye el <header className="topbar"> global (ver
+  // condición en main.jsx) para ganar espacio vertical — junto con el
+  // breadcrumb/fecha (puramente decorativos, sin otros consumidores) esa
+  // barra traía el único botón que abre el menú lateral en pantallas
+  // angostas (<1024px), así que se reubica acá. También se preserva el
+  // indicador de "modo vista" (superadmin viendo Recupero como otro rol,
+  // vía useRolEfectivo — el único lugar que hoy expone esto en vivo,
+  // BotonVistaRol.jsx existe pero no está montado en ningún lado) y el tag
+  // de "Inactivo", que si no se reubicaban quedaban invisibles en esta
+  // ruta sin que nadie lo hubiera decidido explícitamente.
+  const { rolReal, rolEfectivo, esVistaSimulada } = useRolEfectivo();
   const api = React.useMemo(() => getApiClient(), []);
   const [vistaActual, setVistaActual] = React.useState('recupero'); // 'recupero' | 'lotes' | 'detalle-lote' | 'produccion' | 'resultados'
   const [metrics, setMetrics] = React.useState({ total: 0, disponibles: 0, enLote: 0, recuperados: 0, rechazados: 0 });
@@ -2244,6 +2256,25 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                 box-shadow: none !important;
               }
             `}</style>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="icon-button mobile-toggle"
+                onClick={() => onOpenMobileMenu?.(true)}
+                aria-label="Abrir menú"
+              >
+                <Menu size={20} color="#152235" />
+              </button>
+              {esVistaSimulada && Tag ? (
+                <>
+                  <Tag variant="warning">Modo vista: {roleMeta?.[rolEfectivo]?.label || rolEfectivo}</Tag>
+                  <Tag variant="info">Usuario real: {roleMeta?.[rolReal]?.label || rolReal}</Tag>
+                </>
+              ) : null}
+              {estadoUsuario === 'inactivo' && Tag ? (
+                <Tag variant="warning">Inactivo (sin actividad)</Tag>
+              ) : null}
+            </div>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: lastSyncAt ? 'var(--color-text-secondary)' : '#B45309', fontSize: 12 }}>
               <span style={{ width: 6, height: 6, borderRadius: 999, background: lastSyncAt ? '#16A34A' : '#D97706', display: 'inline-block' }} />
               {syncLabel}
