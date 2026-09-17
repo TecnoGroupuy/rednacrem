@@ -2671,6 +2671,44 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
                 <div style={{ marginTop: 12, color: 'var(--muted)' }}>Cargando detalle…</div>
               ) : null}
 
+              {datasetDetail && (
+                <div style={{
+                  display: 'flex',
+                  gap: 16,
+                  flexWrap: 'wrap',
+                  marginTop: 12,
+                  padding: '10px 14px',
+                  background: '#fff',
+                  border: '1px solid rgba(148,163,184,0.35)',
+                  borderRadius: 12
+                }}>
+                  {datasetDetail?.management_range?.first_at ? (
+                    <>
+                      <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                        Primera gestión:{' '}
+                        <strong style={{ color: 'var(--color-text-primary)' }}>
+                          {new Date(datasetDetail.management_range.first_at).toLocaleDateString('es-UY')}
+                        </strong>
+                      </span>
+                      <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                        Última gestión:{' '}
+                        <strong style={{ color: 'var(--color-text-primary)' }}>
+                          {new Date(datasetDetail.management_range.last_at).toLocaleDateString('es-UY')}
+                        </strong>
+                      </span>
+                      <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                        Días transcurridos:{' '}
+                        <strong style={{ color: 'var(--color-text-primary)' }}>
+                          {datasetDetail.management_range.days}
+                        </strong>
+                      </span>
+                    </>
+                  ) : (
+                    <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Sin gestiones todavía.</span>
+                  )}
+                </div>
+              )}
+
               {detalleMetrics?.informe && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
                   {[
