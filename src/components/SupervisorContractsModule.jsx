@@ -2591,14 +2591,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
               whiteSpace: 'nowrap',
               boxSizing: 'border-box'
             };
-            // Asignados = suma de contactos con vendedor entre todos los
-            // vendedores del lote — mismo número que ya se calcula por fila
-            // en "Vendedores asignados" más abajo (total/cantidad por
-            // vendedor), sumado acá para el encabezado.
-            const asignadosLote = (loteSeleccionado?.vendedores || []).reduce(
-              (acc, v) => acc + Number(v?.total_contactos || v?.cantidad || 0),
-              0
-            );
             return (
             <div>
               <div style={{ marginBottom: 12 }}>
@@ -2623,6 +2615,15 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
               {(() => {
                 const informe = detalleMetrics?.informe || null;
                 const totalContactos = Number(informe?.total_contactos || 0);
+                // assigned/unassigned salen del mismo counts que ya devuelve
+                // GET /recovery/datasets/:id (mapRecuperoCounts) — se leen
+                // acá en vez de sumar loteSeleccionado.vendedores para
+                // garantizar que Sin asignar = Total - Asignados siempre
+                // (misma fila de SQL, no dos cálculos independientes que
+                // podrían desalinearse).
+                const counts = datasetDetail?.counts || {};
+                const asignados = Number(counts.assigned || 0);
+                const sinAsignar = Number(counts.unassigned || 0);
                 const statusBadge = isLoteCerradoReal
                   ? { label: 'Cerrado', bg: 'rgba(148,163,184,0.22)', color: 'var(--color-text-secondary)' }
                   : { label: 'Abierto', bg: '#E1F5EE', color: '#0F6E56' };
@@ -2653,7 +2654,9 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
                     <div style={{ marginTop: 4, fontSize: 12, color: 'var(--color-text-secondary)', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                       <span>Total: <strong style={{ color: 'var(--color-text-primary)' }}>{totalContactos || 0}</strong></span>
                       <span>·</span>
-                      <span>Asignados: <strong style={{ color: 'var(--color-text-primary)' }}>{asignadosLote}</strong></span>
+                      <span>Asignados: <strong style={{ color: 'var(--color-text-primary)' }}>{asignados}</strong></span>
+                      <span>·</span>
+                      <span>Sin asignar: <strong style={{ color: 'var(--color-text-primary)' }}>{sinAsignar}</strong></span>
                     </div>
                   </div>
                 );
@@ -2682,7 +2685,12 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
                         + Number(informe.total_en_proceso || 0)
                         + Number(informe.total_incontactables || 0);
                       return totalContactos > 0 ? Math.round((totalGestionados / totalContactos) * 100) : 0;
-                    })()}%`, color: '#0F766E' }
+                    })()}%`, color: '#0F766E' },
+                    // % Contacto y Efectividad ya vienen calculados por el
+                    // backend (GET /recovery/datasets/:id -> counts.contact_pct
+                    // / counts.effectiveness_pct) — no se recalculan acá.
+                    { label: '% Contacto', value: `${Number(datasetDetail?.counts?.contact_pct || 0)}%`, color: '#185FA5' },
+                    { label: 'Efectividad', value: `${Number(datasetDetail?.counts?.effectiveness_pct || 0)}%`, color: '#0F6E56' }
                   ].map((m) => (
                     <div key={m.label} style={{ background: 'var(--color-background-secondary)', borderRadius: 12, padding: '14px 16px', border: '0.5px solid rgba(15,23,42,0.16)' }}>
                       <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', fontWeight: 800 }}>{m.label}</div>
