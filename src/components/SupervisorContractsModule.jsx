@@ -2355,23 +2355,22 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
                 const renderLoteCard = (lote, idx) => {
                   const lotId = asLotId(lote);
                   const name = asLotName(lote);
-                  const createdAt = asLotCreatedAt(lote);
                   const count = asLotCount(lote);
                   const sellerName = asLotSellerName(lote);
-                  const initials = sellerName.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
                   const counts = lote?.counts || {};
                   const totalContactos = Number(counts.total ?? count ?? 0);
-                  const totalGestionados = Number(counts.recovered || 0)
-                    + Number(counts.rejected || 0)
-                    + Number(counts.in_progress || 0);
-                  const pct = totalContactos > 0
-                    ? Math.round((totalGestionados / totalContactos) * 100)
-                    : 0;
                   const isCerrado = isLoteDatasetCerrado(lote);
                   const estadoBadge = isCerrado
                     ? { label: 'Cerrado', bg: 'rgba(148,163,184,0.22)', color: 'var(--color-text-secondary)' }
                     : { label: 'Abierto', bg: '#E1F5EE', color: '#0F6E56' };
                   const canFinalizeLote = !lote?.is_system_dataset && !isCerrado;
+                  // Descripción: no existe ningún campo de descripción/notas
+                  // en recupero_import_jobs — se omite la línea a propósito
+                  // en vez de inventar un texto, pendiente de una decisión
+                  // de backend si se necesita en el futuro.
+                  const lastActivityLabel = lote?.last_activity_at
+                    ? formatDateTime(lote.last_activity_at)
+                    : 'Sin gestiones todavía';
 
                   const openDetalle = () => {
                     openLotDetail(lote);
@@ -2393,132 +2392,82 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                            <div style={{ fontWeight: 800, color: 'var(--color-text-primary)', fontSize: 14 }}>
-                              {name}
-                            </div>
-                            <span style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              padding: '3px 10px',
-                              borderRadius: 999,
-                              background: estadoBadge.bg,
-                              color: estadoBadge.color,
-                              fontSize: 12,
-                              fontWeight: 800
-                            }}>
-                              {estadoBadge.label}
-                            </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
+                          <div style={{ fontWeight: 800, color: 'var(--color-text-primary)', fontSize: 14 }}>
+                            {name}
                           </div>
-                          <div style={{ marginTop: 4, fontSize: 12, color: 'var(--color-text-secondary)', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                            <span>{createdAt ? formatDateTime(createdAt) : '—'}</span>
-                            <span>·</span>
-                            <span><strong>{count}</strong> contactos</span>
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, height: 30 }}>
-                          <div style={{
-                            width: 30,
-                            height: 30,
-                            flexShrink: 0,
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            padding: '3px 10px',
                             borderRadius: 999,
-                            background: 'rgba(15,118,110,0.10)',
-                            color: '#0F766E',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: 800,
-                            fontSize: 12
-                          }}>
-                            {initials || '—'}
-                          </div>
-                          <div style={{
-                            height: 30,
-                            display: 'flex',
-                            alignItems: 'center',
+                            background: estadoBadge.bg,
+                            color: estadoBadge.color,
                             fontSize: 12,
-                            fontWeight: 700,
-                            color: 'var(--color-text-primary)',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            maxWidth: 140
+                            fontWeight: 800
                           }}>
-                            {sellerName || 'Sin asignar'}
-                          </div>
-                          <div data-lote-menu style={{ position: 'relative', display: 'inline-block', height: 30, flexShrink: 0 }}>
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); setOpenLoteMenuId((prev) => (String(prev) === String(lotId) ? null : lotId)); }}
-                              style={{
-                                width: 30,
-                                height: 30,
-                                borderRadius: 8,
-                                border: '1px solid rgba(148,163,184,0.45)',
-                                background: '#fff',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: 'var(--color-text-secondary)'
-                              }}
-                              aria-label="Más acciones"
-                            >
-                              <MoreHorizontal size={16} />
-                            </button>
-                            {String(openLoteMenuId) === String(lotId) && (
-                              <div style={{
-                                position: 'absolute',
-                                top: 'calc(100% + 4px)',
-                                right: 0,
-                                zIndex: 50,
-                                background: '#fff',
-                                border: '0.5px solid rgba(15,23,42,0.16)',
-                                borderRadius: 10,
-                                boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-                                minWidth: 160,
-                                padding: '6px 0'
-                              }}>
+                            {estadoBadge.label}
+                          </span>
+                        </div>
+                        <div data-lote-menu style={{ position: 'relative', display: 'inline-block', flexShrink: 0 }}>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setOpenLoteMenuId((prev) => (String(prev) === String(lotId) ? null : lotId)); }}
+                            style={{
+                              width: 30,
+                              height: 30,
+                              borderRadius: 8,
+                              border: '1px solid rgba(148,163,184,0.45)',
+                              background: '#fff',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: 'var(--color-text-secondary)'
+                            }}
+                            aria-label="Más acciones"
+                          >
+                            <MoreHorizontal size={16} />
+                          </button>
+                          {String(openLoteMenuId) === String(lotId) && (
+                            <div style={{
+                              position: 'absolute',
+                              top: 'calc(100% + 4px)',
+                              right: 0,
+                              zIndex: 50,
+                              background: '#fff',
+                              border: '0.5px solid rgba(15,23,42,0.16)',
+                              borderRadius: 10,
+                              boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                              minWidth: 160,
+                              padding: '6px 0'
+                            }}>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setOpenLoteMenuId(null); openDetalle(); }}
+                                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 14px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)' }}
+                              >
+                                Ver detalle
+                              </button>
+                              {canFinalizeLote && (
                                 <button
                                   type="button"
-                                  onClick={(e) => { e.stopPropagation(); setOpenLoteMenuId(null); openDetalle(); }}
-                                  style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 14px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)' }}
+                                  onClick={(e) => { e.stopPropagation(); setOpenLoteMenuId(null); openFinalizeLoteModal(lote); }}
+                                  style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 14px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#DC2626' }}
                                 >
-                                  Ver detalle
+                                  Finalizar
                                 </button>
-                                {canFinalizeLote && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => { e.stopPropagation(); setOpenLoteMenuId(null); openFinalizeLoteModal(lote); }}
-                                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 14px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#DC2626' }}
-                                  >
-                                    Finalizar
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
 
-                      <div style={{ marginTop: 10 }}>
-                        <div style={{ height: 6, background: 'rgba(148,163,184,0.22)', borderRadius: 999, overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: pct + '%', background: '#0F766E', borderRadius: 999 }} />
-                        </div>
-                        <div style={{ marginTop: 6, fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                          <strong>{pct}%</strong> gestionado · <strong>{totalGestionados}</strong>/<strong>{totalContactos}</strong> contactos
-                        </div>
+                      <div style={{ marginTop: 10, display: 'grid', gap: 4, fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                        <div>Vendedores: <strong style={{ color: 'var(--color-text-primary)' }}>{sellerName || 'Sin asignar'}</strong></div>
+                        <div>Última actualización: <strong style={{ color: 'var(--color-text-primary)' }}>{lastActivityLabel}</strong></div>
+                        <div>Cantidad de datos: <strong style={{ color: 'var(--color-text-primary)' }}>{totalContactos}</strong></div>
                       </div>
-
-                      {totalContactos > 0 && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 10, fontSize: 12 }}>
-                          <span style={{ color: '#15803D', fontWeight: 800 }}>Recuperados: {Number(counts.recovered || 0)}</span>
-                          <span style={{ color: '#DC2626', fontWeight: 800 }}>Rechazados: {Number(counts.rejected || 0)}</span>
-                          <span style={{ color: '#92400E', fontWeight: 800 }}>En gestión: {Number(counts.in_progress || 0)}</span>
-                          <span style={{ color: 'var(--color-text-secondary)', fontWeight: 800 }}>Pendientes: {Number(counts.pending || 0)}</span>
-                        </div>
-                      )}
                     </div>
                   );
                 };
