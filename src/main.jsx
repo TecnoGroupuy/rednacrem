@@ -1623,6 +1623,17 @@ const formatCurrency = (value) => {
       const [summaryWidgets, setSummaryWidgets] = React.useState({});
       const [summaryRequestId, setSummaryRequestId] = React.useState('');
       const summaryRequestIdRef = React.useRef('');
+      // Throttle para refreshSellerSummary — team_update/sellers_update se
+      // emiten en cada gestión de lead, evento de agente y llamada (ver
+      // POST /leads/:id/management, /api/agent/event, /api/agent/call en el
+      // backend), sin ningún límite de frecuencia. Sin esto, cada uno de
+      // esos eventos vuelve a disparar GET /api/supervisor/sellers-summary
+      // (la consulta pesada del incidente) para cada supervisor conectado —
+      // en un call center activo eso son decenas de refetches por minuto,
+      // por pantalla. Acá se limita a como mucho uno cada
+      // SELLER_SUMMARY_THROTTLE_MS, sin importar cuántos eventos lleguen en
+      // el medio.
+      const lastSellerSummaryFetchRef = React.useRef(0);
       const [sellersByOrigin, setSellersByOrigin] = React.useState([]);
       const [sellersByOriginLoading, setSellersByOriginLoading] = React.useState(false);
       const [sellersByOriginError, setSellersByOriginError] = React.useState('');
@@ -2420,6 +2431,7 @@ const formatCurrency = (value) => {
         if (!teamConfig) return () => {};
         if (teamConfig?.socketEnabled === false || teamConfig?.realtimeEnabled === false) return () => {};
         if (!socketBase) return () => {};
+        const SELLER_SUMMARY_THROTTLE_MS = 20000;
         const socket = io(socketBase, {
           transports: ['websocket'],
           withCredentials: true,
@@ -2427,6 +2439,9 @@ const formatCurrency = (value) => {
         });
         const api = getApiClient();
         const refreshSellerSummary = () => {
+          const now = Date.now();
+          if (now - lastSellerSummaryFetchRef.current < SELLER_SUMMARY_THROTTLE_MS) return;
+          lastSellerSummaryFetchRef.current = now;
           fetchAllSummary();
         };
         const refreshJornadaReport = () => {
@@ -4419,6 +4434,12 @@ const formatCurrency = (value) => {
         if (isRecupero) return undefined;
         if (vendedorNewClientOpen || drawerOpen || nuevoContactoOpen) return undefined;
         const intervalId = setInterval(() => {
+          // No pegarle a la API si la pestaña está en background — una
+          // pestaña de vendedor olvidada abierta sigue este poll cada 60s
+          // indefinidamente aunque nadie la esté mirando; multiplicado por
+          // varios vendedores es parte de la carga del incidente de
+          // rendimiento (ver /leads/daily-stats).
+          if (typeof document !== 'undefined' && document.hidden) return;
           refreshSilencioso();
         }, 60_000);
         return () => clearInterval(intervalId);
