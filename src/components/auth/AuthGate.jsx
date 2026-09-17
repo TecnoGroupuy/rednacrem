@@ -2,6 +2,7 @@ import React from 'react';
 import { Loader2 } from 'lucide-react';
 import { useAuth as useOidcAuth } from 'react-oidc-context';
 import { useAuth as useAppAuth } from '../../auth/AuthProvider.jsx';
+import { setUnauthorizedHandler } from '../../services/apiClient.js';
 import EstadoNoAutenticado from './EstadoNoAutenticado.jsx';
 import RequireApprovedUser from '../guards/RequireApprovedUser.jsx';
 
@@ -63,6 +64,26 @@ export default function AuthGate({ children }) {
       clearSession();
     }
   }, [oidcAuth.isAuthenticated, isAuthenticated, authLoading, clearSession, authSession?.accessToken]);
+
+  // Cualquier request a la API que devuelva 401 dispara esto — casi siempre
+  // significa que el id_token de Cognito venció (el renovado silencioso de
+  // sesión no está garantizado: no hay silent_redirect_uri configurado en
+  // cognitoConfig.js, y ese flujo depende de cookies cross-origin del
+  // Hosted UI que Safari/Chrome bloquean cada vez más). En vez de dejar que
+  // se muestre un "Unauthorized" crudo en cualquier pantalla, se redirige
+  // directo al login de Cognito. redirectingRef evita disparar signinRedirect
+  // más de una vez si varias requests fallan a la vez.
+  const redirectingRef = React.useRef(false);
+  React.useEffect(() => {
+    setUnauthorizedHandler(() => {
+      if (redirectingRef.current) return;
+      const isLocalDevSession = authSession?.accessToken === 'dev-token';
+      if (isLocalDevSession || !oidcAuth?.signinRedirect) return;
+      redirectingRef.current = true;
+      oidcAuth.signinRedirect();
+    });
+    return () => setUnauthorizedHandler(null);
+  }, [oidcAuth, authSession?.accessToken]);
 
   const hasOidcSession = oidcAuth.isAuthenticated && !!oidcAuth.user;
   const oidcAccess = oidcAuth.user?.access_token || null;

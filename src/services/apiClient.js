@@ -76,6 +76,29 @@ export async function getAccessToken() {
   return accessTokenGetter();
 }
 
+// 401 = no autenticado (token vencido/ausente/inválido), sea porque nuestro
+// propio backend lo rechaza (requireAuthenticated) o porque el JWT
+// authorizer de API Gateway lo rechaza antes de llegar al Lambda (en ese
+// caso el body es el default de AWS, {"message":"Unauthorized"}) — en
+// cualquiera de los dos casos la sesión ya no sirve y re-loguear es lo
+// único que la arregla. 403 es distinto (autenticado pero sin permiso para
+// esa acción puntual) y no dispara esto — reintentar login no lo resuelve.
+let unauthorizedHandler = null;
+
+export function setUnauthorizedHandler(handler) {
+  unauthorizedHandler = typeof handler === 'function' ? handler : null;
+}
+
+function notifyUnauthorized(status) {
+  if (status === 401 && unauthorizedHandler) {
+    try {
+      unauthorizedHandler();
+    } catch {
+      // no-op: un fallo acá no debe tapar el error real de la request
+    }
+  }
+}
+
 export function createApiClient({ baseUrl, getAccessToken }) {
   const request = async (path, { method = 'GET', headers = {}, body } = {}) => {
     const rawUrl = buildApiUrl(path, baseUrl);
@@ -135,6 +158,7 @@ export function createApiClient({ baseUrl, getAccessToken }) {
       const message = (parsed && typeof parsed === 'object' && parsed.message)
         ? parsed.message
         : (typeof parsed === 'string' && parsed.trim() ? parsed : `HTTP ${response.status}`);
+      notifyUnauthorized(response.status);
       throw new ApiError(message, response.status, parsed);
     }
 
@@ -188,6 +212,7 @@ export function createApiClient({ baseUrl, getAccessToken }) {
       const message = (parsed && typeof parsed === 'object' && parsed.message)
         ? parsed.message
         : (typeof parsed === 'string' && parsed.trim() ? parsed : `HTTP ${response.status}`);
+      notifyUnauthorized(response.status);
       throw new ApiError(message, response.status, parsed);
     }
 

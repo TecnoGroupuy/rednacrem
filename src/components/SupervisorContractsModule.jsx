@@ -594,14 +594,19 @@ export default function SupervisorContractsModule({ Panel, Button }) {
       })
       .catch((err) => {
         if (!active) return;
-        // 401/403 acá casi siempre es el token de sesión vencido (Cognito) y
-        // no un problema real de permisos sobre este lote — el backend nunca
-        // compone el mensaje "Unauthorized" a secas (ver index.mjs), ese es
-        // el body por default de API Gateway cuando el JWT authorizer
-        // rechaza la request antes de que llegue al Lambda. Mostrarlo tal
-        // cual no le dice nada útil al supervisor.
-        if (err?.status === 401 || err?.status === 403) {
-          setDetalleError('Tu sesión venció. Recargá la página para iniciar sesión de nuevo y volver a ver el detalle de este lote.');
+        // 401 acá casi siempre es el token de sesión vencido (Cognito) — el
+        // backend nunca compone el mensaje "Unauthorized" a secas (ver
+        // index.mjs), ese es el body por default de API Gateway cuando su
+        // JWT authorizer rechaza la request antes de que llegue al Lambda.
+        // apiClient.js ya dispara un redirect automático al login en este
+        // caso (ver setUnauthorizedHandler en AuthGate); este mensaje es
+        // solo el texto que se alcanza a ver antes de que eso ocurra. 403 sí
+        // es un problema real de permisos (autenticado, pero sin acceso a
+        // este lote puntual) y no dispara ningún redirect.
+        if (err?.status === 401) {
+          setDetalleError('Tu sesión venció — te vamos a redirigir para iniciar sesión de nuevo.');
+        } else if (err?.status === 403) {
+          setDetalleError('No tenés permisos para ver el detalle de este lote.');
         } else {
           setDetalleError(err?.message || 'No se pudo cargar el detalle del lote.');
         }
