@@ -2720,40 +2720,76 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
                     + Number(informe.total_incontactables || 0);
                   return totalContactos > 0 ? Math.round((totalGestionados / totalContactos) * 100) : 0;
                 })();
-                // 3 filas fijas, cada una con su propia cantidad de columnas
-                // (3 / 4 / 3) — las tarjetas quedan del mismo tamaño dentro
-                // de cada fila, adaptándose al ancho disponible (1fr), no a
-                // un ancho fijo en píxeles entre filas.
-                const rows = [
-                  [
-                    { label: 'Total', value: detalleMetrics.informe.total_contactos, color: 'var(--color-text-primary)' },
-                    { label: 'Ventas', value: detalleMetrics.informe.total_vendidos, color: '#15803D' },
-                    { label: 'Rechazos', value: detalleMetrics.informe.total_rechazos, color: '#DC2626' }
-                  ],
-                  [
-                    // No estaban expuestos a nivel de dataset hasta ahora —
-                    // mezclados dentro de in_progress (bug ya conocido).
-                    // Backend: commit 811b999.
-                    { label: 'No contesta', value: Number(dCounts.no_contesta || 0), color: '#92400E' },
-                    { label: 'Rellamar', value: Number(dCounts.rellamar || 0), color: '#92400E' },
-                    { label: 'Seguimiento', value: Number(dCounts.seguimiento || 0), color: '#185FA5' },
-                    { label: 'Dato erróneo', value: Number(dCounts.dato_erroneo || 0), color: 'var(--color-text-secondary)' }
-                  ],
-                  [
-                    { label: '% Avance', value: `${pctAvance}%`, color: '#0F766E' },
-                    // % Contacto y Efectividad ya vienen calculados por el
-                    // backend (GET /recovery/datasets/:id -> counts.contact_pct
-                    // / counts.effectiveness_pct) — no se recalculan acá.
-                    { label: '% Contacto', value: `${Number(dCounts.contact_pct || 0)}%`, color: '#185FA5' },
-                    { label: 'Efectividad', value: `${Number(dCounts.effectiveness_pct || 0)}%`, color: '#0F6E56' }
-                  ]
+                // Una sola fila, 3 grupos agrupados por significado (en vez
+                // de 3 filas separadas) — cada grupo es el contenedor visual
+                // (fondo + borde), las métricas adentro solo tienen
+                // label/valor, sin tarjeta ni borde propio. Los 3 grupos
+                // comparten el ancho de la fila en partes iguales
+                // (flex: 1 en cada uno); si no entran cómodos en pantallas
+                // angostas, el grupo entero pasa a la línea de abajo
+                // (flexWrap en el contenedor exterior), nunca se parte a
+                // mitad de grupo porque cada grupo es un único ítem flex.
+                const groups = [
+                  {
+                    key: 'totales',
+                    background: 'var(--color-background-secondary)',
+                    items: [
+                      { label: 'Total', value: detalleMetrics.informe.total_contactos, color: 'var(--color-text-primary)' },
+                      { label: 'Ventas', value: detalleMetrics.informe.total_vendidos, color: '#15803D' },
+                      { label: 'Rechazos', value: detalleMetrics.informe.total_rechazos, color: '#DC2626' }
+                    ]
+                  },
+                  {
+                    key: 'pendientes',
+                    // Tinte de advertencia — mismo criterio que ya usa el
+                    // badge "No contesta"/"En proceso" en este archivo
+                    // (fondo #FAEEDA), con el color #92400E ya usado en
+                    // este mismo componente para estas etiquetas.
+                    background: '#FAEEDA',
+                    items: [
+                      // No estaban expuestos a nivel de dataset hasta ahora —
+                      // mezclados dentro de in_progress (bug ya conocido).
+                      // Backend: commit 811b999.
+                      { label: 'No contesta', value: Number(dCounts.no_contesta || 0), color: '#92400E' },
+                      { label: 'Rellamar', value: Number(dCounts.rellamar || 0), color: '#92400E' },
+                      { label: 'Seguimiento', value: Number(dCounts.seguimiento || 0), color: '#185FA5' },
+                      { label: 'Dato erróneo', value: Number(dCounts.dato_erroneo || 0), color: 'var(--color-text-secondary)' }
+                    ]
+                  },
+                  {
+                    key: 'indicadores',
+                    // Tinte de éxito — mismo fondo/color que ya usa el badge
+                    // "Abierto" de la tarjeta de lote (#E1F5EE / #0F6E56).
+                    background: '#E1F5EE',
+                    items: [
+                      { label: '% Avance', value: `${pctAvance}%`, color: '#0F766E' },
+                      // % Contacto y Efectividad ya vienen calculados por el
+                      // backend (GET /recovery/datasets/:id ->
+                      // counts.contact_pct / counts.effectiveness_pct) — no
+                      // se recalculan acá.
+                      { label: '% Contacto', value: `${Number(dCounts.contact_pct || 0)}%`, color: '#185FA5' },
+                      { label: 'Efectividad', value: `${Number(dCounts.effectiveness_pct || 0)}%`, color: '#0F6E56' }
+                    ]
+                  }
                 ];
                 return (
-                  <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
-                    {rows.map((row, rowIdx) => (
-                      <div key={rowIdx} style={{ display: 'grid', gridTemplateColumns: `repeat(${row.length}, minmax(0, 1fr))`, gap: 10 }}>
-                        {row.map((m) => (
-                          <div key={m.label} style={{ background: 'var(--color-background-secondary)', borderRadius: 12, padding: '14px 16px', border: '0.5px solid rgba(15,23,42,0.16)', minWidth: 0 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 12 }}>
+                    {groups.map((group) => (
+                      <div
+                        key={group.key}
+                        style={{
+                          display: 'flex',
+                          flex: '1 1 0',
+                          minWidth: 220,
+                          gap: 14,
+                          background: group.background,
+                          borderRadius: 12,
+                          border: '0.5px solid rgba(15,23,42,0.16)',
+                          padding: '14px 16px'
+                        }}
+                      >
+                        {group.items.map((m) => (
+                          <div key={m.label} style={{ flex: '1 1 0', minWidth: 0 }}>
                             <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.label}</div>
                             <div style={{ fontSize: 'clamp(16px, 2.4vw, 24px)', fontWeight: 900, color: m.color, marginTop: 2, wordBreak: 'break-word' }}>{m.value ?? '—'}</div>
                           </div>
