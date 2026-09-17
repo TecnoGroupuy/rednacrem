@@ -9297,6 +9297,7 @@ const formatCurrency = (value) => {
       const [addSellerOpen, setAddSellerOpen] = React.useState(false);
       const [addSellerTarget, setAddSellerTarget] = React.useState('');
       const [addSellerError, setAddSellerError] = React.useState('');
+      const [addSellerDistribute, setAddSellerDistribute] = React.useState(true);
       const [redistributeLoadingState, setRedistributeLoadingState] = React.useState('');
       const [redistributeFeedback, setRedistributeFeedback] = React.useState({ type: '', message: '' });
       const [assignPoolOpen, setAssignPoolOpen] = React.useState(false);
@@ -9938,7 +9939,12 @@ const formatCurrency = (value) => {
       const applyDistributionToLot = React.useCallback((lot, distribution = [], { ensureSeller } = {}) => {
         if (!lot) return lot;
         const distList = Array.isArray(distribution) ? distribution : [];
-        if (!distList.length) return lot;
+        // No cortar acá cuando distList está vacío: "Sin datos" en "Agregar
+        // vendedor" agrega un vendedor sin distribuirle nada — la lista de
+        // distribución viene vacía a propósito, pero igual hay que reflejar
+        // en el estado local que el vendedor ya es miembro del lote (con 0
+        // contactos), no dejarlo invisible hasta el próximo refetch.
+        if (!distList.length && !ensureSeller?.id) return lot;
 
         const hasSeller = ensureSeller?.id && (lot.vendedores || []).some((v) => String(v.id) === String(ensureSeller.id));
         const nextVendedores = (lot.vendedores || [])
@@ -10847,7 +10853,7 @@ const formatCurrency = (value) => {
                                 label: 'Agregar vendedor',
                                 icon: <Users size={16} />,
                                 primary: true,
-                                onClick: () => setAddSellerOpen(true)
+                                onClick: () => { setAddSellerDistribute(true); setAddSellerOpen(true); }
                               },
                               {
                                 key: 'agregar-datos',
@@ -11821,6 +11827,33 @@ const formatCurrency = (value) => {
                       .filter((s) => !(selectedLot?.vendedores || []).some((v) => v.id === s.id))
                       .map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
                   </select>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Datos libres del lote</div>
+                  <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+                    {[
+                      { key: true, label: 'Con datos', hint: 'Reparte los datos libres del lote entre los vendedores' },
+                      { key: false, label: 'Sin datos', hint: 'Lo agrega sin asignarle nada todavía' }
+                    ].map((opt) => (
+                      <button
+                        key={String(opt.key)}
+                        type="button"
+                        title={opt.hint}
+                        onClick={() => setAddSellerDistribute(opt.key)}
+                        style={{
+                          flex: 1,
+                          fontSize: 12,
+                          fontWeight: 700,
+                          padding: '8px 10px',
+                          borderRadius: 8,
+                          cursor: 'pointer',
+                          border: `1px solid ${addSellerDistribute === opt.key ? '#1D9E75' : 'rgba(20,34,53,0.14)'}`,
+                          background: addSellerDistribute === opt.key ? '#E1F5EE' : '#fff',
+                          color: addSellerDistribute === opt.key ? '#0F6E56' : 'var(--muted)'
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
                   {addSellerError && <div style={{ fontSize: 12, color: '#A32D2D', marginBottom: 10 }}>{addSellerError}</div>}
                   <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                     <Button variant="secondary" onClick={() => { setAddSellerOpen(false); setAddSellerTarget(''); setAddSellerError(''); }}>Cancelar</Button>
@@ -11831,25 +11864,23 @@ const formatCurrency = (value) => {
                         const res = await fetch(buildApiUrl(`/lead-batches/${selectedLot.id}/add-seller`, getApiBaseUrl()), {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(accessToken) },
-                          body: JSON.stringify({ seller_id: addSellerTarget })
+                          body: JSON.stringify({ seller_id: addSellerTarget, distribute: addSellerDistribute })
                         });
                         const data = await res.json();
                         if (!data.ok) throw new Error(data.message || 'Error al agregar vendedor');
                         setAddSellerOpen(false); setAddSellerTarget(''); setAddSellerError('');
-                        if (data.distribution?.length) {
-                          const picked = sellers.find((s) => String(s.id) === String(addSellerTarget));
-                          const label = picked?.label || '';
-                          const parts = String(label).trim().split(/\s+/).filter(Boolean);
-                          const ensureSeller = {
-                            id: addSellerTarget,
-                            nombre: parts[0] || '',
-                            apellido: parts.slice(1).join(' ')
-                          };
-                          setSelectedLotOverride((prev) => {
-                            const base = prev && selectedLot && String(prev.id) === String(selectedLot.id) ? prev : selectedLot;
-                            return applyDistributionToLot(base, data.distribution, { ensureSeller });
-                          });
-                        }
+                        const picked = sellers.find((s) => String(s.id) === String(addSellerTarget));
+                        const label = picked?.label || '';
+                        const parts = String(label).trim().split(/\s+/).filter(Boolean);
+                        const ensureSeller = {
+                          id: addSellerTarget,
+                          nombre: parts[0] || '',
+                          apellido: parts.slice(1).join(' ')
+                        };
+                        setSelectedLotOverride((prev) => {
+                          const base = prev && selectedLot && String(prev.id) === String(selectedLot.id) ? prev : selectedLot;
+                          return applyDistributionToLot(base, data.distribution, { ensureSeller });
+                        });
                       } catch (err) {
                         setAddSellerError(err.message || 'No se pudo agregar el vendedor.');
                       } finally {
