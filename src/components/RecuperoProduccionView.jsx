@@ -95,7 +95,7 @@ const normalizeSummary = (response) => {
     seguimiento: hasBreakdown ? getSummaryValue(summary, ['seguimiento']) : null,
     rellamar: hasBreakdown ? getSummaryValue(summary, ['rellamar']) : null,
     datoErroneo: hasBreakdown ? getSummaryValue(summary, ['dato_erroneo']) : null,
-    datasetsActivos: getSummaryValue(summary, ['datasets_activos', 'datasets', 'total_datasets']),
+    datasetsActivos: getSummaryValue(summary, ['active_datasets', 'datasets_activos', 'datasets', 'total_datasets']),
     activeSellers: getSummaryValue(summary, ['active_sellers', 'vendedores_activos']),
     lastImport: asText(summary?.last_import, summary?.ultima_importacion, summary?.latest_import_name),
     goal: getSummaryValue(summary, ['goal', 'meta'])
@@ -261,7 +261,7 @@ export default function RecuperoProduccionView({
         <div style={{ marginTop: 4, fontSize: 14, color: 'var(--color-text-secondary)' }}>
           {summaryLoading
             ? 'Cargando resumen...'
-            : `${formatCount(summary.datasetsActivos || datasets.length)} datasets activos · ${formatCount(summary.activeSellers)} vendedores activos`}
+            : `${formatCount(summary.datasetsActivos ?? datasets.length)} datasets activos · ${formatCount(summary.activeSellers)} vendedores activos`}
         </div>
       </div>
 
@@ -330,7 +330,7 @@ export default function RecuperoProduccionView({
           </div>
 
           <Panel title="Datasets importados" subtitle={`${datasets.length} cargas`}>
-            <div className="table-wrap">
+            <div className="table-wrap" style={{ overflowX: 'auto' }}>
               <table>
                 <thead>
                   <tr>
@@ -397,7 +397,7 @@ export default function RecuperoProduccionView({
 
       {vistaProduccion === 'vendedor' && (
         <Panel title="Rendimiento por vendedor" subtitle="Agrupado sobre todos los datasets importados">
-          <div className="table-wrap">
+          <div className="table-wrap" style={{ overflowX: 'auto' }}>
             <table>
               <thead>
                 <tr>
