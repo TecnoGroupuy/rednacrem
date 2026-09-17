@@ -2517,6 +2517,23 @@ export default function SupervisorContractsModule({ Panel, Button }) {
             // lectura, y solo muestra badge "Cerrado", cuando el backend lo
             // cerró de verdad vía "Finalizar", no antes.
             const isLoteCerradoReal = isLoteDatasetCerrado(loteSeleccionado);
+            // Caja común para los 4 botones de la barra de acciones (Agregar
+            // datos / Cerrar lote / + Agregar vendedor / Ver informe) — misma
+            // altura, padding y radio para los cuatro; cada botón sigue
+            // aportando su propio background/border/color/fontWeight para
+            // mantener la diferenciación visual entre acción primaria y
+            // secundarias.
+            const detalleLoteActionButtonStyle = {
+              height: 36,
+              padding: '0 16px',
+              borderRadius: 8,
+              fontSize: 13,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              whiteSpace: 'nowrap',
+              boxSizing: 'border-box'
+            };
             return (
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -2546,11 +2563,9 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                       onClick={openAddDataModal}
                       disabled={!loteSeleccionado?.id}
                       style={{
+                        ...detalleLoteActionButtonStyle,
                         background: '#E1F5EE',
                         border: '1px solid #5DCAA5',
-                        borderRadius: 8,
-                        padding: '7px 14px',
-                        fontSize: 13,
                         fontWeight: 800,
                         cursor: loteSeleccionado?.id ? 'pointer' : 'not-allowed',
                         color: '#0F6E56',
@@ -2566,11 +2581,9 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                       onClick={handleCerrarLote}
                       disabled={!loteSeleccionado?.id || cerrarLoteLoading}
                       style={{
+                        ...detalleLoteActionButtonStyle,
                         background: '#fff',
                         border: '1px solid rgba(148,163,184,0.55)',
-                        borderRadius: 8,
-                        padding: '7px 14px',
-                        fontSize: 13,
                         fontWeight: 800,
                         cursor: loteSeleccionado?.id ? 'pointer' : 'not-allowed',
                         color: 'var(--color-text-primary)',
@@ -2585,11 +2598,9 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                       type="button"
                       onClick={openAddSellerModal}
                       style={{
+                        ...detalleLoteActionButtonStyle,
                         background: '#E1F5EE',
                         border: '1px solid #5DCAA5',
-                        borderRadius: 8,
-                        padding: '7px 14px',
-                        fontSize: 13,
                         fontWeight: 800,
                         cursor: loteSeleccionado?.id ? 'pointer' : 'not-allowed',
                         color: '#0F6E56',
@@ -2605,11 +2616,9 @@ export default function SupervisorContractsModule({ Panel, Button }) {
                     onClick={() => openInformeModal(loteSeleccionado?.id)}
                     disabled={!loteSeleccionado?.id}
                     style={{
+                      ...detalleLoteActionButtonStyle,
                       background: '#0F766E',
                       border: '1px solid rgba(15,118,110,0.65)',
-                      borderRadius: 8,
-                      padding: '7px 14px',
-                      fontSize: 13,
                       fontWeight: 900,
                       cursor: loteSeleccionado?.id ? 'pointer' : 'not-allowed',
                       color: '#fff',
