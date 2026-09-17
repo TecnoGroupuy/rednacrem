@@ -2595,25 +2595,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
             };
             return (
             <div>
-              <div style={{ marginBottom: 12 }}>
-                <button
-                  type="button"
-                  onClick={() => { setVistaActual('lotes'); setLoteSeleccionado(null); }}
-                  style={{
-                    background: '#fff',
-                    border: '1px solid rgba(148,163,184,0.45)',
-                    borderRadius: 8,
-                    padding: '7px 14px',
-                    fontSize: 13,
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    color: 'var(--color-text-primary)'
-                  }}
-                >
-                  ← Volver a lotes
-                </button>
-              </div>
-
               {(() => {
                 const informe = detalleMetrics?.informe || null;
                 const totalContactos = Number(informe?.total_contactos || 0);
@@ -2637,6 +2618,23 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
                     padding: 14
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={() => { setVistaActual('lotes'); setLoteSeleccionado(null); }}
+                        style={{
+                          background: '#fff',
+                          border: '1px solid rgba(148,163,184,0.45)',
+                          borderRadius: 8,
+                          padding: '6px 12px',
+                          fontSize: 13,
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          color: 'var(--color-text-primary)',
+                          flexShrink: 0
+                        }}
+                      >
+                        ← Volver
+                      </button>
                       <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--color-text-primary)' }}>
                         {loteSeleccionado?.nombre || 'Detalle de lote'}
                       </div>
@@ -2709,36 +2707,62 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
                 </div>
               )}
 
-              {detalleMetrics?.informe && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10, marginTop: 12 }}>
-                  {[
+              {detalleMetrics?.informe && (() => {
+                const dCounts = datasetDetail?.counts || {};
+                const pctAvance = (() => {
+                  const informe = detalleMetrics?.informe || {};
+                  const totalContactos = Number(informe.total_contactos || 0);
+                  const totalGestionados = Number(informe.total_vendidos || 0)
+                    + Number(informe.total_no_contesta || 0)
+                    + Number(informe.total_rechazos || 0)
+                    + Number(informe.total_dato_erroneo || 0)
+                    + Number(informe.total_en_proceso || 0)
+                    + Number(informe.total_incontactables || 0);
+                  return totalContactos > 0 ? Math.round((totalGestionados / totalContactos) * 100) : 0;
+                })();
+                // 3 filas fijas, cada una con su propia cantidad de columnas
+                // (3 / 4 / 3) — las tarjetas quedan del mismo tamaño dentro
+                // de cada fila, adaptándose al ancho disponible (1fr), no a
+                // un ancho fijo en píxeles entre filas.
+                const rows = [
+                  [
                     { label: 'Total', value: detalleMetrics.informe.total_contactos, color: 'var(--color-text-primary)' },
                     { label: 'Ventas', value: detalleMetrics.informe.total_vendidos, color: '#15803D' },
-                    { label: 'Rechazos', value: detalleMetrics.informe.total_rechazos, color: '#DC2626' },
-                    { label: '% Avance', value: `${(() => {
-                      const informe = detalleMetrics?.informe || {};
-                      const totalContactos = Number(informe.total_contactos || 0);
-                      const totalGestionados = Number(informe.total_vendidos || 0)
-                        + Number(informe.total_no_contesta || 0)
-                        + Number(informe.total_rechazos || 0)
-                        + Number(informe.total_dato_erroneo || 0)
-                        + Number(informe.total_en_proceso || 0)
-                        + Number(informe.total_incontactables || 0);
-                      return totalContactos > 0 ? Math.round((totalGestionados / totalContactos) * 100) : 0;
-                    })()}%`, color: '#0F766E' },
+                    { label: 'Rechazos', value: detalleMetrics.informe.total_rechazos, color: '#DC2626' }
+                  ],
+                  [
+                    // No estaban expuestos a nivel de dataset hasta ahora —
+                    // mezclados dentro de in_progress (bug ya conocido).
+                    // Backend: commit 811b999.
+                    { label: 'No contesta', value: Number(dCounts.no_contesta || 0), color: '#92400E' },
+                    { label: 'Rellamar', value: Number(dCounts.rellamar || 0), color: '#92400E' },
+                    { label: 'Seguimiento', value: Number(dCounts.seguimiento || 0), color: '#185FA5' },
+                    { label: 'Dato erróneo', value: Number(dCounts.dato_erroneo || 0), color: 'var(--color-text-secondary)' }
+                  ],
+                  [
+                    { label: '% Avance', value: `${pctAvance}%`, color: '#0F766E' },
                     // % Contacto y Efectividad ya vienen calculados por el
                     // backend (GET /recovery/datasets/:id -> counts.contact_pct
                     // / counts.effectiveness_pct) — no se recalculan acá.
-                    { label: '% Contacto', value: `${Number(datasetDetail?.counts?.contact_pct || 0)}%`, color: '#185FA5' },
-                    { label: 'Efectividad', value: `${Number(datasetDetail?.counts?.effectiveness_pct || 0)}%`, color: '#0F6E56' }
-                  ].map((m) => (
-                    <div key={m.label} style={{ background: 'var(--color-background-secondary)', borderRadius: 12, padding: '14px 16px', border: '0.5px solid rgba(15,23,42,0.16)' }}>
-                      <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', fontWeight: 800 }}>{m.label}</div>
-                      <div style={{ fontSize: 24, fontWeight: 900, color: m.color, marginTop: 2 }}>{m.value ?? '—'}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    { label: '% Contacto', value: `${Number(dCounts.contact_pct || 0)}%`, color: '#185FA5' },
+                    { label: 'Efectividad', value: `${Number(dCounts.effectiveness_pct || 0)}%`, color: '#0F6E56' }
+                  ]
+                ];
+                return (
+                  <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
+                    {rows.map((row, rowIdx) => (
+                      <div key={rowIdx} style={{ display: 'grid', gridTemplateColumns: `repeat(${row.length}, minmax(0, 1fr))`, gap: 10 }}>
+                        {row.map((m) => (
+                          <div key={m.label} style={{ background: 'var(--color-background-secondary)', borderRadius: 12, padding: '14px 16px', border: '0.5px solid rgba(15,23,42,0.16)', minWidth: 0 }}>
+                            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.label}</div>
+                            <div style={{ fontSize: 'clamp(16px, 2.4vw, 24px)', fontWeight: 900, color: m.color, marginTop: 2, wordBreak: 'break-word' }}>{m.value ?? '—'}</div>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
 
               <div style={{ marginTop: 14, border: '1px solid rgba(148,163,184,0.35)', borderRadius: 14, padding: 14, background: '#fff' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
