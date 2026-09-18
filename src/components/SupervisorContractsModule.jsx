@@ -140,12 +140,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
   const [createLoteNombre, setCreateLoteNombre] = React.useState('');
   const [createLoteSaving, setCreateLoteSaving] = React.useState(false);
   const [createLoteError, setCreateLoteError] = React.useState('');
-  const [addDataOpen, setAddDataOpen] = React.useState(false);
-  const [addDataContacts, setAddDataContacts] = React.useState([]);
-  const [addDataLoading, setAddDataLoading] = React.useState(false);
-  const [addDataError, setAddDataError] = React.useState('');
-  const [addDataSelectedIds, setAddDataSelectedIds] = React.useState([]);
-  const [addDataSaving, setAddDataSaving] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState('disponibles');
   const [segmentoRecupero, setSegmentoRecupero] = React.useState('prioritario'); // 'prioritario' | 'resto'
   const [segmentoCounts, setSegmentoCounts] = React.useState({ prioritario: null, resto: null });
@@ -914,64 +908,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
       setCreateLoteSaving(false);
     }
   }, [api, closeCreateLoteModal, createLoteNombre, loadLotesCreados]);
-
-  const openAddDataModal = React.useCallback(async () => {
-    if (!loteSeleccionado?.id) return;
-    setAddDataOpen(true);
-    setAddDataError('');
-    setAddDataSelectedIds([]);
-    setAddDataLoading(true);
-    try {
-      const response = await api.post('/api/recupero/contactos/search', {
-        tab: 'disponibles',
-        filters: {},
-        page: 1,
-        limit: 100
-      });
-      const rows = response?.items || response?.data?.items || [];
-      setAddDataContacts(Array.isArray(rows) ? rows : []);
-    } catch (err) {
-      setAddDataError(err?.message || 'No se pudieron cargar los contactos disponibles.');
-      setAddDataContacts([]);
-    } finally {
-      setAddDataLoading(false);
-    }
-  }, [api, loteSeleccionado?.id]);
-
-  const closeAddDataModal = React.useCallback(() => {
-    setAddDataOpen(false);
-    setAddDataContacts([]);
-    setAddDataSelectedIds([]);
-    setAddDataError('');
-  }, []);
-
-  const toggleAddDataSelection = React.useCallback((id) => {
-    setAddDataSelectedIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
-  }, []);
-
-  const handleConfirmAddData = React.useCallback(async () => {
-    if (!loteSeleccionado?.id || !addDataSelectedIds.length) return;
-    setAddDataSaving(true);
-    setAddDataError('');
-    try {
-      const sellerIds = (loteSeleccionado?.vendedores || []).map((seller) => seller?.id).filter(Boolean);
-      // TODO: no existe hoy un endpoint que vincule contactos a un lote de Recupero
-      // ya creado (batch_id). Como mejor esfuerzo, se asignan al mismo vendedor del
-      // lote — falta la vinculación formal cuando el backend la soporte.
-      await api.post('/api/recupero/lotes', {
-        nombre: loteSeleccionado?.nombre || getAssignmentLotName(),
-        contact_ids: addDataSelectedIds,
-        seller_ids: sellerIds
-      });
-      closeAddDataModal();
-      await refreshSelectedLot(loteSeleccionado.id);
-      await loadLotesCreados();
-    } catch (err) {
-      setAddDataError(err?.message || 'No se pudo agregar los datos al lote.');
-    } finally {
-      setAddDataSaving(false);
-    }
-  }, [addDataSelectedIds, api, closeAddDataModal, loadLotesCreados, loteSeleccionado, refreshSelectedLot]);
 
   const openFinalizeLoteModal = React.useCallback((lote) => {
     setFinalizeLoteError('');
@@ -2969,26 +2905,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
                       Buscar
                     </button>
                   )}
-                  {!isLoteCerradoReal && (
-                    <button
-                      type="button"
-                      onClick={openAddDataModal}
-                      disabled={!loteSeleccionado?.id}
-                      style={{
-                        background: '#E1F5EE',
-                        border: '1px solid #5DCAA5',
-                        borderRadius: 8,
-                        padding: '7px 14px',
-                        fontSize: 13,
-                        fontWeight: 900,
-                        cursor: loteSeleccionado?.id ? 'pointer' : 'not-allowed',
-                        color: '#0F6E56',
-                        opacity: loteSeleccionado?.id ? 1 : 0.7
-                      }}
-                    >
-                      Agregar datos
-                    </button>
-                  )}
                 </div>
               </div>
 
@@ -3975,63 +3891,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
               <Button variant="ghost" onClick={closeCreateLoteModal}>Cancelar</Button>
               <Button onClick={handleCreateLoteVacio} disabled={!createLoteNombre.trim() || createLoteSaving}>
                 {createLoteSaving ? 'Creando...' : 'Crear lote'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {addDataOpen && (
-        <div className="lot-wizard-overlay" onClick={closeAddDataModal}>
-          <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 560 }}>
-            <div className="lot-wizard-header">
-              <div style={{ fontWeight: 700 }}>Agregar datos al lote</div>
-              <button className="close-btn" onClick={closeAddDataModal}><X size={16} /></button>
-            </div>
-            <div className="lot-wizard-content">
-              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 12 }}>
-                Lote: <strong>{loteSeleccionado?.nombre || '-'}</strong> · Seleccionados: <strong>{addDataSelectedIds.length}</strong>
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 12, background: 'var(--color-background-secondary)', borderRadius: 8, padding: '8px 10px' }}>
-                Estos contactos se asignan al mismo vendedor del lote. La vinculación formal al lote
-                como entidad está pendiente de una migración de backend.
-              </div>
-              {addDataError ? (
-                <div style={{ marginBottom: 12, fontSize: 12, color: '#b91c1c', fontWeight: 700 }}>
-                  {addDataError}
-                </div>
-              ) : null}
-              <div style={{ maxHeight: 320, overflowY: 'auto', border: '0.5px solid rgba(15,23,42,0.16)', borderRadius: 10 }}>
-                {addDataLoading ? (
-                  <div style={{ padding: 16, color: 'var(--color-text-secondary)' }}>Cargando contactos disponibles...</div>
-                ) : addDataContacts.length === 0 ? (
-                  <div style={{ padding: 16, color: 'var(--color-text-secondary)' }}>No hay contactos disponibles.</div>
-                ) : (
-                  addDataContacts.map((contact) => (
-                    <label
-                      key={contact.id}
-                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderBottom: '0.5px solid rgba(15,23,42,0.16)', cursor: 'pointer' }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={addDataSelectedIds.includes(contact.id)}
-                        onChange={() => toggleAddDataSelection(contact.id)}
-                      />
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)' }}>{getContactoNombre(contact)}</div>
-                        <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                          {contact.producto_anterior || contact.nombre_producto || '—'} · {contact.fecha_baja ? formatDate(contact.fecha_baja) : '—'}
-                        </div>
-                      </div>
-                    </label>
-                  ))
-                )}
-              </div>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '0 24px 24px' }}>
-              <Button variant="ghost" onClick={closeAddDataModal}>Cancelar</Button>
-              <Button onClick={handleConfirmAddData} disabled={!addDataSelectedIds.length || addDataSaving}>
-                {addDataSaving ? 'Agregando...' : `Agregar (${addDataSelectedIds.length})`}
               </Button>
             </div>
           </div>
