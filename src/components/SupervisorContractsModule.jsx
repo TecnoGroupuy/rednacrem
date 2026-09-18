@@ -2600,6 +2600,41 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
                       <span>·</span>
                       <span>Sin asignar: <strong style={{ color: 'var(--color-text-primary)' }}>{sinAsignar}</strong></span>
                     </div>
+                    {datasetDetail && (
+                      <div style={{
+                        display: 'flex',
+                        gap: 16,
+                        flexWrap: 'wrap',
+                        marginTop: 10,
+                        paddingTop: 10,
+                        borderTop: '0.5px solid rgba(15,23,42,0.16)'
+                      }}>
+                        {datasetDetail?.management_range?.first_at ? (
+                          <>
+                            <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                              Primera gestión:{' '}
+                              <strong style={{ color: 'var(--color-text-primary)' }}>
+                                {new Date(datasetDetail.management_range.first_at).toLocaleDateString('es-UY')}
+                              </strong>
+                            </span>
+                            <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                              Última gestión:{' '}
+                              <strong style={{ color: 'var(--color-text-primary)' }}>
+                                {new Date(datasetDetail.management_range.last_at).toLocaleDateString('es-UY')}
+                              </strong>
+                            </span>
+                            <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                              Días transcurridos:{' '}
+                              <strong style={{ color: 'var(--color-text-primary)' }}>
+                                {datasetDetail.management_range.days}
+                              </strong>
+                            </span>
+                          </>
+                        ) : (
+                          <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Sin gestiones todavía.</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })()}
@@ -2610,44 +2645,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
               {detalleLoading ? (
                 <div style={{ marginTop: 12, color: 'var(--muted)' }}>Cargando detalle…</div>
               ) : null}
-
-              {datasetDetail && (
-                <div style={{
-                  display: 'flex',
-                  gap: 16,
-                  flexWrap: 'wrap',
-                  marginTop: 12,
-                  padding: '10px 14px',
-                  background: '#fff',
-                  border: '1px solid rgba(148,163,184,0.35)',
-                  borderRadius: 12
-                }}>
-                  {datasetDetail?.management_range?.first_at ? (
-                    <>
-                      <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                        Primera gestión:{' '}
-                        <strong style={{ color: 'var(--color-text-primary)' }}>
-                          {new Date(datasetDetail.management_range.first_at).toLocaleDateString('es-UY')}
-                        </strong>
-                      </span>
-                      <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                        Última gestión:{' '}
-                        <strong style={{ color: 'var(--color-text-primary)' }}>
-                          {new Date(datasetDetail.management_range.last_at).toLocaleDateString('es-UY')}
-                        </strong>
-                      </span>
-                      <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                        Días transcurridos:{' '}
-                        <strong style={{ color: 'var(--color-text-primary)' }}>
-                          {datasetDetail.management_range.days}
-                        </strong>
-                      </span>
-                    </>
-                  ) : (
-                    <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Sin gestiones todavía.</span>
-                  )}
-                </div>
-              )}
 
               {detalleMetrics?.informe && (() => {
                 const dCounts = datasetDetail?.counts || {};
@@ -2688,6 +2685,12 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
                     // (fondo #FAEEDA), con el color #92400E ya usado en
                     // este mismo componente para estas etiquetas.
                     background: '#FAEEDA',
+                    // Fuente más chica que el resto de los grupos — este es
+                    // el único con 4 etiquetas en vez de 3, y con el
+                    // tamaño estándar (12px) "No contesta"/"Seguimiento"/
+                    // "Dato erróneo" se cortaban con "..." al no entrar en
+                    // el ancho disponible por ítem.
+                    labelFontSize: 10.5,
                     items: [
                       // No estaban expuestos a nivel de dataset hasta ahora —
                       // mezclados dentro de in_progress (bug ya conocido).
@@ -2732,7 +2735,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
                       >
                         {group.items.map((m) => (
                           <div key={m.label} style={{ flex: '1 1 0', minWidth: 0 }}>
-                            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.label}</div>
+                            <div style={{ fontSize: group.labelFontSize || 12, color: 'var(--color-text-secondary)', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.label}</div>
                             <div style={{ fontSize: 'clamp(16px, 2.4vw, 24px)', fontWeight: 900, color: m.color, marginTop: 2, wordBreak: 'break-word' }}>{m.value ?? '—'}</div>
                           </div>
                         ))}
@@ -2747,7 +2750,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
                   <div>
                     <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--color-text-primary)' }}>Vendedores asignados</div>
                     <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                      Cantidad de contactos asignados por vendedor. El conteo puede no incluir asignaciones directas muy recientes (pendiente de un fix de backend).
+                      Cantidad de contactos asignados por vendedor.
                     </div>
                   </div>
                   {!isLoteCerradoReal && (
@@ -2800,11 +2803,10 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
                           key={vendedor?.id || nombre}
                           style={{
                             position: 'relative',
-                            aspectRatio: '1',
                             display: 'flex',
                             flexDirection: 'column',
-                            justifyContent: 'space-between',
-                            gap: 8,
+                            justifyContent: 'flex-start',
+                            gap: 10,
                             padding: 14,
                             borderRadius: 14,
                             background: '#fff',
