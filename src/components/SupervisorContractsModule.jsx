@@ -7,6 +7,22 @@ import RecuperoProduccionView from './RecuperoProduccionView.jsx';
 import RecuperoResultadosView from './RecuperoResultadosView.jsx';
 
 const PAGE_SIZE = 50;
+// Los 7 valores posibles de recupero_candidatos.resultado_gestion — usados
+// como fallback del filtro cuando el backend todavía no devolvió
+// `filters.resultado_gestion` (ej. mientras carga la primera página).
+const RECUPERO_RESULTADO_GESTION_OPTIONS = [
+  { value: 'nuevo', label: 'Nuevo' },
+  { value: 'no_contesta', label: 'No contesta' },
+  { value: 'seguimiento', label: 'Seguimiento' },
+  { value: 'rellamar', label: 'Rellamar' },
+  { value: 'rechazo', label: 'Rechazo' },
+  { value: 'dato_erroneo', label: 'Dato erróneo' },
+  { value: 'venta', label: 'Venta' }
+];
+const RECUPERO_RESULTADO_GESTION_LABELS = RECUPERO_RESULTADO_GESTION_OPTIONS.reduce((acc, o) => {
+  acc[o.value] = o.label;
+  return acc;
+}, {});
 const RECUPERO_TOP_TABS = [
   { key: 'recupero', label: 'Recupero' },
   { key: 'lotes', label: 'Lotes' },
@@ -191,7 +207,18 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
   // resto del componente que ya los consume.
   const [datasetDetail, setDatasetDetail] = React.useState(null);
   const [detalleSearch, setDetalleSearch] = React.useState('');
+  const [detalleSearchDebounced, setDetalleSearchDebounced] = React.useState('');
   const [showDetalleSearch, setShowDetalleSearch] = React.useState(false);
+  // Listado paginado/filtrable de candidatos del lote — GET
+  // /recovery/datasets/:id/candidates (separado de datasetDetail, que solo
+  // trae métricas + un `sample` de 5 filas).
+  const [detalleContactsPage, setDetalleContactsPage] = React.useState(1);
+  const [detalleContactsTotal, setDetalleContactsTotal] = React.useState(0);
+  const [detalleContactsLoading, setDetalleContactsLoading] = React.useState(false);
+  const [detalleContactsError, setDetalleContactsError] = React.useState('');
+  const [detalleMotivoBajaFilter, setDetalleMotivoBajaFilter] = React.useState('');
+  const [detalleResultadoFilter, setDetalleResultadoFilter] = React.useState('');
+  const [detalleFilterOptions, setDetalleFilterOptions] = React.useState({ motivo_baja: [], resultado_gestion: [] });
   const [showInformeModal, setShowInformeModal] = React.useState(false);
   const [informeModalLoteId, setInformeModalLoteId] = React.useState('');
   const [lastSyncAt, setLastSyncAt] = React.useState(null);
@@ -564,6 +591,12 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
     setDetalleMetrics(null);
     setDetalleContacts([]);
     setDatasetDetail(null);
+    setDetalleContactsPage(1);
+    setDetalleSearch('');
+    setDetalleSearchDebounced('');
+    setDetalleMotivoBajaFilter('');
+    setDetalleResultadoFilter('');
+    setDetalleFilterOptions({ motivo_baja: [], resultado_gestion: [] });
     // GET /recovery/datasets/:id es la fuente correcta para el detalle de un
     // lote de Recupero (dataset de recupero_import_jobs) — reemplaza a los 3
     // fallbacks anteriores (/lead-batches/:id/metrics, /leads/assigned?batch_id=,
@@ -587,22 +620,10 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
             total_incontactables: 0
           }
         });
-        setDetalleContacts((res?.sample || []).map((row) => ({
-          id: row.row_number,
-          nombre: row.client_name,
-          documento: row.document,
-          telefono: row.phone,
-          motivo_baja: row.churn_reason,
-          producto: row.previous_plan,
-          estado: row.status,
-          estado_venta: row.resultado_gestion,
-          // TODO(backend): GET /recovery/datasets/:id no expone fecha_baja ni
-          // el vendedor asignado por candidato en `sample` todavía — sumar
-          // esas dos columnas a esa query cuando se resuelva la tarea de
-          // backend de la que depende esta pantalla.
-          fecha_baja: null,
-          seller_name: null
-        })));
+        // El listado de candidatos (antes `res.sample`, capado a 5 filas) se
+        // carga por separado desde GET /recovery/datasets/:id/candidates —
+        // ver el efecto de más abajo, que además maneja paginación real,
+        // búsqueda por teléfono y filtros.
         setLastSyncAt(Date.now());
       })
       .catch((err) => {
@@ -630,6 +651,73 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
       });
     return () => { active = false; };
   }, [api, loteSeleccionado?.id, vistaActual]);
+
+  // Debounce de la búsqueda por teléfono/celular — evita disparar una
+  // consulta al backend en cada tecla. Al cambiar el término, vuelve a la
+  // página 1 (si no, se podría quedar en una página que ya no existe para
+  // el nuevo resultado filtrado).
+  React.useEffect(() => {
+    const handler = setTimeout(() => {
+      setDetalleSearchDebounced(detalleSearch.trim());
+      setDetalleContactsPage(1);
+    }, 350);
+    return () => clearTimeout(handler);
+  }, [detalleSearch]);
+
+  // Listado paginado/filtrable de candidatos del lote — GET
+  // /recovery/datasets/:id/candidates (con búsqueda por teléfono y filtros
+  // por motivo de baja / resultado de gestión).
+  React.useEffect(() => {
+    if (vistaActual !== 'detalle-lote') return;
+    if (!loteSeleccionado?.id) return;
+    let active = true;
+    setDetalleContactsLoading(true);
+    setDetalleContactsError('');
+    const params = new URLSearchParams();
+    params.set('page', String(detalleContactsPage));
+    params.set('limit', String(PAGE_SIZE));
+    if (detalleSearchDebounced) params.set('search', detalleSearchDebounced);
+    if (detalleMotivoBajaFilter) params.set('motivo_baja', detalleMotivoBajaFilter);
+    if (detalleResultadoFilter) params.set('resultado_gestion', detalleResultadoFilter);
+    api.get(`/recovery/datasets/${encodeURIComponent(loteSeleccionado.id)}/candidates?${params.toString()}`)
+      .then((res) => {
+        if (!active) return;
+        setDetalleContacts((res?.items || []).map((row) => ({
+          id: row.id ?? row.row_number,
+          nombre: row.client_name,
+          documento: row.document,
+          telefono: row.phone,
+          motivo_baja: row.churn_reason,
+          producto: row.previous_plan,
+          estado: row.status,
+          estado_venta: row.resultado_gestion,
+          fecha_baja: row.fecha_baja || null,
+          seller_name: row.seller_name || null
+        })));
+        setDetalleContactsTotal(Number(res?.total || 0));
+        setDetalleFilterOptions({
+          motivo_baja: Array.isArray(res?.filters?.motivo_baja) ? res.filters.motivo_baja : [],
+          resultado_gestion: Array.isArray(res?.filters?.resultado_gestion) ? res.filters.resultado_gestion : []
+        });
+      })
+      .catch((err) => {
+        if (!active) return;
+        setDetalleContactsError(err?.message || 'No se pudo cargar el listado de candidatos.');
+      })
+      .finally(() => {
+        if (!active) return;
+        setDetalleContactsLoading(false);
+      });
+    return () => { active = false; };
+  }, [
+    api,
+    loteSeleccionado?.id,
+    vistaActual,
+    detalleContactsPage,
+    detalleSearchDebounced,
+    detalleMotivoBajaFilter,
+    detalleResultadoFilter
+  ]);
 
   // Desglose por vendedor: hoy viene de recupero_asignaciones_rango (rangos),
   // que no ve las asignaciones hechas por /direct-assignments o /distribute
@@ -2246,6 +2334,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
   const recuperoIconButtonStyle = { width: 40, height: 40, borderRadius: 10, border: '1px solid rgba(15,23,42,0.16)', background: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--color-text-secondary)' };
   const recuperoThStyle = { textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid rgba(15,23,42,0.16)', position: 'sticky', top: 0, background: '#fff', zIndex: 1 };
   const recuperoTdStyle = { padding: '10px 12px', borderBottom: '0.5px solid rgba(15,23,42,0.16)' };
+  const recuperoFilterSelectStyle = { height: 36, background: '#fff', border: '1px solid rgba(148,163,184,0.55)', borderRadius: 8, padding: '0 12px', fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' };
 
   return (
     <div className="view">
@@ -2901,68 +2990,86 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 14 }}>
                 <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', fontWeight: 800 }}>
-                  {Number(
-                    detalleMetrics?.informe?.total_contactos
-                      || loteSeleccionado?.total_contactos
-                      || loteSeleccionado?.contactos
-                      || 0
-                  ).toLocaleString('es-UY')} contactos
+                  {detalleContactsTotal.toLocaleString('es-UY')} contactos
                 </div>
-                {showDetalleSearch ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <input
-                      className="input"
-                      value={detalleSearch}
-                      onChange={(event) => setDetalleSearch(event.target.value)}
-                      placeholder="Buscar contacto..."
-                      style={{ height: 36, width: 240 }}
-                      autoFocus
-                    />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <select
+                    value={detalleMotivoBajaFilter}
+                    onChange={(event) => { setDetalleMotivoBajaFilter(event.target.value); setDetalleContactsPage(1); }}
+                    style={recuperoFilterSelectStyle}
+                  >
+                    <option value="">Motivo de baja: todos</option>
+                    {detalleFilterOptions.motivo_baja.map((motivo) => (
+                      <option key={motivo} value={motivo}>{motivo}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={detalleResultadoFilter}
+                    onChange={(event) => { setDetalleResultadoFilter(event.target.value); setDetalleContactsPage(1); }}
+                    style={recuperoFilterSelectStyle}
+                  >
+                    <option value="">Estado: todos</option>
+                    {(detalleFilterOptions.resultado_gestion.length
+                      ? detalleFilterOptions.resultado_gestion
+                      : RECUPERO_RESULTADO_GESTION_OPTIONS.map((o) => o.value)
+                    ).map((value) => (
+                      <option key={value} value={value}>
+                        {RECUPERO_RESULTADO_GESTION_LABELS[value] || value}
+                      </option>
+                    ))}
+                  </select>
+                  {showDetalleSearch ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        className="input"
+                        value={detalleSearch}
+                        onChange={(event) => setDetalleSearch(event.target.value)}
+                        placeholder="Buscar por teléfono o celular..."
+                        style={{ height: 36, width: 240 }}
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={() => { setDetalleSearch(''); setShowDetalleSearch(false); }}
+                        style={{
+                          background: '#fff',
+                          border: '1px solid rgba(148,163,184,0.55)',
+                          borderRadius: 8,
+                          padding: '7px 12px',
+                          fontSize: 13,
+                          fontWeight: 900,
+                          cursor: 'pointer',
+                          color: 'var(--color-text-primary)'
+                        }}
+                      >
+                        Cerrar
+                      </button>
+                    </div>
+                  ) : (
                     <button
                       type="button"
-                      onClick={() => { setDetalleSearch(''); setShowDetalleSearch(false); }}
+                      onClick={() => setShowDetalleSearch(true)}
                       style={{
                         background: '#fff',
                         border: '1px solid rgba(148,163,184,0.55)',
                         borderRadius: 8,
-                        padding: '7px 12px',
+                        padding: '7px 14px',
                         fontSize: 13,
                         fontWeight: 900,
                         cursor: 'pointer',
                         color: 'var(--color-text-primary)'
                       }}
                     >
-                      Cerrar
+                      Buscar
                     </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setShowDetalleSearch(true)}
-                    style={{
-                      background: '#fff',
-                      border: '1px solid rgba(148,163,184,0.55)',
-                      borderRadius: 8,
-                      padding: '7px 14px',
-                      fontSize: 13,
-                      fontWeight: 900,
-                      cursor: 'pointer',
-                      color: 'var(--color-text-primary)'
-                    }}
-                  >
-                    Buscar
-                  </button>
-                )}
+                  )}
+                </div>
               </div>
 
-              {/* TODO(backend): GET /recovery/datasets/:id devuelve un `sample`
-                  fijo de 5 filas, sin paginación real (?page=/?limit=) — cuando
-                  se resuelva la tarea de backend, cambiar el fetch de arriba
-                  para pedir la página actual y habilitar los botones de abajo. */}
-              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 10, marginBottom: 6 }}>
-                Mostrando los primeros {detalleContacts.length} de {Number(datasetDetail?.counts?.total || 0)} candidatos del lote — paginación completa pendiente de un fix de backend.
-              </div>
-              <div className="table-wrap" style={{ overflowX: 'auto', maxHeight: 420, overflowY: 'auto' }}>
+              {detalleContactsError ? (
+                <div style={{ fontSize: 12, color: '#b91c1c', fontWeight: 800, marginTop: 10 }}>{detalleContactsError}</div>
+              ) : null}
+              <div className="table-wrap" style={{ overflowX: 'auto', maxHeight: 420, overflowY: 'auto', marginTop: 10 }}>
                 <table>
                   <thead>
                     <tr>
@@ -2976,15 +3083,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
                   </thead>
                   <tbody>
                     {(detalleContacts || [])
-                      .filter((row) => {
-                        if (!detalleSearch.trim()) return true;
-                        const key = detalleSearch.trim().toLowerCase();
-                        const fullName = [row.nombre, row.apellido].filter(Boolean).join(' ')
-                          || row.name
-                          || row.contacto
-                          || '';
-                        return fullName.toLowerCase().includes(key);
-                      })
                       .map((row, idx) => (
                       (() => {
                         const fullName = [row.nombre, row.apellido].filter(Boolean).join(' ')
@@ -3011,9 +3109,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
                             </td>
                             <td style={recuperoTdStyle}>{telefono}</td>
                             <td style={recuperoTdStyle}>{motivoBaja}</td>
-                            {/* fecha_baja y seller_name no vienen todavía de
-                                GET /recovery/datasets/:id — ver TODO(backend)
-                                en el efecto de carga de arriba. */}
                             <td style={recuperoTdStyle}>{row.fecha_baja ? formatDateTime(row.fecha_baja) : '—'}</td>
                             <td style={recuperoTdStyle}>{row.seller_name || '—'}</td>
                             <td style={recuperoTdStyle}>
@@ -3035,11 +3130,45 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
                         );
                       })()
                     ))}
-                    {!detalleLoading && (!detalleContacts || !detalleContacts.length) ? (
+                    {detalleContactsLoading ? (
+                      <tr><td colSpan={6} style={{ padding: 14, color: 'var(--muted)' }}>Cargando candidatos...</td></tr>
+                    ) : (!detalleContacts || !detalleContacts.length) ? (
                       <tr><td colSpan={6} style={{ padding: 14, color: 'var(--muted)' }}>Sin contactos para este lote.</td></tr>
                     ) : null}
                   </tbody>
                 </table>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 10 }}>
+                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                  Página {detalleContactsPage} de {Math.max(1, Math.ceil(detalleContactsTotal / PAGE_SIZE))}
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => setDetalleContactsPage((prev) => Math.max(1, prev - 1))}
+                    disabled={detalleContactsPage <= 1 || detalleContactsLoading}
+                    style={{
+                      ...recuperoFilterSelectStyle,
+                      cursor: (detalleContactsPage <= 1 || detalleContactsLoading) ? 'not-allowed' : 'pointer',
+                      opacity: (detalleContactsPage <= 1 || detalleContactsLoading) ? 0.55 : 1
+                    }}
+                  >
+                    Anterior
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDetalleContactsPage((prev) => Math.min(Math.max(1, Math.ceil(detalleContactsTotal / PAGE_SIZE)), prev + 1))}
+                    disabled={detalleContactsPage >= Math.max(1, Math.ceil(detalleContactsTotal / PAGE_SIZE)) || detalleContactsLoading}
+                    style={{
+                      ...recuperoFilterSelectStyle,
+                      cursor: (detalleContactsPage >= Math.max(1, Math.ceil(detalleContactsTotal / PAGE_SIZE)) || detalleContactsLoading) ? 'not-allowed' : 'pointer',
+                      opacity: (detalleContactsPage >= Math.max(1, Math.ceil(detalleContactsTotal / PAGE_SIZE)) || detalleContactsLoading) ? 0.55 : 1
+                    }}
+                  >
+                    Siguiente
+                  </button>
+                </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
