@@ -137,6 +137,10 @@ const normalizeSellerList = (response) => extractList(extractPayload(response), 
     item?.email,
     `Vendedor ${index + 1}`
   ),
+  // Carga total (todos los lotes) y cantidad de lotes distintos en los que
+  // tiene contactos asignados — ya venían calculados en GET /recovery/sellers
+  // (counts.assigned y dataset_names[]), pero esta vista no los mostraba.
+  asignadoTotal: getCountValue(item, ['assigned', 'asignados']),
   datasets: asNumber(item?.dataset_names?.length, getSummaryValue(item, ['datasets', 'dataset_count'])),
   pendiente: getCountValue(item, ['pending', 'pendiente', 'pendientes']),
   enGestion: getCountValue(item, ['in_progress', 'en_gestion', 'gestion']),
@@ -504,6 +508,8 @@ export default function RecuperoProduccionView({
               <thead>
                 <tr>
                   <th style={thStyle}>Vendedor</th>
+                  <th style={thStyle}>Asignados total</th>
+                  <th style={thStyle}>Datasets</th>
                   <th style={thStyle}>Sin gestión</th>
                   <th style={thStyle}>No contesta</th>
                   <th style={thStyle}>Seguimiento</th>
@@ -516,10 +522,12 @@ export default function RecuperoProduccionView({
               </thead>
               <tbody>
                 {sellerRowsLoading ? (
-                  <tr><td colSpan={9} style={{ ...tdStyle, color: 'var(--color-text-secondary)' }}>Cargando vendedores...</td></tr>
+                  <tr><td colSpan={11} style={{ ...tdStyle, color: 'var(--color-text-secondary)' }}>Cargando vendedores...</td></tr>
                 ) : sellerRows.map((row) => (
                   <tr key={row.id}>
                     <td style={{ ...tdStyle, fontWeight: 600 }}>{row.vendedor}</td>
+                    <td style={{ ...tdStyle, fontWeight: 700 }}>{formatCount(row.asignadoTotal)}</td>
+                    <td style={tdStyle}>{formatCount(row.datasets)}</td>
                     <td style={tdStyle}>{formatCount(row.sinGestion)}</td>
                     <td style={tdStyle}>{formatCount(row.noContesta)}</td>
                     <td style={tdStyle}>{formatCount(row.seguimiento)}</td>
@@ -531,7 +539,7 @@ export default function RecuperoProduccionView({
                   </tr>
                 ))}
                 {!sellerRowsLoading && sellerRows.length === 0 ? (
-                  <tr><td colSpan={9} style={{ ...tdStyle, color: 'var(--color-text-secondary)' }}>No hay métricas por vendedor para mostrar.</td></tr>
+                  <tr><td colSpan={11} style={{ ...tdStyle, color: 'var(--color-text-secondary)' }}>No hay métricas por vendedor para mostrar.</td></tr>
                 ) : null}
               </tbody>
             </table>
