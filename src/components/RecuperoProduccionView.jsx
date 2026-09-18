@@ -104,26 +104,22 @@ const normalizeSummary = (response) => {
 
 const normalizeDataset = (item, index) => {
   const filas = getCountValue(item, ['total', 'filas', 'total_candidates', 'rows_count', 'candidatos']);
-  const excluidos = getCountValue(item, ['excluidos', 'excluded', 'excluded_count', 'duplicate_rows']);
   const pendiente = getCountValue(item, ['pending', 'pendiente', 'pendientes']);
   const enGestion = getCountValue(item, ['in_progress', 'en_gestion', 'gestion']);
   const recuperado = getCountValue(item, ['recovered', 'recuperado', 'recuperados']);
   const rechazado = getCountValue(item, ['rejected', 'rechazado', 'rechazados']);
-  const datoErroneo = getCountValue(item, ['dato_erroneo', 'datoErroneo', 'invalid_data']);
   return {
     id: asText(item?.id, item?.dataset_id, item?.datasetId, `dataset-${index + 1}`),
     nombre: asText(item?.nombre, item?.name, item?.dataset_name, `Dataset ${index + 1}`),
     archivo: asText(item?.archivo, item?.source_file, item?.file_name, item?.filename),
     estado: normalizeKey(item?.estado, item?.status) || 'activo',
     filas,
-    excluidos,
     pendiente,
-    enGestion,
-    recuperado,
-    rechazado,
-    datoErroneo,
-    avance: getSummaryValue(item, ['avance', 'progress', 'progress_pct'], calcRate(recuperado + rechazado + datoErroneo, Math.max(filas - excluidos, 1))),
-    efectividad: getEffectivenessValue({ recuperado, rechazado })
+    // % del total que ya salió del pool "pendiente" (sin asignar/sin tocar)
+    // — no requiere el desglose fino por resultado_gestion, que ya no vive
+    // en esta tabla (queda un clic más adentro, en el detalle del lote).
+    avance: calcRate(recuperado + rechazado + enGestion, Math.max(filas, 1)),
+    efectividad: getEffectivenessValue({ recuperado, rechazado, efectividad: getCountValue(item, ['effectiveness_pct']) })
   };
 };
 
@@ -165,7 +161,8 @@ export default function RecuperoProduccionView({
   Panel,
   active = false,
   api,
-  onSync = () => {}
+  onSync = () => {},
+  onViewDataset = () => {}
 }) {
   const [summary, setSummary] = React.useState({
     totalImportadas: 0,
@@ -252,7 +249,15 @@ export default function RecuperoProduccionView({
   const thStyle = { textAlign: 'left', padding: '10px 12px', fontSize: 13, fontWeight: 600, color: 'var(--color-text-secondary)', borderBottom: '1px solid rgba(15,23,42,0.16)', position: 'sticky', top: 0, background: '#fff', zIndex: 1 };
   const tdStyle = { padding: '10px 12px', borderBottom: '0.5px solid rgba(15,23,42,0.16)' };
 
-  const breakdownValue = (value) => (summary.hasBreakdown ? formatCount(value) : '—');
+  // De la base útil, cuánto ya tuvo al menos un intento de contacto (todo
+  // menos "sin gestión" y "pendiente" — el pool todavía sin tocar). Mismo
+  // criterio que el "% Avance" del detalle de lote, a nivel global.
+  const gestionadosGlobal = summary.hasBreakdown
+    ? (summary.recuperado || 0) + (summary.rechazado || 0)
+      + (summary.noContesta || 0) + (summary.seguimiento || 0)
+      + (summary.rellamar || 0) + (summary.datoErroneo || 0)
+    : null;
+  const pctGestionadoGlobal = gestionadosGlobal !== null ? calcRate(gestionadosGlobal, summary.baseUtil) : null;
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
@@ -301,16 +306,16 @@ export default function RecuperoProduccionView({
 
       {vistaProduccion === 'general' && (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+          {/* Resumen ejecutivo — 4 tarjetas (antes 9, con el desglose fino
+              por estado No contesta/Rellamar/Seguimiento/Dato erróneo). Ese
+              desglose ya vive un clic más adentro, en el detalle de cada
+              lote — repetirlo acá era la misma información contada dos
+              veces en dos pantallas distintas. */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
             {[
               { label: 'Base útil', value: formatCount(summary.baseUtil), color: 'var(--color-text-primary)', accent: false, sub: `de ${formatCount(summary.totalImportadas)} filas · ${formatCount(summary.depuradas)} depuradas` },
-              { label: 'Sin gestión', value: breakdownValue(summary.sinGestion), color: 'var(--color-text-secondary)', accent: false, sub: 'asignados, sin intento todavía' },
-              { label: 'No contesta', value: breakdownValue(summary.noContesta), color: 'var(--color-text-secondary)', accent: false, sub: 'intentado, sin respuesta' },
-              { label: 'Seguimiento', value: breakdownValue(summary.seguimiento), color: 'var(--color-text-secondary)', accent: false, sub: 'con próxima acción agendada' },
-              { label: 'Rellamar', value: breakdownValue(summary.rellamar), color: 'var(--color-text-secondary)', accent: false, sub: 'pidió que lo llamen después' },
-              { label: 'Dato erróneo', value: breakdownValue(summary.datoErroneo), color: 'var(--color-text-secondary)', accent: false, sub: 'datos de contacto inválidos' },
+              { label: '% Gestionado', value: pctGestionadoGlobal === null ? '—' : `${pctGestionadoGlobal}%`, color: '#185FA5', accent: false, sub: 'de la base útil, con al menos un intento' },
               { label: 'Ventas / Recuperados', value: formatCount(summary.recuperado), color: '#166534', accent: false, sub: `${calcRate(summary.recuperado, summary.baseUtil)}% de la base útil` },
-              { label: 'Rechazos', value: formatCount(summary.rechazado), color: '#993C1D', accent: false, sub: `${calcRate(summary.rechazado, summary.baseUtil)}% de la base útil` },
               { label: 'Efectividad', value: formatPercent(summary.efectividad), color: '#0F6E56', accent: true, sub: 'excluye dato erróneo' }
             ].map((card) => (
               <div
@@ -335,19 +340,15 @@ export default function RecuperoProduccionView({
                 <thead>
                   <tr>
                     <th style={thStyle}>Dataset</th>
-                    <th style={thStyle}>Filas</th>
-                    <th style={thStyle}>Excluidos</th>
-                    <th style={thStyle}>Pend.</th>
-                    <th style={thStyle}>Gest.</th>
-                    <th style={thStyle}>Recup.</th>
-                    <th style={thStyle}>Rech.</th>
-                    <th style={thStyle}>Dato err.</th>
-                    <th style={thStyle}>Avance</th>
+                    <th style={thStyle}>Total</th>
+                    <th style={thStyle}>% Avance</th>
+                    <th style={thStyle}>Efectividad</th>
+                    <th style={thStyle}></th>
                   </tr>
                 </thead>
                 <tbody>
                   {datasetsLoading ? (
-                    <tr><td colSpan={9} style={{ ...tdStyle, color: 'var(--color-text-secondary)' }}>Cargando datasets...</td></tr>
+                    <tr><td colSpan={5} style={{ ...tdStyle, color: 'var(--color-text-secondary)' }}>Cargando datasets...</td></tr>
                   ) : datasets.map((dataset) => {
                     const statusMeta = datasetStatusMeta(dataset.estado);
                     return (
@@ -362,28 +363,32 @@ export default function RecuperoProduccionView({
                           <div style={{ marginTop: 4, fontSize: 12, color: 'var(--color-text-secondary)' }}>{safeValue(dataset.archivo)}</div>
                         </td>
                         <td style={{ ...tdStyle, fontWeight: 600 }}>{formatCount(dataset.filas)}</td>
-                        <td style={tdStyle}>{formatCount(dataset.excluidos)}</td>
-                        <td style={{ ...tdStyle, color: '#BA7517' }}>{formatCount(dataset.pendiente)}</td>
-                        <td style={{ ...tdStyle, color: '#0F6E56', fontWeight: 600 }}>{formatCount(dataset.enGestion)}</td>
-                        <td style={{ ...tdStyle, color: '#166534', fontWeight: 600 }}>{formatCount(dataset.recuperado)}</td>
-                        <td style={{ ...tdStyle, color: '#993C1D', fontWeight: 600 }}>{formatCount(dataset.rechazado)}</td>
-                        <td style={tdStyle}>{formatCount(dataset.datoErroneo)}</td>
-                        <td style={tdStyle}>
-                          <div style={{ minWidth: 140 }}>
-                            <div style={{ height: 8, background: '#E5E7EB', borderRadius: 999, overflow: 'hidden', display: 'flex' }}>
-                              <div style={{ width: `${calcRate(dataset.enGestion, dataset.filas)}%`, background: '#0F6E56' }} />
-                              <div style={{ width: `${calcRate(dataset.recuperado, dataset.filas)}%`, background: '#166534' }} />
-                              <div style={{ width: `${calcRate(dataset.rechazado, dataset.filas)}%`, background: '#993C1D' }} />
-                              <div style={{ width: `${calcRate(dataset.datoErroneo, dataset.filas)}%`, background: '#9CA3AF' }} />
-                            </div>
-                            <div style={{ marginTop: 6, fontSize: 12, color: 'var(--color-text-secondary)' }}>{dataset.avance}% cerrado · efect. {formatPercent(dataset.efectividad)}</div>
-                          </div>
+                        <td style={tdStyle}>{dataset.avance}%</td>
+                        <td style={tdStyle}>{formatPercent(dataset.efectividad)}</td>
+                        <td style={{ ...tdStyle, textAlign: 'right' }}>
+                          <button
+                            type="button"
+                            onClick={() => onViewDataset(dataset.id)}
+                            style={{
+                              background: '#fff',
+                              border: '1px solid rgba(148,163,184,0.55)',
+                              borderRadius: 8,
+                              padding: '6px 12px',
+                              fontSize: 12,
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              color: 'var(--color-text-primary)',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            Ver detalle
+                          </button>
                         </td>
                       </tr>
                     );
                   })}
                   {!datasetsLoading && datasets.length === 0 ? (
-                    <tr><td colSpan={9} style={{ ...tdStyle, color: 'var(--color-text-secondary)' }}>No hay datasets para mostrar.</td></tr>
+                    <tr><td colSpan={5} style={{ ...tdStyle, color: 'var(--color-text-secondary)' }}>No hay datasets para mostrar.</td></tr>
                   ) : null}
                 </tbody>
               </table>

@@ -3043,6 +3043,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
               api={api}
               active={vistaActual === 'produccion'}
               onSync={markSync}
+              onViewDataset={(datasetId) => openLotDetail({ id: datasetId })}
             />
           )}
 
