@@ -2183,7 +2183,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
           subtitle={null}
           action={null}
         >
-          <div className="recupero-module-scope" style={{ display: 'grid', gap: 18 }}>
+          <div className="recupero-module-scope" style={{ display: 'grid', gap: 18, paddingBottom: (vistaActual === 'recupero' && selectedIds.length > 0) ? 88 : 0 }}>
             <style>{`
               .recupero-module-scope :focus-visible {
                 outline: 2px solid #0F766E;
@@ -3789,49 +3789,56 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
               <Button variant="ghost" disabled={page >= totalPages} onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}>Siguiente</Button>
             </div>
           </div>
-
-          {selectedIds.length > 0 && (
-            <div style={{
-              position: 'fixed',
-              left: '50%',
-              bottom: 24,
-              transform: 'translateX(-50%)',
-              zIndex: 200,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 14,
-              padding: '10px 14px',
-              borderRadius: 12,
-              background: '#fff',
-              border: '0.5px solid rgba(15,23,42,0.16)',
-              boxShadow: '0 12px 32px rgba(15,23,42,0.18)'
-            }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>
-                {selectedIds.length} seleccionado{selectedIds.length > 1 ? 's' : ''}
-              </span>
-              <Button onClick={() => openAssign(selectedIds)} style={{ height: 40, borderRadius: 10 }}>
-                Asignar
-              </Button>
-              <Button
-                variant="ghost"
-                style={{ height: 40, borderRadius: 10 }}
-                onClick={() => downloadRowsAsCsv(
-                  visibleItems.filter((row) => selectedIds.includes(row.id)),
-                  'recupero-seleccion.csv'
-                )}
-              >
-                Exportar selección
-              </Button>
-              <Button variant="ghost" style={{ height: 40, borderRadius: 10 }} onClick={() => setSelectedIds([])}>
-                Limpiar
-              </Button>
-            </div>
-          )}
             </>
           )}
 
         </Panel>
       </section>
+
+      {/* Fuera del <Panel> a propósito: .panel tiene backdrop-filter en el
+          CSS global (index.html), que crea un containing block nuevo para
+          descendientes position:fixed — atrapaba esta barra dentro de los
+          límites del panel en vez de fijarla al viewport real, obligando a
+          scrollear hasta el final del contenido para verla. Los demás
+          overlays (lot-wizard-overlay) ya viven acá afuera por la misma
+          razón. */}
+      {vistaActual === 'recupero' && selectedIds.length > 0 && (
+        <div style={{
+          position: 'fixed',
+          left: '50%',
+          bottom: 24,
+          transform: 'translateX(-50%)',
+          zIndex: 200,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 14,
+          padding: '10px 14px',
+          borderRadius: 12,
+          background: '#fff',
+          border: '0.5px solid rgba(15,23,42,0.16)',
+          boxShadow: '0 12px 32px rgba(15,23,42,0.18)'
+        }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>
+            {selectedIds.length} seleccionado{selectedIds.length > 1 ? 's' : ''}
+          </span>
+          <Button onClick={() => openAssign(selectedIds)} style={{ height: 40, borderRadius: 10 }}>
+            Asignar
+          </Button>
+          <Button
+            variant="ghost"
+            style={{ height: 40, borderRadius: 10 }}
+            onClick={() => downloadRowsAsCsv(
+              visibleItems.filter((row) => selectedIds.includes(row.id)),
+              'recupero-seleccion.csv'
+            )}
+          >
+            Exportar selección
+          </Button>
+          <Button variant="ghost" style={{ height: 40, borderRadius: 10 }} onClick={() => setSelectedIds([])}>
+            Limpiar
+          </Button>
+        </div>
+      )}
 
       {finalizeLoteTarget && (
         <div className="lot-wizard-overlay" onClick={closeFinalizeLoteModal}>
