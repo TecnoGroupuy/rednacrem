@@ -971,44 +971,38 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
     setAddSellerError('');
     try {
       const headers = await buildAuthHeaders();
-      const response = await fetch(buildApiUrl(`/lead-batches/${loteSeleccionado.id}/add-seller`, getApiBaseUrl()), {
+      // POST /recovery/datasets/:id/distribute — no existe un roster de
+      // vendedores por lote en Recupero (a diferencia de Lotes de
+      // captación), así que "agregar vendedor" es directamente repartirle
+      // los candidatos libres del lote. Con un solo seller_id, todo lo
+      // disponible va para ese vendedor. Si no hay nada libre, el endpoint
+      // devuelve distributed_count:0 sin error — el vendedor no queda
+      // registrado en ningún lado hasta que reciba al menos un contacto
+      // (mismo criterio que ya usa "Vendedores asignados", agrupado por
+      // seller_id sobre recupero_candidatos).
+      const response = await fetch(buildApiUrl(`/recovery/datasets/${loteSeleccionado.id}/distribute`, getApiBaseUrl()), {
         method: 'POST',
         headers,
-        body: JSON.stringify({ seller_id: addSellerTarget })
+        body: JSON.stringify({ seller_ids: [addSellerTarget] })
       });
       const data = await response.json().catch(() => null);
       if (!response.ok || !data?.ok) {
         throw new Error(data?.message || 'No se pudo agregar el vendedor.');
       }
-      const optimisticVendedores = Array.isArray(data?.distribution)
-        ? data.distribution.map((item) => ({
-            id: String(item?.seller_id || ''),
-            nombre: item?.nombre || '',
-            apellido: '',
-            total_contactos: Number(item?.cantidad || 0),
-            gestionados: Number(item?.gestionados || 0)
-          }))
-        : null;
-      if (optimisticVendedores?.length) {
-        setLoteSeleccionado((prev) => (
-          prev ? {
-            ...prev,
-            vendedores: optimisticVendedores,
-            sellerName: formatSellerListLabel(optimisticVendedores) || prev.sellerName
-          } : prev
-        ));
-      }
       closeAddSellerModal();
-      setSellerMutationFeedback({ type: 'success', message: 'Vendedor agregado al lote correctamente.' });
-      void refreshSelectedLot(loteSeleccionado.id, {
-        preserveVendedores: optimisticVendedores
+      setSellerMutationFeedback({
+        type: 'success',
+        message: Number(data?.distributed_count || 0) > 0
+          ? 'Vendedor agregado al lote correctamente.'
+          : 'Vendedor agregado, pero el lote no tiene datos libres para asignarle todavía.'
       });
+      void refreshSelectedLot(loteSeleccionado.id);
     } catch (err) {
       setAddSellerError(err?.message || 'No se pudo agregar el vendedor.');
     } finally {
       setSellerMutationLoading(false);
     }
-  }, [addSellerTarget, buildAuthHeaders, closeAddSellerModal, formatSellerListLabel, loteSeleccionado?.id, refreshSelectedLot]);
+  }, [addSellerTarget, buildAuthHeaders, closeAddSellerModal, loteSeleccionado?.id, refreshSelectedLot]);
 
   const handleRemoveSeller = React.useCallback(async () => {
     if (!loteSeleccionado?.id || !removeModal?.sellerId) return;
@@ -1024,7 +1018,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
     setReassignError('');
     try {
       const headers = await buildAuthHeaders();
-      const response = await fetch(buildApiUrl(`/lead-batches/${loteSeleccionado.id}/remove-seller`, getApiBaseUrl()), {
+      const response = await fetch(buildApiUrl(`/recovery/datasets/${loteSeleccionado.id}/remove-seller`, getApiBaseUrl()), {
         method: 'POST',
         headers,
         body: JSON.stringify({
