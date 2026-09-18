@@ -2304,7 +2304,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
               )}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                 {RECUPERO_TOP_TABS.map((tab) => {
                   const activeTopTab = tab.key === 'lotes'
