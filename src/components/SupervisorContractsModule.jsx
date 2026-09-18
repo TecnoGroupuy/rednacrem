@@ -652,10 +652,11 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
     detalleResultadoFilter
   ]);
 
-  // Desglose por vendedor: hoy viene de recupero_asignaciones_rango (rangos),
-  // que no ve las asignaciones hechas por /direct-assignments o /distribute
-  // (no escriben ahí) — TODO(backend): corregir para que cuente por
-  // recupero_candidatos.seller_id directo, que sí refleja los 3 mecanismos.
+  // Desglose por vendedor: viene de GET /recovery/datasets/:id -> assignments,
+  // que cuenta directo por recupero_candidatos.seller_id (refleja los 3
+  // mecanismos de asignación por igual) y además incluye a los vendedores
+  // del roster (recupero_dataset_sellers, migración 064) que todavía no
+  // tienen ningún candidato — con total_contactos: 0, sin filtrarlos acá.
   React.useEffect(() => {
     if (!datasetDetail?.assignments) return;
     setLoteSeleccionado((prev) => {
