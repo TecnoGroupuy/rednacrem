@@ -151,6 +151,23 @@ const normalizeSellerList = (response) => extractList(extractPayload(response), 
   efectividad: getSummaryValue(item, ['effectiveness_pct', 'efectividad', 'effectiveness'])
 }));
 
+const normalizeActivityTrend = (response) => {
+  const payload = extractPayload(response);
+  const series = Array.isArray(payload?.series)
+    ? payload.series.map((row) => ({ date: asText(row?.date), count: asNumber(row?.count) }))
+    : [];
+  return { days: asNumber(payload?.days, series.length), series };
+};
+
+const normalizeStalePending = (response) => {
+  const payload = extractPayload(response);
+  return {
+    thresholdDays: asNumber(payload?.threshold_days, 15),
+    totalPending: asNumber(payload?.total_pending),
+    staleCount: asNumber(payload?.stale_count)
+  };
+};
+
 const datasetStatusMeta = (status) => {
   if (status === 'pausado') return { label: 'Pausado', bg: '#FAEEDA', color: '#854F0B' };
   if (status === 'cerrado') return { label: 'Cerrado', bg: '#E5E7EB', color: '#475569' };
@@ -194,18 +211,32 @@ export default function RecuperoProduccionView({
   const [sellerRowsLoading, setSellerRowsLoading] = React.useState(false);
   const [sellerRowsError, setSellerRowsError] = React.useState('');
 
+  const [activityTrend, setActivityTrend] = React.useState({ days: 14, series: [] });
+  const [activityTrendLoading, setActivityTrendLoading] = React.useState(false);
+  const [activityTrendError, setActivityTrendError] = React.useState('');
+
+  const [stalePending, setStalePending] = React.useState({ thresholdDays: 15, totalPending: 0, staleCount: 0 });
+  const [stalePendingLoading, setStalePendingLoading] = React.useState(false);
+  const [stalePendingError, setStalePendingError] = React.useState('');
+
   const loadOverview = React.useCallback(async () => {
     setSummaryLoading(true);
     setDatasetsLoading(true);
     setSellerRowsLoading(true);
+    setActivityTrendLoading(true);
+    setStalePendingLoading(true);
     setSummaryError('');
     setDatasetsError('');
     setSellerRowsError('');
+    setActivityTrendError('');
+    setStalePendingError('');
 
-    const [summaryResult, datasetsResult, sellersResult] = await Promise.allSettled([
+    const [summaryResult, datasetsResult, sellersResult, activityTrendResult, stalePendingResult] = await Promise.allSettled([
       api.get('/recovery/summary'),
       api.get('/recovery/datasets'),
-      api.get('/recovery/sellers')
+      api.get('/recovery/sellers'),
+      api.get('/recovery/activity-trend?days=14'),
+      api.get('/recovery/stale-pending')
     ]);
 
     if (summaryResult.status === 'fulfilled') {
@@ -236,9 +267,27 @@ export default function RecuperoProduccionView({
       setSellerRows([]);
     }
 
+    if (activityTrendResult.status === 'fulfilled') {
+      setActivityTrend(normalizeActivityTrend(activityTrendResult.value));
+      onSync();
+    } else {
+      setActivityTrendError(activityTrendResult.reason?.message || 'No se pudo cargar la tendencia de actividad.');
+      setActivityTrend({ days: 14, series: [] });
+    }
+
+    if (stalePendingResult.status === 'fulfilled') {
+      setStalePending(normalizeStalePending(stalePendingResult.value));
+      onSync();
+    } else {
+      setStalePendingError(stalePendingResult.reason?.message || 'No se pudo cargar la antigüedad de pendientes.');
+      setStalePending({ thresholdDays: 15, totalPending: 0, staleCount: 0 });
+    }
+
     setSummaryLoading(false);
     setDatasetsLoading(false);
     setSellerRowsLoading(false);
+    setActivityTrendLoading(false);
+    setStalePendingLoading(false);
   }, [api, onSync]);
 
   React.useEffect(() => {
@@ -248,6 +297,7 @@ export default function RecuperoProduccionView({
 
   const thStyle = { textAlign: 'left', padding: '10px 12px', fontSize: 13, fontWeight: 600, color: 'var(--color-text-secondary)', borderBottom: '1px solid rgba(15,23,42,0.16)', position: 'sticky', top: 0, background: '#fff', zIndex: 1 };
   const tdStyle = { padding: '10px 12px', borderBottom: '0.5px solid rgba(15,23,42,0.16)' };
+  const errorBannerStyle = { padding: '10px 12px', borderRadius: 10, background: '#FEF2F2', color: '#B91C1C', fontWeight: 700, marginBottom: 10 };
 
   // De la base útil, cuánto ya tuvo al menos un intento de contacto (todo
   // menos "sin gestión" y "pendiente" — el pool todavía sin tocar). Mismo
@@ -397,6 +447,53 @@ export default function RecuperoProduccionView({
               Última importación: {summary.lastImport || '-'}
             </div>
           </Panel>
+
+          {/* Valor operativo nuevo — no existía en ningún lado del sistema:
+              ritmo de gestión reciente y alerta de pendientes que se están
+              "pudriendo" sin ninguna gestión. */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+            <Panel title="Tendencia de actividad" subtitle={`Gestiones por día — últimos ${activityTrend.days} días`}>
+              {activityTrendError ? <div style={errorBannerStyle}>{activityTrendError}</div> : null}
+              {activityTrendLoading ? (
+                <div style={{ color: 'var(--color-text-secondary)' }}>Cargando tendencia...</div>
+              ) : activityTrend.series.length === 0 ? (
+                <div style={{ color: 'var(--color-text-secondary)' }}>Sin datos de actividad todavía.</div>
+              ) : (() => {
+                const maxCount = Math.max(1, ...activityTrend.series.map((d) => d.count));
+                return (
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 150, overflowX: 'auto', padding: '4px 2px' }}>
+                    {activityTrend.series.map((d) => {
+                      const barHeight = Math.max(2, Math.round((d.count / maxCount) * 100));
+                      const dateObj = new Date(`${d.date}T00:00:00`);
+                      const dayLabel = Number.isNaN(dateObj.getTime())
+                        ? d.date
+                        : dateObj.toLocaleDateString('es-UY', { day: '2-digit', month: '2-digit' });
+                      return (
+                        <div key={d.date} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minWidth: 26, flexShrink: 0 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-secondary)', minHeight: 14 }}>{d.count || ''}</div>
+                          <div style={{ width: 16, height: barHeight, background: '#0F766E', borderRadius: 4 }} />
+                          <div style={{ fontSize: 10, color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>{dayLabel}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </Panel>
+
+            <Panel title="Antigüedad de pendientes" subtitle={`Sin ninguna gestión hace más de ${stalePending.thresholdDays} días`}>
+              {stalePendingError ? <div style={errorBannerStyle}>{stalePendingError}</div> : null}
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+                <div style={{ fontSize: 32, fontWeight: 800, color: stalePending.staleCount > 0 ? '#B91C1C' : '#166534' }}>
+                  {stalePendingLoading ? '...' : formatCount(stalePending.staleCount)}
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                  de {formatCount(stalePending.totalPending)} pendientes totales
+                  {stalePending.totalPending ? ` (${calcRate(stalePending.staleCount, stalePending.totalPending)}%)` : ''}
+                </div>
+              </div>
+            </Panel>
+          </div>
         </>
       )}
 
