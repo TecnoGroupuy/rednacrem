@@ -219,7 +219,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
   const [detalleFilterOptions, setDetalleFilterOptions] = React.useState({ motivo_baja: [], resultado_gestion: [] });
   const [lastSyncAt, setLastSyncAt] = React.useState(null);
   const [syncNow, setSyncNow] = React.useState(Date.now());
-  const [exportState, setExportState] = React.useState({ fileName: 'recupero.csv', rows: [] });
   const [addSellerOpen, setAddSellerOpen] = React.useState(false);
   const [addSellerTarget, setAddSellerTarget] = React.useState('');
   const [addSellerError, setAddSellerError] = React.useState('');
@@ -435,13 +434,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
     link.remove();
     URL.revokeObjectURL(url);
   }, []);
-
-  const formatLoteConfig = (lote) => {
-    const raw = lote?.configuracion || lote?.filtros || lote?.filters || lote?.criteria || lote?.segmento || lote?.segment || null;
-    if (!raw) return '—';
-    const text = typeof raw === 'string' ? raw : JSON.stringify(raw);
-    return text.length > 160 ? `${text.slice(0, 160)}…` : text;
-  };
 
   const formatLoteSeller = (lote) => {
     const assigneesCount = Number(lote?.assignees_count || 0);
@@ -773,14 +765,12 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
     if (raw.includes('FALTA DE PAGO') || raw.includes('SIN PAGO') || raw.includes('MOROSIDAD')) return '#92400E';
     return 'var(--color-text-secondary)';
   };
-  const getNombreLote = (row) => row?.nombre_lote || null;
   const getVendedorAsignado = (row) => (
     row?.vendedor_asignado
     || row?.vendedor_asignado_nombre
     || row?.seller_name
     || null
   );
-  const getUltimoEstado = (row) => row?.ultimo_estado_gestion || null;
   const getFechaUltimaGestion = (row) => (
     row?.ultima_gestion
     || row?.fecha_ultima_gestion
@@ -802,65 +792,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
     || row?.contacto
     || '—'
   ), []);
-
-  React.useEffect(() => {
-    if (vistaActual === 'recupero') {
-      setExportState({
-        fileName: `recupero-contactos-${activeTab}.csv`,
-        rows: visibleItems.map((row) => ({
-          contacto: getContactoNombre(row),
-          documento: row?.documento || '',
-          telefono: row?.telefono || row?.celular || '',
-          producto: row?.producto || row?.nombre_producto || '',
-          precio: row?.precio || '',
-          motivo_baja: row?.motivo_baja || '',
-          fecha_baja: row?.fecha_baja || '',
-          vendedor_asignado: getVendedorAsignado(row) || '',
-          lote: getNombreLote(row) || '',
-          estado: getUltimoEstado(row) || row?.estado || ''
-        }))
-      });
-      return;
-    }
-
-    if (vistaActual === 'lotes') {
-      setExportState({
-        fileName: 'recupero-lotes.csv',
-        rows: lotesCreados.map((lote) => ({
-          id: asLotId(lote),
-          nombre: asLotName(lote),
-          creado: asLotCreatedAt(lote) || '',
-          vendedor: asLotSellerName(lote),
-          contactos: asLotCount(lote),
-          configuracion: formatLoteConfig(lote)
-        }))
-      });
-      return;
-    }
-
-    if (vistaActual === 'detalle-lote') {
-      setExportState({
-        fileName: `recupero-lote-${loteSeleccionado?.id || 'detalle'}.csv`,
-        rows: detalleContacts.map((row) => ({
-          contacto: getContactoNombre(row),
-          documento: row?.documento || '',
-          telefono: row?.telefono || row?.celular || '',
-          producto: row?.producto || row?.nombre_producto || '',
-          motivo_baja: row?.motivo_baja || '',
-          fecha_baja: row?.fecha_baja || '',
-          estado: row?.estado || row?.estado_venta || ''
-        }))
-      });
-    }
-  }, [
-    activeTab,
-    detalleContacts,
-    getContactoNombre,
-    lotesCreados,
-    loteSeleccionado?.id,
-    vistaActual,
-    visibleItems
-  ]);
 
   const detectActiveProduct = (row) => Boolean(
     row?.producto_activo
@@ -2348,9 +2279,29 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
                 <Tag variant="warning">Inactivo (sin actividad)</Tag>
               ) : null}
             </div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: lastSyncAt ? 'var(--color-text-secondary)' : '#B45309', fontSize: 12 }}>
-              <span style={{ width: 6, height: 6, borderRadius: 999, background: lastSyncAt ? '#16A34A' : '#D97706', display: 'inline-block' }} />
-              {syncLabel}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: lastSyncAt ? 'var(--color-text-secondary)' : '#B45309', fontSize: 12 }}>
+                <span style={{ width: 6, height: 6, borderRadius: 999, background: lastSyncAt ? '#16A34A' : '#D97706', display: 'inline-block' }} />
+                {syncLabel}
+              </div>
+              {vistaActual === 'detalle-lote' && (
+                <button
+                  type="button"
+                  onClick={() => { setVistaActual('lotes'); setLoteSeleccionado(null); }}
+                  style={{
+                    background: '#fff',
+                    border: '1px solid rgba(148,163,184,0.45)',
+                    borderRadius: 8,
+                    padding: '6px 12px',
+                    fontSize: 13,
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    color: 'var(--color-text-primary)'
+                  }}
+                >
+                  ← Volver
+                </button>
+              )}
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -2385,9 +2336,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                <Button variant="ghost" onClick={() => downloadRowsAsCsv(exportState.rows, exportState.fileName)} disabled={!exportState.rows?.length} style={{ height: 44, padding: '0 24px', borderRadius: 10, fontSize: 14 }}>
-                  Exportar
-                </Button>
                 {vistaActual === 'recupero' && (
                   <Button onClick={() => { resetImportState(); setShowImportModal(true); }} icon={<Upload size={16} />} style={{ background: '#0F766E', color: '#fff', height: 44, padding: '0 24px', borderRadius: 10, fontSize: 14 }}>
                     Importar CSV
@@ -2629,23 +2577,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
                     padding: 14
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                      <button
-                        type="button"
-                        onClick={() => { setVistaActual('lotes'); setLoteSeleccionado(null); }}
-                        style={{
-                          background: '#fff',
-                          border: '1px solid rgba(148,163,184,0.45)',
-                          borderRadius: 8,
-                          padding: '6px 12px',
-                          fontSize: 13,
-                          fontWeight: 800,
-                          cursor: 'pointer',
-                          color: 'var(--color-text-primary)',
-                          flexShrink: 0
-                        }}
-                      >
-                        ← Volver
-                      </button>
                       <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--color-text-primary)' }}>
                         {loteSeleccionado?.nombre || 'Detalle de lote'}
                       </div>
