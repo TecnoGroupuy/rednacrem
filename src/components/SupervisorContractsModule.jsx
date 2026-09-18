@@ -1,6 +1,6 @@
 import React from 'react';
 import { Filter, RefreshCw, X, Upload, Columns, ChevronDown, Clock, Archive, MoreHorizontal, Menu } from 'lucide-react';
-import { buildApiUrl, getApiBaseUrl, getAccessToken, getApiClient } from '../services/apiClient.js';
+import { getApiClient } from '../services/apiClient.js';
 import { formatDate } from '../utils/dateFormat.js';
 import { useRolEfectivo } from '../hooks/useRolEfectivo.js';
 import RecuperoProduccionView from './RecuperoProduccionView.jsx';
@@ -63,24 +63,6 @@ const FILTER_COLUMN_CONFIG = {
   lote: { type: 'select', key: 'lote' },
   vendedor_asignado: { type: 'select', key: 'vendedor_asignado' }
 };
-
-const DEV_LOCAL_STORAGE_KEYS = {
-  role: 'local_dev_user_role',
-  email: 'local_dev_user_email',
-  sub: 'local_dev_user_sub'
-};
-
-const readDevOverride = (key) => {
-  try {
-    if (typeof localStorage === 'undefined') return null;
-    const value = localStorage.getItem(key);
-    return value && String(value).trim() ? value : null;
-  } catch {
-    return null;
-  }
-};
-
-const isLocalDevToken = (token) => import.meta?.env?.DEV && (token === 'dev-token' || token === 'dev-id');
 
 export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta, estadoUsuario, onOpenMobileMenu }) {
   // Esta vista excluye el <header className="topbar"> global (ver
@@ -524,26 +506,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
     };
   }, []);
 
-  const buildAuthHeaders = React.useCallback(async () => {
-    const token = await getAccessToken();
-    const headers = { 'Content-Type': 'application/json' };
-    if (isLocalDevToken(token)) {
-      const devRoleOverride = readDevOverride(DEV_LOCAL_STORAGE_KEYS.role);
-      const devEmailOverride = readDevOverride(DEV_LOCAL_STORAGE_KEYS.email);
-      const devSubOverride = readDevOverride(DEV_LOCAL_STORAGE_KEYS.sub);
-      headers['X-Dev-Auth'] = 'true';
-      headers['X-Dev-User-Email'] = devEmailOverride || import.meta.env?.VITE_LOCAL_DEV_USER_EMAIL || 'admin@local.test';
-      headers['X-Dev-User-Role'] = devRoleOverride || import.meta.env?.VITE_LOCAL_DEV_USER_ROLE || 'superadministrador';
-      const devSub = devSubOverride || import.meta.env?.VITE_LOCAL_DEV_USER_SUB;
-      if (devSub) {
-        headers['X-Dev-User-Sub'] = devSub;
-      }
-    } else if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-    return headers;
-  }, []);
-
   React.useEffect(() => {
     if (vistaActual !== 'lotes') return;
     loadLotesCreados();
@@ -970,7 +932,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
     setSellerMutationLoading(true);
     setAddSellerError('');
     try {
-      const headers = await buildAuthHeaders();
       // POST /recovery/datasets/:id/distribute — no existe un roster de
       // vendedores por lote en Recupero (a diferencia de Lotes de
       // captación), así que "agregar vendedor" es directamente repartirle
@@ -980,15 +941,12 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
       // registrado en ningún lado hasta que reciba al menos un contacto
       // (mismo criterio que ya usa "Vendedores asignados", agrupado por
       // seller_id sobre recupero_candidatos).
-      const response = await fetch(buildApiUrl(`/recovery/datasets/${loteSeleccionado.id}/distribute`, getApiBaseUrl()), {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ seller_ids: [addSellerTarget] })
+      // Usa el cliente compartido (api.post), no fetch directo — agrega
+      // organization_id a la URL cuando la sesión lo necesita (ej. un
+      // superadministrador), cosa que un fetch a mano se salta.
+      const data = await api.post(`/recovery/datasets/${loteSeleccionado.id}/distribute`, {
+        seller_ids: [addSellerTarget]
       });
-      const data = await response.json().catch(() => null);
-      if (!response.ok || !data?.ok) {
-        throw new Error(data?.message || 'No se pudo agregar el vendedor.');
-      }
       closeAddSellerModal();
       setSellerMutationFeedback({
         type: 'success',
@@ -1002,7 +960,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
     } finally {
       setSellerMutationLoading(false);
     }
-  }, [addSellerTarget, buildAuthHeaders, closeAddSellerModal, loteSeleccionado?.id, refreshSelectedLot]);
+  }, [addSellerTarget, api, closeAddSellerModal, loteSeleccionado?.id, refreshSelectedLot]);
 
   const handleRemoveSeller = React.useCallback(async () => {
     if (!loteSeleccionado?.id || !removeModal?.sellerId) return;
@@ -1017,20 +975,14 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
     setSellerMutationLoading(true);
     setReassignError('');
     try {
-      const headers = await buildAuthHeaders();
-      const response = await fetch(buildApiUrl(`/recovery/datasets/${loteSeleccionado.id}/remove-seller`, getApiBaseUrl()), {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          seller_id: removeModal.sellerId,
-          mode: removeMode,
-          new_seller_id: reassignTarget || undefined
-        })
+      // Usa el cliente compartido (api.post) — mismo motivo que en
+      // handleAddSeller, agrega organization_id a la URL cuando la sesión
+      // lo necesita.
+      await api.post(`/recovery/datasets/${loteSeleccionado.id}/remove-seller`, {
+        seller_id: removeModal.sellerId,
+        mode: removeMode,
+        new_seller_id: reassignTarget || undefined
       });
-      const data = await response.json().catch(() => null);
-      if (!response.ok || !data?.ok) {
-        throw new Error(data?.message || 'No se pudo quitar el vendedor.');
-      }
       await refreshSelectedLot(loteSeleccionado.id);
       closeRemoveSellerModal();
       setSellerMutationFeedback({
@@ -1046,7 +998,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
     } finally {
       setSellerMutationLoading(false);
     }
-  }, [buildAuthHeaders, closeRemoveSellerModal, loteSeleccionado?.id, reassignTarget, refreshSelectedLot, removeModal?.sellerId, removeMode]);
+  }, [api, closeRemoveSellerModal, loteSeleccionado?.id, reassignTarget, refreshSelectedLot, removeModal?.sellerId, removeMode]);
 
   const getAssignmentLotName = () => {
     const now = new Date();
