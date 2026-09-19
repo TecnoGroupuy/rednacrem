@@ -46,7 +46,8 @@ const COLUMN_FILTERS_INITIAL = {
   motivo_baja: [],
   ultimo_estado: [],
   lote: [],
-  vendedor_asignado: []
+  vendedor_asignado: [],
+  vendedor_origen: []
 };
 
 const FILTER_COLUMN_CONFIG = {
@@ -86,7 +87,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
   const [openFilterColumn, setOpenFilterColumn] = React.useState('');
   const [orden, setOrden] = React.useState({ campo: '', direccion: 'asc' });
   const [sortDir, setSortDir] = React.useState('desc');
-  const [filterOptions, setFilterOptions] = React.useState({ productos: [], departamentos: [], motivos: [], estados: [], vendedores: [], lotes: [] });
+  const [filterOptions, setFilterOptions] = React.useState({ productos: [], departamentos: [], motivos: [], estados: [], vendedores: [], lotes: [], vendedoresOrigen: [] });
   const [filtersLoading, setFiltersLoading] = React.useState(false);
   const [filtersError, setFiltersError] = React.useState('');
   const defaultUltimoEstadoOptions = React.useMemo(() => ([
@@ -309,16 +310,22 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
         || response?.lote
         || response?.data?.lote
         || [];
+      const vendedoresOrigen = response?.vendedoresOrigen
+        || response?.data?.vendedoresOrigen
+        || response?.vendedor_origen
+        || response?.data?.vendedor_origen
+        || [];
       setFilterOptions({
         productos: Array.isArray(productos) ? productos : [],
         departamentos: Array.isArray(departamentos) ? departamentos : [],
         motivos: Array.isArray(motivos) ? motivos : [],
         estados: Array.isArray(estados) ? estados : [],
         vendedores: Array.isArray(vendedores) ? vendedores : [],
-        lotes: Array.isArray(lotes) ? lotes : []
+        lotes: Array.isArray(lotes) ? lotes : [],
+        vendedoresOrigen: Array.isArray(vendedoresOrigen) ? vendedoresOrigen : []
       });
     } catch {
-      setFilterOptions({ productos: [], departamentos: [], motivos: [], estados: [], vendedores: [], lotes: [] });
+      setFilterOptions({ productos: [], departamentos: [], motivos: [], estados: [], vendedores: [], lotes: [], vendedoresOrigen: [] });
       setFiltersError('No se pudieron cargar los catálogos.');
     } finally {
       setFiltersLoading(false);
@@ -450,6 +457,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
     if (key === 'ultimo_estado') return ultimoEstadoOptions;
     if (key === 'lote') return filterOptions.lotes;
     if (key === 'vendedor_asignado') return filterOptions.vendedores.length ? filterOptions.vendedores : sellers;
+    if (key === 'vendedor_origen') return filterOptions.vendedoresOrigen;
     return [];
   }, [filterOptions, sellers, ultimoEstadoOptions]);
 
@@ -1059,7 +1067,8 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
       producto: Array.isArray(columnFiltersApplied.producto) ? columnFiltersApplied.producto : [],
       departamento: Array.isArray(columnFiltersApplied.departamento) ? columnFiltersApplied.departamento : [],
       lote: Array.isArray(columnFiltersApplied.lote) ? columnFiltersApplied.lote : [],
-      vendedor_asignado: Array.isArray(columnFiltersApplied.vendedor_asignado) ? columnFiltersApplied.vendedor_asignado : []
+      vendedor_asignado: Array.isArray(columnFiltersApplied.vendedor_asignado) ? columnFiltersApplied.vendedor_asignado : [],
+      vendedor_origen: Array.isArray(columnFiltersApplied.vendedor_origen) ? columnFiltersApplied.vendedor_origen : []
     };
     Object.keys(payload).forEach((key) => {
       const value = payload[key];
@@ -1355,6 +1364,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
       if (fieldId === 'telefono') next.telefono = '';
       if (fieldId === 'lote') next.lote = [];
       if (fieldId === 'vendedor_asignado') next.vendedor_asignado = [];
+      if (fieldId === 'vendedor_origen') next.vendedor_origen = [];
       return next;
     };
     setColumnFiltersApplied((prev) => resetField(prev));
@@ -1740,6 +1750,9 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
     }
     if (Array.isArray(columnFiltersApplied.vendedor_asignado) && columnFiltersApplied.vendedor_asignado.length) {
       filters.push({ id: 'vendedor_asignado', label: `Vendedor: ${columnFiltersApplied.vendedor_asignado.map((val) => getOptionLabel(getFilterOptionsForKey('vendedor_asignado'), val)).join(', ')}` });
+    }
+    if (Array.isArray(columnFiltersApplied.vendedor_origen) && columnFiltersApplied.vendedor_origen.length) {
+      filters.push({ id: 'vendedor_origen', label: `Vendedor origen: ${columnFiltersApplied.vendedor_origen.map((val) => getOptionLabel(getFilterOptionsForKey('vendedor_origen'), val)).join(', ')}` });
     }
     return filters;
   }, [columnFiltersApplied, filterOptions.departamentos, filterOptions.motivos, filterOptions.productos, getFilterOptionsForKey, getOptionLabel, ultimoEstadoOptions]);
@@ -3288,6 +3301,99 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
                                   ...prev,
                                   producto: checked
                                     ? current.filter((v) => v !== val)
+                                    : [...current, val]
+                                };
+                              });
+                            }}
+                          />
+                          {lbl}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div
+              data-filter-popover
+              style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '1 1 180px', minWidth: 180, position: 'relative' }}
+            >
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Vendedor origen
+              </label>
+              <div style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  onClick={() => setOpenFilterColumn((prev) => (prev === 'vendedor_origen' ? '' : 'vendedor_origen'))}
+                  style={{
+                    width: '100%',
+                    padding: '8px 32px 8px 12px',
+                    borderRadius: 8,
+                    border: '0.5px solid rgba(15,23,42,0.16)',
+                    background: '#fff',
+                    fontSize: 13,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    color: columnFiltersDraft.vendedor_origen?.length ? '#0F766E' : 'var(--color-text-secondary)',
+                    fontWeight: columnFiltersDraft.vendedor_origen?.length ? 600 : 400,
+                    position: 'relative'
+                  }}
+                >
+                  {columnFiltersDraft.vendedor_origen?.length
+                    ? `${columnFiltersDraft.vendedor_origen.length} seleccionado${columnFiltersDraft.vendedor_origen.length > 1 ? 's' : ''}`
+                    : 'Todos los vendedores'}
+                  <ChevronDown size={14} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-secondary)' }} />
+                </button>
+
+                {openFilterColumn === 'vendedor_origen' && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 4px)',
+                    left: 0,
+                    zIndex: 100,
+                    background: '#fff',
+                    border: '0.5px solid rgba(15,23,42,0.16)',
+                    borderRadius: 10,
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
+                    minWidth: 220,
+                    maxHeight: 260,
+                    overflowY: 'auto',
+                    padding: '6px 0'
+                  }}>
+                    <label style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '8px 14px', cursor: 'pointer', fontSize: 13,
+                      borderBottom: '0.5px solid rgba(15,23,42,0.16)',
+                      fontWeight: 600
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={!columnFiltersDraft.vendedor_origen?.length}
+                        onChange={() => setColumnFiltersDraft((prev) => ({ ...prev, vendedor_origen: [] }))}
+                      />
+                      Todos los vendedores
+                    </label>
+                    {(filterOptions.vendedoresOrigen || []).map((v) => {
+                      const val = typeof v === 'string' ? v : (v.value ?? v);
+                      const lbl = typeof v === 'string' ? v : (v.label ?? val);
+                      const checked = (columnFiltersDraft.vendedor_origen || []).includes(val);
+                      return (
+                        <label key={val} style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          padding: '8px 14px', cursor: 'pointer', fontSize: 13,
+                          background: checked ? 'rgba(15,118,110,0.06)' : 'transparent'
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              setColumnFiltersDraft((prev) => {
+                                const current = prev.vendedor_origen || [];
+                                return {
+                                  ...prev,
+                                  vendedor_origen: checked
+                                    ? current.filter((v2) => v2 !== val)
                                     : [...current, val]
                                 };
                               });
