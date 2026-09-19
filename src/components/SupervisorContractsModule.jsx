@@ -3008,7 +3008,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
           )}
 
           {vistaActual === 'resultados' && (
-            <RecuperoResultadosView Panel={Panel} />
+            <RecuperoResultadosView Panel={Panel} api={api} active={vistaActual === 'resultados'} />
           )}
 
           {vistaActual === 'recupero' && (
