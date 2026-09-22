@@ -250,6 +250,47 @@ const NAV_GROUP_DEFINITIONS = [
   }
 ];
 const SU_EMERGENCIA_ORG_ID = 'ec63de4e-8ac3-4054-a4c7-8ceae5c76ddd';
+const GLOBAL_ASSIST_ORG_ID = 'b1ea7e1c-2c6e-48e3-ae13-e6f25d5edab8';
+
+// Botón de WhatsApp junto a "Celular" en el drawer de contacto — exclusivo
+// de Global Assist (ver isGlobalAssistActiveOrg). Texto en una constante
+// aparte a propósito: van a querer ajustar la redacción o la franja
+// horaria más adelante sin tocar el resto del componente. {{nombre}} es el
+// único placeholder — se reemplaza por el nombre del contacto del drawer.
+const WHATSAPP_CONTACT_MESSAGE_TEMPLATE = `¡Hola {{nombre}}! 👋🏻 Nos comunicamos desde El club del adulto mayor.
+
+Estamos intentando comunicarnos vía telefónica para brindarte mayor información acerca de los beneficios
+
+¿En qué horario, entre las 09:00 y las 18:00 horas, te queda bien que te llamemos?
+
+¡Quedamos atentos a tu respuesta! 😃`;
+
+// "094867464" -> "59894867464": limpia todo lo que no sea dígito, saca un
+// 0 inicial (formato local uruguayo) y antepone el código de país 598 —
+// salvo que el número ya lo tenga (idempotente ante números ya guardados
+// en formato internacional).
+function formatUruguayWhatsAppNumber(rawPhone) {
+  let digits = String(rawPhone || '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('598')) return digits;
+  digits = digits.replace(/^0+/, '');
+  return `598${digits}`;
+}
+
+function buildWhatsAppContactUrl(rawPhone, nombreContacto) {
+  const numero = formatUruguayWhatsAppNumber(rawPhone);
+  if (!numero) return '';
+  const mensaje = WHATSAPP_CONTACT_MESSAGE_TEMPLATE.replace('{{nombre}}', nombreContacto || '');
+  return `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
+}
+
+function WhatsAppIcon({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12.02 2C6.5 2 2 6.48 2 12c0 1.85.5 3.58 1.36 5.07L2 22l5.06-1.33A9.94 9.94 0 0 0 12.02 22C17.5 22 22 17.52 22 12S17.5 2 12.02 2Zm0 18.06c-1.63 0-3.15-.46-4.44-1.27l-.32-.19-3 .79.8-2.93-.2-.3A8.06 8.06 0 0 1 3.94 12c0-4.44 3.62-8.06 8.08-8.06 4.46 0 8.08 3.62 8.08 8.06 0 4.44-3.62 8.06-8.08 8.06Zm4.42-5.98c-.24-.12-1.43-.7-1.65-.78-.22-.08-.38-.12-.55.12-.16.24-.63.78-.77.94-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2-.72-.64-1.2-1.44-1.34-1.68-.14-.24-.02-.37.11-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.55-1.32-.75-1.8-.2-.48-.4-.42-.55-.42-.14 0-.3-.02-.46-.02-.16 0-.42.06-.64.3-.22.24-.85.83-.85 2.02 0 1.19.87 2.34.99 2.5.12.16 1.71 2.6 4.14 3.65.58.25 1.03.4 1.38.51.58.18 1.1.16 1.52.1.46-.07 1.43-.58 1.63-1.15.2-.57.2-1.05.14-1.15-.06-.1-.22-.16-.46-.28Z" />
+    </svg>
+  );
+}
 
 const RRHH_BASE_DATE = new Date('2026-08-30T00:00:00');
 const RRHH_AVATAR_BACKGROUNDS = ['#0f766e', '#2563eb', '#d97706', '#be123c', '#7c3aed', '#0891b2'];
@@ -3961,7 +4002,7 @@ const formatCurrency = (value) => {
       last: formatLastGestion(raw.ultima_gestion_real)
     });
 
-    function SalesContactsView({ contacts, selectedId, onSelect, onRegister, salesRecords, products, onAssignFamilySale, onUpdateContact, onVentaCerrada, onOpenNewClient, mode = 'contactos', vendedorNewClientOpen = false, origenDatoOptions = [] }) {
+    function SalesContactsView({ contacts, selectedId, onSelect, onRegister, salesRecords, products, onAssignFamilySale, onUpdateContact, onVentaCerrada, onOpenNewClient, mode = 'contactos', vendedorNewClientOpen = false, origenDatoOptions = [], isGlobalAssist = false }) {
       const api = getApiClient();
       const origenDatoResolvedOptions = normalizeOrigenOptions(origenDatoOptions);
       const isRecupero = mode === 'recupero';
@@ -5966,27 +6007,54 @@ const formatCurrency = (value) => {
                                 <p style={{ fontSize: 11, color: '#888', margin: 0 }}>Celular</p>
                                 <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>{dc.celular || pickCellular(dc)}</p>
                               </div>
-                              <a
-                                href={`tel:${(dc.celular || pickCellular(dc)).replace(/\s/g, '')}`}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 8,
-                                  background: 'linear-gradient(135deg, #0F6E56 0%, #1A5C4A 100%)',
-                                  color: '#FFF',
-                                  borderRadius: 999,
-                                  padding: '10px 16px',
-                                  fontSize: 13,
-                                  fontWeight: 700,
-                                  textDecoration: 'none',
-                                  boxShadow: '0 10px 24px rgba(15, 118, 110, 0.22)',
-                                  border: '1px solid rgba(15, 118, 110, 0.35)'
-                                }}
-                                aria-label="Llamar celular"
-                              >
-                                <Phone size={16} />
-                                Llamar
-                              </a>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <a
+                                  href={`tel:${(dc.celular || pickCellular(dc)).replace(/\s/g, '')}`}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    background: 'linear-gradient(135deg, #0F6E56 0%, #1A5C4A 100%)',
+                                    color: '#FFF',
+                                    borderRadius: 999,
+                                    padding: '10px 16px',
+                                    fontSize: 13,
+                                    fontWeight: 700,
+                                    textDecoration: 'none',
+                                    boxShadow: '0 10px 24px rgba(15, 118, 110, 0.22)',
+                                    border: '1px solid rgba(15, 118, 110, 0.35)'
+                                  }}
+                                  aria-label="Llamar celular"
+                                >
+                                  <Phone size={16} />
+                                  Llamar
+                                </a>
+                                {isGlobalAssist && (
+                                  <a
+                                    href={buildWhatsAppContactUrl(dc.celular || pickCellular(dc), drawerNombre)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 8,
+                                      background: 'linear-gradient(135deg, #0F6E56 0%, #1A5C4A 100%)',
+                                      color: '#FFF',
+                                      borderRadius: 999,
+                                      padding: '10px 16px',
+                                      fontSize: 13,
+                                      fontWeight: 700,
+                                      textDecoration: 'none',
+                                      boxShadow: '0 10px 24px rgba(15, 118, 110, 0.22)',
+                                      border: '1px solid rgba(15, 118, 110, 0.35)'
+                                    }}
+                                    aria-label="Enviar WhatsApp"
+                                  >
+                                    <WhatsAppIcon size={16} />
+                                    WhatsApp
+                                  </a>
+                                )}
+                              </div>
                             </div>
                           ) : (
                             <div>
@@ -18979,6 +19047,14 @@ const formatCurrency = (value) => {
         const activeOrgName = String(activeOrg?.nombre || activeOrg?.name || '').trim().toLowerCase();
         return activeOrgId === SU_EMERGENCIA_ORG_ID || activeOrgName === 'su emergencia';
       }, [activeOrg?.id, activeOrg?.organization_id, activeOrg?.nombre, activeOrg?.name]);
+      // Misma fuente de verdad que isSuEmergenciaActiveOrg (activeOrg, la
+      // misma que decide el logo del sidebar) — botón de WhatsApp en el
+      // drawer de contacto exclusivo de Global Assist.
+      const isGlobalAssistActiveOrg = React.useMemo(() => {
+        const activeOrgId = String(activeOrg?.id || activeOrg?.organization_id || '').trim().toLowerCase();
+        const activeOrgName = String(activeOrg?.nombre || activeOrg?.name || '').trim().toLowerCase();
+        return activeOrgId === GLOBAL_ASSIST_ORG_ID || activeOrgName === 'global assist';
+      }, [activeOrg?.id, activeOrg?.organization_id, activeOrg?.nombre, activeOrg?.name]);
       const canLoadProducts = ['superadministrador', 'supervisor', 'vendedor', 'atencion_cliente'].includes(role);
       const canLoadCommercialData = ['superadministrador', 'supervisor', 'vendedor'].includes(role);
       const resolveLogoUrl = React.useCallback((value) => {
@@ -19873,6 +19949,7 @@ const formatCurrency = (value) => {
                 onVentaCerrada={(contactData, gestion_id = null) => handleOpenVendedorNewClient(contactData, gestion_id)}
                 onOpenNewClient={(prefill, gestion_id, cb, mode) => handleOpenVendedorNewClient(prefill, gestion_id, cb, mode)}
                 vendedorNewClientOpen={vendedorNewClientOpen}
+                isGlobalAssist={isGlobalAssistActiveOrg}
               />
             );
           }
@@ -19894,6 +19971,7 @@ const formatCurrency = (value) => {
                 onOpenNewClient={handleOpenVendedorNewClient}
                 vendedorNewClientOpen={vendedorNewClientOpen}
                 origenDatoOptions={origenDatoOptions}
+                isGlobalAssist={isGlobalAssistActiveOrg}
               />
             );
           }
