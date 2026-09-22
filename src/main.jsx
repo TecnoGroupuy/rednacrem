@@ -18926,7 +18926,7 @@ const formatCurrency = (value) => {
     function App() {
       const today = new Date().toLocaleDateString('es-UY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
       const oidcAuth = useOidcAuth();
-      const { user, logout, refreshSession } = useAuth();
+      const { user, logout, refreshSession, loginSyncedAt } = useAuth();
       const authUser = user;
       const { rolReal, rolEfectivo, esSuperadmin } = useRolEfectivo();
       const role = rolEfectivo;
@@ -19482,7 +19482,14 @@ const formatCurrency = (value) => {
       React.useEffect(() => {
         if (!authUser?.id) return;
         fetchEstadoActual();
-      }, [authUser?.id, fetchEstadoActual]);
+        // loginSyncedAt cambia cuando el POST /api/agent/event (tipo LOGIN)
+        // termina de resetear el estado del agente a TRABAJO en el backend.
+        // El primer fetchEstadoActual de esta misma sesión pudo haberle
+        // ganado la carrera a ese POST y haber mostrado "Inactivo" por una
+        // sesión anterior sin cerrar — este segundo disparo resincroniza la
+        // UI con el estado ya corregido, mismo patrón que ya usa
+        // volverAlTrabajo() tras POST /api/agente/volver-al-trabajo.
+      }, [authUser?.id, fetchEstadoActual, loginSyncedAt]);
 
       React.useEffect(() => {
         const events = ['mousemove', 'keydown', 'click', 'focus'];

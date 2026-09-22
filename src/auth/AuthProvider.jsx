@@ -100,6 +100,13 @@ const buildDevSessionFallback = ({ sessionData, claims, fallbackRole }) => {
 export function AuthProvider({ children, fallbackRole = null }) {
   const [authSession, setAuthSession] = React.useState(DEFAULT_AUTH_SESSION);
   const [vistaRol, setVistaRolState] = React.useState(null);
+  // Se actualiza cuando el POST /api/agent/event (tipo LOGIN) termina de
+  // resetear el estado del agente a TRABAJO en el backend. main.jsx usa este
+  // valor como dependencia extra para volver a pedir /api/agente/estado-actual
+  // — sin esto, si el primer fetch (disparado en paralelo, apenas se conoce
+  // authUser.id) le ganaba la carrera al LOGIN y mostraba "Inactivo" por una
+  // sesión anterior sin cerrar, nada volvía a sincronizar la UI después.
+  const [loginSyncedAt, setLoginSyncedAt] = React.useState(0);
 
   const clearSession = React.useCallback(() => {
     setApiAccessTokenGetter(async () => null);
@@ -202,7 +209,9 @@ export function AuthProvider({ children, fallbackRole = null }) {
       const api = getApiClient();
       const agenteId = nextUser?.id || sessionData?.id || '';
       if (agenteId) {
-        api.post('/api/agent/event', { agente_id: agenteId, tipo: 'LOGIN' }).catch(() => {});
+        api.post('/api/agent/event', { agente_id: agenteId, tipo: 'LOGIN' })
+          .then(() => setLoginSyncedAt(Date.now()))
+          .catch(() => {});
       }
       setAuthSession(nextSession);
       return nextSession;
@@ -311,7 +320,8 @@ export function AuthProvider({ children, fallbackRole = null }) {
     authError: authSession.error,
     isAuthenticated: authSession.isAuthenticated,
     status: authSession.status,
-    permissions: authSession.permissions
+    permissions: authSession.permissions,
+    loginSyncedAt
   }), [
     authSession,
     user,
@@ -325,7 +335,8 @@ export function AuthProvider({ children, fallbackRole = null }) {
     restaurarVistaRol,
     rolReal,
     rolEfectivo,
-    esModoVista
+    esModoVista,
+    loginSyncedAt
   ]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
