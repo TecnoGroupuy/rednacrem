@@ -257,13 +257,16 @@ const GLOBAL_ASSIST_ORG_ID = 'b1ea7e1c-2c6e-48e3-ae13-e6f25d5edab8';
 // aparte a propósito: van a querer ajustar la redacción o la franja
 // horaria más adelante sin tocar el resto del componente. {{nombre}} es el
 // único placeholder — se reemplaza por el nombre del contacto del drawer.
-const WHATSAPP_CONTACT_MESSAGE_TEMPLATE = `¡Hola {{nombre}}! 👋🏻 Nos comunicamos desde El club del adulto mayor.
+// Sin emojis a propósito: se confirmó contra la página real de WhatsApp
+// (api.whatsapp.com/send/) que CUALQUIER emoji en el parámetro `text` se
+// corrompe (aparece como � en el preview), no es un artefacto de pruebas.
+const WHATSAPP_CONTACT_MESSAGE_TEMPLATE = `¡Hola {{nombre}}! Nos comunicamos desde El club del adulto mayor.
 
 Estamos intentando comunicarnos vía telefónica para brindarte mayor información acerca de los beneficios
 
 ¿En qué horario, entre las 09:00 y las 18:00 horas, te queda bien que te llamemos?
 
-¡Quedamos atentos a tu respuesta! 😃`;
+¡Quedamos atentos a tu respuesta!`;
 
 // "094867464" -> "59894867464": limpia todo lo que no sea dígito, saca un
 // 0 inicial (formato local uruguayo) y antepone el código de país 598 —
