@@ -19722,14 +19722,31 @@ const formatCurrency = (value) => {
         isModuleVisible
       });
       const orgScopedNavItems = React.useMemo(() => {
-        if (!isSuEmergenciaActiveOrg || effectiveRoleForUi === 'superadministrador') return navItems;
+        // Este recorte por organización existe para no mostrarle a
+        // director/operaciones (roles con módulos comerciales de Rednacrem
+        // en su ROLE_NAV: contactos, clientes, pagos, servicios, etc.) nada
+        // que no sea el grupo "Operaciones" cuando están parados en SU
+        // Emergencia. atencion_cliente nunca tuvo acceso a esos módulos
+        // comerciales para empezar — su único territorio en ROLE_NAV es
+        // soporte (el ticket de "solicitud de servicio" ya es explícitamente
+        // funerario/de emergencia, no genérico de Rednacrem) y recupero
+        // (acceso concedido en ROLE_NAV desde antes de que existiera este
+        // filtro). Sin esta excepción, navItems ya viene perfectamente
+        // acotado a esos dos paths por getVisibleNavItemsForRole, y este
+        // filtro los volvía a recortar contra un allowlist que nunca los
+        // incluía — vaciando el sidebar entero para el rol.
+        if (
+          !isSuEmergenciaActiveOrg
+          || effectiveRoleForUi === 'superadministrador'
+          || effectiveRoleForUi === 'atencion_cliente'
+        ) return navItems;
         const allowedPaths = new Set(
           NAV_GROUP_DEFINITIONS
             .filter((group) => group.key === 'operaciones')
             .flatMap((group) => group.childPaths)
         );
         return navItems.filter((item) => allowedPaths.has(item.path));
-      }, [isSuEmergenciaActiveOrg, navItems]);
+      }, [isSuEmergenciaActiveOrg, effectiveRoleForUi, navItems]);
       const showOperationsModule = React.useMemo(() => {
         return !isSuEmergenciaActiveOrg || orgScopedNavItems.length > 0;
       }, [isSuEmergenciaActiveOrg, orgScopedNavItems.length]);
@@ -19783,9 +19800,7 @@ const formatCurrency = (value) => {
           ? 'sa_logs_actividad'
           : orgScopedNavItems.some((item) => item.path === 'reportes')
             ? 'reportes'
-            : isSuEmergenciaActiveOrg
-              ? 'operaciones/monitor'
-              : 'dashboard';
+            : orgScopedNavItems[0]?.path || 'dashboard';
         const normalized = typeof requestedRoute === 'string'
           ? { route: requestedRoute }
           : (requestedRoute || {});
@@ -19801,8 +19816,17 @@ const formatCurrency = (value) => {
       React.useEffect(() => {
         if (!orgScopedNavItems.length) return;
         if (orgScopedNavItems.some((item) => item.path === route)) return;
-        setRoute(isSuEmergenciaActiveOrg ? 'operaciones/monitor' : orgScopedNavItems[0]?.path || 'dashboard');
-      }, [isSuEmergenciaActiveOrg, orgScopedNavItems, route]);
+        // 'operaciones/monitor' hardcodeado acá asumía que toda sesión en SU
+        // Emergencia es director/operaciones (para quienes ese path es
+        // orgScopedNavItems[0] de todas formas). Con atencion_cliente ya
+        // visible en orgScopedNavItems (ver el fix de arriba), este efecto
+        // se ejecutaba antes solo para roles con nav no vacío en SU
+        // Emergencia — mientras orgScopedNavItems estaba vacío para
+        // atencion_cliente, el guard de arriba lo salteaba entero. Ahora que
+        // no está vacío, hay que usar el primer path real de ESTE rol, no
+        // uno fijo pensado para otro.
+        setRoute(orgScopedNavItems[0]?.path || 'dashboard');
+      }, [orgScopedNavItems, route]);
 
       React.useEffect(() => {
         if (!authUser?.id) return;
