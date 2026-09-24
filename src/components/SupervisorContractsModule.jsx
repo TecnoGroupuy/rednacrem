@@ -1044,14 +1044,20 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
     const segmentoEfectivo = segmentoOverride || segmentoRecupero;
     const manualDesde = columnFiltersApplied.fecha_baja_desde || '';
     const manualHasta = columnFiltersApplied.fecha_baja_hasta || '';
-    // Segmentación Prioritario (bajas <= 3 meses) / Resto de la cartera: se combina
-    // con el filtro manual de fecha_baja tomando el corte más restrictivo de cada lado.
-    const fechaBajaDesde = vistaActual === 'recupero' && segmentoEfectivo === 'prioritario'
-      ? [manualDesde, prioritarioCutoffDate].filter(Boolean).sort().pop()
-      : manualDesde;
-    const fechaBajaHasta = vistaActual === 'recupero' && segmentoEfectivo === 'resto'
-      ? [manualHasta, restoCutoffDate].filter(Boolean).sort()[0]
-      : manualHasta;
+    // Segmentación Prioritario (venta <= 3 meses) / Resto de la cartera: usa
+    // fecha_venta (la fecha de la venta original, no la de la baja) — un
+    // contacto es "Prioritario" si SU VENTA fue hace 0 a 3 meses, sin
+    // importar cuándo se dio de baja. Es un filtro totalmente aparte del
+    // filtro manual de columna "Fecha de baja" (manualDesde/manualHasta) —
+    // antes se combinaban en el mismo campo fecha_baja, lo cual clasificaba
+    // mal cualquier contacto cuya venta y baja cayeran en ventanas
+    // distintas.
+    const fechaVentaDesde = vistaActual === 'recupero' && segmentoEfectivo === 'prioritario'
+      ? prioritarioCutoffDate
+      : '';
+    const fechaVentaHasta = vistaActual === 'recupero' && segmentoEfectivo === 'resto'
+      ? restoCutoffDate
+      : '';
     const payload = {
       contacto: columnFiltersApplied.contacto?.trim() || '',
       documento: columnFiltersApplied.documento?.trim() || '',
@@ -1060,8 +1066,10 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
       edad_max: toNumberOrNull(columnFiltersApplied.edad_max),
       precio_min: toNumberOrNull(columnFiltersApplied.precio_min),
       precio_max: toNumberOrNull(columnFiltersApplied.precio_max),
-      fecha_baja_desde: fechaBajaDesde || '',
-      fecha_baja_hasta: fechaBajaHasta || '',
+      fecha_baja_desde: manualDesde || '',
+      fecha_baja_hasta: manualHasta || '',
+      fecha_venta_desde: fechaVentaDesde || '',
+      fecha_venta_hasta: fechaVentaHasta || '',
       motivo_baja: Array.isArray(columnFiltersApplied.motivo_baja) ? columnFiltersApplied.motivo_baja : [],
       ultimo_estado: Array.isArray(columnFiltersApplied.ultimo_estado) ? columnFiltersApplied.ultimo_estado : [],
       producto: Array.isArray(columnFiltersApplied.producto) ? columnFiltersApplied.producto : [],
