@@ -3785,10 +3785,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
                                     <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{row.departamento || row.depto || '—'}</div>
                                   </div>
                                   <div>
-                                    <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Último pago</div>
-                                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{row.ultimo_pago || row.ultimoPago || '—'}</div>
-                                  </div>
-                                  <div>
                                     <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Forma de pago</div>
                                     <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{row.forma_pago || row.medio_pago || row.medioPago || '—'}</div>
                                   </div>
