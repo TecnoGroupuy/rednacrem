@@ -57,7 +57,10 @@ import {
   addTicketNote,
   getTicketById,
   deriveTicketToOperations,
-  closeTicketCase
+  closeTicketCase,
+  listUnassignedRetentionTicketsAsync,
+  listMyRetentionTicketsAsync,
+  assignRetentionTicket
 } from './services/ticketsService.js';
 import { listTicketsByClientId } from './services/ticketClientService.js';
 import { listOperationsRows } from './services/operationsService.js';
@@ -212,6 +215,7 @@ const ROLE_NAV = [
       { path: 'contactos', label: 'Contacto', caption: 'Base comercial', roles: ['director', 'vendedor'], icon: Users },
       { path: 'soporte', label: 'Atención al cliente', caption: 'Tickets y llamadas', roles: ['atencion_cliente'], icon: Headphones, badge: 12 },
       { path: 'recupero', label: 'Recupero', caption: 'Cartera en baja', roles: ['vendedor', 'atencion_cliente'], icon: FileText },
+      { path: 'retencion', label: 'Retención', caption: 'Contratos en riesgo de baja', roles: ['supervisor', 'vendedor'], icon: Shield },
       { path: 'clientes', label: 'Clientes', caption: 'Cartera activa', roles: ['superadministrador', 'director', 'operaciones', 'supervisor'], icon: UserCheck },
       { path: 'campanas_redes', label: 'Datos calientes', caption: 'Datos en tiempo real', roles: ['superadministrador', 'director', 'supervisor'], icon: Flame },
       { path: 'contratos', label: 'Recupero', caption: 'Cartera de clientes', roles: ['director', 'supervisor', 'operaciones'], icon: FileText },
@@ -13933,7 +13937,7 @@ const formatCurrency = (value) => {
       );
     }
 
-    function SupportTicketsView({ title, subtitle, tickets, onSelect, selectedId, mode = 'general' }) {
+    function SupportTicketsView({ title, subtitle, tickets, onSelect, selectedId, mode = 'general', onAssign }) {
       const [ticketSearch, setTicketSearch] = React.useState('');
       const [filter, setFilter] = React.useState('todos');
       const [page, setPage] = React.useState(1);
@@ -13941,6 +13945,7 @@ const formatCurrency = (value) => {
 
       const filteredByMode = React.useMemo(() => tickets.filter((ticket) => {
         if (mode === 'service') return ticket.tipoRaw === 'solicitud_servicio';
+        if (mode === 'retencion') return ticket.tipoRaw === 'solicitud_baja';
         return ticket.tipoRaw !== 'solicitud_servicio';
       }), [tickets, mode]);
 
@@ -13993,7 +13998,7 @@ const formatCurrency = (value) => {
 
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>ID</th><th>Cliente</th><th>Telefono</th><th>Tipo de solicitud</th><th>Estado</th><th>Hora</th></tr></thead>
+                  <thead><tr><th>ID</th><th>Cliente</th><th>Telefono</th><th>Tipo de solicitud</th><th>Estado</th><th>Hora</th>{onAssign ? <th>Acción</th> : null}</tr></thead>
                   <tbody>
                     {visibleTickets.map((ticket) => (
                       <tr key={ticket.id} className="support-row" onClick={() => onSelect(ticket.id)} style={{ cursor: 'pointer', background: selectedId === ticket.id ? 'rgba(15,118,110,0.08)' : 'transparent' }}>
@@ -14003,6 +14008,13 @@ const formatCurrency = (value) => {
                         <td><span style={{ display: 'inline-block', padding: '4px 8px', borderRadius: 999, fontSize: '0.78rem', fontWeight: 700, background: 'rgba(20,34,53,0.06)', color: '#334155' }}>{supportRequestTypeLabel(ticket)}</span></td>
                         <td><SupportStatusBadge status={supportTicketDisplayStatus(ticket)} pulse={supportTicketDisplayStatus(ticket) === 'nuevo' || supportTicketDisplayStatus(ticket) === 'servicio_iniciado'} small /></td>
                         <td>{formatDateTimeShort(ticket.hora) || ticket.hora}</td>
+                        {onAssign ? (
+                          <td>
+                            <Button variant="secondary" onClick={(event) => { event.stopPropagation(); onAssign(ticket); }}>
+                              Asignar
+                            </Button>
+                          </td>
+                        ) : null}
                       </tr>
                     ))}
                   </tbody>
@@ -14674,6 +14686,232 @@ const formatCurrency = (value) => {
               selectedId={selectedId}
             />
           ) : null}
+        </div>
+      );
+    }
+
+    // Módulo nuevo y separado de "Recupero" a propósito (ver ROLE_NAV) — en
+    // Retención el contrato sigue de alta y el objetivo es evitar que llegue
+    // a estarlo; en Recupero ya está de baja. Mezclarlos en una pestaña
+    // rompería el modelo mental de ambos.
+    //
+    // Reutiliza SupportDetail (detalle + cierre retenido/baja_confirmada) y
+    // SupportTicketsView (extendido con mode="retencion" + onAssign) tal
+    // cual existen para Atención al cliente — la lógica de cierre es
+    // exactamente la misma, solo cambia de dónde sale la lista de tickets.
+    function RetencionAssignModal({ ticket, sellers, onClose, onConfirm, loading, error }) {
+      const [selectedSeller, setSelectedSeller] = React.useState('');
+      React.useEffect(() => {
+        setSelectedSeller(ticket?.assignedTo || '');
+      }, [ticket]);
+      if (!ticket) return null;
+      return (
+        <div className="lot-wizard-overlay" onClick={onClose}>
+          <div className="lot-wizard" onClick={(event) => event.stopPropagation()} style={{ maxWidth: 420 }}>
+            <div className="lot-wizard-header">
+              <div style={{ fontWeight: 700 }}>Asignar ticket de retención</div>
+              <button className="close-btn" onClick={onClose}><X size={16} /></button>
+            </div>
+            <div className="lot-wizard-content">
+              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 12 }}>
+                Cliente: <strong>{ticket.cliente || '-'}</strong>
+              </div>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Vendedor</span>
+                <select className="input" value={selectedSeller} onChange={(event) => setSelectedSeller(event.target.value)}>
+                  <option value="">Seleccionar...</option>
+                  {sellers.map((seller) => (
+                    <option key={seller.id} value={seller.id}>{seller.label}</option>
+                  ))}
+                </select>
+              </label>
+              {error ? (
+                <div style={{ marginTop: 12, fontSize: 12, color: '#b91c1c', fontWeight: 700 }}>{error}</div>
+              ) : null}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '0 24px 24px' }}>
+              <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+              <Button onClick={() => onConfirm(selectedSeller)} disabled={loading || !selectedSeller}>
+                {loading ? 'Asignando...' : 'Asignar'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function RetencionModule() {
+      const { user: authUser } = useAuth();
+      const { rolEfectivo } = useRolEfectivo();
+      const isSupervisor = rolEfectivo === 'supervisor';
+
+      const [tickets, setTickets] = React.useState([]);
+      const [selectedId, setSelectedId] = React.useState(null);
+      const [view, setView] = React.useState('listado');
+      const [loading, setLoading] = React.useState(true);
+      const [error, setError] = React.useState('');
+      const [sellers, setSellers] = React.useState([]);
+      const [assignTarget, setAssignTarget] = React.useState(null);
+      const [assignLoading, setAssignLoading] = React.useState(false);
+      const [assignError, setAssignError] = React.useState('');
+
+      const loadTickets = React.useCallback(() => {
+        setLoading(true);
+        setError('');
+        const loader = isSupervisor
+          ? listUnassignedRetentionTicketsAsync()
+          : listMyRetentionTicketsAsync(authUser?.id);
+        loader
+          .then((data) => {
+            setTickets(data);
+            setSelectedId((prev) => (prev && data.some((ticket) => ticket.id === prev) ? prev : (data[0]?.id || null)));
+          })
+          .catch((err) => {
+            if (err?.status === 401 || err?.status === 403) {
+              setError('No tenés permisos para acceder a Retención o la sesión expiró.');
+              return;
+            }
+            setError('No se pudieron cargar los tickets de retención.');
+          })
+          .finally(() => setLoading(false));
+      }, [isSupervisor, authUser?.id]);
+
+      React.useEffect(() => {
+        loadTickets();
+      }, [loadTickets]);
+
+      React.useEffect(() => {
+        if (!isSupervisor) return;
+        const api = getApiClient();
+        api.get('/api/supervisor/agents')
+          .then((response) => {
+            const list = response?.agents || response?.items || response?.data?.agents || response?.data?.items || response?.data || [];
+            const normalized = (Array.isArray(list) ? list : []).map((seller) => ({
+              id: String(seller?.id || ''),
+              label: `${seller?.nombre || seller?.name || ''} ${seller?.apellido || seller?.last_name || ''}`.trim() || seller?.email || ''
+            }));
+            setSellers(normalized);
+          })
+          .catch(() => setSellers([]));
+      }, [isSupervisor]);
+
+      const selectedTicket = React.useMemo(() => tickets.find((ticket) => ticket.id === selectedId) || null, [tickets, selectedId]);
+
+      const openTicket = (id) => {
+        setSelectedId(id);
+        setView('detalle');
+        getTicketById(id)
+          .then((fresh) => {
+            setTickets((prev) => prev.map((ticket) => ticket.id === fresh.id ? fresh : ticket));
+          })
+          .catch(() => {});
+      };
+
+      const backToInbox = () => {
+        setView('listado');
+        loadTickets();
+      };
+
+      const updateStatus = async (status) => {
+        if (!selectedTicket) return;
+        const updated = await updateTicketStatus(selectedTicket.id, status);
+        setTickets((prev) => prev.map((ticket) => ticket.id === updated.id ? updated : ticket));
+      };
+
+      const appendNote = async (text) => {
+        if (!selectedTicket) return;
+        const updated = await addTicketNote(selectedTicket.id, text, { authorName: authUser?.nombre || authUser?.name || 'Vendedor' });
+        setTickets((prev) => prev.map((ticket) => ticket.id === updated.id ? updated : ticket));
+      };
+
+      const closeTicket = async ({ outcome = '', note = '' } = {}) => {
+        if (!selectedTicket) return;
+        const updated = await closeTicketCase(selectedTicket.id, { outcome, note, actorName: authUser?.nombre || authUser?.name || 'Vendedor' });
+        setTickets((prev) => prev.map((ticket) => ticket.id === updated.id ? updated : ticket));
+        // El ticket recién cerrado desaparece de "sin asignar"/"asignado a
+        // mí" en el próximo refresco de la cola, no hace falta sacarlo a
+        // mano de la lista local — backToInbox ya vuelve a pedir la lista.
+        return updated;
+      };
+
+      const openAssignModal = (ticket) => {
+        setAssignError('');
+        setAssignTarget(ticket);
+      };
+
+      const confirmAssign = async (sellerId) => {
+        if (!assignTarget) return;
+        setAssignLoading(true);
+        setAssignError('');
+        try {
+          await assignRetentionTicket(assignTarget.id, sellerId);
+          setAssignTarget(null);
+          loadTickets();
+        } catch (err) {
+          setAssignError(err?.message || 'No se pudo asignar el ticket.');
+        } finally {
+          setAssignLoading(false);
+        }
+      };
+
+      if (loading) {
+        return (
+          <div className="view">
+            <section className="content-grid">
+              <Panel className="span-12" title="Retención" subtitle="Cargando tickets...">
+                <div style={{ color: 'var(--muted)' }}>Obteniendo solicitudes de baja.</div>
+              </Panel>
+            </section>
+          </div>
+        );
+      }
+
+      if (view === 'detalle' && selectedTicket) {
+        return (
+          <SupportDetail
+            ticket={selectedTicket}
+            tickets={tickets}
+            onBack={backToInbox}
+            onStatusChange={updateStatus}
+            onAddNote={appendNote}
+            onOpenTicket={openTicket}
+            onDerive={() => {}}
+            onCloseTicket={closeTicket}
+          />
+        );
+      }
+
+      return (
+        <div className="view">
+          {error ? (
+            <section className="content-grid">
+              <Panel className="span-12">
+                <div className="toolbar">
+                  <span style={{ color: '#be123c', fontWeight: 700 }}>{error}</span>
+                  <Button variant="secondary" onClick={loadTickets}>Reintentar</Button>
+                </div>
+              </Panel>
+            </section>
+          ) : null}
+          <SupportTicketsView
+            mode="retencion"
+            title={isSupervisor ? 'Retención — sin asignar' : 'Retención — mis tickets'}
+            subtitle={isSupervisor
+              ? 'Solicitudes de baja pendientes de asignar a un vendedor'
+              : 'Solicitudes de baja que te asignó tu supervisor'}
+            tickets={tickets}
+            onSelect={openTicket}
+            selectedId={selectedId}
+            onAssign={isSupervisor ? openAssignModal : undefined}
+          />
+          <RetencionAssignModal
+            ticket={assignTarget}
+            sellers={sellers}
+            onClose={() => setAssignTarget(null)}
+            onConfirm={confirmAssign}
+            loading={assignLoading}
+            error={assignError}
+          />
         </div>
       );
     }
@@ -20069,6 +20307,7 @@ const formatCurrency = (value) => {
           );
         }
       if (route === 'soporte' && role === 'atencion_cliente') return <CustomerSupportModule />;
+      if (route === 'retencion' && (role === 'supervisor' || role === 'vendedor')) return <RetencionModule />;
       if (route === 'operaciones/monitor') return <MonitorScreen />;
       if (route === 'operaciones/flotas') return <FlotasScreen Button={Button} Panel={Panel} Tag={Tag} />;
       if (route === 'operaciones/rrhh') return <RrhhScreen Button={Button} Panel={Panel} Tag={Tag} />;

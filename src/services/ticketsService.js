@@ -266,7 +266,8 @@ const mapBackendManualTicket = (item = {}) => {
     cierreHistory: Array.isArray(item.cierreHistory) ? item.cierreHistory : [],
     timeline: item.timeline || [],
     esSolicitudServicio: ticketType === 'solicitud_servicio',
-    serviceRequest: mapServiceRequest(item.serviceRequest || item.service_request)
+    serviceRequest: mapServiceRequest(item.serviceRequest || item.service_request),
+    assignedTo: item.assignedTo || item.assigned_to || null
   };
 };
 
@@ -326,6 +327,41 @@ export const listTicketsAsync = async () => {
     notas: Array.isArray(item.notas) ? item.notas : []
   }));
   return mapped;
+};
+
+// Módulo Retención — cola del supervisor: solicitud_baja sin asignar
+// todavía. En modo offline (sin API) no hay concepto de asignación, así
+// que devuelve todos los tickets de baja como si estuvieran sin asignar.
+export const listUnassignedRetentionTicketsAsync = async () => {
+  if (!hasApiConfigured()) {
+    await delay(160);
+    return listTickets().filter((ticket) => ticket.tipoRaw === 'solicitud_baja');
+  }
+  const response = await api.get('/manual-tickets?unassigned=true');
+  const items = Array.isArray(response)
+    ? response
+    : (Array.isArray(response?.items) ? response.items : (Array.isArray(response?.data) ? response.data : []));
+  return hydrateTicketsWithDirectory(items.map(mapBackendManualTicket));
+};
+
+// Módulo Retención — vista del vendedor: solo lo que el supervisor le
+// asignó a él específicamente.
+export const listMyRetentionTicketsAsync = async (sellerId) => {
+  if (!sellerId) return [];
+  if (!hasApiConfigured()) {
+    await delay(160);
+    return listTickets().filter((ticket) => ticket.tipoRaw === 'solicitud_baja' && ticket.assignedTo === sellerId);
+  }
+  const response = await api.get(`/manual-tickets?assignedTo=${encodeURIComponent(sellerId)}`);
+  const items = Array.isArray(response)
+    ? response
+    : (Array.isArray(response?.items) ? response.items : (Array.isArray(response?.data) ? response.data : []));
+  return hydrateTicketsWithDirectory(items.map(mapBackendManualTicket));
+};
+
+// Asignar (o reasignar) un ticket de retención a un vendedor específico.
+export const assignRetentionTicket = async (ticketId, sellerId) => {
+  return updateTicket(ticketId, { assignedTo: sellerId });
 };
 
 export const listTicketsByClientId = async (clientId) => {
@@ -468,7 +504,8 @@ export const updateTicket = async (id, patch) => {
       ...(patch.tipoSolicitud ? { tipoSolicitud: patch.tipoSolicitud } : {}),
       ...(patch.tipoSolicitudManual ? { tipoSolicitudManual: patch.tipoSolicitudManual } : {}),
       ...(patch.productoContratoId ? { productoContratoId: patch.productoContratoId } : {}),
-      ...(patch.serviceRequest ? { serviceRequest: patch.serviceRequest } : {})
+      ...(patch.serviceRequest ? { serviceRequest: patch.serviceRequest } : {}),
+      ...(patch.assignedTo ? { assignedTo: patch.assignedTo } : {})
     };
     const response = await api.put(`/manual-tickets/${id}`, payload);
     const item = response?.item || response;
