@@ -1285,9 +1285,9 @@ const formatCurrency = (value) => {
       );
     }
 
-    function Panel({ title, subtitle, action, children, className = '' }) {
+    function Panel({ title, subtitle, action, children, className = '', style }) {
       return (
-        <section className={'panel ' + className}>
+        <section className={'panel ' + className} style={style}>
           {(title || subtitle || action) && <div className="panel-header"><div>{title ? <h3 className="panel-title">{title}</h3> : null}{subtitle ? <p className="panel-subtitle">{subtitle}</p> : null}</div>{action}</div>}
           {children}
         </section>
@@ -13673,12 +13673,12 @@ const formatCurrency = (value) => {
       };
 
       return (
-        <div className="view">
-          <section className="content-grid">
-            <Panel className="span-12">
-              <div style={{ position: 'relative' }}>
+        <div className="view" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <section className="content-grid" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <Panel className="span-12" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column' }}>
                 {!showManualForm ? (
-                  <div style={{ marginBottom: 14, borderRadius: 16, padding: 12, background: 'rgba(20,34,53,0.04)', border: '1px solid rgba(20,34,53,0.08)' }}>
+                  <div style={{ marginBottom: 14, borderRadius: 16, padding: 12, background: 'rgba(20,34,53,0.04)', border: '1px solid rgba(20,34,53,0.08)', flex: 1, display: 'flex', flexDirection: 'column' }}>
                     <div style={{ color: 'var(--muted)', fontSize: 12, marginBottom: 8 }}>{'Ingresá documento, teléfono, celular o nombre para comenzar la búsqueda'}</div>
                     <div className="toolbar" style={{ alignItems: 'stretch' }}>
                       <div className="searchbox" style={{ maxWidth: 460 }}>
@@ -13746,7 +13746,7 @@ const formatCurrency = (value) => {
                               <Button
                                 variant="secondary"
                                 icon={<Plus size={15} />}
-                                onClick={(event) => { event.stopPropagation(); openManualForm(client); }}
+                                onClick={(event) => { event.stopPropagation(); openManualForm(client, 'solicitud_baja'); }}
                               >
                                 Gestión de baja
                               </Button>
@@ -13766,7 +13766,7 @@ const formatCurrency = (value) => {
                     ) : null}
 
                     {!clientSearch.trim() ? (
-                      <div style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--muted)' }}>
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '48px 16px', color: 'var(--muted)' }}>
                         <Search size={28} style={{ opacity: 0.4, marginBottom: 8 }} />
                         <div style={{ fontSize: 13 }}>{'Escribí para buscar un cliente'}</div>
                       </div>
@@ -13968,9 +13968,9 @@ const formatCurrency = (value) => {
       const derived = filteredByMode.filter((ticket) => supportTicketDisplayStatus(ticket) === 'derivado').length;
 
       return (
-        <div className="view">
-          <section className="content-grid">
-            <Panel className="span-12" title={title} subtitle={subtitle} action={<Tag variant="info">{filteredByMode.length} registros</Tag>}>
+        <div className="view" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <section className="content-grid" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <Panel className="span-12" style={{ flex: 1, display: 'flex', flexDirection: 'column' }} title={title} subtitle={subtitle} action={<Tag variant="info">{filteredByMode.length} registros</Tag>}>
               <div className="toolbar" style={{ marginBottom: 12 }}>
                 <div className="searchbox" style={{ maxWidth: 420 }}><Search size={18} color="#69788d" /><input value={ticketSearch} onChange={(event) => setTicketSearch(event.target.value)} placeholder="Buscar ticket por cliente o telefono..." /></div>
                 <select className="input" style={{ width: 220, padding: '11px 12px' }} value={filter} onChange={(event) => setFilter(event.target.value)}>
@@ -13995,7 +13995,7 @@ const formatCurrency = (value) => {
                 {mode === 'general' ? <div className="pill">{derived} derivados</div> : null}
               </div>
 
-              <div className="table-wrap">
+              <div className="table-wrap" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <table>
                   <thead><tr><th>ID</th><th>Cliente</th><th>Telefono</th><th>Tipo de solicitud</th><th>Estado</th><th>Hora</th>{onAssign ? <th>Acción</th> : null}</tr></thead>
                   <tbody>
@@ -14018,7 +14018,7 @@ const formatCurrency = (value) => {
                     ))}
                   </tbody>
                 </table>
-                {!filtered.length ? <div style={{ padding: 18, color: 'var(--muted)' }}>No hay solicitudes para los filtros aplicados.</div> : null}
+                {!filtered.length ? <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18, color: 'var(--muted)' }}>No hay solicitudes para los filtros aplicados.</div> : null}
               </div>
               {filtered.length ? (
                 <div className="toolbar" style={{ justifyContent: 'space-between', marginTop: 12 }}>
@@ -14440,6 +14440,7 @@ const formatCurrency = (value) => {
       const [section, setSection] = React.useState('buscar_cliente');
       const [loading, setLoading] = React.useState(true);
       const [error, setError] = React.useState('');
+      const [retencionNotice, setRetencionNotice] = React.useState(null);
 
       const loadTickets = React.useCallback(() => {
         setLoading(true);
@@ -14596,6 +14597,7 @@ const formatCurrency = (value) => {
         setSelectedId(created.id);
         setView('listado');
         setSection(created.esSolicitudServicio ? 'solicitudes_servicio' : 'gestiones_clientes');
+        setRetencionNotice(created.tipoRaw === 'solicitud_baja' ? { numero: created.numero || created.id } : null);
       };
 
       React.useEffect(() => {
@@ -14627,7 +14629,7 @@ const formatCurrency = (value) => {
         return <SupportDetail ticket={selectedTicket} tickets={tickets} onBack={backToInbox} onStatusChange={updateStatus} onAddNote={appendNote} onOpenTicket={openTicket} onDerive={deriveTicket} onCloseTicket={closeTicket} />;
       }
       return (
-        <div className="view">
+        <div className="view" style={{ minHeight: 'calc(100vh - 142px)', display: 'flex', flexDirection: 'column' }}>
           <section className="content-grid">
             <Panel className="span-12" style={{ padding: '10px 14px' }}>
               <div style={{ display: 'flex', gap: 4, background: 'rgba(20,34,53,0.05)', padding: 4, borderRadius: 12, width: 'fit-content' }}>
@@ -14641,20 +14643,35 @@ const formatCurrency = (value) => {
                 <Button
                   variant={section === 'gestiones_clientes' ? 'secondary' : 'ghost'}
                   style={section === 'gestiones_clientes' ? { background: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.08)', border: 'none' } : { border: 'none', background: 'transparent' }}
-                  onClick={() => setSection('gestiones_clientes')}
+                  onClick={() => { setSection('gestiones_clientes'); setRetencionNotice(null); }}
                 >
                   Gestiones con clientes
                 </Button>
                 <Button
                   variant={section === 'solicitudes_servicio' ? 'secondary' : 'ghost'}
                   style={section === 'solicitudes_servicio' ? { background: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.08)', border: 'none' } : { border: 'none', background: 'transparent' }}
-                  onClick={() => setSection('solicitudes_servicio')}
+                  onClick={() => { setSection('solicitudes_servicio'); setRetencionNotice(null); }}
                 >
                   Solicitudes de servicio
                 </Button>
               </div>
             </Panel>
           </section>
+          {retencionNotice && section === 'gestiones_clientes' ? (
+            <section className="content-grid">
+              <Panel className="span-12" style={{ padding: '12px 16px' }}>
+                <div className="toolbar" style={{ justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#0f766e', fontWeight: 700 }}>
+                    <CheckCircle2 size={18} />
+                    <span>
+                      {`Solicitud de baja #${String(retencionNotice.numero).padStart(6, '0')} creada. El ticket quedó en la cola de Retención para que un supervisor lo asigne a un vendedor.`}
+                    </span>
+                  </div>
+                  <Button variant="ghost" onClick={() => setRetencionNotice(null)}>Cerrar</Button>
+                </div>
+              </Panel>
+            </section>
+          ) : null}
           {error ? (
             <section className="content-grid">
               <Panel className="span-12">
