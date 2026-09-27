@@ -238,14 +238,19 @@ const mapBackendManualTicket = (item = {}) => {
     || localClient?.telefono
     || localClient?.phone
     || '';
-  const agenteNombre = item.agente || item.agenteNombre || item.agentName || item.usuarioNombre || item.userName || item.user?.name || 'Agente';
+  // Sin fallback a 'Agente' a propósito — el backend no manda (ni nunca
+  // mandó) ningún dato real de quién gestiona el ticket bajo estas claves.
+  // Mostrar un literal fijo era peor que no mostrar nada. Para tickets de
+  // Retención, RetencionModule enriquece esto con el nombre real resuelto
+  // desde assignedTo — acá queda vacío por diseño.
+  const agenteNombre = item.agente || item.agenteNombre || item.agentName || item.usuarioNombre || item.userName || item.user?.name || '';
   return {
     id: item.id || '',
     numero: item.numero || item.ticketNumber || item.numeroTicket || null,
     clienteId,
     cliente: nombreCompleto,
     telefono,
-    tipo: ticketType,
+    tipo: ticketTypeLabel(ticketType),
     tipoRaw: ticketType,
     tipoOtro: item.tipoSolicitudManual || item.tipoOtro || '',
     resumen: item.resumen || item.resumenIA || item.summary || '',

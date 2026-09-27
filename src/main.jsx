@@ -13973,7 +13973,6 @@ const formatCurrency = (value) => {
             <Panel className="span-12" title={title} subtitle={subtitle} action={<Tag variant="info">{filteredByMode.length} registros</Tag>}>
               <div className="toolbar" style={{ marginBottom: 12 }}>
                 <div className="searchbox" style={{ maxWidth: 420 }}><Search size={18} color="#69788d" /><input value={ticketSearch} onChange={(event) => setTicketSearch(event.target.value)} placeholder="Buscar ticket por cliente o telefono..." /></div>
-                <Button variant="secondary" icon={<Filter size={18} />}>Filtrar</Button>
                 <select className="input" style={{ width: 220, padding: '11px 12px' }} value={filter} onChange={(event) => setFilter(event.target.value)}>
                   <option value="todos">Todos</option>
                   {mode === 'service' ? (
@@ -14095,8 +14094,9 @@ const formatCurrency = (value) => {
             const detail = await fetchClientDetail(ticket.clienteId);
             if (!canceled) setClientDetail(detail);
           } catch (err) {
+            console.warn('[SupportDetail] fetchClientDetail falló', err);
             if (!canceled) {
-              setClientDetailError(err?.message || 'No se pudo cargar el cliente.');
+              setClientDetailError('No se pudo cargar el cliente.');
             }
           }
         })();
@@ -14197,7 +14197,7 @@ const formatCurrency = (value) => {
             <Panel
               className="span-8"
               title={'Solicitud #' + String(ticket.numero || ticket.id).padStart(6, '0')}
-              subtitle={'Tipo: ' + supportRequestTypeLabel(ticket) + ' · Creado ' + (formatDateTimeShort(ticket.hora) || ticket.hora) + ' por ' + ticket.agente}
+              subtitle={'Tipo: ' + supportRequestTypeLabel(ticket) + ' · Creado ' + (formatDateTimeShort(ticket.hora) || ticket.hora) + (ticket.agente ? ' por ' + ticket.agente : '')}
               action={<div className="toolbar"><button type="button" className="button ghost" onClick={(event) => { event.stopPropagation(); onBack(); }}><ArrowDownRight size={16} />Volver</button></div>}
             >
               <div className="toolbar" style={{ marginBottom: 14 }}>
@@ -14795,7 +14795,21 @@ const formatCurrency = (value) => {
           .catch(() => setSellers([]));
       }, [isSupervisor]);
 
-      const selectedTicket = React.useMemo(() => tickets.find((ticket) => ticket.id === selectedId) || null, [tickets, selectedId]);
+      // El backend no manda ningún nombre de agente para manual_tickets (ver
+      // nota en mapBackendManualTicket) — acá sí podemos resolverlo de verdad
+      // porque Retención tiene assignedTo: si el ticket es mío, uso mi propio
+      // nombre; si es de otro vendedor y ya cargamos el roster de sellers
+      // (cola del supervisor), lo resuelvo ahí. Sin asignación, queda vacío.
+      const displayTickets = React.useMemo(() => tickets.map((ticket) => {
+        if (!ticket.assignedTo) return { ...ticket, agente: '' };
+        if (ticket.assignedTo === authUser?.id) {
+          return { ...ticket, agente: authUser?.nombre || authUser?.name || ticket.agente || '' };
+        }
+        const seller = sellers.find((s) => s.id === ticket.assignedTo);
+        return { ...ticket, agente: seller?.label || '' };
+      }), [tickets, sellers, authUser]);
+
+      const selectedTicket = React.useMemo(() => displayTickets.find((ticket) => ticket.id === selectedId) || null, [displayTickets, selectedId]);
 
       const openTicket = (id) => {
         setSelectedId(id);
@@ -14870,7 +14884,7 @@ const formatCurrency = (value) => {
         return (
           <SupportDetail
             ticket={selectedTicket}
-            tickets={tickets}
+            tickets={displayTickets}
             onBack={backToInbox}
             onStatusChange={updateStatus}
             onAddNote={appendNote}
@@ -14899,7 +14913,7 @@ const formatCurrency = (value) => {
             subtitle={isSupervisor
               ? 'Solicitudes de baja pendientes de asignar a un vendedor'
               : 'Solicitudes de baja que te asignó tu supervisor'}
-            tickets={tickets}
+            tickets={displayTickets}
             onSelect={openTicket}
             selectedId={selectedId}
             onAssign={isSupervisor ? openAssignModal : undefined}
