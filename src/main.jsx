@@ -14035,6 +14035,7 @@ const formatCurrency = (value) => {
       );
     }
     function SupportDetail({ ticket, tickets, onBack, onStatusChange, onAddNote, onOpenTicket, onDerive, onCloseTicket }) {
+      const { rolEfectivo } = useRolEfectivo();
       const [note, setNote] = React.useState('');
       const [showTranscript, setShowTranscript] = React.useState(false);
       const [statusDraft, setStatusDraft] = React.useState(ticket.esSolicitudServicio ? ticket.estadoServicio : ticket.estado);
@@ -14123,6 +14124,11 @@ const formatCurrency = (value) => {
         return Number.isNaN(parsed.getTime()) ? '-' : parsed.toLocaleDateString('es-UY');
       };
       const isCancellationTicket = ticket.tipoRaw === 'solicitud_baja';
+      // Atención al cliente crea la solicitud_baja pero no la cierra — la
+      // gestiona Retención (vendedor asignado o supervisor por excepción).
+      // Mismo criterio ya reforzado en el backend (closeManualTicket,
+      // index.mjs): esto es solo la UI, el 403 real ya existe del otro lado.
+      const canCloseTicket = !(isCancellationTicket && rolEfectivo === 'atencion_cliente');
       const canCloseCancellation = [ 'retenido', 'baja_confirmada' ].includes(closeOutcome);
       const isClosedTicket = ticket.estado === 'cerrado' || ticket.estado === 'resuelto' || ticket.estadoServicio === 'finalizado';
       const hasServiceRequestData = ticket.serviceRequest && Object.values(ticket.serviceRequest).some((value) => {
@@ -14206,9 +14212,11 @@ const formatCurrency = (value) => {
                   <span>Estado</span>
                 </div>
                 <a className="button ghost" href={'tel:' + ticket.telefono.replace(/\s/g, '')}><PhoneCall size={16} />Llamar cliente</a>
-                <Button icon={<CheckCircle2 size={16} />} onClick={closeCurrentTicket} disabled={closingTicket || isClosedTicket}>{isClosedTicket ? 'Ticket cerrado' : 'Cerrar ticket'}</Button>
+                {canCloseTicket ? (
+                  <Button icon={<CheckCircle2 size={16} />} onClick={closeCurrentTicket} disabled={closingTicket || isClosedTicket}>{isClosedTicket ? 'Ticket cerrado' : 'Cerrar ticket'}</Button>
+                ) : null}
               </div>
-              {isCancellationTicket && showClosePanel && !isClosedTicket ? (
+              {isCancellationTicket && showClosePanel && !isClosedTicket && canCloseTicket ? (
                 <div style={{ marginTop: -4, marginBottom: 14, borderRadius: 14, padding: 10, border: '1px solid rgba(15,118,110,0.2)', background: 'rgba(15,118,110,0.06)' }}>
                   <div style={{ fontWeight: 700, marginBottom: 6 }}>Resultado de cierre de solicitud de baja</div>
                   <div className="toolbar">
