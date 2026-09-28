@@ -1,5 +1,5 @@
 import React from 'react';
-import { Filter, RefreshCw, X, Upload, Columns, ChevronDown, Clock, Archive, MoreHorizontal, Menu } from 'lucide-react';
+import { Filter, RefreshCw, X, Upload, Columns, ChevronDown, MoreHorizontal, Menu } from 'lucide-react';
 import { getApiClient } from '../services/apiClient.js';
 import { formatDate } from '../utils/dateFormat.js';
 import { useRolEfectivo } from '../hooks/useRolEfectivo.js';
@@ -29,8 +29,6 @@ const RECUPERO_TOP_TABS = [
   { key: 'produccion', label: 'En producción' },
   { key: 'resultados', label: 'Resultados' }
 ];
-const RECUPERO_PRIORITARIO_MESES = 3;
-
 const COLUMN_FILTERS_INITIAL = {
   contacto: '',
   documento: '',
@@ -124,20 +122,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
   const [createLoteSaving, setCreateLoteSaving] = React.useState(false);
   const [createLoteError, setCreateLoteError] = React.useState('');
   const [activeTab, setActiveTab] = React.useState('disponibles');
-  const [segmentoRecupero, setSegmentoRecupero] = React.useState('prioritario'); // 'prioritario' | 'resto'
-  const [segmentoCounts, setSegmentoCounts] = React.useState({ prioritario: null, resto: null });
-  const [segmentoCountsError, setSegmentoCountsError] = React.useState({ prioritario: false, resto: false });
-  const prioritarioCutoffDate = React.useMemo(() => {
-    const cutoff = new Date();
-    cutoff.setMonth(cutoff.getMonth() - RECUPERO_PRIORITARIO_MESES);
-    return cutoff.toISOString().slice(0, 10);
-  }, []);
-  const restoCutoffDate = React.useMemo(() => {
-    const cutoff = new Date();
-    cutoff.setMonth(cutoff.getMonth() - RECUPERO_PRIORITARIO_MESES);
-    cutoff.setDate(cutoff.getDate() - 1);
-    return cutoff.toISOString().slice(0, 10);
-  }, []);
   const [tabCounts, setTabCounts] = React.useState({
     disponibles: 0,
     nuevo: 0,
@@ -767,13 +751,14 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
     || row?.estado_cliente === 'activo'
   );
 
-  // Nombres de los lotes fijos por segmento — para preseleccionar el lote
-  // destino del modal "Asignar contacto" según el segmento activo
-  // (Prioritario/Resto). Comparación por substring en minúsculas, no exige
-  // un flag dedicado del backend (que todavía no existe — ver tarea de
-  // backend pendiente). Si no hay match (p. ej. los lotes fijos todavía no
-  // se crearon), simplemente no preselecciona nada, sin romper el flujo.
-  const FIXED_LOTE_MATCH_BY_SEGMENTO = { prioritario: 'prioritario', resto: 'general de recupero' };
+  // Sin segmentos, "General de recupero" es el único lote fijo del sistema
+  // y el destino por defecto razonable para una asignación puntual — el
+  // supervisor puede seguir cambiando el lote a mano (p. ej. para sumarlo a
+  // un lote de asignación en curso). Comparación por substring en
+  // minúsculas, no exige un flag dedicado del backend. Si no hay match (p.
+  // ej. el lote fijo todavía no se creó), simplemente no preselecciona
+  // nada, sin romper el flujo.
+  const FIXED_LOTE_GENERAL_MATCH = 'general de recupero';
 
   const openAssign = React.useCallback(async (contactIds = [], row = null) => {
     const ids = Array.isArray(contactIds) ? contactIds.filter(Boolean) : [];
@@ -788,18 +773,13 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
     setShowAssignModal(true);
     loadSellers();
     const freshLotes = await loadLotesCreados();
-    // El supervisor puede seguir cambiando el lote a mano — por ejemplo para
-    // reasignar a un vendedor original específico, independiente del segmento.
-    const matchKey = FIXED_LOTE_MATCH_BY_SEGMENTO[segmentoRecupero];
-    if (matchKey) {
-      const match = (Array.isArray(freshLotes) ? freshLotes : []).find((lote) => (
-        String(asLotName(lote) || '').toLowerCase().includes(matchKey)
-      ));
-      if (match) {
-        setAssignLoteId(asLotId(match));
-      }
+    const match = (Array.isArray(freshLotes) ? freshLotes : []).find((lote) => (
+      String(asLotName(lote) || '').toLowerCase().includes(FIXED_LOTE_GENERAL_MATCH)
+    ));
+    if (match) {
+      setAssignLoteId(asLotId(match));
     }
-  }, [loadLotesCreados, loadSellers, segmentoRecupero, visibleItems]);
+  }, [loadLotesCreados, loadSellers, visibleItems]);
 
   const closeAssign = React.useCallback(() => {
     setShowAssignModal(false);
@@ -1040,24 +1020,9 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
     return errors;
   };
 
-  const buildFiltersPayload = React.useCallback((segmentoOverride) => {
-    const segmentoEfectivo = segmentoOverride || segmentoRecupero;
+  const buildFiltersPayload = React.useCallback(() => {
     const manualDesde = columnFiltersApplied.fecha_baja_desde || '';
     const manualHasta = columnFiltersApplied.fecha_baja_hasta || '';
-    // Segmentación Prioritario (venta <= 3 meses) / Resto de la cartera: usa
-    // fecha_venta (la fecha de la venta original, no la de la baja) — un
-    // contacto es "Prioritario" si SU VENTA fue hace 0 a 3 meses, sin
-    // importar cuándo se dio de baja. Es un filtro totalmente aparte del
-    // filtro manual de columna "Fecha de baja" (manualDesde/manualHasta) —
-    // antes se combinaban en el mismo campo fecha_baja, lo cual clasificaba
-    // mal cualquier contacto cuya venta y baja cayeran en ventanas
-    // distintas.
-    const fechaVentaDesde = vistaActual === 'recupero' && segmentoEfectivo === 'prioritario'
-      ? prioritarioCutoffDate
-      : '';
-    const fechaVentaHasta = vistaActual === 'recupero' && segmentoEfectivo === 'resto'
-      ? restoCutoffDate
-      : '';
     const payload = {
       contacto: columnFiltersApplied.contacto?.trim() || '',
       documento: columnFiltersApplied.documento?.trim() || '',
@@ -1068,8 +1033,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
       precio_max: toNumberOrNull(columnFiltersApplied.precio_max),
       fecha_baja_desde: manualDesde || '',
       fecha_baja_hasta: manualHasta || '',
-      fecha_venta_desde: fechaVentaDesde || '',
-      fecha_venta_hasta: fechaVentaHasta || '',
       motivo_baja: Array.isArray(columnFiltersApplied.motivo_baja) ? columnFiltersApplied.motivo_baja : [],
       ultimo_estado: Array.isArray(columnFiltersApplied.ultimo_estado) ? columnFiltersApplied.ultimo_estado : [],
       producto: Array.isArray(columnFiltersApplied.producto) ? columnFiltersApplied.producto : [],
@@ -1084,7 +1047,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
       if (Array.isArray(value) && !value.length) delete payload[key];
     });
     return payload;
-  }, [columnFiltersApplied, prioritarioCutoffDate, restoCutoffDate, segmentoRecupero, vistaActual]);
+  }, [columnFiltersApplied]);
 
   const buildSearchPayload = React.useCallback(() => {
     const filters = buildFiltersPayload();
@@ -1099,42 +1062,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
       limit: PAGE_SIZE
     };
   }, [activeTab, allColumns, buildFiltersPayload, orden, page, sortDir, vistaActual, visibleColumns]);
-
-  const buildSegmentoCountPayload = React.useCallback((segmento) => ({
-    tab: 'disponibles',
-    filters: buildFiltersPayload(segmento),
-    sort: { field: 'fecha_baja', dir: sortDir },
-    columns: visibleColumns.length ? visibleColumns : allColumns.map((col) => col.id),
-    page: 1,
-    limit: 1
-  }), [allColumns, buildFiltersPayload, sortDir, visibleColumns]);
-
-  const loadSegmentoCounts = React.useCallback(async () => {
-    const extractTotal = (result) => {
-      if (result.status !== 'fulfilled') return { total: null, error: true };
-      const value = result.value;
-      const total = Number(value?.total ?? value?.data?.total);
-      return Number.isFinite(total) ? { total, error: false } : { total: null, error: true };
-    };
-    try {
-      const [prioritarioRes, restoRes] = await Promise.allSettled([
-        api.post('/api/recupero/contactos/search', buildSegmentoCountPayload('prioritario')),
-        api.post('/api/recupero/contactos/search', buildSegmentoCountPayload('resto'))
-      ]);
-      const prioritario = extractTotal(prioritarioRes);
-      const resto = extractTotal(restoRes);
-      setSegmentoCounts({ prioritario: prioritario.total, resto: resto.total });
-      setSegmentoCountsError({ prioritario: prioritario.error, resto: resto.error });
-    } catch {
-      setSegmentoCounts({ prioritario: null, resto: null });
-      setSegmentoCountsError({ prioritario: true, resto: true });
-    }
-  }, [api, buildSegmentoCountPayload]);
-
-  React.useEffect(() => {
-    if (vistaActual !== 'recupero') return;
-    loadSegmentoCounts();
-  }, [vistaActual, loadSegmentoCounts]);
 
   const loadRecupero = React.useCallback(async (options = {}) => {
     const { force = false } = options;
@@ -1255,7 +1182,7 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
 
   React.useEffect(() => {
     setPage(1);
-  }, [orden, activeTab, sortDir, visibleColumns, segmentoRecupero]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [orden, activeTab, sortDir, visibleColumns]); // eslint-disable-line react-hooks/exhaustive-deps
 
   React.useEffect(() => {
     if (activeTab !== 'disponibles' && selectedIds.length) {
@@ -2129,7 +2056,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
       closeAssign();
       setSelectedIds([]);
       loadRecupero({ force: true });
-      loadSegmentoCounts();
     } catch (err) {
       setError(err?.message || 'No se pudo asignar el contacto.');
     } finally {
@@ -3025,43 +2951,6 @@ export default function SupervisorContractsModule({ Panel, Button, Tag, roleMeta
             <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
               {Number(total || 0).toLocaleString('es-UY')} contactos disponibles
             </span>
-          </div>
-
-          <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
-            {[
-              { key: 'prioritario', label: `Prioritario · 0-${RECUPERO_PRIORITARIO_MESES} meses`, Icon: Clock, count: segmentoCounts.prioritario, error: segmentoCountsError.prioritario },
-              { key: 'resto', label: 'Resto de la cartera', Icon: Archive, count: segmentoCounts.resto, error: segmentoCountsError.resto }
-            ].map((segmento) => {
-              const isActive = segmentoRecupero === segmento.key;
-              const countText = segmento.count !== null
-                ? Number(segmento.count).toLocaleString('es-UY')
-                : (segmento.error ? '—' : '');
-              return (
-                <button
-                  key={segmento.key}
-                  type="button"
-                  onClick={() => setSegmentoRecupero(segmento.key)}
-                  style={{
-                    flex: '1 1 0',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 8,
-                    padding: 10,
-                    borderRadius: 8,
-                    border: isActive ? 'none' : '0.5px solid rgba(15,23,42,0.16)',
-                    background: isActive ? '#E1F5EE' : '#fff',
-                    color: isActive ? '#0F6E56' : 'var(--color-text-secondary)',
-                    fontWeight: isActive ? 700 : 600,
-                    fontSize: 14,
-                    cursor: 'pointer'
-                  }}
-                >
-                  <segmento.Icon size={16} />
-                  {segmento.label}{countText ? ` (${countText})` : ''}
-                </button>
-              );
-            })}
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: 12, flexWrap: 'wrap' }}>
