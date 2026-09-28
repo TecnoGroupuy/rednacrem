@@ -13641,7 +13641,13 @@ const formatCurrency = (value) => {
             setManualError('Este contacto no tiene productos activos para solicitar baja.');
             return;
           }
-          if (availableProducts.length > 1 && !manualDraft.productoContratoId) {
+          // Exigir el producto siempre de forma explícita (antes solo se
+          // pedía si había 2+ productos, confiando en el auto-select de
+          // openManualForm para el caso de 1 solo) — sin esto, un ticket
+          // podía quedar creado sin producto_contrato_id, dejando "Producto"
+          // vacío en el detalle y bloqueando el cierre con baja_confirmada
+          // (closeManualTicket, index.mjs, lo exige).
+          if (!manualDraft.productoContratoId) {
             setManualError('Debes seleccionar el producto para la solicitud de baja.');
             return;
           }
@@ -14258,12 +14264,16 @@ const formatCurrency = (value) => {
                     <div className="status-ring" style={{ background: 'rgba(15,118,110,0.12)', color: '#0f766e' }}><Briefcase size={18} /></div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 800, marginBottom: 8 }}>Producto</div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>
-                        <div><strong>Nombre:</strong> {clientDetail?.product?.nombreProducto || clientDetail?.product?.nombre_producto || clientDetail?.product?.nombre || ticket.productoNombre || '—'}</div>
-                        <div><strong>Estado:</strong> {clientDetail?.product?.estado || clientDetail?.product?.estadoProducto || '—'}</div>
-                        <div><strong>Fecha de alta:</strong> {formatDate(clientDetail?.product?.fechaAlta || clientDetail?.product?.fecha_alta || '') || '—'}</div>
-                        <div><strong>Precio:</strong> {clientDetail?.product?.precio ? `$ ${Number(String(clientDetail.product.precio).replace(/[^0-9.-]/g, '')).toLocaleString('es-UY')}` : '—'}</div>
-                      </div>
+                      {ticket.productoId ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>
+                          <div><strong>Nombre:</strong> {ticket.productoNombre || '—'}</div>
+                          <div><strong>Estado:</strong> {ticket.productoEstado || '—'}</div>
+                          <div><strong>Fecha de alta:</strong> {formatDate(ticket.productoFechaAlta) || '—'}</div>
+                          <div><strong>Precio:</strong> {ticket.productoPrecio !== '' && ticket.productoPrecio !== null ? `$ ${Number(String(ticket.productoPrecio).replace(/[^0-9.-]/g, '')).toLocaleString('es-UY')}` : '—'}</div>
+                        </div>
+                      ) : (
+                        <div style={{ color: 'var(--muted)' }}>Sin producto asociado</div>
+                      )}
                     </div>
                   </div>
                 </div>
