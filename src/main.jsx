@@ -14003,13 +14003,12 @@ const formatCurrency = (value) => {
 
               <div className="table-wrap" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <table>
-                  <thead><tr><th>ID</th><th>Cliente</th><th>Telefono</th><th>Tipo de solicitud</th><th>Estado</th><th>Hora</th>{onAssign ? <th>Acción</th> : null}</tr></thead>
+                  <thead><tr><th>ID</th><th>Cliente</th><th>Tipo de solicitud</th><th>Estado</th><th>Hora</th>{onAssign ? <th>Acción</th> : null}</tr></thead>
                   <tbody>
                     {visibleTickets.map((ticket) => (
                       <tr key={ticket.id} className="support-row" onClick={() => onSelect(ticket.id)} style={{ cursor: 'pointer', background: selectedId === ticket.id ? 'rgba(15,118,110,0.08)' : 'transparent' }}>
                         <td><div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Hash size={14} /><strong>{String(ticket.numero || ticket.id).padStart(6, '0')}</strong></div></td>
                         <td><div><div style={{ fontWeight: 700 }}>{ticket.cliente}</div><div style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>{ticket.agente}</div></div></td>
-                        <td><a href={'tel:' + ticket.telefono.replace(/\s/g, '')} onClick={(event) => event.stopPropagation()} style={{ color: '#0f766e', fontWeight: 700, textDecoration: 'none' }}>{ticket.telefono}</a></td>
                         <td><span style={{ display: 'inline-block', padding: '4px 8px', borderRadius: 999, fontSize: '0.78rem', fontWeight: 700, background: 'rgba(20,34,53,0.06)', color: '#334155' }}>{supportRequestTypeLabel(ticket)}</span></td>
                         <td><SupportStatusBadge status={supportTicketDisplayStatus(ticket)} pulse={supportTicketDisplayStatus(ticket) === 'nuevo' || supportTicketDisplayStatus(ticket) === 'servicio_iniciado'} small /></td>
                         <td>{formatDateTimeShort(ticket.hora) || ticket.hora}</td>
@@ -14248,7 +14247,6 @@ const formatCurrency = (value) => {
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>
                         <div><strong>Nombre:</strong> {clientDetail?.name || `${clientDetail?.nombre || ''} ${clientDetail?.apellido || ''}`.trim() || ticket.cliente || '—'}</div>
                         <div><strong>Documento:</strong> {clientDetail?.documento || '—'}</div>
-                        <div><strong>Teléfono:</strong> {clientDetail?.telefono || clientDetail?.phone || ticket.telefono || '—'}</div>
                         <div><strong>Celular:</strong> {clientDetail?.celular || clientDetail?.cellphone || '—'}</div>
                         <div><strong>Email:</strong> {clientDetail?.email || '—'}</div>
                         <div><strong>Dirección:</strong> {clientDetail?.direccion || '—'}</div>
