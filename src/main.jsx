@@ -14444,6 +14444,41 @@ const formatCurrency = (value) => {
                   </div>
                 ) : <div style={{ color: 'var(--muted)', paddingTop: 8 }}>Este cliente no tiene solicitudes anteriores.</div>}
               </Panel>
+
+              <Panel title="Historial de productos" subtitle="Altas y bajas del mismo cliente">
+                {clientDetailError ? <div style={{ color: '#be123c', fontWeight: 700 }}>{clientDetailError}</div> : null}
+                {clientDetail?.products?.length ? (
+                  <div className="list" style={{ gap: 8, maxHeight: 'calc(100vh - 260px)', overflowY: 'auto', paddingRight: 4 }}>
+                    {clientDetail.products.map((productItem) => {
+                      const isBaja = String(productItem.estado || '').toLowerCase() === 'baja';
+                      return (
+                        <div key={productItem.id} className="alert" style={{ border: '1px solid rgba(20,34,53,0.08)', background: 'rgba(20,34,53,0.03)', padding: '10px 12px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                            <strong>{productItem.nombreProducto || 'Producto'}</strong>
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 999,
+                              fontSize: '0.72rem', fontWeight: 700,
+                              background: isBaja ? 'rgba(248,113,113,0.18)' : 'rgba(34,197,94,0.18)',
+                              color: isBaja ? '#b91c1c' : '#15803d'
+                            }}>
+                              {isBaja ? 'Baja' : 'Alta'}
+                            </span>
+                          </div>
+                          <div style={{ color: 'var(--muted)', fontSize: '0.85rem', marginTop: 4 }}>
+                            Alta: {formatDate(productItem.fechaAlta) || '—'}
+                            {isBaja ? ` · Baja: ${formatDate(productItem.fechaBaja) || '—'}` : ''}
+                          </div>
+                          {isBaja ? (
+                            <div style={{ color: '#64748b', fontSize: '0.82rem', marginTop: 4 }}>
+                              Motivo: {productItem.motivoBaja || '—'}
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : <div style={{ color: 'var(--muted)', paddingTop: 8 }}>Este cliente no tiene productos registrados.</div>}
+              </Panel>
             </div>
           </section>
         </div>
