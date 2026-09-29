@@ -14268,6 +14268,7 @@ const formatCurrency = (value) => {
                           <div><strong>Estado:</strong> {ticket.productoEstado || '—'}</div>
                           <div><strong>Fecha de alta:</strong> {formatDate(ticket.productoFechaAlta) || '—'}</div>
                           <div><strong>Precio:</strong> {ticket.productoPrecio !== '' && ticket.productoPrecio !== null ? `$ ${Number(String(ticket.productoPrecio).replace(/[^0-9.-]/g, '')).toLocaleString('es-UY')}` : '—'}</div>
+                          <div><strong>Vendedor de origen:</strong> {ticket.productoVendedorOrigen || '—'}</div>
                         </div>
                       ) : (
                         <div style={{ color: 'var(--muted)' }}>Sin producto asociado</div>

@@ -263,6 +263,7 @@ const mapBackendManualTicket = (item = {}) => {
     productoFechaAlta: product.fechaAlta || product.fecha_alta || '',
     productoFechaBaja: product.fechaBaja || product.fecha_baja || '',
     productoPrecio: product.precio ?? '',
+    productoVendedorOrigen: product.vendedorOrigenNombre || product.vendedor_origen_nombre || '',
     hora: item.createdAt || item.created_at || '',
     createdAt: item.createdAt || item.created_at || '',
     updatedAt: item.updatedAt || item.updated_at || '',
