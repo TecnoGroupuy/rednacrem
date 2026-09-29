@@ -96,3 +96,18 @@ export async function updateCarnetSalud(personalId, carnetId, payload) {
   const response = await api.patch(`/operaciones/personal/${personalId}/carnet-salud/${carnetId}`, payload);
   return response?.item || null;
 }
+
+export async function listLicencias(personalId) {
+  const response = await api.get(`/operaciones/personal/${personalId}/licencias`);
+  return response?.items || [];
+}
+
+export async function addLicencia(personalId, payload) {
+  const response = await api.post(`/operaciones/personal/${personalId}/licencias`, payload);
+  return response?.item || null;
+}
+
+export async function updateLicencia(personalId, licenciaId, payload) {
+  const response = await api.patch(`/operaciones/personal/${personalId}/licencias/${licenciaId}`, payload);
+  return response?.item || null;
+}

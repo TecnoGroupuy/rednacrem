@@ -1,5 +1,57 @@
 import React from 'react';
-import { Eye, Edit3, AlertTriangle, Clock3, Building2, MapPin, ChevronDown, ChevronRight, Crown } from 'lucide-react';
+import { Eye, Edit3, AlertTriangle, Clock3, Building2, MapPin, ChevronDown, ChevronRight, Crown, UserMinus } from 'lucide-react';
+import { getEffectiveEstado } from './personalHierarchy.js';
+
+// Duplicado a proposito, mismo criterio que ya explica PersonalDetail.jsx
+// para su propia copia de toDateOnly: evitar un import circular entre
+// RrhhScreen.jsx (que importa este archivo) y donde vive el original.
+function toDateOnly(value) {
+  if (!value) return '';
+  const str = String(value);
+  return str.length > 10 && str.includes('T') ? str.slice(0, 10) : str;
+}
+
+// Puramente por string, sin pasar por ningun objeto Date -- es la unica
+// forma de evitar el corrimiento de dia en UTC-3 que castiga a
+// new Date('YYYY-MM-DD') (hora local medianoche interpretada como el dia
+// anterior).
+function formatDateOnlyDisplay(value) {
+  const dateOnly = toDateOnly(value);
+  const parts = dateOnly.split('-');
+  if (parts.length !== 3) return dateOnly;
+  const [year, month, day] = parts;
+  return `${day}/${month}/${year}`;
+}
+
+export const LICENCIA_TIPO_LABELS = {
+  maternal: 'Maternal',
+  certificacion_medica: 'Certificación médica',
+  reglamentaria: 'Reglamentaria',
+  sin_goce: 'Sin goce',
+  otra: 'Otra'
+};
+
+export function StatusPill({ person, getStatusVariant, Tag }) {
+  const effective = getEffectiveEstado(person);
+
+  if (effective.estado === 'licencia') {
+    const tipoLabel = effective.licencia?.tipo ? LICENCIA_TIPO_LABELS[effective.licencia.tipo] || effective.licencia.tipo : '';
+    const dateText = effective.licencia?.fecha_hasta
+      ? `hasta ${formatDateOnlyDisplay(effective.licencia.fecha_hasta)}`
+      : 'sin fecha de regreso';
+    return (
+      <div className="rrhh-status-pill licencia">
+        Licencia{tipoLabel ? ` (${tipoLabel})` : ''} · {dateText}
+      </div>
+    );
+  }
+
+  if (effective.estado === 'suspendido') {
+    return <div className="rrhh-status-pill suspendido">Suspendido</div>;
+  }
+
+  return <Tag variant={getStatusVariant(effective.estado)}>{effective.estado || 'sin estado'}</Tag>;
+}
 
 // Colores de avatar por hash estable del id (no por indice de posicion en
 // el array): en la vista jerarquica una misma persona puede aparecer en
@@ -20,10 +72,53 @@ function initialsFor(person) {
   return `${person.nombre?.[0] || ''}${person.apellido?.[0] || ''}`.toUpperCase() || 'SU';
 }
 
-function PersonCard({ Button, Tag, person, isLeader, onView, onEdit, getBaseLabel, getStatusVariant, getAlertMeta }) {
-  const alertMeta = getAlertMeta(person);
+function PersonCard({ Button, Tag, person, isLeader, dimmed, onView, onEdit, getBaseLabel, getStatusVariant, getAlertMeta }) {
   const external = person.tipo_personal === 'externo';
   const nombreCompleto = `${person.nombre} ${person.apellido}`.trim();
+
+  // Egresados: tarjeta atenuada, sin banner de alertas de vencimiento (ya no
+  // aplica) ni tag de estado a color -- solo la fecha de egreso. Sin rojo
+  // en ningun lado, ni siquiera para el estado "baja" -- queda reservado
+  // para "puesto descubierto" (fuera de alcance de esta fase).
+  if (dimmed) {
+    return (
+      <article
+        className="rrhh-person-card egresado"
+        onClick={() => onView(person.id)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onView(person.id);
+          }
+        }}
+      >
+        <div className="rrhh-person-card-top">
+          <div className="rrhh-name-cell">
+            <div className="rrhh-avatar rrhh-avatar-large" style={{ background: `linear-gradient(135deg, ${avatarColorFor(person.id)}, rgba(15, 23, 42, 0.88))` }}>
+              {initialsFor(person)}
+            </div>
+            <div>
+              <div className="rrhh-name">{nombreCompleto}</div>
+              <div className="rrhh-subtle">{person.documento || 'Sin documento'}</div>
+            </div>
+          </div>
+          <div className="rrhh-card-actions" onClick={(event) => event.stopPropagation()}>
+            <Button variant="ghost" icon={<Eye size={16} />} onClick={() => onView(person.id)}>Ver</Button>
+          </div>
+        </div>
+        <div className="rrhh-person-card-tags">
+          <div className="rrhh-status-pill egresado">
+            <UserMinus size={14} />
+            <span>Egresado{person.fecha_egreso ? ` · ${formatDateOnlyDisplay(person.fecha_egreso)}` : ''}</span>
+          </div>
+        </div>
+      </article>
+    );
+  }
+
+  const alertMeta = getAlertMeta(person);
 
   return (
     <article
@@ -74,7 +169,7 @@ function PersonCard({ Button, Tag, person, isLeader, onView, onEdit, getBaseLabe
       </div>
 
       <div className="rrhh-person-card-tags">
-        <Tag variant={getStatusVariant(person.estado)}>{person.estado || 'sin estado'}</Tag>
+        <StatusPill person={person} getStatusVariant={getStatusVariant} Tag={Tag} />
         {external ? (
           <div className="rrhh-external-pill">
             <Building2 size={14} />
@@ -99,7 +194,7 @@ function PersonCard({ Button, Tag, person, isLeader, onView, onEdit, getBaseLabe
   );
 }
 
-function MemberGrid({ Button, Tag, members, isLeader, onView, onEdit, getBaseLabel, getStatusVariant, getAlertMeta, emptyMessage }) {
+function MemberGrid({ Button, Tag, members, isLeader, dimmed, onView, onEdit, getBaseLabel, getStatusVariant, getAlertMeta, emptyMessage }) {
   if (!members.length) {
     return <div className="rrhh-empty-inline">{emptyMessage || 'Sin personal en este grupo.'}</div>;
   }
@@ -112,6 +207,7 @@ function MemberGrid({ Button, Tag, members, isLeader, onView, onEdit, getBaseLab
           Tag={Tag}
           person={person}
           isLeader={isLeader}
+          dimmed={dimmed}
           onView={onView}
           onEdit={onEdit}
           getBaseLabel={getBaseLabel}
@@ -120,6 +216,39 @@ function MemberGrid({ Button, Tag, members, isLeader, onView, onEdit, getBaseLab
         />
       ))}
     </div>
+  );
+}
+
+// Seccion "Egresados" -- lista plana (sin jefatura/subgrupos, mismo criterio
+// que Economato/Mantenimiento) de personal en estado='baja'. Colapsada por
+// defecto: a diferencia de las areas normales, nunca "necesita atencion".
+function EgresadosSection({ egresados, Button, Tag, onView, getBaseLabel, getStatusVariant, getAlertMeta }) {
+  const [expanded, setExpanded] = React.useState(false);
+
+  return (
+    <section className="rrhh-hierarchy-section">
+      <button
+        type="button"
+        className="rrhh-hierarchy-section-header"
+        onClick={() => setExpanded((prev) => !prev)}
+        aria-expanded={expanded}
+      >
+        {expanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+        <span className="rrhh-hierarchy-section-title">Egresados</span>
+        <span className="rrhh-hierarchy-count">{egresados.length}</span>
+      </button>
+
+      {expanded ? (
+        <div className="rrhh-hierarchy-section-body">
+          <MemberGrid
+            Button={Button} Tag={Tag} members={egresados} dimmed
+            onView={onView}
+            getBaseLabel={getBaseLabel} getStatusVariant={getStatusVariant} getAlertMeta={getAlertMeta}
+            emptyMessage="No hay personal egresado."
+          />
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -193,7 +322,8 @@ export default function PersonalList({
   getStatusVariant,
   getAlertMeta
 }) {
-  const isEmpty = !hierarchy.direccionTecnica.length && hierarchy.areas.every((area) => area.total === 0);
+  const egresados = hierarchy.egresados || [];
+  const isEmpty = !hierarchy.direccionTecnica.length && hierarchy.areas.every((area) => area.total === 0) && !egresados.length;
 
   return (
     <div className="rrhh-stack">
@@ -242,6 +372,18 @@ export default function PersonalList({
               defaultExpanded={area.needsAttention}
             />
           ))}
+
+          {egresados.length ? (
+            <EgresadosSection
+              egresados={egresados}
+              Button={Button}
+              Tag={Tag}
+              onView={onView}
+              getBaseLabel={getBaseLabel}
+              getStatusVariant={getStatusVariant}
+              getAlertMeta={getAlertMeta}
+            />
+          ) : null}
         </>
       )}
     </div>

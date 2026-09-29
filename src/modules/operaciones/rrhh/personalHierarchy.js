@@ -34,19 +34,52 @@ function idSet(people) {
   return new Set(people.map((p) => p.id));
 }
 
+// Estado efectivo a mostrar (no confundir con person.estado, la columna
+// cruda): licencia_vigente (GET /operaciones/personal, migracion 070) manda
+// sobre el campo estado -- alguien puede seguir en estado='activo' en la
+// base pero tener una licencia vigente cargada, y en ese caso se muestra
+// como en licencia igual. El vencimiento de una licencia se refleja solo,
+// sin mutar ningun estado a mano: licencia_vigente simplemente deja de
+// venir del backend el dia que se vence.
+export function getEffectiveEstado(person) {
+  if (person.licencia_vigente) {
+    return { estado: 'licencia', licencia: person.licencia_vigente };
+  }
+  if (person.estado === 'licencia') {
+    return { estado: 'licencia', licencia: null };
+  }
+  return { estado: person.estado, licencia: null };
+}
+
+// Orden dentro de cada subgrupo: activos primero, despues licencia/
+// suspendido (baja ya salio de la jerarquia antes de llegar aca, ver
+// buildPersonalHierarchy). Ordenamiento estable de JS conserva el orden
+// alfabetico previo (por apellido/nombre, ya viene asi del backend) dentro
+// de cada nivel de prioridad.
+const ESTADO_SORT_PRIORITY = { activo: 0, licencia: 1, suspendido: 2 };
+
+function sortByEffectiveEstado(members) {
+  return [...members].sort((a, b) => {
+    const pa = ESTADO_SORT_PRIORITY[getEffectiveEstado(a).estado] ?? 9;
+    const pb = ESTADO_SORT_PRIORITY[getEffectiveEstado(b).estado] ?? 9;
+    return pa - pb;
+  });
+}
+
 // Total y "necesita atencion" (arranca expandida) se derivan siempre del
 // mismo lugar para no tener que mantenerlos sincronizados a mano en cada
 // seccion.
 function finalizeArea({ key, label, leaderRoleLabel, leaders, subgroups }) {
   const hasLeaderConcept = leaderRoleLabel !== null;
-  const total = leaders.length + subgroups.reduce((sum, sg) => sum + sg.members.length, 0);
+  const sortedSubgroups = subgroups.map((sg) => ({ ...sg, members: sortByEffectiveEstado(sg.members) }));
+  const total = leaders.length + sortedSubgroups.reduce((sum, sg) => sum + sg.members.length, 0);
   return {
     key,
     label,
     hasLeaderConcept,
     leaderRoleLabel,
-    leaders,
-    subgroups,
+    leaders: sortByEffectiveEstado(leaders),
+    subgroups: sortedSubgroups,
     total,
     needsAttention: hasLeaderConcept && leaders.length === 0 && total > 0
   };
@@ -55,12 +88,19 @@ function finalizeArea({ key, label, leaderRoleLabel, leaders, subgroups }) {
 export function buildPersonalHierarchy(personal = []) {
   const list = Array.isArray(personal) ? personal : [];
 
+  // Egresados (estado='baja') salen de la jerarquia por defecto -- ni
+  // siquiera compiten por un rol de jefatura. Se devuelven aparte para que
+  // la UI arme su propia seccion "Egresados", atenuada, con fecha_egreso.
+  const egresados = list.filter((p) => p.estado === 'baja');
+  const egresadosIds = idSet(egresados);
+  const activePersonal = list.filter((p) => !egresadosIds.has(p.id));
+
   // Direccion tecnica queda siempre arriba, sola, y se excluye de
   // cualquier otra seccion aunque tenga mas roles ademas (si esto llega a
   // pasar, se prioriza mostrarla solo como Direccion tecnica).
-  const direccionTecnica = list.filter((p) => hasRole(p, ROLES.DIRECCION_TECNICA));
+  const direccionTecnica = activePersonal.filter((p) => hasRole(p, ROLES.DIRECCION_TECNICA));
   const direccionTecnicaIds = idSet(direccionTecnica);
-  const rest = list.filter((p) => !direccionTecnicaIds.has(p.id));
+  const rest = activePersonal.filter((p) => !direccionTecnicaIds.has(p.id));
 
   // -- Medicina --
   const medicinaLeaders = rest.filter((p) => hasRole(p, ROLES.JEFE_MEDICO));
@@ -162,7 +202,10 @@ export function buildPersonalHierarchy(personal = []) {
   });
 
   return {
-    direccionTecnica,
-    areas: [medicina, enfermeria, economato, choferesArea, mantenimiento, otrosRoles, sinRolAsignado]
+    direccionTecnica: sortByEffectiveEstado(direccionTecnica),
+    areas: [medicina, enfermeria, economato, choferesArea, mantenimiento, otrosRoles, sinRolAsignado],
+    // Orden alfabetico (ya viene asi del backend) -- no tiene sentido de
+    // jefatura/subgrupo, es una lista lisa como Economato/Mantenimiento.
+    egresados
   };
 }

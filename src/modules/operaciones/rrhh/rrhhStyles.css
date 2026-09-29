@@ -376,6 +376,47 @@
   color: #86efac;
 }
 
+/* Estado efectivo de la tarjeta (licencia/suspendido/egresado) -- rojo
+   queda reservado a proposito para "puesto descubierto" (fuera de
+   alcance de esta fase), asi que ninguna de estas 3 lo usa. */
+.rrhh-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  border-radius: 999px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.rrhh-status-pill.licencia {
+  background: rgba(217, 119, 6, 0.14);
+  border: 1px solid rgba(217, 119, 6, 0.28);
+  color: #fcd34d;
+}
+
+.rrhh-status-pill.suspendido {
+  background: rgba(249, 115, 22, 0.14);
+  border: 1px solid rgba(249, 115, 22, 0.28);
+  color: #fdba74;
+}
+
+.rrhh-status-pill.egresado {
+  background: rgba(148, 163, 184, 0.14);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  color: #cbd5e1;
+}
+
+.rrhh-person-card.egresado {
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+.rrhh-person-card.egresado:hover {
+  opacity: 0.8;
+}
+
 .rrhh-alert-banner {
   min-height: 44px;
   border-radius: 14px;

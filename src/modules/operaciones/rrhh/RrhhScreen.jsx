@@ -18,7 +18,9 @@ import {
   deletePersonalRole,
   addHabilitacion,
   addCapacitacion,
-  addCarnetSalud
+  addCarnetSalud,
+  addLicencia,
+  updateLicencia
 } from '../../../services/rrhhService.js';
 import { listBases } from '../../../services/flotasService.js';
 import { getMissingFields } from './PersonalDetail.jsx';
@@ -473,6 +475,59 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
     }
   };
 
+  // Igual que refreshVencimientos: refresco liviano sin el loading global de
+  // loadRrhh -- hace falta ademas de refreshSelectedDetail (que solo
+  // actualiza la ficha abierta) porque licencia_vigente tambien se muestra
+  // en la tarjeta de la grilla, detras del modal, y ese dato sale de esta
+  // misma lista, no de la ficha.
+  const refreshPersonalList = async () => {
+    try {
+      const items = await listPersonal();
+      setPersonal(items);
+    } catch {
+      // No bloquea el flujo principal si falla solo este refresco.
+    }
+  };
+
+  const handleAddLicencia = async (draft) => {
+    if (!selectedPersonalId) return;
+    try {
+      await addLicencia(selectedPersonalId, draft);
+      refreshSelectedDetail();
+      refreshPersonalList();
+    } catch (err) {
+      setActionError(err?.message || 'No se pudo guardar la licencia.');
+    }
+  };
+
+  const handleUpdateLicencia = async (licenciaId, draft) => {
+    if (!selectedPersonalId) return;
+    try {
+      await updateLicencia(selectedPersonalId, licenciaId, draft);
+      refreshSelectedDetail();
+      refreshPersonalList();
+    } catch (err) {
+      setActionError(err?.message || 'No se pudo actualizar la licencia.');
+    }
+  };
+
+  // Dar de baja (egreso): usa el mismo PATCH generico de siempre (no el
+  // DELETE, que solo setea estado sin fecha) -- fecha_egreso es una columna
+  // real de su_personal, el sanitizador del backend ya la acepta sin que
+  // haga falta ningun endpoint nuevo. Cierra la ficha al terminar: la
+  // persona pasa a "Egresados" y ya no tiene sentido seguir viendo su ficha
+  // de activo abierta.
+  const handleDarDeBaja = async (fechaEgreso) => {
+    if (!selectedPersonalId) return;
+    try {
+      await updatePersonal(selectedPersonalId, { estado: 'baja', fecha_egreso: fechaEgreso });
+      await refreshPersonalList();
+      closeDetail();
+    } catch (err) {
+      setActionError(err?.message || 'No se pudo registrar la baja.');
+    }
+  };
+
   const openCreateEmpresa = () => {
     setEmpresaFormMode('create');
     setEmpresaDraft({ ...emptyEmpresaDraft, id: `ec-${Date.now()}` });
@@ -553,6 +608,9 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
           onAddHabilitacion={handleAddHabilitacion}
           onAddCapacitacion={handleAddCapacitacion}
           onAddCarnetSalud={handleAddCarnetSalud}
+          onAddLicencia={handleAddLicencia}
+          onUpdateLicencia={handleUpdateLicencia}
+          onDarDeBaja={handleDarDeBaja}
         />
       ) : null}
 

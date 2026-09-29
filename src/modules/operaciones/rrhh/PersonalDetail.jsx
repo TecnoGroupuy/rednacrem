@@ -1,12 +1,14 @@
 import React from 'react';
-import { MapPin, Star, Shield, GraduationCap, HeartPulse, UserCircle2, Plus, Trash2, AlertTriangle } from 'lucide-react';
+import { MapPin, Star, Shield, GraduationCap, HeartPulse, UserCircle2, Plus, Trash2, AlertTriangle, CalendarClock } from 'lucide-react';
+import { StatusPill, LICENCIA_TIPO_LABELS } from './PersonalList.jsx';
 
 const TABS = [
   { key: 'datos_generales', label: 'Datos generales' },
   { key: 'roles', label: 'Roles' },
   { key: 'habilitaciones', label: 'Habilitaciones' },
   { key: 'capacitaciones', label: 'Capacitaciones' },
-  { key: 'carnet_salud', label: 'Carné de salud' }
+  { key: 'carnet_salud', label: 'Carné de salud' },
+  { key: 'licencias', label: 'Licencias' }
 ];
 
 // Campos opcionales de su_personal (todo menos nombre/apellido/tipo_personal,
@@ -41,9 +43,33 @@ function toDateOnly(value) {
   return str.length > 10 && str.includes('T') ? str.slice(0, 10) : str;
 }
 
+// Puramente por string, sin pasar por ningun objeto Date -- mismo criterio
+// (y misma duplicacion a proposito) que su gemela en PersonalList.jsx.
+function formatDateOnlyDisplay(value) {
+  const dateOnly = toDateOnly(value);
+  const parts = dateOnly.split('-');
+  if (parts.length !== 3) return dateOnly;
+  const [year, month, day] = parts;
+  return `${day}/${month}/${year}`;
+}
+
+// Hoy en la zona horaria del navegador, sin pasar por UTC en ningun momento
+// -- getFullYear/getMonth/getDate son locales por definicion, a diferencia
+// de toISOString() (que corre el dia cerca de medianoche en UTC-3). Es el
+// default razonable para el date input de "dar de baja": quien lo carga
+// esta mirando la pantalla hoy, en su propia zona horaria.
+function todayDateOnly() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 const emptyHabilitacionDraft = { tipo: '', numero: '', organismo_emisor: '', fecha_emision: '', fecha_vencimiento: '', documento_url: '', estado: 'vigente' };
 const emptyCapacitacionDraft = { tipo_capacitacion: '', institucion: '', fecha_emision: '', fecha_vencimiento: '', documento_url: '' };
 const emptyCarnetDraft = { fecha_emision: '', fecha_vencimiento: '', documento_url: '' };
+const emptyLicenciaDraft = { tipo: '', fecha_desde: '', fecha_hasta: '', observaciones: '' };
 
 export default function PersonalDetail({
   Button,
@@ -66,24 +92,37 @@ export default function PersonalDetail({
   onRemoveRole,
   onAddHabilitacion,
   onAddCapacitacion,
-  onAddCarnetSalud
+  onAddCarnetSalud,
+  onAddLicencia,
+  onUpdateLicencia,
+  onDarDeBaja
 }) {
   const [roleToAdd, setRoleToAdd] = React.useState('');
   const [showHabilitacionForm, setShowHabilitacionForm] = React.useState(false);
   const [showCapacitacionForm, setShowCapacitacionForm] = React.useState(false);
   const [showCarnetForm, setShowCarnetForm] = React.useState(false);
+  const [showLicenciaForm, setShowLicenciaForm] = React.useState(false);
+  const [editingLicenciaId, setEditingLicenciaId] = React.useState(null);
   const [habilitacionDraft, setHabilitacionDraft] = React.useState(emptyHabilitacionDraft);
   const [capacitacionDraft, setCapacitacionDraft] = React.useState(emptyCapacitacionDraft);
   const [carnetDraft, setCarnetDraft] = React.useState(emptyCarnetDraft);
+  const [licenciaDraft, setLicenciaDraft] = React.useState(emptyLicenciaDraft);
+  const [showBajaConfirm, setShowBajaConfirm] = React.useState(false);
+  const [bajaFechaEgreso, setBajaFechaEgreso] = React.useState(todayDateOnly());
 
   React.useEffect(() => {
     setRoleToAdd('');
     setShowHabilitacionForm(false);
     setShowCapacitacionForm(false);
     setShowCarnetForm(false);
+    setShowLicenciaForm(false);
+    setEditingLicenciaId(null);
+    setLicenciaDraft(emptyLicenciaDraft);
     setHabilitacionDraft(emptyHabilitacionDraft);
     setCapacitacionDraft(emptyCapacitacionDraft);
     setCarnetDraft(emptyCarnetDraft);
+    setShowBajaConfirm(false);
+    setBajaFechaEgreso(todayDateOnly());
   }, [personal?.id]);
 
   if (loading) {
@@ -122,6 +161,7 @@ export default function PersonalDetail({
   // El backend ordena carnet_salud DESC por created_at: el primero es el mas
   // reciente / vigente.
   const carnetSalud = (personal.carnet_salud || [])[0] || null;
+  const licencias = personal.licencias || [];
 
   const fullName = [personal.nombre, personal.apellido].filter(Boolean).join(' ');
   const primaryRole = roles.find((item) => item.rol_principal)?.rol || '';
@@ -168,6 +208,46 @@ export default function PersonalDetail({
     setShowCarnetForm(false);
   };
 
+  const startEditLicencia = (licencia) => {
+    setEditingLicenciaId(licencia.id);
+    setLicenciaDraft({
+      tipo: licencia.tipo || '',
+      fecha_desde: toDateOnly(licencia.fecha_desde),
+      fecha_hasta: toDateOnly(licencia.fecha_hasta),
+      observaciones: licencia.observaciones || ''
+    });
+    setShowLicenciaForm(true);
+  };
+
+  const startNewLicencia = () => {
+    setEditingLicenciaId(null);
+    setLicenciaDraft(emptyLicenciaDraft);
+    setShowLicenciaForm(true);
+  };
+
+  const handleSaveLicencia = () => {
+    if (!licenciaDraft.tipo || !licenciaDraft.fecha_desde) return;
+    const payload = {
+      tipo: licenciaDraft.tipo,
+      fecha_desde: licenciaDraft.fecha_desde,
+      fecha_hasta: licenciaDraft.fecha_hasta || null,
+      observaciones: licenciaDraft.observaciones || null
+    };
+    if (editingLicenciaId) {
+      onUpdateLicencia(editingLicenciaId, payload);
+    } else {
+      onAddLicencia(payload);
+    }
+    setLicenciaDraft(emptyLicenciaDraft);
+    setEditingLicenciaId(null);
+    setShowLicenciaForm(false);
+  };
+
+  const handleConfirmBaja = () => {
+    if (!bajaFechaEgreso) return;
+    onDarDeBaja(bajaFechaEgreso);
+  };
+
   return (
     <div className="rrhh-modal-root" role="dialog" aria-modal="true" aria-label="Ficha de personal">
       <div className="lot-wizard-overlay" onClick={onClose} />
@@ -185,14 +265,30 @@ export default function PersonalDetail({
             </div>
           </div>
           <div className="rrhh-detail-header-actions">
-            <Tag variant={getStatusVariant(personal.estado)}>{personal.estado}</Tag>
+            <StatusPill person={personal} getStatusVariant={getStatusVariant} Tag={Tag} />
             <Tag variant={personal.tipo_personal === 'externo' ? 'info' : 'success'}>
               {personal.tipo_personal}
             </Tag>
             <Button variant="secondary" onClick={() => onEdit(personal.id)}>Editar</Button>
+            {personal.estado !== 'baja' ? (
+              <Button variant="ghost" onClick={() => setShowBajaConfirm((prev) => !prev)}>Dar de baja</Button>
+            ) : null}
             <Button variant="ghost" onClick={onClose}>Cerrar</Button>
           </div>
         </div>
+
+        {showBajaConfirm ? (
+          <div className="rrhh-inline-form" style={{ margin: '0 20px 12px', gridTemplateColumns: 'auto auto auto' }}>
+            <label style={{ display: 'grid', gap: 4 }}>
+              <span style={{ fontSize: 12 }}>Fecha de egreso</span>
+              <input type="date" value={bajaFechaEgreso} onChange={(event) => setBajaFechaEgreso(event.target.value)} />
+            </label>
+            <div className="rrhh-inline-actions">
+              <Button variant="ghost" onClick={() => setShowBajaConfirm(false)}>Cancelar</Button>
+              <Button onClick={handleConfirmBaja} disabled={!bajaFechaEgreso}>Confirmar baja</Button>
+            </div>
+          </div>
+        ) : null}
 
         {actionError ? (
           <div style={{ color: '#b91c1c', padding: '8px 20px' }}>{actionError}</div>
@@ -231,7 +327,7 @@ export default function PersonalDetail({
                   <div><span>Domicilio</span>{renderField(personal.domicilio, !personal.domicilio)}</div>
                   <div><span>Fecha de ingreso</span>{renderField(toDateOnly(personal.fecha_ingreso), !personal.fecha_ingreso)}</div>
                   <div><span>Fecha de egreso</span><strong>{personal.fecha_egreso ? toDateOnly(personal.fecha_egreso) : 'Activo'}</strong></div>
-                  <div><span>Estado</span><strong><Tag variant={getStatusVariant(personal.estado)}>{personal.estado}</Tag></strong></div>
+                  <div><span>Estado</span><strong><StatusPill person={personal} getStatusVariant={getStatusVariant} Tag={Tag} /></strong></div>
                   <div><span>Tipo de personal</span><strong><Tag variant={personal.tipo_personal === 'externo' ? 'info' : 'success'}>{personal.tipo_personal}</Tag></strong></div>
                   {personal.tipo_personal === 'externo' ? (
                     <div>
@@ -399,6 +495,54 @@ export default function PersonalDetail({
                 </div>
               ) : (
                 <div className="rrhh-empty-inline">No hay carné de salud cargado.</div>
+              )}
+            </section>
+          ) : null}
+
+          {activeTab === 'licencias' ? (
+            <section className="rrhh-detail-card">
+              <div className="rrhh-section-title">
+                <div className="rrhh-inline-title"><CalendarClock size={18} /><span>Licencias</span></div>
+                <Button variant="secondary" icon={<Plus size={16} />} onClick={showLicenciaForm ? () => setShowLicenciaForm(false) : startNewLicencia}>
+                  {showLicenciaForm ? 'Cancelar' : 'Cargar nueva'}
+                </Button>
+              </div>
+
+              {showLicenciaForm ? (
+                <div className="rrhh-inline-form">
+                  <select value={licenciaDraft.tipo} onChange={(event) => setLicenciaDraft((prev) => ({ ...prev, tipo: event.target.value }))}>
+                    <option value="">Tipo de licencia</option>
+                    {Object.entries(LICENCIA_TIPO_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                  <input type="date" value={licenciaDraft.fecha_desde} onChange={(event) => setLicenciaDraft((prev) => ({ ...prev, fecha_desde: event.target.value }))} />
+                  <input type="date" value={licenciaDraft.fecha_hasta} onChange={(event) => setLicenciaDraft((prev) => ({ ...prev, fecha_hasta: event.target.value }))} />
+                  <input placeholder="Observaciones (opcional)" value={licenciaDraft.observaciones} onChange={(event) => setLicenciaDraft((prev) => ({ ...prev, observaciones: event.target.value }))} />
+                  <div className="rrhh-inline-actions">
+                    <Button variant="ghost" onClick={() => { setShowLicenciaForm(false); setEditingLicenciaId(null); }}>Cancelar</Button>
+                    <Button onClick={handleSaveLicencia}>{editingLicenciaId ? 'Guardar cambios' : 'Guardar licencia'}</Button>
+                  </div>
+                  <small>Dejar &quot;hasta&quot; vacío si todavía no tiene fecha de regreso.</small>
+                </div>
+              ) : null}
+
+              {licencias.length ? (
+                <div className="rrhh-kv-list">
+                  {licencias.map((lic) => (
+                    <div key={lic.id}>
+                      <span>{LICENCIA_TIPO_LABELS[lic.tipo] || lic.tipo}</span>
+                      <strong>
+                        {formatDateOnlyDisplay(lic.fecha_desde)} · {lic.fecha_hasta ? formatDateOnlyDisplay(lic.fecha_hasta) : 'sin fecha de regreso'}
+                        {lic.observaciones ? ` — ${lic.observaciones}` : ''}
+                        {' '}
+                        <button type="button" className="rrhh-link-chip" onClick={() => startEditLicencia(lic)}>Editar</button>
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rrhh-empty-inline">No hay licencias cargadas.</div>
               )}
             </section>
           ) : null}
