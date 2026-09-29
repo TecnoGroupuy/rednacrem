@@ -99,6 +99,18 @@ function notifyUnauthorized(status) {
   }
 }
 
+// Algunos endpoints todavía devuelven el texto legible en `error` en vez de
+// `message` (ver index.mjs) -- sin este fallback, esos casos le llegaban al
+// usuario como el críptico "HTTP 400" en vez del motivo real.
+function extractErrorMessage(parsed, status) {
+  if (parsed && typeof parsed === 'object') {
+    if (parsed.message) return parsed.message;
+    if (parsed.error) return parsed.error;
+  }
+  if (typeof parsed === 'string' && parsed.trim()) return parsed;
+  return `HTTP ${status}`;
+}
+
 export function createApiClient({ baseUrl, getAccessToken }) {
   const request = async (path, { method = 'GET', headers = {}, body } = {}) => {
     const rawUrl = buildApiUrl(path, baseUrl);
@@ -155,9 +167,7 @@ export function createApiClient({ baseUrl, getAccessToken }) {
       : (isJson ? await response.json().catch(() => null) : await response.text().catch(() => ''));
 
     if (!response.ok) {
-      const message = (parsed && typeof parsed === 'object' && parsed.message)
-        ? parsed.message
-        : (typeof parsed === 'string' && parsed.trim() ? parsed : `HTTP ${response.status}`);
+      const message = extractErrorMessage(parsed, response.status);
       notifyUnauthorized(response.status);
       throw new ApiError(message, response.status, parsed);
     }
@@ -209,9 +219,7 @@ export function createApiClient({ baseUrl, getAccessToken }) {
       const parsed = response.status === 204
         ? null
         : (isJson ? await response.json().catch(() => null) : await response.text().catch(() => ''));
-      const message = (parsed && typeof parsed === 'object' && parsed.message)
-        ? parsed.message
-        : (typeof parsed === 'string' && parsed.trim() ? parsed : `HTTP ${response.status}`);
+      const message = extractErrorMessage(parsed, response.status);
       notifyUnauthorized(response.status);
       throw new ApiError(message, response.status, parsed);
     }
