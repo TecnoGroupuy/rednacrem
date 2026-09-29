@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Edit3, AlertTriangle, Clock3, Building2, MapPin, ChevronDown, ChevronRight, Crown, UserMinus } from 'lucide-react';
+import { Eye, Edit3, AlertTriangle, Clock3, Building2, MapPin, ChevronDown, ChevronRight, Crown, UserMinus, Car } from 'lucide-react';
 import { getEffectiveEstado } from './personalHierarchy.js';
 
 // Duplicado a proposito, mismo criterio que ya explica PersonalDetail.jsx
@@ -53,6 +53,22 @@ export function StatusPill({ person, getStatusVariant, Tag }) {
   return <Tag variant={getStatusVariant(effective.estado)}>{effective.estado || 'sin estado'}</Tag>;
 }
 
+// Badge de regimen fijo (movil y/o franja) -- solo se pide para el area de
+// Enfermeria (ver PersonCard/AreaSection), asi que vive detras de un prop
+// explicito en vez de mostrarse cada vez que el dato esta presente: un
+// chofer fijo tambien tiene vehiculo_id, pero no corresponde mostrarle este
+// badge fuera de Enfermeria.
+function RegimenBadge({ person }) {
+  const parts = [person.vehiculo_numero_interno, person.franja_turno].filter(Boolean);
+  if (!parts.length) return null;
+  return (
+    <div className="rrhh-regimen-badge">
+      <Car size={14} />
+      <span>{parts.join(' · ')}</span>
+    </div>
+  );
+}
+
 // Colores de avatar por hash estable del id (no por indice de posicion en
 // el array): en la vista jerarquica una misma persona puede aparecer en
 // distintas listas segun filtros, y con hash por id el color no le salta
@@ -72,7 +88,7 @@ function initialsFor(person) {
   return `${person.nombre?.[0] || ''}${person.apellido?.[0] || ''}`.toUpperCase() || 'SU';
 }
 
-function PersonCard({ Button, Tag, person, isLeader, dimmed, onView, onEdit, getBaseLabel, getStatusVariant, getAlertMeta }) {
+function PersonCard({ Button, Tag, person, isLeader, dimmed, showRegimenBadge, onView, onEdit, getBaseLabel, getStatusVariant, getAlertMeta }) {
   const external = person.tipo_personal === 'externo';
   const nombreCompleto = `${person.nombre} ${person.apellido}`.trim();
 
@@ -170,6 +186,7 @@ function PersonCard({ Button, Tag, person, isLeader, dimmed, onView, onEdit, get
 
       <div className="rrhh-person-card-tags">
         <StatusPill person={person} getStatusVariant={getStatusVariant} Tag={Tag} />
+        {showRegimenBadge ? <RegimenBadge person={person} /> : null}
         {external ? (
           <div className="rrhh-external-pill">
             <Building2 size={14} />
@@ -194,7 +211,7 @@ function PersonCard({ Button, Tag, person, isLeader, dimmed, onView, onEdit, get
   );
 }
 
-function MemberGrid({ Button, Tag, members, isLeader, dimmed, onView, onEdit, getBaseLabel, getStatusVariant, getAlertMeta, emptyMessage }) {
+function MemberGrid({ Button, Tag, members, isLeader, dimmed, showRegimenBadge, onView, onEdit, getBaseLabel, getStatusVariant, getAlertMeta, emptyMessage }) {
   if (!members.length) {
     return <div className="rrhh-empty-inline">{emptyMessage || 'Sin personal en este grupo.'}</div>;
   }
@@ -208,6 +225,7 @@ function MemberGrid({ Button, Tag, members, isLeader, dimmed, onView, onEdit, ge
           person={person}
           isLeader={isLeader}
           dimmed={dimmed}
+          showRegimenBadge={showRegimenBadge}
           onView={onView}
           onEdit={onEdit}
           getBaseLabel={getBaseLabel}
@@ -254,6 +272,10 @@ function EgresadosSection({ egresados, Button, Tag, onView, getBaseLabel, getSta
 
 function AreaSection({ area, Button, Tag, onView, onEdit, getBaseLabel, getStatusVariant, getAlertMeta, defaultExpanded }) {
   const [expanded, setExpanded] = React.useState(defaultExpanded);
+  // El badge de movil/franja (Fase 2 del regimen fijo) solo se pide para
+  // Enfermeria -- Choferes tambien tiene regimen fijo con vehiculo_id, pero
+  // queda fuera de alcance de esta fase.
+  const showRegimenBadge = area.key === 'enfermeria';
 
   return (
     <section className="rrhh-hierarchy-section">
@@ -274,7 +296,7 @@ function AreaSection({ area, Button, Tag, onView, onEdit, getBaseLabel, getStatu
           {area.hasLeaderConcept ? (
             area.leaders.length ? (
               <MemberGrid
-                Button={Button} Tag={Tag} members={area.leaders} isLeader
+                Button={Button} Tag={Tag} members={area.leaders} isLeader showRegimenBadge={showRegimenBadge}
                 onView={onView} onEdit={onEdit}
                 getBaseLabel={getBaseLabel} getStatusVariant={getStatusVariant} getAlertMeta={getAlertMeta}
               />
@@ -295,7 +317,7 @@ function AreaSection({ area, Button, Tag, onView, onEdit, getBaseLabel, getStatu
                 </div>
               ) : null}
               <MemberGrid
-                Button={Button} Tag={Tag} members={subgroup.members}
+                Button={Button} Tag={Tag} members={subgroup.members} showRegimenBadge={showRegimenBadge}
                 onView={onView} onEdit={onEdit}
                 getBaseLabel={getBaseLabel} getStatusVariant={getStatusVariant} getAlertMeta={getAlertMeta}
                 emptyMessage={subgroup.emptyMessage}

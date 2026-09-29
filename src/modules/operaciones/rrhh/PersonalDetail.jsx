@@ -66,6 +66,51 @@ function todayDateOnly() {
   return `${year}-${month}-${day}`;
 }
 
+// Aritmetica de fechas pura para el ciclo 4x1 del regimen fijo (ver
+// migracion 069): parsear anio/mes/dia a mano y operar con Date.UTC evita
+// el corrimiento de dia de new Date('YYYY-MM-DD') (que arma medianoche
+// LOCAL, y en UTC-3 cae en el dia anterior al convertir a UTC). Con
+// Date.UTC ambos extremos quedan en el mismo huso horario ficticio (UTC),
+// asi que restarlos da una diferencia de dias exacta sin importar la zona
+// horaria del navegador.
+function daysBetweenDateOnly(fromDateOnly, toDateOnlyValue) {
+  const [fy, fm, fd] = fromDateOnly.split('-').map(Number);
+  const [ty, tm, td] = toDateOnlyValue.split('-').map(Number);
+  const fromUTC = Date.UTC(fy, fm - 1, fd);
+  const toUTC = Date.UTC(ty, tm - 1, td);
+  return Math.round((toUTC - fromUTC) / 86400000);
+}
+
+function addDaysDateOnly(dateOnlyValue, days) {
+  const [y, m, d] = dateOnlyValue.split('-').map(Number);
+  const next = new Date(Date.UTC(y, m - 1, d + days));
+  const yyyy = next.getUTCFullYear();
+  const mm = String(next.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(next.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+// es_franco(d) = ((d - ref) en dias) mod 5 === 0 (ciclo 4 dias de trabajo +
+// 1 de franco). El modulo se normaliza a [0, 5) antes de comparar porque el
+// resto de JS para diferencias negativas (hoy anterior a la referencia)
+// puede salir negativo.
+function isFranco(dateOnlyValue, refDateOnly) {
+  const diff = daysBetweenDateOnly(refDateOnly, dateOnlyValue);
+  return ((diff % 5) + 5) % 5 === 0;
+}
+
+// Proximos N francos desde hoy inclusive (si hoy es franco, es el primero
+// de la lista).
+function getProximosFrancos(refDateOnly, count = 3) {
+  const francos = [];
+  let cursor = todayDateOnly();
+  while (francos.length < count) {
+    if (isFranco(cursor, refDateOnly)) francos.push(cursor);
+    cursor = addDaysDateOnly(cursor, 1);
+  }
+  return francos;
+}
+
 const emptyHabilitacionDraft = { tipo: '', numero: '', organismo_emisor: '', fecha_emision: '', fecha_vencimiento: '', documento_url: '', estado: 'vigente' };
 const emptyCapacitacionDraft = { tipo_capacitacion: '', institucion: '', fecha_emision: '', fecha_vencimiento: '', documento_url: '' };
 const emptyCarnetDraft = { fecha_emision: '', fecha_vencimiento: '', documento_url: '' };
@@ -341,6 +386,25 @@ export default function PersonalDetail({
                   ) : null}
                 </div>
               </section>
+
+              {personal.regimen_turno === 'fijo' ? (
+                <section className="rrhh-detail-card">
+                  <div className="rrhh-section-title"><CalendarClock size={18} /> Régimen fijo</div>
+                  <div className="rrhh-kv-list">
+                    <div><span>Móvil</span>{renderField(personal.vehiculo_numero_interno, !personal.vehiculo_numero_interno)}</div>
+                    <div><span>Franja</span>{renderField(personal.franja_turno, !personal.franja_turno)}</div>
+                    <div><span>Fecha de referencia</span>{renderField(personal.fecha_ref_descanso ? formatDateOnlyDisplay(personal.fecha_ref_descanso) : '', !personal.fecha_ref_descanso)}</div>
+                    <div>
+                      <span>Próximos francos</span>
+                      <strong>
+                        {personal.fecha_ref_descanso
+                          ? getProximosFrancos(toDateOnly(personal.fecha_ref_descanso), 3).map(formatDateOnlyDisplay).join(', ')
+                          : 'Ciclo sin definir'}
+                      </strong>
+                    </div>
+                  </div>
+                </section>
+              ) : null}
             </div>
           ) : null}
 

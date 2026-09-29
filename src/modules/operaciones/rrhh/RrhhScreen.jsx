@@ -22,7 +22,7 @@ import {
   addLicencia,
   updateLicencia
 } from '../../../services/rrhhService.js';
-import { listBases } from '../../../services/flotasService.js';
+import { listBases, listVehiculos } from '../../../services/flotasService.js';
 import { getMissingFields } from './PersonalDetail.jsx';
 import { buildPersonalHierarchy } from './personalHierarchy.js';
 import './rrhhStyles.css';
@@ -57,9 +57,14 @@ const emptyPersonalDraft = {
   // `rol` no es una columna de su_personal -- es el rol inicial que se le
   // va a asignar a la persona recien creada (o a una que todavia no tiene
   // ninguno) via un POST aparte a /operaciones/personal/:id/roles despues
-  // de guardarla. regimen_turno si es columna real de su_personal.
+  // de guardarla. regimen_turno, vehiculo_id, franja_turno y
+  // fecha_ref_descanso si son columnas reales de su_personal (migracion 069,
+  // regimen fijo de enfermeria).
   rol: '',
-  regimen_turno: null
+  regimen_turno: null,
+  vehiculo_id: null,
+  franja_turno: null,
+  fecha_ref_descanso: null
 };
 
 const emptyEmpresaDraft = {
@@ -127,6 +132,7 @@ const getDocumentAlertLevel = (items = []) => {
 export default function RrhhScreen({ Button, Panel, Tag }) {
   const [personal, setPersonal] = React.useState([]);
   const [bases, setBases] = React.useState([]);
+  const [vehiculos, setVehiculos] = React.useState([]);
   const [vencimientos, setVencimientos] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
@@ -149,6 +155,10 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
   // crear). Determina si PersonalForm muestra el selector de "rol inicial"
   // o el mensaje de "se gestiona desde la ficha" -- ver PersonalForm.jsx.
   const [personalExistingRolesCount, setPersonalExistingRolesCount] = React.useState(0);
+  // Los roles ya asignados (no solo la cantidad): PersonalForm los necesita
+  // para decidir si muestra el selector de Franja (solo si esta 'Enfermero'
+  // entre ellos, ver PersonalForm.jsx).
+  const [personalExistingRoles, setPersonalExistingRoles] = React.useState([]);
   const [personalErrors, setPersonalErrors] = React.useState({});
   const [formSaving, setFormSaving] = React.useState(false);
   const [formError, setFormError] = React.useState('');
@@ -170,13 +180,15 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
     setLoading(true);
     setError('');
     try {
-      const [personalItems, basesItems, vencimientosItems] = await Promise.all([
+      const [personalItems, basesItems, vehiculosItems, vencimientosItems] = await Promise.all([
         listPersonal(),
         listBases(),
+        listVehiculos(),
         listPersonalVencimientos({ days: 30 })
       ]);
       setPersonal(personalItems);
       setBases(basesItems);
+      setVehiculos(vehiculosItems);
       setVencimientos(vencimientosItems);
     } catch (err) {
       setError(err?.message || 'No se pudo cargar el personal.');
@@ -288,6 +300,7 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
     setPersonalFormMode('create');
     setPersonalDraft({ ...emptyPersonalDraft });
     setPersonalExistingRolesCount(0);
+    setPersonalExistingRoles([]);
     setPersonalErrors({});
     setFormError('');
     setPersonalFormOpen(true);
@@ -302,6 +315,7 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
     // se gestionan desde la ficha, ver personalExistingRolesCount).
     setPersonalDraft({ ...emptyPersonalDraft, ...item, rol: '' });
     setPersonalExistingRolesCount((item.roles || []).length);
+    setPersonalExistingRoles(item.roles || []);
     setPersonalErrors({});
     setFormError('');
     setPersonalFormOpen(true);
@@ -332,7 +346,10 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
       fecha_egreso: personalDraft.fecha_egreso || null,
       tipo_personal: personalDraft.tipo_personal,
       empresa_contratista_id: null,
-      regimen_turno: personalDraft.regimen_turno || null
+      regimen_turno: personalDraft.regimen_turno || null,
+      vehiculo_id: personalDraft.vehiculo_id || null,
+      franja_turno: personalDraft.franja_turno || null,
+      fecha_ref_descanso: personalDraft.fecha_ref_descanso || null
     };
 
     // Mergea la respuesta del backend sobre el item que ya tenia en estado
@@ -397,6 +414,14 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
       if (wasAlreadySelected) refreshSelectedDetail();
       setDetailTab('datos_generales');
       setPersonalFormOpen(false);
+
+      // POST y PATCH /operaciones/personal devuelven la fila cruda de
+      // su_personal, sin el JOIN a su_vehiculos que solo arma el listado
+      // (GET) -- sin este refresco, la tarjeta en la jerarquia se veria sin
+      // el numero de movil (badge de Enfermeria) hasta el proximo reload
+      // manual. Mismo criterio que refreshPersonalList ya usa para
+      // licencia_vigente en el flujo de licencias/baja.
+      refreshPersonalList();
     } catch (err) {
       setFormError(err?.message || 'No se pudo guardar el funcionario.');
     } finally {
@@ -621,9 +646,11 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
           setDraft={setPersonalDraft}
           formMode={personalFormMode}
           bases={bases}
+          vehiculos={vehiculos}
           roleOptions={RRHH_ROLE_OPTIONS}
           formatRol={formatRol}
           existingRolesCount={personalExistingRolesCount}
+          existingRoles={personalExistingRoles}
           errors={personalErrors}
           saving={formSaving}
           formError={formError}

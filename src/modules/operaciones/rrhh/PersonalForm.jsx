@@ -16,6 +16,7 @@ import React from 'react';
 // asignado (alta nueva, o una edicion de alguien que quedo sin rol) -- una
 // vez que tiene al menos uno, la gestion pasa exclusivamente por la ficha.
 const REGIMEN_TURNO_ROLES = new Set(['Enfermero', 'Chofer']);
+const FRANJA_TURNO_OPTIONS = ['00-06', '06-12', '12-18', '18-00'];
 
 export default function PersonalForm({
   Button,
@@ -23,9 +24,11 @@ export default function PersonalForm({
   setDraft,
   formMode,
   bases,
+  vehiculos,
   roleOptions,
   formatRol,
   existingRolesCount,
+  existingRoles,
   errors,
   saving,
   formError,
@@ -43,6 +46,21 @@ export default function PersonalForm({
       if (field === 'rol' && !existingRolesCount && !REGIMEN_TURNO_ROLES.has(value)) {
         next.regimen_turno = null;
       }
+      // Idem para franja_turno: si el rol elegido deja de ser Enfermero, el
+      // selector de Franja se oculta -- no tiene sentido dejar colgado un
+      // valor que ya no se ve ni se puede editar desde aca.
+      if (field === 'rol' && !existingRolesCount && value !== 'Enfermero') {
+        next.franja_turno = null;
+      }
+      // Al salir de "fijo" se limpian los 3 campos que solo aplican a ese
+      // regimen -- evita mandar un vehiculo_id/franja_turno/fecha_ref_descanso
+      // heredado de una seleccion anterior para un regimen al que ya no
+      // corresponde (ej. turnante o sin asignar).
+      if (field === 'regimen_turno' && value !== 'fijo') {
+        next.vehiculo_id = null;
+        next.franja_turno = null;
+        next.fecha_ref_descanso = null;
+      }
       return next;
     });
   };
@@ -55,6 +73,20 @@ export default function PersonalForm({
   // se esta por asignar es Enfermero o Chofer.
   const canPickInitialRole = !existingRolesCount;
   const showRegimenSelect = canPickInitialRole ? REGIMEN_TURNO_ROLES.has(draft.rol) : true;
+
+  // Movil y Fecha de referencia aplican a cualquier regimen fijo (enfermero
+  // o chofer). Franja, en cambio, solo tiene sentido para Enfermero (turnos
+  // de 6hs) -- un chofer fijo trabaja en turnos de 12hs, fuera del CHECK de
+  // franja_turno de la base de datos, asi que el selector ni se muestra.
+  const showRegimenFijoFields = draft.regimen_turno === 'fijo';
+  const hasEnfermeroRole = canPickInitialRole
+    ? draft.rol === 'Enfermero'
+    : (existingRoles || []).some((item) => item.rol === 'Enfermero');
+  const showFranjaSelect = showRegimenFijoFields && hasEnfermeroRole;
+
+  const vehiculosFiltrados = draft.base_id
+    ? (vehiculos || []).filter((v) => v.base_id === draft.base_id)
+    : (vehiculos || []);
 
   return (
     <div className="rrhh-modal-root" role="dialog" aria-modal="true" aria-label="Formulario de personal">
@@ -161,6 +193,37 @@ export default function PersonalForm({
                 <option value="">Sin asignar</option>
                 <option value="fijo">Fijo</option>
                 <option value="turnante">Turnante</option>
+              </select>
+            </label>
+          ) : null}
+          {showRegimenFijoFields ? (
+            <label>
+              <span>Móvil</span>
+              <select value={draft.vehiculo_id || ''} onChange={(event) => setField('vehiculo_id', event.target.value || null)}>
+                <option value="">Sin asignar</option>
+                {vehiculosFiltrados.map((v) => (
+                  <option key={v.id} value={v.id}>{v.numero_interno || v.matricula || v.id}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {showRegimenFijoFields ? (
+            <label>
+              <span>Fecha de referencia de franco</span>
+              <input
+                type="date"
+                value={draft.fecha_ref_descanso || ''}
+                onChange={(event) => setField('fecha_ref_descanso', event.target.value || null)}
+              />
+              <small>Cualquier día de franco; el sistema calcula el ciclo 4x1.</small>
+            </label>
+          ) : null}
+          {showFranjaSelect ? (
+            <label>
+              <span>Franja</span>
+              <select value={draft.franja_turno || ''} onChange={(event) => setField('franja_turno', event.target.value || null)}>
+                <option value="">Sin asignar</option>
+                {FRANJA_TURNO_OPTIONS.map((franja) => <option key={franja} value={franja}>{franja}</option>)}
               </select>
             </label>
           ) : null}
