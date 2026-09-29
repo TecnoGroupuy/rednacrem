@@ -313,7 +313,21 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
     // `rol` se resetea siempre a '' aca: es el selector de "rol inicial a
     // asignar", no un reflejo de los roles ya existentes de la persona (esos
     // se gestionan desde la ficha, ver personalExistingRolesCount).
-    setPersonalDraft({ ...emptyPersonalDraft, ...item, rol: '' });
+    // Los 4 campos date se normalizan con toDateOnly antes de entrar al
+    // draft: el backend puede devolver "2026-09-27T03:00:00.000Z" en vez de
+    // "2026-09-27" (columna date, corrimiento de zona horaria al serializar)
+    // -- un <input type="date"> no lo muestra, y reenviarlo tal cual en el
+    // PATCH da 400 en fecha_ref_descanso (unico campo con validacion
+    // estricta de formato en el backend, ver Fase 1).
+    setPersonalDraft({
+      ...emptyPersonalDraft,
+      ...item,
+      rol: '',
+      fecha_nacimiento: toDateOnly(item.fecha_nacimiento),
+      fecha_ingreso: toDateOnly(item.fecha_ingreso),
+      fecha_egreso: toDateOnly(item.fecha_egreso),
+      fecha_ref_descanso: toDateOnly(item.fecha_ref_descanso)
+    });
     setPersonalExistingRolesCount((item.roles || []).length);
     setPersonalExistingRoles(item.roles || []);
     setPersonalErrors({});
@@ -336,20 +350,25 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
       nombre: personalDraft.nombre,
       apellido: personalDraft.apellido,
       documento: personalDraft.documento || null,
-      fecha_nacimiento: personalDraft.fecha_nacimiento || null,
+      // Red de seguridad ademas de la normalizacion que ya hace
+      // openEditPersonal al armar el draft: si por el motivo que sea el
+      // draft todavia trajera una fecha con hora/zona (ej. "...T03:00:00.000Z"),
+      // esto evita reenviarla asi al backend en vez de descubrirlo recien
+      // con el 400 de fecha_ref_descanso.
+      fecha_nacimiento: toDateOnly(personalDraft.fecha_nacimiento) || null,
       telefono: personalDraft.telefono || null,
       email: personalDraft.email || null,
       domicilio: personalDraft.domicilio || null,
       base_id: personalDraft.base_id || null,
       estado: personalDraft.estado,
-      fecha_ingreso: personalDraft.fecha_ingreso || null,
-      fecha_egreso: personalDraft.fecha_egreso || null,
+      fecha_ingreso: toDateOnly(personalDraft.fecha_ingreso) || null,
+      fecha_egreso: toDateOnly(personalDraft.fecha_egreso) || null,
       tipo_personal: personalDraft.tipo_personal,
       empresa_contratista_id: null,
       regimen_turno: personalDraft.regimen_turno || null,
       vehiculo_id: personalDraft.vehiculo_id || null,
       franja_turno: personalDraft.franja_turno || null,
-      fecha_ref_descanso: personalDraft.fecha_ref_descanso || null
+      fecha_ref_descanso: toDateOnly(personalDraft.fecha_ref_descanso) || null
     };
 
     // Mergea la respuesta del backend sobre el item que ya tenia en estado

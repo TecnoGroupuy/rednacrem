@@ -61,6 +61,17 @@ export default function PersonalForm({
         next.franja_turno = null;
         next.fecha_ref_descanso = null;
       }
+      // Movil huerfano: si se elige una base y el vehiculo ya seleccionado
+      // no es de esa base, se limpia -- evita guardar un vehiculo_id que
+      // deja de aparecer en el propio selector (filtrado por base) apenas
+      // se refresque. Sin base elegida (value vacio) el selector no filtra
+      // nada, asi que no hay huerfano posible y no se toca.
+      if (field === 'base_id' && value) {
+        const currentVehiculo = (vehiculos || []).find((v) => v.id === prev.vehiculo_id);
+        if (currentVehiculo && currentVehiculo.base_id !== value) {
+          next.vehiculo_id = null;
+        }
+      }
       return next;
     });
   };
