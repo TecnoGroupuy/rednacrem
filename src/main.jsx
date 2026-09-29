@@ -14453,26 +14453,28 @@ const formatCurrency = (value) => {
                       const isBaja = String(productItem.estado || '').toLowerCase() === 'baja';
                       return (
                         <div key={productItem.id} className="alert" style={{ border: '1px solid rgba(20,34,53,0.08)', background: 'rgba(20,34,53,0.03)', padding: '10px 12px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-                            <strong>{productItem.nombreProducto || 'Producto'}</strong>
-                            <span style={{
-                              display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 999,
-                              fontSize: '0.72rem', fontWeight: 700,
-                              background: isBaja ? 'rgba(248,113,113,0.18)' : 'rgba(34,197,94,0.18)',
-                              color: isBaja ? '#b91c1c' : '#15803d'
-                            }}>
-                              {isBaja ? 'Baja' : 'Alta'}
-                            </span>
-                          </div>
-                          <div style={{ color: 'var(--muted)', fontSize: '0.85rem', marginTop: 4 }}>
-                            Alta: {formatDate(productItem.fechaAlta) || '—'}
-                            {isBaja ? ` · Baja: ${formatDate(productItem.fechaBaja) || '—'}` : ''}
-                          </div>
-                          {isBaja ? (
-                            <div style={{ color: '#64748b', fontSize: '0.82rem', marginTop: 4 }}>
-                              Motivo: {productItem.motivoBaja || '—'}
+                          <div style={{ width: '100%' }}>
+                            <div style={{ fontWeight: 700, wordBreak: 'break-word' }}>{productItem.nombreProducto || 'Producto'}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
+                              <span style={{
+                                display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 999,
+                                fontSize: '0.72rem', fontWeight: 700,
+                                background: isBaja ? 'rgba(248,113,113,0.18)' : 'rgba(34,197,94,0.18)',
+                                color: isBaja ? '#b91c1c' : '#15803d'
+                              }}>
+                                {isBaja ? 'Baja' : 'Alta'}
+                              </span>
+                              <span style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>
+                                Alta: {formatDate(productItem.fechaAlta) || '—'}
+                                {isBaja ? ` · Baja: ${formatDate(productItem.fechaBaja) || '—'}` : ''}
+                              </span>
                             </div>
-                          ) : null}
+                            {isBaja ? (
+                              <div style={{ color: '#64748b', fontSize: '0.82rem', marginTop: 4 }}>
+                                Motivo: {productItem.motivoBaja || '—'}
+                              </div>
+                            ) : null}
+                          </div>
                         </div>
                       );
                     })}
