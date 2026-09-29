@@ -59,6 +59,7 @@ import {
   deriveTicketToOperations,
   closeTicketCase,
   listUnassignedRetentionTicketsAsync,
+  listAssignedRetentionTicketsAsync,
   listMyRetentionTicketsAsync,
   assignRetentionTicket
 } from './services/ticketsService.js';
@@ -13943,7 +13944,7 @@ const formatCurrency = (value) => {
       );
     }
 
-    function SupportTicketsView({ title, subtitle, tickets, onSelect, selectedId, mode = 'general', onAssign }) {
+    function SupportTicketsView({ title, subtitle, tickets, onSelect, selectedId, mode = 'general', onAssign, showAssignee = false }) {
       const [ticketSearch, setTicketSearch] = React.useState('');
       const [filter, setFilter] = React.useState('todos');
       const [page, setPage] = React.useState(1);
@@ -14003,19 +14004,27 @@ const formatCurrency = (value) => {
 
               <div className="table-wrap" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <table>
-                  <thead><tr><th>ID</th><th>Cliente</th><th>Tipo de solicitud</th><th>Estado</th><th>Hora</th>{onAssign ? <th>Acción</th> : null}</tr></thead>
+                  <thead><tr><th>ID</th><th>Cliente</th><th>Tipo de solicitud</th>{showAssignee ? <th>Vendedor asignado</th> : null}<th>Estado</th><th>Hora</th>{onAssign ? <th>Acción</th> : null}{showAssignee ? <th>Acción</th> : null}</tr></thead>
                   <tbody>
                     {visibleTickets.map((ticket) => (
                       <tr key={ticket.id} className="support-row" onClick={() => onSelect(ticket.id)} style={{ cursor: 'pointer', background: selectedId === ticket.id ? 'rgba(15,118,110,0.08)' : 'transparent' }}>
                         <td><div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Hash size={14} /><strong>{String(ticket.numero || ticket.id).padStart(6, '0')}</strong></div></td>
-                        <td><div><div style={{ fontWeight: 700 }}>{ticket.cliente}</div><div style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>{ticket.agente}</div></div></td>
+                        <td><div><div style={{ fontWeight: 700 }}>{ticket.cliente}</div><div style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>{showAssignee ? '' : ticket.agente}</div></div></td>
                         <td><span style={{ display: 'inline-block', padding: '4px 8px', borderRadius: 999, fontSize: '0.78rem', fontWeight: 700, background: 'rgba(20,34,53,0.06)', color: '#334155' }}>{supportRequestTypeLabel(ticket)}</span></td>
+                        {showAssignee ? <td>{ticket.agente || '—'}</td> : null}
                         <td><SupportStatusBadge status={supportTicketDisplayStatus(ticket)} pulse={supportTicketDisplayStatus(ticket) === 'nuevo' || supportTicketDisplayStatus(ticket) === 'servicio_iniciado'} small /></td>
                         <td>{formatDateTimeShort(ticket.hora) || ticket.hora}</td>
                         {onAssign ? (
                           <td>
                             <Button variant="secondary" onClick={(event) => { event.stopPropagation(); onAssign(ticket); }}>
                               Asignar
+                            </Button>
+                          </td>
+                        ) : null}
+                        {showAssignee ? (
+                          <td>
+                            <Button variant="ghost" onClick={(event) => { event.stopPropagation(); onSelect(ticket.id); }}>
+                              Ver detalle
                             </Button>
                           </td>
                         ) : null}
@@ -14819,6 +14828,9 @@ const formatCurrency = (value) => {
       const [tickets, setTickets] = React.useState([]);
       const [selectedId, setSelectedId] = React.useState(null);
       const [view, setView] = React.useState('listado');
+      // "section" solo aplica al supervisor — el vendedor no tiene cola de
+      // sin asignar ni vista de en gestión, solo sus propios tickets.
+      const [section, setSection] = React.useState('sin_asignar');
       const [loading, setLoading] = React.useState(true);
       const [error, setError] = React.useState('');
       const [sellers, setSellers] = React.useState([]);
@@ -14829,9 +14841,9 @@ const formatCurrency = (value) => {
       const loadTickets = React.useCallback(() => {
         setLoading(true);
         setError('');
-        const loader = isSupervisor
-          ? listUnassignedRetentionTicketsAsync()
-          : listMyRetentionTicketsAsync(authUser?.id);
+        const loader = !isSupervisor
+          ? listMyRetentionTicketsAsync(authUser?.id)
+          : (section === 'en_gestion' ? listAssignedRetentionTicketsAsync() : listUnassignedRetentionTicketsAsync());
         loader
           .then((data) => {
             setTickets(data);
@@ -14845,7 +14857,7 @@ const formatCurrency = (value) => {
             setError('No se pudieron cargar los tickets de retención.');
           })
           .finally(() => setLoading(false));
-      }, [isSupervisor, authUser?.id]);
+      }, [isSupervisor, authUser?.id, section]);
 
       React.useEffect(() => {
         loadTickets();
@@ -14968,6 +14980,28 @@ const formatCurrency = (value) => {
 
       return (
         <div className="view">
+          {isSupervisor ? (
+            <section className="content-grid">
+              <Panel className="span-12" style={{ padding: '10px 14px' }}>
+                <div style={{ display: 'flex', gap: 4, background: 'rgba(20,34,53,0.05)', padding: 4, borderRadius: 12, width: 'fit-content' }}>
+                  <Button
+                    variant={section === 'sin_asignar' ? 'secondary' : 'ghost'}
+                    style={section === 'sin_asignar' ? { background: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.08)', border: 'none' } : { border: 'none', background: 'transparent' }}
+                    onClick={() => setSection('sin_asignar')}
+                  >
+                    Sin asignar
+                  </Button>
+                  <Button
+                    variant={section === 'en_gestion' ? 'secondary' : 'ghost'}
+                    style={section === 'en_gestion' ? { background: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.08)', border: 'none' } : { border: 'none', background: 'transparent' }}
+                    onClick={() => setSection('en_gestion')}
+                  >
+                    En gestión
+                  </Button>
+                </div>
+              </Panel>
+            </section>
+          ) : null}
           {error ? (
             <section className="content-grid">
               <Panel className="span-12">
@@ -14980,14 +15014,23 @@ const formatCurrency = (value) => {
           ) : null}
           <SupportTicketsView
             mode="retencion"
-            title={isSupervisor ? 'Retención — sin asignar' : 'Retención — mis tickets'}
-            subtitle={isSupervisor
-              ? 'Solicitudes de baja pendientes de asignar a un vendedor'
-              : 'Solicitudes de baja que te asignó tu supervisor'}
+            title={
+              !isSupervisor
+                ? 'Retención — mis tickets'
+                : (section === 'en_gestion' ? 'Retención — en gestión' : 'Retención — sin asignar')
+            }
+            subtitle={
+              !isSupervisor
+                ? 'Solicitudes de baja que te asignó tu supervisor'
+                : (section === 'en_gestion'
+                  ? 'Solicitudes de baja ya asignadas a un vendedor'
+                  : 'Solicitudes de baja pendientes de asignar a un vendedor')
+            }
             tickets={displayTickets}
             onSelect={openTicket}
             selectedId={selectedId}
-            onAssign={isSupervisor ? openAssignModal : undefined}
+            onAssign={isSupervisor && section === 'sin_asignar' ? openAssignModal : undefined}
+            showAssignee={isSupervisor && section === 'en_gestion'}
           />
           <RetencionAssignModal
             ticket={assignTarget}

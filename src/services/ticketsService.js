@@ -351,6 +351,24 @@ export const listUnassignedRetentionTicketsAsync = async () => {
   return hydrateTicketsWithDirectory(items.map(mapBackendManualTicket));
 };
 
+// Módulo Retención — vista "en gestión" del supervisor: todos los
+// solicitud_baja ya asignados, sea al vendedor que sea (no confundir con
+// listMyRetentionTicketsAsync, que filtra por un vendedor puntual). El
+// nombre del vendedor asignado se resuelve en el componente contra el
+// roster de /api/supervisor/agents, igual que ya hace displayTickets en
+// RetencionModule — no hace falta que el backend lo traiga embebido.
+export const listAssignedRetentionTicketsAsync = async () => {
+  if (!hasApiConfigured()) {
+    await delay(160);
+    return listTickets().filter((ticket) => ticket.tipoRaw === 'solicitud_baja' && ticket.assignedTo);
+  }
+  const response = await api.get('/manual-tickets?assigned=true');
+  const items = Array.isArray(response)
+    ? response
+    : (Array.isArray(response?.items) ? response.items : (Array.isArray(response?.data) ? response.data : []));
+  return hydrateTicketsWithDirectory(items.map(mapBackendManualTicket));
+};
+
 // Módulo Retención — vista del vendedor: solo lo que el supervisor le
 // asignó a él específicamente.
 export const listMyRetentionTicketsAsync = async (sellerId) => {
