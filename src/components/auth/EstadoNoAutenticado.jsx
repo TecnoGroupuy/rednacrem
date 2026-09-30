@@ -22,6 +22,12 @@ export default function EstadoNoAutenticado() {
       id: 'supervisor',
       label: 'Supervisor',
       email: import.meta.env?.VITE_LOCAL_DEV_USER_EMAIL_SUPERVISOR || 'supervisor@renacrem.com',
+      // sub explicito: sin esto, el override de sub se borra (ver
+      // setLocalDevOverrides) y el backend usa el default "dev-user", que
+      // por coincidencia matchea el cognito_sub de un usuario de SU
+      // Emergencia (admin@local.test) en vez de resolver por email a este
+      // supervisor de Rednacrem.
+      sub: 'dev-supervisor-rednacrem',
       name: 'Dev Supervisor'
     },
     {
