@@ -428,6 +428,23 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
     primarySale?.vendedor,
     primarySale?.vendedorNombre
   );
+  const vendedorOrigen = pickField(
+    client.sellerOrigin,
+    client.seller_origin,
+    client.product?.sellerOrigin,
+    client.product?.seller_origin,
+    client.producto?.sellerOrigin,
+    client.producto?.seller_origin,
+    primarySale?.sellerOrigin,
+    primarySale?.seller_origin
+  );
+  const esVendedorExterno = String(vendedorOrigen || '').toLowerCase() === 'externo';
+  const registradaPor = pickField(
+    client.registradaPor,
+    client.registrada_por,
+    primarySale?.registradaPor,
+    primarySale?.registrada_por
+  );
   const medioPago = pickField(
     client.medioPago,
     client.medio_pago,
@@ -1138,7 +1155,17 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
               </div>
               <div>
                 <div style={labelStyle}>Vendedor</div>
-                <div style={vendedor ? valueStyle : valueEmpty}>{formatField(vendedor)}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={vendedor ? valueStyle : valueEmpty}>{formatField(vendedor)}</div>
+                  {esVendedorExterno ? (
+                    <span style={{ fontSize: 10, fontWeight: 700, color: '#9a3412', background: '#ffedd5', borderRadius: 999, padding: '2px 8px' }}>
+                      Externo
+                    </span>
+                  ) : null}
+                </div>
+                {registradaPor ? (
+                  <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>Cargada por: {formatField(registradaPor)}</div>
+                ) : null}
               </div>
               <div>
                 <div style={labelStyle}>Medio de pago</div>
@@ -1185,6 +1212,9 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
                   {salesHistory.map((sale, index) => {
                     const saleDate = pickField(sale.fechaAlta, sale.fecha_alta, sale.fechaVenta, sale.fecha_venta);
                     const saleSeller = pickField(sale.sellerName, sale.seller_name, sale.vendedor, sale.vendedorNombre);
+                    const saleSellerOrigen = pickField(sale.sellerOrigin, sale.seller_origin);
+                    const saleEsExterno = String(saleSellerOrigen || '').toLowerCase() === 'externo';
+                    const saleRegistradaPor = pickField(sale.registradaPor, sale.registrada_por);
                     const saleProduct = pickField(sale.productoNombre, sale.product?.nombre, sale.nombreProducto, sale.productName, sale.plan, sale.producto);
                     const saleMedioPago = pickField(sale.medioPago, sale.medio_pago);
                     const saleMedioPagoLabel = paymentMethodLabel(saleMedioPago);
@@ -1194,9 +1224,15 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
                           <div style={{ fontWeight: 600, color: '#111827' }}>{formatField(saleProduct || 'Venta')}</div>
                           <div style={{ fontSize: 12, color: '#64748b' }}>{formatField(formatDateDisplay(saleDate))}</div>
                         </div>
-                        <div style={{ display: 'flex', gap: 14, marginTop: 6, fontSize: 12, color: '#475569', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: 14, marginTop: 6, fontSize: 12, color: '#475569', flexWrap: 'wrap', alignItems: 'center' }}>
                           <span>Vendedor: {formatField(saleSeller)}</span>
+                          {saleEsExterno ? (
+                            <span style={{ fontSize: 10, fontWeight: 700, color: '#9a3412', background: '#ffedd5', borderRadius: 999, padding: '2px 8px' }}>
+                              Externo
+                            </span>
+                          ) : null}
                           <span>Medio de pago: {formatField(saleMedioPagoLabel)}</span>
+                          {saleRegistradaPor ? <span>Cargada por: {formatField(saleRegistradaPor)}</span> : null}
                         </div>
                       </div>
                     );

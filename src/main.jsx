@@ -15665,12 +15665,38 @@ const formatCurrency = (value) => {
           sale: {
             mode: 'logged',
             externalName: '',
+            assignedSellerId: '',
+            assignedSellerName: '',
             paymentMethodId: '',
             medioPago: '',
             fechaVenta: todayMontevideoDateOnly()
           }
         });
         const [isCompactForm, setIsCompactForm] = React.useState(window.innerWidth < 768);
+        const [assignedSellers, setAssignedSellers] = React.useState([]);
+        const [assignedSellersLoading, setAssignedSellersLoading] = React.useState(false);
+        const [assignedSellersError, setAssignedSellersError] = React.useState('');
+
+        React.useEffect(() => {
+          if (!newClientOpen) return;
+          let cancelled = false;
+          setAssignedSellersLoading(true);
+          setAssignedSellersError('');
+          listSellersAsync()
+            .then((list) => {
+              if (cancelled) return;
+              setAssignedSellers(Array.isArray(list) ? list : []);
+            })
+            .catch(() => {
+              if (cancelled) return;
+              setAssignedSellersError('No se pudo cargar la lista de vendedores.');
+            })
+            .finally(() => {
+              if (cancelled) return;
+              setAssignedSellersLoading(false);
+            });
+          return () => { cancelled = true; };
+        }, [newClientOpen]);
 
       React.useEffect(() => {
         if (!newClientOpen) return;
@@ -15995,6 +16021,8 @@ const formatCurrency = (value) => {
             sale: {
               mode: 'logged',
               externalName: '',
+              assignedSellerId: '',
+              assignedSellerName: '',
               paymentMethodId: '',
               medioPago: '',
               fechaVenta: todayMontevideoDateOnly()
@@ -16025,12 +16053,24 @@ const formatCurrency = (value) => {
           const saleMode = newClientDraft.sale?.mode || 'logged';
           const saleName = saleMode === 'external'
             ? String(newClientDraft.sale?.externalName || '').trim()
-            : loggedName;
+            : (saleMode === 'assigned' ? String(newClientDraft.sale?.assignedSellerName || '').trim() : loggedName);
           if (saleMode === 'external' && !saleName) {
             setNewClientError('Ingresa el nombre del vendedor externo.');
             setNewClientStep(2);
             return;
           }
+          if (saleMode === 'assigned' && !newClientDraft.sale?.assignedSellerId) {
+            setNewClientError('Selecciona un vendedor para asignar la venta.');
+            setNewClientStep(2);
+            return;
+          }
+          const fechaVentaValue = newClientDraft.sale.fechaVenta || todayMontevideoDateOnly();
+          if (fechaVentaValue > todayMontevideoDateOnly()) {
+            setNewClientError('La fecha de venta no puede ser futura.');
+            setNewClientStep(2);
+            return;
+          }
+          const sellerModeForBackend = saleMode === 'external' ? 'externo' : (saleMode === 'assigned' ? 'asignado' : 'logueado');
 
           const selectedPaymentMethodId = String(newClientDraft.sale?.paymentMethodId || '').trim();
           const selectedPaymentMethod = paymentMethods.find((pm) => String(pm.id) === selectedPaymentMethodId);
@@ -16057,6 +16097,10 @@ const formatCurrency = (value) => {
         const payload = {
           principal_contact_id: principalContactId,
           contact: contactPayload,
+          seller_mode: sellerModeForBackend,
+          vendedor_id: saleMode === 'assigned' ? newClientDraft.sale.assignedSellerId : undefined,
+          vendedor_nombre: saleMode === 'external' ? saleName : undefined,
+          fecha_venta: fechaVentaValue,
           products: selectedProducts.map((product) => ({
             nombreProducto: product.nombre || product.nombreProducto || product.nombre_producto,
             nombre_producto: product.nombre || product.nombreProducto || product.nombre_producto,
@@ -16064,7 +16108,7 @@ const formatCurrency = (value) => {
               precio: product.precio,
               payment_method_id: selectedPaymentMethodId || undefined,
               medio_pago: selectedPaymentMethodName || undefined,
-              fechaAlta: newClientDraft.sale.fechaVenta || todayMontevideoDateOnly(),
+              fechaAlta: fechaVentaValue,
               estado: 'alta',
               sellerName: saleName || loggedName || 'Usuario'
             }))
@@ -16166,6 +16210,19 @@ const formatCurrency = (value) => {
             sale: {
               ...prev.sale,
               externalName: value
+            }
+          }));
+          setNewClientError('');
+        };
+
+        const handleSaleAssignedSellerChange = (sellerId) => {
+          const selected = assignedSellers.find((s) => String(s.id) === String(sellerId));
+          setNewClientDraft((prev) => ({
+            ...prev,
+            sale: {
+              ...prev.sale,
+              assignedSellerId: sellerId,
+              assignedSellerName: selected?.label || ''
             }
           }));
           setNewClientError('');
@@ -16747,6 +16804,46 @@ const formatCurrency = (value) => {
                             border: '1px solid #e5e7eb'
                           }}
                         />
+                      </label>
+
+                      <label style={{
+                        display: 'grid',
+                        gap: 8,
+                        padding: '12px 14px',
+                        borderRadius: 14,
+                        border: newClientDraft.sale.mode === 'assigned' ? '1px solid rgba(15, 118, 110, 0.65)' : '1px solid #e5e7eb',
+                        background: newClientDraft.sale.mode === 'assigned' ? 'rgba(15, 118, 110, 0.08)' : '#fff',
+                        cursor: 'pointer'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                          <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#64748b' }}>Asignar vendedor</div>
+                          <input
+                            type="radio"
+                            name="sale-mode"
+                            checked={newClientDraft.sale.mode === 'assigned'}
+                            onChange={() => handleSaleModeChange('assigned')}
+                          />
+                        </div>
+                        <select
+                          value={newClientDraft.sale.assignedSellerId}
+                          onChange={(event) => handleSaleAssignedSellerChange(event.target.value)}
+                          disabled={newClientDraft.sale.mode !== 'assigned'}
+                          style={{
+                            width: '100%',
+                            padding: '10px 12px',
+                            borderRadius: 12,
+                            border: '1px solid #e5e7eb',
+                            background: '#fff'
+                          }}
+                        >
+                          <option value="">
+                            {assignedSellersLoading ? 'Cargando vendedores...' : 'Selecciona un vendedor'}
+                          </option>
+                          {assignedSellers.map((seller) => (
+                            <option key={seller.id} value={seller.id}>{seller.label}</option>
+                          ))}
+                        </select>
+                        {assignedSellersError ? <div style={{ fontSize: 12, color: '#b91c1c' }}>{assignedSellersError}</div> : null}
                       </label>
 
                       <div style={{
