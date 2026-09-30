@@ -15598,6 +15598,15 @@ const formatCurrency = (value) => {
         );
       }
 
+    // "Hoy" en America/Montevideo, no en la zona horaria del navegador --
+    // mismo criterio que ya usa el backend (getFallbackBatch) para evitar
+    // que alguien en otro huso horario (o cerca de medianoche en UTC-3) vea
+    // un default de fecha corrido un dia. en-CA da directamente yyyy-mm-dd,
+    // el formato que espera un <input type="date">.
+    function todayMontevideoDateOnly() {
+      return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Montevideo' });
+    }
+
     function ClientsView({ productsCatalog = [], prefillContact = null, onPrefillUsed = null, viewerRole = '', origenDatoOptions = [] }) {
         const { user: authUser } = useAuth();
         const origenDatoResolvedOptions = normalizeOrigenOptions(origenDatoOptions);
@@ -15657,7 +15666,8 @@ const formatCurrency = (value) => {
             mode: 'logged',
             externalName: '',
             paymentMethodId: '',
-            medioPago: ''
+            medioPago: '',
+            fechaVenta: todayMontevideoDateOnly()
           }
         });
         const [isCompactForm, setIsCompactForm] = React.useState(window.innerWidth < 768);
@@ -15986,7 +15996,8 @@ const formatCurrency = (value) => {
               mode: 'logged',
               externalName: '',
               paymentMethodId: '',
-              medioPago: ''
+              medioPago: '',
+              fechaVenta: todayMontevideoDateOnly()
             }
           });
           setNewClientError('');
@@ -16053,7 +16064,7 @@ const formatCurrency = (value) => {
               precio: product.precio,
               payment_method_id: selectedPaymentMethodId || undefined,
               medio_pago: selectedPaymentMethodName || undefined,
-              fechaAlta: new Date().toISOString().slice(0, 10),
+              fechaAlta: newClientDraft.sale.fechaVenta || todayMontevideoDateOnly(),
               estado: 'alta',
               sellerName: saleName || loggedName || 'Usuario'
             }))
@@ -16168,6 +16179,17 @@ const formatCurrency = (value) => {
               ...prev.sale,
               paymentMethodId,
               medioPago: selected?.nombre || prev.sale?.medioPago || ''
+            }
+          }));
+          setNewClientError('');
+        };
+
+        const handleSaleFechaVentaChange = (value) => {
+          setNewClientDraft((prev) => ({
+            ...prev,
+            sale: {
+              ...prev.sale,
+              fechaVenta: value
             }
           }));
           setNewClientError('');
@@ -16755,6 +16777,29 @@ const formatCurrency = (value) => {
                         </select>
                         {paymentMethodsError ? <div style={{ fontSize: 12, color: '#b91c1c' }}>{paymentMethodsError}</div> : null}
                       </div>
+
+                      <div style={{
+                        display: 'grid',
+                        gap: 8,
+                        padding: '12px 14px',
+                        borderRadius: 14,
+                        border: '1px solid #e5e7eb',
+                        background: '#fff'
+                      }}>
+                        <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#64748b' }}>Fecha de venta</div>
+                        <input
+                          type="date"
+                          value={newClientDraft.sale.fechaVenta || todayMontevideoDateOnly()}
+                          max={todayMontevideoDateOnly()}
+                          onChange={(event) => handleSaleFechaVentaChange(event.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '10px 12px',
+                            borderRadius: 12,
+                            border: '1px solid #e5e7eb'
+                          }}
+                        />
+                      </div>
                     </div>
                     {newClientError ? (
                       <p style={{ marginTop: 10, color: '#b91c1c', fontSize: 12 }}>{newClientError}</p>
@@ -16887,7 +16932,8 @@ const formatCurrency = (value) => {
         sale: {
           paymentMethodId: '',
           medioPago: '',
-          cobranzaDocumento: ''
+          cobranzaDocumento: '',
+          fechaVenta: todayMontevideoDateOnly()
         }
       });
       const familiaresConProductoIds = React.useMemo(() => (
@@ -17100,6 +17146,17 @@ const formatCurrency = (value) => {
         setNewClientError('');
       };
 
+      const handleSaleFechaVentaChange = (value) => {
+        setNewClientDraft((prev) => ({
+          ...prev,
+          sale: {
+            ...prev.sale,
+            fechaVenta: value
+          }
+        }));
+        setNewClientError('');
+      };
+
       const handleSaveNewClient = async () => {
         const loggedName = [authUser?.nombre, authUser?.apellido].filter(Boolean).join(' ') || authUser?.email || '';
         const saleName = loggedName || 'Usuario';
@@ -17131,7 +17188,7 @@ const formatCurrency = (value) => {
             precio: product.precio,
             payment_method_id: selectedPaymentMethodId || undefined,
             medio_pago: selectedPaymentMethodName || undefined,
-            fechaAlta: new Date().toISOString().slice(0, 10),
+            fechaAlta: newClientDraft.sale.fechaVenta || todayMontevideoDateOnly(),
             estado: 'alta',
             sellerName: saleName
           };
@@ -17650,6 +17707,29 @@ const formatCurrency = (value) => {
                         ))}
                       </select>
                       {paymentMethodsError ? <div style={{ fontSize: 12, color: '#b91c1c' }}>{paymentMethodsError}</div> : null}
+                    </div>
+
+                    <div style={{
+                      display: 'grid',
+                      gap: 8,
+                      padding: '12px 14px',
+                      borderRadius: 14,
+                      border: '1px solid #e5e7eb',
+                      background: '#fff'
+                    }}>
+                      <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#64748b' }}>Fecha de venta</div>
+                      <input
+                        type="date"
+                        value={newClientDraft.sale.fechaVenta || todayMontevideoDateOnly()}
+                        max={todayMontevideoDateOnly()}
+                        onChange={(event) => handleSaleFechaVentaChange(event.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          borderRadius: 12,
+                          border: '1px solid #e5e7eb'
+                        }}
+                      />
                     </div>
                     <label style={{ fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1 }}>
                       Cédula de identidad de cobranza
