@@ -15627,6 +15627,11 @@ const formatCurrency = (value) => {
         const [duplicateWarning, setDuplicateWarning] = React.useState(false);
         const [newClientOpen, setNewClientOpen] = React.useState(false);
         const [newClientError, setNewClientError] = React.useState('');
+        // Avisos no bloqueantes de la ultima alta (ej. email de un familiar
+        // omitido por colision, ver POST /contacts warnings) -- vive en este
+        // nivel (no dentro del modal) porque el modal se cierra apenas
+        // guarda bien, y el aviso tiene que sobrevivir a ese cierre.
+        const [newClientWarnings, setNewClientWarnings] = React.useState([]);
         const [newClientSaving, setNewClientSaving] = React.useState(false);
         const [newClientStep, setNewClientStep] = React.useState(0);
         const [paymentMethods, setPaymentMethods] = React.useState([]);
@@ -16063,6 +16068,7 @@ const formatCurrency = (value) => {
             setDuplicateWarning(true);
             return;
           }
+          setNewClientWarnings(Array.isArray(result?.warnings) ? result.warnings : []);
           const directory = await fetchClientsDirectory({ page: clientPage, limit: clientPageSize, search: clientSearchDebounced });
             setClientRows(directory.table);
             setClientTotal(Number(directory.total || 0));
@@ -16275,6 +16281,36 @@ const formatCurrency = (value) => {
                       onClick={() => setClientsError('')}
                       style={{ border: 0, background: 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}
                       aria-label="Cerrar mensaje de error"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : null}
+                {newClientWarnings.length ? (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                      marginBottom: 12,
+                      padding: '12px 14px',
+                      borderRadius: 12,
+                      background: '#fffbeb',
+                      border: '1px solid #fde68a',
+                      color: '#92400e'
+                    }}
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {newClientWarnings.map((warning, index) => (
+                        <span key={index}>{warning}</span>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setNewClientWarnings([])}
+                      style={{ border: 0, background: 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}
+                      aria-label="Cerrar aviso"
                     >
                       ×
                     </button>
@@ -17197,7 +17233,7 @@ const formatCurrency = (value) => {
               console.warn('[contacts response] gestiones NO creadas:', JSON.stringify(failed, null, 2));
             }
           }
-          if (onSuccess) onSuccess();
+          if (onSuccess) onSuccess(result?.warnings);
         } catch (err) {
           const status = err?.status;
           const rawMessage = err?.message || err?.details?.message || err?.details?.error?.message || '';
@@ -19375,6 +19411,11 @@ const formatCurrency = (value) => {
       const [vendedorNewClientOnSuccess, setVendedorNewClientOnSuccess] = React.useState(null);
       const [vendedorNewClientGestionId, setVendedorNewClientGestionId] = React.useState(null);
       const [vendedorNewClientMode, setVendedorNewClientMode] = React.useState('nuevo_cliente');
+      // Avisos no bloqueantes de la ultima alta desde NuevoClienteVendedor
+      // (ver warnings de POST /contacts) -- vive a este nivel porque el
+      // modal se desmonta apenas se cierra, y el aviso tiene que
+      // sobrevivir a ese cierre.
+      const [vendedorNewClientWarnings, setVendedorNewClientWarnings] = React.useState([]);
       const [salesContacts, setSalesContacts] = React.useState(SALES_CONTACTS_SEED);
       const [supervisorLots, setSupervisorLots] = React.useState(SUPERVISOR_LOTS_SEED);
       const [salesSelectedId, setSalesSelectedId] = React.useState(SALES_CONTACTS_SEED.find(isSalesActiveContact)?.id || null);
@@ -20698,6 +20739,41 @@ const formatCurrency = (value) => {
 
           {mostrarPausa ? <PauseOverlay status={estadoConfig} startedAt={pausaInicio} onResume={volverAlTrabajo} /> : null}
           <NotificationToasts />
+          {vendedorNewClientWarnings.length ? (
+            <div
+              style={{
+                position: 'fixed',
+                top: 16,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 9999,
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 12,
+                maxWidth: 480,
+                padding: '12px 14px',
+                borderRadius: 12,
+                background: '#fffbeb',
+                border: '1px solid #fde68a',
+                color: '#92400e',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.12)'
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {vendedorNewClientWarnings.map((warning, index) => (
+                  <span key={index}>{warning}</span>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setVendedorNewClientWarnings([])}
+                style={{ border: 0, background: 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}
+                aria-label="Cerrar aviso"
+              >
+                ×
+              </button>
+            </div>
+          ) : null}
           <ProfileModal isOpen={showProfileModal} onClose={handleCloseProfile} user={currentUser} roleMeta={ROLE_META} onSave={handleSaveProfile} />
           {vendedorNewClientOpen && (
             <NuevoClienteVendedor
@@ -20711,10 +20787,11 @@ const formatCurrency = (value) => {
                 setVendedorNewClientMode('nuevo_cliente');
                 try { localStorage.removeItem('cliente_pendiente_alta'); } catch {}
               }}
-              onSuccess={async () => {
+              onSuccess={async (warnings) => {
                 if (vendedorNewClientOnSuccess) {
                   await vendedorNewClientOnSuccess();
                 }
+                setVendedorNewClientWarnings(Array.isArray(warnings) ? warnings : []);
                 setVendedorNewClientOpen(false);
                 setVendedorNewClientDraft(null);
                 setVendedorNewClientOnSuccess(null);
