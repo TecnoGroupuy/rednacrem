@@ -18,9 +18,17 @@ import './PersonFotoCapture.css';
 // PDF: se sube tal cual (no hay forma de "comprimir" un PDF del lado del
 // cliente sin una libreria de PDF, que esta fuera de alcance) -- solo se
 // valida tipo y tamaño antes de ofrecer "Usar este archivo".
+//
+// El limite de 4MB (igual para JPEG y PDF) no es el de API Gateway (10MB) --
+// es el de Lambda: una invocacion sincrona tiene un techo de 6MB de payload
+// tanto en el request como en la response, y el archivo viaja en base64
+// (~33% mas grande) tanto al subir como al verlo desde RRHH (que tambien
+// devuelve el archivo en la respuesta de la Lambda). 4MB crudos ~= 5.33MB en
+// base64, con margen real bajo ese techo.
 const OUTPUT_MAX_SIDE = 1600;
 const OUTPUT_QUALITY = 0.85;
-const PDF_MAX_BYTES = 7 * 1024 * 1024;
+const DOCUMENTO_MAX_BYTES = 4 * 1024 * 1024;
+const DOCUMENTO_MAX_BYTES_MESSAGE = 'El archivo supera 4 MB. Si es un PDF escaneado, probá sacarle una foto al documento.';
 
 async function decodeImage(file) {
   if (typeof createImageBitmap !== 'function') throw new Error('no-support');
@@ -70,9 +78,9 @@ export default function DocumentoCapture({ title, onCapture, onClose, busy }) {
     setErrorMessage('');
 
     if (file.type === 'application/pdf') {
-      if (file.size > PDF_MAX_BYTES) {
+      if (file.size > DOCUMENTO_MAX_BYTES) {
         setStep('error');
-        setErrorMessage(`El PDF supera el tamaño máximo de ${Math.round(PDF_MAX_BYTES / (1024 * 1024))} MB.`);
+        setErrorMessage(DOCUMENTO_MAX_BYTES_MESSAGE);
         return;
       }
       blobRef.current = file;
@@ -91,6 +99,14 @@ export default function DocumentoCapture({ title, onCapture, onClose, busy }) {
         if (!blob) {
           setStep('error');
           setErrorMessage('No pudimos procesar esta imagen. Probá con otra foto.');
+          return;
+        }
+        // Defensivo: 1600px/JPEG 0.85 rara vez se acerca a 4MB, pero se
+        // chequea igual para dar el mismo mensaje claro del lado del
+        // cliente en vez de descubrirlo recien con el 422 del backend.
+        if (blob.size > DOCUMENTO_MAX_BYTES) {
+          setStep('error');
+          setErrorMessage(DOCUMENTO_MAX_BYTES_MESSAGE);
           return;
         }
         blobRef.current = blob;
