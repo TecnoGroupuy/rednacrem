@@ -61,19 +61,52 @@ export default function PersonalForm({
         next.franja_turno = null;
         next.fecha_ref_descanso = null;
       }
-      // Movil huerfano: si se elige una base y el vehiculo ya seleccionado
-      // no es de esa base, se limpia -- evita guardar un vehiculo_id que
-      // deja de aparecer en el propio selector (filtrado por base) apenas
-      // se refresque. Sin base elegida (value vacio) el selector no filtra
-      // nada, asi que no hay huerfano posible y no se toca.
-      if (field === 'base_id' && value) {
-        const currentVehiculo = (vehiculos || []).find((v) => v.id === prev.vehiculo_id);
-        if (currentVehiculo && currentVehiculo.base_id !== value) {
-          next.vehiculo_id = null;
-        }
-      }
       return next;
     });
+  };
+
+  // Bases (migracion 081): seleccion multiple con una marcada como
+  // principal, unica via de escritura -- ver savePersonal en RrhhScreen.jsx
+  // (se guarda con PUT /operaciones/personal/:id/bases despues del
+  // POST/PATCH de la persona, este form ya no manda base_id).
+  const toggleBase = (baseId) => {
+    setDraft((prev) => {
+      const alreadySelected = prev.bases.some((b) => b.base_id === baseId);
+      let nextBases;
+      if (alreadySelected) {
+        nextBases = prev.bases.filter((b) => b.base_id !== baseId);
+        // Si se saca justo la principal y quedan otras, se promueve la
+        // primera restante -- nunca puede haber bases seleccionadas sin
+        // ninguna principal.
+        if (nextBases.length && !nextBases.some((b) => b.es_principal)) {
+          nextBases = nextBases.map((b, index) => (index === 0 ? { ...b, es_principal: true } : b));
+        }
+      } else {
+        // La primera base que se agrega queda como principal por defecto.
+        nextBases = [...prev.bases, { base_id: baseId, es_principal: prev.bases.length === 0 }];
+      }
+      // Movil huerfano: si el vehiculo ya seleccionado no pertenece a
+      // ninguna de las bases que quedaron elegidas, se limpia -- evita
+      // guardar un vehiculo_id que deja de aparecer en su propio selector
+      // (filtrado por bases) apenas se refresque. Sin ninguna base elegida
+      // el selector no filtra nada, asi que no hay huerfano posible.
+      const selectedBaseIds = nextBases.map((b) => b.base_id);
+      let nextVehiculoId = prev.vehiculo_id;
+      if (selectedBaseIds.length) {
+        const currentVehiculo = (vehiculos || []).find((v) => v.id === prev.vehiculo_id);
+        if (currentVehiculo && !selectedBaseIds.includes(currentVehiculo.base_id)) {
+          nextVehiculoId = null;
+        }
+      }
+      return { ...prev, bases: nextBases, vehiculo_id: nextVehiculoId };
+    });
+  };
+
+  const setPrincipalBase = (baseId) => {
+    setDraft((prev) => ({
+      ...prev,
+      bases: prev.bases.map((b) => ({ ...b, es_principal: b.base_id === baseId }))
+    }));
   };
 
   const isExterno = draft.tipo_personal === 'externo';
@@ -95,8 +128,9 @@ export default function PersonalForm({
     : (existingRoles || []).some((item) => item.rol === 'Enfermero');
   const showFranjaSelect = showRegimenFijoFields && hasEnfermeroRole;
 
-  const vehiculosFiltrados = draft.base_id
-    ? (vehiculos || []).filter((v) => v.base_id === draft.base_id)
+  const selectedBaseIds = (draft.bases || []).map((b) => b.base_id);
+  const vehiculosFiltrados = selectedBaseIds.length
+    ? (vehiculos || []).filter((v) => selectedBaseIds.includes(v.base_id))
     : (vehiculos || []);
 
   return (
@@ -118,6 +152,11 @@ export default function PersonalForm({
             <span>Nombre *</span>
             <input value={draft.nombre} onChange={(event) => setField('nombre', event.target.value)} />
             {errors.nombre ? <small>{errors.nombre}</small> : null}
+          </label>
+          <label>
+            <span>Nombre de uso</span>
+            <input value={draft.nombre_uso || ''} onChange={(event) => setField('nombre_uso', event.target.value)} />
+            <small>Como se lo suele llamar, si es distinto del primer nombre (ej. "Paula" para "María Paula").</small>
           </label>
           <label>
             <span>Apellido *</span>
@@ -144,12 +183,34 @@ export default function PersonalForm({
             <span>Domicilio</span>
             <input value={draft.domicilio} onChange={(event) => setField('domicilio', event.target.value)} />
           </label>
-          <label>
-            <span>Base asignada</span>
-            <select value={draft.base_id} onChange={(event) => setField('base_id', event.target.value)}>
-              <option value="">Sin asignar</option>
-              {bases.map((base) => <option key={base.id} value={base.id}>{base.nombre}</option>)}
-            </select>
+          <label className="span-2">
+            <span>Bases asignadas</span>
+            <div className="rrhh-bases-select">
+              {(bases || []).map((base) => {
+                const selected = selectedBaseIds.includes(base.id);
+                const isPrincipal = (draft.bases || []).some((b) => b.base_id === base.id && b.es_principal);
+                return (
+                  <div key={base.id} className="rrhh-bases-select-row">
+                    <label className="rrhh-bases-select-checkbox">
+                      <input type="checkbox" checked={selected} onChange={() => toggleBase(base.id)} />
+                      {base.nombre}
+                    </label>
+                    {selected ? (
+                      <label className="rrhh-bases-select-principal">
+                        <input
+                          type="radio"
+                          name="rrhh-base-principal"
+                          checked={isPrincipal}
+                          onChange={() => setPrincipalBase(base.id)}
+                        />
+                        Principal
+                      </label>
+                    ) : null}
+                  </div>
+                );
+              })}
+              {!(bases || []).length ? <small>No hay bases cargadas todavía.</small> : null}
+            </div>
           </label>
           <label>
             <span>Estado</span>
@@ -204,6 +265,7 @@ export default function PersonalForm({
                 <option value="">Sin asignar</option>
                 <option value="fijo">Fijo</option>
                 <option value="turnante">Turnante</option>
+                <option value="suplente">Suplente</option>
               </select>
             </label>
           ) : null}

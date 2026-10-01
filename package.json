@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1 --port 5173",
     "start": "npm run dev",
-    "check:encoding": "node scripts/check-encoding.mjs"
+    "check:encoding": "node scripts/check-encoding.mjs",
+    "check:person-display": "node scripts/check-person-display.mjs"
   },
   "dependencies": {
     "leaflet": "^1.9.4",

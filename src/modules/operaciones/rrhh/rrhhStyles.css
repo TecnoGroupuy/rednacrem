@@ -877,3 +877,240 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Tarjeta de personal rediseñada (PersonalList.jsx): foto + nombre + rol +
+   turno + bases + estado, toda la tarjeta clickeable. Responsive por ancho
+   de contenedor via auto-fit, sin depender del viewport. */
+
+.rrhh-card2-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.rrhh-card2 {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+  border-radius: 18px;
+  border: 1px solid var(--rrhh-line);
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.98));
+  padding: 14px;
+  cursor: pointer;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  box-shadow: 0 14px 28px rgba(2, 6, 23, 0.2);
+}
+
+.rrhh-card2:hover {
+  transform: translateY(-2px);
+  border-color: rgba(251, 146, 60, 0.32);
+  box-shadow: 0 18px 36px rgba(2, 6, 23, 0.26);
+}
+
+.rrhh-card2:focus-visible {
+  outline: none;
+  border-color: rgba(251, 146, 60, 0.55);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.24);
+}
+
+.rrhh-card2.leader {
+  box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.4), 0 14px 28px rgba(2, 6, 23, 0.2);
+}
+
+.rrhh-card2.egresado {
+  opacity: 0.55;
+}
+
+.rrhh-card2.egresado:hover {
+  opacity: 0.82;
+}
+
+.rrhh-card2-photo {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  background-size: cover;
+  background-position: center;
+  background-color: rgba(15, 23, 42, 0.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.rrhh-card2-photo-initials {
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 15px;
+  color: #fff;
+}
+
+.rrhh-card2-info {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.rrhh-card2-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: var(--rrhh-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rrhh-card2-name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rrhh-card2-rol,
+.rrhh-card2-turno {
+  font-size: 13px;
+  color: var(--rrhh-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rrhh-card2-bases {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #bfdbfe;
+  overflow: hidden;
+}
+
+.rrhh-card2-bases span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rrhh-card2-bases svg {
+  flex-shrink: 0;
+}
+
+.rrhh-card2-estado-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.rrhh-card2-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  border-radius: 999px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.rrhh-card2-chip.activo {
+  background: rgba(34, 197, 94, 0.14);
+  border: 1px solid rgba(34, 197, 94, 0.26);
+  color: #86efac;
+}
+
+.rrhh-card2-chip.licencia {
+  background: rgba(217, 119, 6, 0.14);
+  border: 1px solid rgba(217, 119, 6, 0.28);
+  color: #fcd34d;
+}
+
+.rrhh-card2-chip.suspendido {
+  background: rgba(249, 115, 22, 0.14);
+  border: 1px solid rgba(249, 115, 22, 0.28);
+  color: #fdba74;
+}
+
+.rrhh-card2-chip.baja,
+.rrhh-card2-chip.egresado {
+  background: rgba(148, 163, 184, 0.14);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  color: #cbd5e1;
+}
+
+/* Icono chico de alerta de vencimiento -- unica excepcion al rojo
+   (documentacion vencida) reservado en el resto de esta tarjeta. Sin
+   fondo/banner: solo el icono, con tooltip via title/aria-label. */
+.rrhh-card2-alert-icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+.rrhh-card2-alert-icon.warning {
+  color: #fbbf24;
+}
+
+.rrhh-card2-alert-icon.danger {
+  color: #f87171;
+}
+
+@media (max-width: 900px) {
+  .rrhh-card2-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Seleccion multiple de bases en PersonalForm (migracion 081) */
+
+.rrhh-bases-select {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--rrhh-line);
+  background: rgba(15, 23, 42, 0.62);
+  max-height: 220px;
+  overflow: auto;
+}
+
+.rrhh-bases-select-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.rrhh-bases-select-checkbox,
+.rrhh-bases-select-principal {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--rrhh-text-soft);
+}
+
+/* .rrhh-form-grid input ya estiliza TODO input (min-height 42px, fondo,
+   padding horizontal) para los campos de texto/fecha del formulario -- sin
+   este reset, el checkbox/radio de abajo hereda ese tamaño y padding y
+   termina como un cuadrado enorme que empuja la etiqueta a la linea de
+   abajo. Selector mas especifico que `.rrhh-form-grid input` para ganarle. */
+.rrhh-bases-select input[type='checkbox'],
+.rrhh-bases-select input[type='radio'] {
+  min-height: 0;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  flex-shrink: 0;
+  border-radius: 4px;
+  accent-color: var(--rrhh-orange);
+}
+
+.rrhh-bases-select input[type='radio'] {
+  border-radius: 50%;
+}
+
+.rrhh-bases-select-principal {
+  color: #fdba74;
+  font-weight: 600;
+}

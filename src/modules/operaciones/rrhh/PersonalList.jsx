@@ -1,6 +1,7 @@
 import React from 'react';
-import { Eye, Edit3, AlertTriangle, Clock3, Building2, MapPin, ChevronDown, ChevronRight, Crown, UserMinus, Car } from 'lucide-react';
+import { AlertTriangle, Clock3, MapPin, ChevronDown, ChevronRight, Crown, UserMinus } from 'lucide-react';
 import { getEffectiveEstado } from './personalHierarchy.js';
+import { displayFullName, displayBases } from './personDisplay.js';
 
 // Duplicado a proposito, mismo criterio que ya explica PersonalDetail.jsx
 // para su propia copia de toDateOnly: evitar un import circular entre
@@ -53,22 +54,6 @@ export function StatusPill({ person, getStatusVariant, Tag }) {
   return <Tag variant={getStatusVariant(effective.estado)}>{effective.estado || 'sin estado'}</Tag>;
 }
 
-// Badge de regimen fijo (movil y/o franja) -- solo se pide para el area de
-// Enfermeria (ver PersonCard/AreaSection), asi que vive detras de un prop
-// explicito en vez de mostrarse cada vez que el dato esta presente: un
-// chofer fijo tambien tiene vehiculo_id, pero no corresponde mostrarle este
-// badge fuera de Enfermeria.
-function RegimenBadge({ person }) {
-  const parts = [person.vehiculo_numero_interno, person.franja_turno].filter(Boolean);
-  if (!parts.length) return null;
-  return (
-    <div className="rrhh-regimen-badge">
-      <Car size={14} />
-      <span>{parts.join(' · ')}</span>
-    </div>
-  );
-}
-
 // Colores de avatar por hash estable del id (no por indice de posicion en
 // el array): en la vista jerarquica una misma persona puede aparecer en
 // distintas listas segun filtros, y con hash por id el color no le salta
@@ -85,48 +70,88 @@ function avatarColorFor(id) {
 }
 
 function initialsFor(person) {
-  return `${person.nombre?.[0] || ''}${person.apellido?.[0] || ''}`.toUpperCase() || 'SU';
+  const full = displayFullName(person);
+  const parts = full.split(' ').filter(Boolean);
+  return `${parts[0]?.[0] || ''}${parts[1]?.[0] || ''}`.toUpperCase() || 'SU';
 }
 
-function PersonCard({ Button, Tag, person, isLeader, dimmed, showRegimenBadge, onView, onEdit, getBaseLabel, getStatusVariant, getAlertMeta }) {
-  const external = person.tipo_personal === 'externo';
-  const nombreCompleto = `${person.nombre} ${person.apellido}`.trim();
+const REGIMEN_TURNO_LABELS = { fijo: 'Fijo', turnante: 'Turnante', suplente: 'Suplente' };
 
-  // Egresados: tarjeta atenuada, sin banner de alertas de vencimiento (ya no
-  // aplica) ni tag de estado a color -- solo la fecha de egreso. Sin rojo
-  // en ningun lado, ni siquiera para el estado "baja" -- queda reservado
-  // para "puesto descubierto" (fuera de alcance de esta fase).
+// Linea de turno: solo si hay regimen_turno (null -> no se muestra nada).
+// "Fijo" ademas suma movil y franja si existen -- "Turnante"/"Suplente" van
+// solos, esos dos regimenes no tienen movil ni franja fija.
+function buildTurnoLine(person) {
+  if (!person.regimen_turno) return null;
+  const label = REGIMEN_TURNO_LABELS[person.regimen_turno] || person.regimen_turno;
+  if (person.regimen_turno !== 'fijo') return label;
+  const extra = [person.vehiculo_numero_interno, person.franja_turno].filter(Boolean);
+  return [label, ...extra].join(' · ');
+}
+
+const LICENCIA_ESTADO_LABELS = {
+  certificacion_medica: 'Licencia médica',
+  maternal: 'Licencia maternal',
+  reglamentaria: 'Licencia reglamentaria',
+  sin_goce: 'Licencia sin goce'
+};
+
+// Estado efectivo de la tarjeta nueva: activo (verde), licencia (ambar, con
+// subtipo si se reconoce), suspendido (naranja), baja (gris). Independiente
+// de StatusPill/statusToVariant (que sigue usando PersonalDetail.jsx sin
+// cambios) -- esta tarjeta tiene su propio chip mas compacto.
+function estadoEfectivoDisplay(person) {
+  const effective = getEffectiveEstado(person);
+  if (effective.estado === 'licencia') {
+    const tipo = effective.licencia?.tipo;
+    return { label: LICENCIA_ESTADO_LABELS[tipo] || 'Licencia', className: 'licencia' };
+  }
+  if (effective.estado === 'suspendido') return { label: 'Suspendido', className: 'suspendido' };
+  if (effective.estado === 'baja') return { label: 'Baja', className: 'baja' };
+  return { label: 'Activo', className: 'activo' };
+}
+
+// Foto cuadrada (esquinas levemente redondeadas): foto_url si existe, si no
+// las iniciales del nombre mostrado, mismo formato cuadrado -- reemplaza el
+// avatar circular viejo en esta tarjeta.
+function PersonPhoto({ person }) {
+  if (person.foto_url) {
+    return <div className="rrhh-card2-photo" style={{ backgroundImage: `url(${person.foto_url})` }} />;
+  }
+  return (
+    <div className="rrhh-card2-photo rrhh-card2-photo-initials" style={{ background: `linear-gradient(135deg, ${avatarColorFor(person.id)}, rgba(15, 23, 42, 0.88))` }}>
+      {initialsFor(person)}
+    </div>
+  );
+}
+
+function PersonCard({ person, isLeader, dimmed, onView, getAlertMeta, formatRol }) {
+  const handleActivate = () => onView(person.id);
+  const handleKeyDown = (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleActivate();
+    }
+  };
+  const fullName = displayFullName(person);
+  const primaryRole = (person.roles || []).find((item) => item.rol_principal)?.rol || (person.roles || [])[0]?.rol || null;
+
+  // Egresados: tarjeta atenuada, mismo layout nuevo -- solo cambia el chip
+  // de estado por "Egresado · fecha" y no hay icono de alerta (ya no
+  // aplica). Sin rojo en ningun lado.
   if (dimmed) {
     return (
       <article
-        className="rrhh-person-card egresado"
-        onClick={() => onView(person.id)}
+        className="rrhh-card2 egresado"
+        onClick={handleActivate}
         role="button"
         tabIndex={0}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            onView(person.id);
-          }
-        }}
+        onKeyDown={handleKeyDown}
       >
-        <div className="rrhh-person-card-top">
-          <div className="rrhh-name-cell">
-            <div className="rrhh-avatar rrhh-avatar-large" style={{ background: `linear-gradient(135deg, ${avatarColorFor(person.id)}, rgba(15, 23, 42, 0.88))` }}>
-              {initialsFor(person)}
-            </div>
-            <div>
-              <div className="rrhh-name">{nombreCompleto}</div>
-              <div className="rrhh-subtle">{person.documento || 'Sin documento'}</div>
-            </div>
-          </div>
-          <div className="rrhh-card-actions" onClick={(event) => event.stopPropagation()}>
-            <Button variant="ghost" icon={<Eye size={16} />} onClick={() => onView(person.id)}>Ver</Button>
-          </div>
-        </div>
-        <div className="rrhh-person-card-tags">
-          <div className="rrhh-status-pill egresado">
-            <UserMinus size={14} />
+        <PersonPhoto person={person} />
+        <div className="rrhh-card2-info">
+          <div className="rrhh-card2-name" title={fullName}>{fullName}</div>
+          <div className="rrhh-card2-chip egresado">
+            <UserMinus size={12} />
             <span>Egresado{person.fecha_egreso ? ` · ${formatDateOnlyDisplay(person.fecha_egreso)}` : ''}</span>
           </div>
         </div>
@@ -135,102 +160,61 @@ function PersonCard({ Button, Tag, person, isLeader, dimmed, showRegimenBadge, o
   }
 
   const alertMeta = getAlertMeta(person);
+  const estado = estadoEfectivoDisplay(person);
+  const turnoLine = buildTurnoLine(person);
 
   return (
     <article
-      className={`rrhh-person-card ${external ? 'external' : 'internal'} ${alertMeta.hasAlert ? 'has-alert' : ''} ${isLeader ? 'leader' : ''}`}
-      onClick={() => onView(person.id)}
+      className={`rrhh-card2 ${isLeader ? 'leader' : ''}`}
+      onClick={handleActivate}
       role="button"
       tabIndex={0}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          onView(person.id);
-        }
-      }}
+      onKeyDown={handleKeyDown}
     >
-      <div className="rrhh-person-card-top">
-        <div className="rrhh-name-cell">
-          <div className="rrhh-avatar rrhh-avatar-large" style={{ background: `linear-gradient(135deg, ${avatarColorFor(person.id)}, rgba(15, 23, 42, 0.88))` }}>
-            {initialsFor(person)}
-          </div>
-          <div>
-            <div className="rrhh-name">
-              {isLeader ? <Crown size={14} className="rrhh-leader-icon" /> : null}
-              {nombreCompleto}
-            </div>
-            <div className="rrhh-subtle">{person.documento || 'Sin documento'}</div>
-          </div>
+      <PersonPhoto person={person} />
+      <div className="rrhh-card2-info">
+        <div className="rrhh-card2-name" title={fullName}>
+          {isLeader ? <Crown size={13} className="rrhh-leader-icon" /> : null}
+          <span>{fullName}</span>
         </div>
-        <div className="rrhh-card-actions" onClick={(event) => event.stopPropagation()}>
-          <Button variant="ghost" icon={<Eye size={16} />} onClick={() => onView(person.id)}>Ver</Button>
-          <Button variant="ghost" icon={<Edit3 size={16} />} onClick={() => onEdit(person.id)}>Editar</Button>
+        {primaryRole ? <div className="rrhh-card2-rol">{formatRol(primaryRole)}</div> : null}
+        {turnoLine ? <div className="rrhh-card2-turno">{turnoLine}</div> : null}
+        <div className="rrhh-card2-bases">
+          <MapPin size={12} />
+          <span>{displayBases(person.bases)}</span>
         </div>
-      </div>
-
-      <div className="rrhh-person-card-body">
-        <div className="rrhh-person-meta">
-          <span className="rrhh-person-meta-label">Base asignada</span>
-          <strong className="rrhh-person-base">
-            <MapPin size={14} />
-            <span>{getBaseLabel(person.base_id)}</span>
-          </strong>
+        <div className="rrhh-card2-estado-row">
+          <span className={`rrhh-card2-chip ${estado.className}`}>{estado.label}</span>
+          {alertMeta.hasAlert ? (
+            <span
+              className={`rrhh-card2-alert-icon ${alertMeta.variant}`}
+              title={alertMeta.label}
+              aria-label={alertMeta.label}
+            >
+              {alertMeta.variant === 'danger' ? <AlertTriangle size={14} /> : <Clock3 size={14} />}
+            </span>
+          ) : null}
         </div>
-        {person.missingCount ? (
-          <div className="rrhh-person-meta">
-            <span className="rrhh-person-meta-label">Datos pendientes</span>
-            <strong>{person.missingCount} campo{person.missingCount === 1 ? '' : 's'} sin completar</strong>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="rrhh-person-card-tags">
-        <StatusPill person={person} getStatusVariant={getStatusVariant} Tag={Tag} />
-        {showRegimenBadge ? <RegimenBadge person={person} /> : null}
-        {external ? (
-          <div className="rrhh-external-pill">
-            <Building2 size={14} />
-            <span>Externo</span>
-          </div>
-        ) : (
-          <div className="rrhh-internal-pill">Interno</div>
-        )}
-      </div>
-
-      <div className={`rrhh-alert-banner ${alertMeta.hasAlert ? alertMeta.variant : 'success'}`}>
-        {alertMeta.hasAlert ? (
-          <>
-            {alertMeta.variant === 'danger' ? <AlertTriangle size={16} /> : <Clock3 size={16} />}
-            <span>{alertMeta.label}</span>
-          </>
-        ) : (
-          <span>Sin alertas</span>
-        )}
       </div>
     </article>
   );
 }
 
-function MemberGrid({ Button, Tag, members, isLeader, dimmed, showRegimenBadge, onView, onEdit, getBaseLabel, getStatusVariant, getAlertMeta, emptyMessage }) {
+function MemberGrid({ members, isLeader, dimmed, onView, getAlertMeta, formatRol, emptyMessage }) {
   if (!members.length) {
     return <div className="rrhh-empty-inline">{emptyMessage || 'Sin personal en este grupo.'}</div>;
   }
   return (
-    <div className="rrhh-person-grid">
+    <div className="rrhh-card2-grid">
       {members.map((person) => (
         <PersonCard
           key={person.id}
-          Button={Button}
-          Tag={Tag}
           person={person}
           isLeader={isLeader}
           dimmed={dimmed}
-          showRegimenBadge={showRegimenBadge}
           onView={onView}
-          onEdit={onEdit}
-          getBaseLabel={getBaseLabel}
-          getStatusVariant={getStatusVariant}
           getAlertMeta={getAlertMeta}
+          formatRol={formatRol}
         />
       ))}
     </div>
@@ -240,7 +224,7 @@ function MemberGrid({ Button, Tag, members, isLeader, dimmed, showRegimenBadge, 
 // Seccion "Egresados" -- lista plana (sin jefatura/subgrupos, mismo criterio
 // que Economato/Mantenimiento) de personal en estado='baja'. Colapsada por
 // defecto: a diferencia de las areas normales, nunca "necesita atencion".
-function EgresadosSection({ egresados, Button, Tag, onView, getBaseLabel, getStatusVariant, getAlertMeta }) {
+function EgresadosSection({ egresados, onView }) {
   const [expanded, setExpanded] = React.useState(false);
 
   return (
@@ -259,9 +243,8 @@ function EgresadosSection({ egresados, Button, Tag, onView, getBaseLabel, getSta
       {expanded ? (
         <div className="rrhh-hierarchy-section-body">
           <MemberGrid
-            Button={Button} Tag={Tag} members={egresados} dimmed
+            members={egresados} dimmed
             onView={onView}
-            getBaseLabel={getBaseLabel} getStatusVariant={getStatusVariant} getAlertMeta={getAlertMeta}
             emptyMessage="No hay personal egresado."
           />
         </div>
@@ -270,12 +253,8 @@ function EgresadosSection({ egresados, Button, Tag, onView, getBaseLabel, getSta
   );
 }
 
-function AreaSection({ area, Button, Tag, onView, onEdit, getBaseLabel, getStatusVariant, getAlertMeta, defaultExpanded }) {
+function AreaSection({ area, onView, getAlertMeta, formatRol, defaultExpanded }) {
   const [expanded, setExpanded] = React.useState(defaultExpanded);
-  // El badge de movil/franja (Fase 2 del regimen fijo) solo se pide para
-  // Enfermeria -- Choferes tambien tiene regimen fijo con vehiculo_id, pero
-  // queda fuera de alcance de esta fase.
-  const showRegimenBadge = area.key === 'enfermeria';
 
   return (
     <section className="rrhh-hierarchy-section">
@@ -296,9 +275,8 @@ function AreaSection({ area, Button, Tag, onView, onEdit, getBaseLabel, getStatu
           {area.hasLeaderConcept ? (
             area.leaders.length ? (
               <MemberGrid
-                Button={Button} Tag={Tag} members={area.leaders} isLeader showRegimenBadge={showRegimenBadge}
-                onView={onView} onEdit={onEdit}
-                getBaseLabel={getBaseLabel} getStatusVariant={getStatusVariant} getAlertMeta={getAlertMeta}
+                members={area.leaders} isLeader
+                onView={onView} getAlertMeta={getAlertMeta} formatRol={formatRol}
               />
             ) : (
               <div className="rrhh-alert-banner warning">
@@ -317,9 +295,8 @@ function AreaSection({ area, Button, Tag, onView, onEdit, getBaseLabel, getStatu
                 </div>
               ) : null}
               <MemberGrid
-                Button={Button} Tag={Tag} members={subgroup.members} showRegimenBadge={showRegimenBadge}
-                onView={onView} onEdit={onEdit}
-                getBaseLabel={getBaseLabel} getStatusVariant={getStatusVariant} getAlertMeta={getAlertMeta}
+                members={subgroup.members}
+                onView={onView} getAlertMeta={getAlertMeta} formatRol={formatRol}
                 emptyMessage={subgroup.emptyMessage}
               />
             </div>
@@ -332,16 +309,13 @@ function AreaSection({ area, Button, Tag, onView, onEdit, getBaseLabel, getStatu
 
 export default function PersonalList({
   Button,
-  Tag,
   hierarchy,
   filters,
   bases,
   onFilterChange,
   onCreate,
   onView,
-  onEdit,
-  getBaseLabel,
-  getStatusVariant,
+  formatRol,
   getAlertMeta
 }) {
   const egresados = hierarchy.egresados || [];
@@ -373,9 +347,8 @@ export default function PersonalList({
           {hierarchy.direccionTecnica.length ? (
             <div className="rrhh-hierarchy-top">
               <MemberGrid
-                Button={Button} Tag={Tag} members={hierarchy.direccionTecnica} isLeader
-                onView={onView} onEdit={onEdit}
-                getBaseLabel={getBaseLabel} getStatusVariant={getStatusVariant} getAlertMeta={getAlertMeta}
+                members={hierarchy.direccionTecnica} isLeader
+                onView={onView} getAlertMeta={getAlertMeta} formatRol={formatRol}
               />
             </div>
           ) : null}
@@ -384,13 +357,9 @@ export default function PersonalList({
             <AreaSection
               key={area.key}
               area={area}
-              Button={Button}
-              Tag={Tag}
               onView={onView}
-              onEdit={onEdit}
-              getBaseLabel={getBaseLabel}
-              getStatusVariant={getStatusVariant}
               getAlertMeta={getAlertMeta}
+              formatRol={formatRol}
               defaultExpanded={area.needsAttention}
             />
           ))}
@@ -398,12 +367,7 @@ export default function PersonalList({
           {egresados.length ? (
             <EgresadosSection
               egresados={egresados}
-              Button={Button}
-              Tag={Tag}
               onView={onView}
-              getBaseLabel={getBaseLabel}
-              getStatusVariant={getStatusVariant}
-              getAlertMeta={getAlertMeta}
             />
           ) : null}
         </>

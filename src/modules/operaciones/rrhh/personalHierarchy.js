@@ -26,6 +26,18 @@ const ROLES = {
 
 const HIERARCHY_ROLE_SET = new Set(Object.values(ROLES));
 
+// Valores reconocidos de regimen_turno (migracion 081 agrega 'suplente' a
+// los 'fijo'/'turnante' que ya existian desde la 069). Cualquier otro valor
+// -- incluido null/undefined, pero tambien un string que no sea ninguno de
+// estos tres -- cae en "Sin régimen asignado" en vez de desaparecer de la
+// jerarquia: antes de este chequeo explicito, 'suplente' (al no ser 'fijo'
+// ni 'turnante', y al ser un valor truthy que no pasaba el filtro
+// `!p.regimen_turno` de "sin_regimen") quedaba afuera de los tres
+// subgrupos de Enfermeria/Choferes por completo.
+const REGIMEN_TURNO_VALUES = new Set(['fijo', 'turnante', 'suplente']);
+const isRegimenTurno = (person, value) => person.regimen_turno === value;
+const isSinRegimen = (person) => !REGIMEN_TURNO_VALUES.has(person.regimen_turno);
+
 function hasRole(person, rol) {
   return (person.roles || []).some((item) => item.rol === rol);
 }
@@ -133,9 +145,10 @@ export function buildPersonalHierarchy(personal = []) {
     leaderRoleLabel: 'Jefe/a de enfermería',
     leaders: enfermeriaLeaders,
     subgroups: [
-      { key: 'fijos', label: 'Fijos', members: enfermeros.filter((p) => p.regimen_turno === 'fijo') },
-      { key: 'turnantes', label: 'Turnantes', members: enfermeros.filter((p) => p.regimen_turno === 'turnante') },
-      { key: 'sin_regimen', label: 'Sin régimen asignado', members: enfermeros.filter((p) => !p.regimen_turno) },
+      { key: 'fijos', label: 'Fijos', members: enfermeros.filter((p) => isRegimenTurno(p, 'fijo')) },
+      { key: 'turnantes', label: 'Turnantes', members: enfermeros.filter((p) => isRegimenTurno(p, 'turnante')) },
+      { key: 'suplentes', label: 'Suplentes', members: enfermeros.filter((p) => isRegimenTurno(p, 'suplente')) },
+      { key: 'sin_regimen', label: 'Sin régimen asignado', members: enfermeros.filter(isSinRegimen) },
       { key: 'auxiliares', label: 'Auxiliares de servicio', members: auxiliares }
     ]
   });
@@ -159,9 +172,10 @@ export function buildPersonalHierarchy(personal = []) {
     leaderRoleLabel: 'Jefe/a de choferes',
     leaders: choferesLeaders,
     subgroups: [
-      { key: 'fijos', label: 'Fijos', members: choferes.filter((p) => p.regimen_turno === 'fijo') },
-      { key: 'turnantes', label: 'Turnantes', members: choferes.filter((p) => p.regimen_turno === 'turnante') },
-      { key: 'sin_regimen', label: 'Sin régimen asignado', members: choferes.filter((p) => !p.regimen_turno) }
+      { key: 'fijos', label: 'Fijos', members: choferes.filter((p) => isRegimenTurno(p, 'fijo')) },
+      { key: 'turnantes', label: 'Turnantes', members: choferes.filter((p) => isRegimenTurno(p, 'turnante')) },
+      { key: 'suplentes', label: 'Suplentes', members: choferes.filter((p) => isRegimenTurno(p, 'suplente')) },
+      { key: 'sin_regimen', label: 'Sin régimen asignado', members: choferes.filter(isSinRegimen) }
     ]
   });
 

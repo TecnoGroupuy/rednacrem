@@ -1,6 +1,7 @@
 import React from 'react';
 import { MapPin, Star, Shield, GraduationCap, HeartPulse, UserCircle2, Plus, Trash2, AlertTriangle, CalendarClock } from 'lucide-react';
 import { StatusPill, LICENCIA_TIPO_LABELS } from './PersonalList.jsx';
+import { displayBases } from './personDisplay.js';
 
 const TABS = [
   { key: 'datos_generales', label: 'Datos generales' },
@@ -21,15 +22,19 @@ const OPTIONAL_FIELD_LABELS = {
   telefono: 'Teléfono',
   email: 'Email',
   domicilio: 'Domicilio',
-  base_id: 'Base asignada',
   fecha_ingreso: 'Fecha de ingreso'
 };
 
+// base_id ya no es un campo suelto de su_personal a estos efectos (migracion
+// 081, varias bases por persona) -- "Base asignada" falta cuando el array
+// person.bases viene vacio, no cuando un unico base_id esta en null.
 export function getMissingFields(personal) {
   if (!personal) return [];
-  return Object.entries(OPTIONAL_FIELD_LABELS)
+  const missing = Object.entries(OPTIONAL_FIELD_LABELS)
     .filter(([field]) => !personal[field])
     .map(([, label]) => label);
+  if (!(personal.bases || []).length) missing.push('Base asignada');
+  return missing;
 }
 
 // Duplicado a proposito (no importado desde RrhhScreen.jsx) para no crear un
@@ -305,7 +310,7 @@ export default function PersonalDetail({
               <p>{primaryRole ? formatRol(primaryRole) : 'Sin rol principal definido'}</p>
               <div className="rrhh-detail-base">
                 <MapPin size={16} />
-                <span>{getBaseLabel(personal.base_id)}</span>
+                <span>{displayBases(personal.bases)}</span>
               </div>
             </div>
           </div>

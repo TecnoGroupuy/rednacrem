@@ -16,6 +16,7 @@ import {
   listPersonalVencimientos,
   addPersonalRole,
   deletePersonalRole,
+  updatePersonalBases,
   addHabilitacion,
   addCapacitacion,
   addCarnetSalud,
@@ -41,6 +42,7 @@ import './rrhhStyles.css';
 const emptyPersonalDraft = {
   id: '',
   nombre: '',
+  nombre_uso: '',
   apellido: '',
   documento: '',
   fecha_nacimiento: '',
@@ -49,6 +51,12 @@ const emptyPersonalDraft = {
   domicilio: '',
   foto_url: '',
   base_id: '',
+  // Bases (migracion 081): array de { base_id, es_principal }. Unica via de
+  // escritura desde el form -- se guarda con PUT /operaciones/personal/:id/bases
+  // DESPUES del POST/PATCH de la persona, nunca dentro de ese payload (ver
+  // savePersonal). base_id de arriba queda solo como reflejo de lectura del
+  // valor que ya trae la persona (GET), no se manda mas en el payload.
+  bases: [],
   estado: 'activo',
   fecha_ingreso: '',
   fecha_egreso: '',
@@ -120,7 +128,27 @@ const getVencimientoMeta = (dateValue) => {
   return { variant: 'success', label: `Vigente ${dateOnly}` };
 };
 
-const formatRol = (value) => String(value || '').replaceAll('_', ' ');
+// Mapa explicito de los 13 roles del CHECK de su_personal_roles.rol, con
+// tildes correctas en la UI -- los values de los selects siguen siendo los
+// del CHECK (sin tocar), esto solo cambia la etiqueta mostrada. Cualquier
+// valor no mapeado cae al replaceAll de siempre (mismo comportamiento que
+// antes para roles futuros que todavia no se agreguen aca).
+const ROL_LABELS = {
+  Chofer: 'Chofer',
+  Enfermero: 'Auxiliar de enfermería',
+  Medico: 'Médico',
+  Administrativo: 'Administrativo',
+  Backoffice: 'Backoffice',
+  Auxiliar_de_servicio: 'Auxiliar de servicio',
+  Jefe_medico: 'Jefe médico',
+  Jefe_de_enfermeria: 'Jefe de enfermería',
+  Quimica: 'Química',
+  Mantenimiento: 'Mantenimiento',
+  Direccion_tecnica: 'Dirección técnica',
+  Jefe_de_choferes: 'Jefe de choferes',
+  Economato: 'Economato'
+};
+const formatRol = (value) => ROL_LABELS[value] || String(value || '').replaceAll('_', ' ');
 
 const getDocumentAlertLevel = (items = []) => {
   const levels = items.map((item) => diffDays(item?.fecha_vencimiento));
@@ -267,7 +295,10 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
   ), [personal]);
 
   const filteredRows = React.useMemo(() => personalRows.filter((row) => {
-    if (filters.base_id && row.base_id !== filters.base_id) return false;
+    // Matchea si la persona tiene esa base en CUALQUIERA de sus bases
+    // (migracion 081), no solo en la principal -- antes esto comparaba
+    // contra el unico row.base_id.
+    if (filters.base_id && !(row.bases || []).some((b) => b.base_id === filters.base_id)) return false;
     if (filters.estado && row.estado !== filters.estado) return false;
     return true;
   }), [personalRows, filters]);
@@ -323,6 +354,11 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
       ...emptyPersonalDraft,
       ...item,
       rol: '',
+      // Se normaliza a { base_id, es_principal } -- item.bases trae ademas
+      // `nombre` (para mostrar en la tarjeta/ficha), que el form no necesita
+      // mandar de vuelta y que quedaria stale si la base se renombra entre
+      // medio.
+      bases: (item.bases || []).map((b) => ({ base_id: b.base_id, es_principal: Boolean(b.es_principal) })),
       fecha_nacimiento: toDateOnly(item.fecha_nacimiento),
       fecha_ingreso: toDateOnly(item.fecha_ingreso),
       fecha_egreso: toDateOnly(item.fecha_egreso),
@@ -348,6 +384,7 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
 
     const payload = {
       nombre: personalDraft.nombre,
+      nombre_uso: personalDraft.nombre_uso || null,
       apellido: personalDraft.apellido,
       documento: personalDraft.documento || null,
       // Red de seguridad ademas de la normalizacion que ya hace
@@ -359,7 +396,10 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
       telefono: personalDraft.telefono || null,
       email: personalDraft.email || null,
       domicilio: personalDraft.domicilio || null,
-      base_id: personalDraft.base_id || null,
+      // base_id ya NO se manda aca (unica via de escritura: PUT .../bases
+      // despues de guardar la persona, ver mas abajo). El backend igual
+      // sincroniza su_personal_bases si algun otro camino llegara a mandar
+      // base_id en el POST/PATCH -- ver syncPersonalBaseIdToBasesTable.
       estado: personalDraft.estado,
       fecha_ingreso: toDateOnly(personalDraft.fecha_ingreso) || null,
       fecha_egreso: toDateOnly(personalDraft.fecha_egreso) || null,
@@ -420,6 +460,29 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
           setFormSaving(false);
           return;
         }
+      }
+
+      // Unica via de escritura de bases (ajuste D): se guardan aca, DESPUES
+      // de la persona, nunca dentro del payload de POST/PATCH. Mismo manejo
+      // de error parcial que el rol inicial arriba -- si esto falla, la
+      // persona ya quedo guardada, no se revierte nada.
+      try {
+        const savedBases = await updatePersonalBases(
+          saved.id,
+          personalDraft.bases.map((b) => ({ base_id: b.base_id, es_principal: b.es_principal }))
+        );
+        savedMerged = { ...savedMerged, bases: savedBases };
+      } catch (basesErr) {
+        setPersonal((prev) => {
+          const exists = prev.some((item) => item.id === savedMerged.id);
+          if (exists) return prev.map((item) => item.id === savedMerged.id ? savedMerged : item);
+          return [savedMerged, ...prev];
+        });
+        setFormError(
+          `El funcionario se guardó correctamente, pero no se pudieron guardar las bases: ${basesErr?.message || 'error desconocido'}. Completalo después desde la ficha ("Ver").`
+        );
+        setFormSaving(false);
+        return;
       }
 
       setPersonal((prev) => {
@@ -613,16 +676,13 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
           ) : (
             <PersonalList
               Button={Button}
-              Tag={Tag}
               hierarchy={personalHierarchy}
               filters={filters}
               bases={bases}
               onFilterChange={handleFilterChange}
               onCreate={openCreatePersonal}
               onView={openDetail}
-              onEdit={openEditPersonal}
-              getBaseLabel={getBaseLabel}
-              getStatusVariant={getStatusVariant}
+              formatRol={formatRol}
               getAlertMeta={getAlertMeta}
             />
           )}

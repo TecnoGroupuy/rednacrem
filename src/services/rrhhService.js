@@ -57,6 +57,14 @@ export async function listPersonalVencimientos({ days = 30 } = {}) {
   return response?.items || [];
 }
 
+export async function updatePersonalBases(personalId, bases) {
+  // Reemplaza el conjunto completo de bases de la persona (migracion 081) --
+  // PUT, no PATCH: la unica via de escritura de bases desde el form, ver
+  // savePersonal en RrhhScreen.jsx.
+  const response = await api.put(`/operaciones/personal/${personalId}/bases`, { bases });
+  return response?.bases || [];
+}
+
 export async function addPersonalRole(personalId, payload) {
   const response = await api.post(`/operaciones/personal/${personalId}/roles`, payload);
   return response?.item || null;
