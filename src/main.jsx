@@ -20988,8 +20988,11 @@ const formatCurrency = (value) => {
 // /completar-ficha?token=... es publica (link de autocompletado de RRHH,
 // sin Cognito) -- se detecta ANTES de montar OidcAuthProvider/AuthGate,
 // nunca pide login. El resto de la app sigue intacto para cualquier otra
-// ruta.
-const isCompletarFichaRoute = window.location.pathname === '/completar-ficha';
+// ruta. Amplify agrega una barra final en producción
+// (callcenter.tri.uy/completar-ficha/?token=...) -- se normaliza antes de
+// comparar, si no la ruta no matchea y se monta el árbol autenticado (pide
+// login) en vez de la pantalla pública.
+const isCompletarFichaRoute = window.location.pathname.replace(/\/+$/, '') === '/completar-ficha';
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
