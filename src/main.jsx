@@ -20985,19 +20985,23 @@ const formatCurrency = (value) => {
       );
     }
 
-// /completar-ficha?token=... es publica (link de autocompletado de RRHH,
-// sin Cognito) -- se detecta ANTES de montar OidcAuthProvider/AuthGate,
-// nunca pide login. El resto de la app sigue intacto para cualquier otra
-// ruta. Amplify agrega una barra final en producción
-// (callcenter.tri.uy/completar-ficha/?token=...) -- se normaliza antes de
-// comparar, si no la ruta no matchea y se monta el árbol autenticado (pide
-// login) en vez de la pantalla pública.
-const isCompletarFichaRoute = window.location.pathname.replace(/\/+$/, '') === '/completar-ficha';
+// /completar-ficha?token=... (mecanismo viejo, se mantiene por los links
+// largos ya enviados) y /f/<codigo> (mecanismo actual, migracion 084) son
+// publicas -- se detectan ANTES de montar OidcAuthProvider/AuthGate, nunca
+// piden login. El resto de la app sigue intacto para cualquier otra ruta.
+// Amplify agrega una barra final en producción
+// (callcenter.tri.uy/completar-ficha/?token=... o .../f/<codigo>/) -- se
+// normaliza antes de comparar, si no la ruta no matchea y se monta el árbol
+// autenticado (pide login) en vez de la pantalla pública.
+const normalizedPathname = window.location.pathname.replace(/\/+$/, '');
+const isCompletarFichaRoute = normalizedPathname === '/completar-ficha';
+const fichaLinkCodigoMatch = normalizedPathname.match(/^\/f\/([^/]+)$/);
+const fichaLinkCodigo = fichaLinkCodigoMatch?.[1] || null;
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    {isCompletarFichaRoute ? (
-      <CompletarFichaScreen />
+    {isCompletarFichaRoute || fichaLinkCodigo ? (
+      <CompletarFichaScreen linkCodigo={fichaLinkCodigo} />
     ) : (
       <OidcAuthProvider {...cognitoAuthConfig}>
         <AppAuthProvider>

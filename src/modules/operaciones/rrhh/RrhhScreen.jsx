@@ -24,6 +24,8 @@ import {
   addLicencia,
   updateLicencia,
   generateFichaLink,
+  listFichaLinks,
+  revokeFichaLink,
   uploadPersonalFoto,
   deletePersonalFoto,
   getCambiosPublicos
@@ -123,6 +125,21 @@ const formatDateOnlyDisplay = (value) => {
   if (parts.length !== 3) return dateOnly;
   const [year, month, day] = parts;
   return `${day}/${month}/${year}`;
+};
+
+// A diferencia de formatDateOnlyDisplay (fechas sin hora, ej.
+// fecha_nacimiento -- ahi reinterpretar en hora local corre el dia), esto
+// es un timestamptz real (expires_at de un link) -- mostrar en hora local
+// del navegador es exactamente lo que corresponde, no hay corrimiento que
+// evitar.
+const formatFichaLinkVencimiento = (isoString) => {
+  try {
+    return new Date(isoString).toLocaleString('es-UY', {
+      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+  } catch {
+    return isoString;
+  }
 };
 
 const diffDays = (dateValue) => {
@@ -225,12 +242,18 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
   const [empresaDraft, setEmpresaDraft] = React.useState(emptyEmpresaDraft);
 
   // Link de autocompletado (POST /operaciones/personal/link-autocompletado):
-  // modal chico con el link ya generado, copiar/compartir por WhatsApp.
+  // modal chico con el link corto recien generado (copiar/compartir por
+  // WhatsApp) + el listado de links vigentes de la organizacion con boton
+  // Desactivar.
   const [fichaLinkOpen, setFichaLinkOpen] = React.useState(false);
   const [fichaLinkUrl, setFichaLinkUrl] = React.useState('');
   const [fichaLinkLoading, setFichaLinkLoading] = React.useState(false);
   const [fichaLinkError, setFichaLinkError] = React.useState('');
   const [fichaLinkCopied, setFichaLinkCopied] = React.useState(false);
+  const [fichaLinksList, setFichaLinksList] = React.useState([]);
+  const [fichaLinksListLoading, setFichaLinksListLoading] = React.useState(false);
+  const [fichaLinksListError, setFichaLinksListError] = React.useState('');
+  const [revokingLinkId, setRevokingLinkId] = React.useState(null);
 
   // Foto de personal (POST/DELETE /operaciones/personal/:id/foto, autenticado).
   const [fotoUploading, setFotoUploading] = React.useState(false);
@@ -713,6 +736,19 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
     }
   };
 
+  const cargarFichaLinksList = async () => {
+    setFichaLinksListLoading(true);
+    setFichaLinksListError('');
+    try {
+      const items = await listFichaLinks();
+      setFichaLinksList(items);
+    } catch (err) {
+      setFichaLinksListError(err?.message || 'No se pudo cargar el listado de links.');
+    } finally {
+      setFichaLinksListLoading(false);
+    }
+  };
+
   const handleGenerateFichaLink = async () => {
     setFichaLinkOpen(true);
     setFichaLinkLoading(true);
@@ -721,10 +757,24 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
     try {
       const result = await generateFichaLink();
       setFichaLinkUrl(result?.url || '');
+      await cargarFichaLinksList();
     } catch (err) {
       setFichaLinkError(err?.message || 'No se pudo generar el link.');
     } finally {
       setFichaLinkLoading(false);
+    }
+  };
+
+  const handleRevokeFichaLink = async (linkId) => {
+    setRevokingLinkId(linkId);
+    setFichaLinksListError('');
+    try {
+      await revokeFichaLink(linkId);
+      await cargarFichaLinksList();
+    } catch (err) {
+      setFichaLinksListError(err?.message || 'No se pudo desactivar el link.');
+    } finally {
+      setRevokingLinkId(null);
     }
   };
 
@@ -891,6 +941,35 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
                   >
                     Compartir por WhatsApp
                   </Button>
+                </div>
+
+                <div className="rrhh-ficha-links-list">
+                  <div className="rrhh-section-title" style={{ marginTop: 20 }}>
+                    <span>Links vigentes</span>
+                  </div>
+                  {fichaLinksListLoading ? (
+                    <div className="rrhh-empty-inline">Cargando...</div>
+                  ) : fichaLinksListError ? (
+                    <div className="rrhh-form-error">{fichaLinksListError}</div>
+                  ) : fichaLinksList.length ? (
+                    fichaLinksList.map((link) => (
+                      <div key={link.id} className="rrhh-ficha-links-list-item">
+                        <div className="rrhh-ficha-links-list-item-info">
+                          <span className="rrhh-ficha-links-list-item-url">{link.url}</span>
+                          <span className="rrhh-subtle">Vence {formatFichaLinkVencimiento(link.expires_at)}</span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          onClick={() => handleRevokeFichaLink(link.id)}
+                          disabled={revokingLinkId === link.id}
+                        >
+                          {revokingLinkId === link.id ? 'Desactivando...' : 'Desactivar'}
+                        </Button>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rrhh-empty-inline">No hay otros links vigentes.</div>
+                  )}
                 </div>
               </>
             )}

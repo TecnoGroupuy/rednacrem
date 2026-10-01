@@ -32,12 +32,15 @@ async function assertOk(response, fallbackMessage) {
   return data;
 }
 
-// { token, documento, fechaNacimiento } -> { ok, persona, session_token, expires_at }
-export async function verificarFicha({ token, documento, fechaNacimiento }) {
+// { codigo? , token?, documento, fechaNacimiento } -> { ok, persona, session_token, expires_at }
+// codigo: link corto actual (/f/<codigo>, migracion 084). token: mecanismo
+// viejo (?token=), se sigue aceptando para los links largos ya enviados
+// antes del cambio. Mandar exactamente uno de los dos.
+export async function verificarFicha({ codigo, token, documento, fechaNacimiento }) {
   const response = await fetch(buildApiUrl('/publico/ficha-personal/verificar'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, documento, fecha_nacimiento: fechaNacimiento })
+    body: JSON.stringify({ codigo, token, documento, fecha_nacimiento: fechaNacimiento })
   });
   return assertOk(response, 'No se pudo verificar la ficha.');
 }

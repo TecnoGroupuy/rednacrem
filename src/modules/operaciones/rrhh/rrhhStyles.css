@@ -1211,6 +1211,36 @@
   box-sizing: border-box;
 }
 
+.rrhh-ficha-links-list {
+  display: grid;
+  gap: 10px;
+}
+
+.rrhh-ficha-links-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(51, 65, 85, 0.9);
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.rrhh-ficha-links-list-item-info {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.rrhh-ficha-links-list-item-url {
+  font-size: 13px;
+  color: var(--rrhh-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Pestaña "Documentación" de la ficha interna (PersonalDocumentosTab.jsx) */
 
 .rrhh-doc-tab-list {

@@ -63,9 +63,20 @@ export async function listPersonalConDocumentosPendientes() {
 }
 
 export async function generateFichaLink() {
-  // Devuelve { ok, token, expiresAt, url } -- url ya viene armada por el
-  // backend con el origin del propio request (ver index.mjs).
+  // Devuelve { ok, codigo, expiresAt, url } -- url ya viene armada por el
+  // backend (link corto /f/<codigo>, migracion 084) con el origin del
+  // propio request (ver index.mjs).
   return api.post('/operaciones/personal/link-autocompletado');
+}
+
+export async function listFichaLinks() {
+  const response = await api.get('/operaciones/personal/links-autocompletado');
+  return response?.items || [];
+}
+
+export async function revokeFichaLink(linkId) {
+  const response = await api.post(`/operaciones/personal/links-autocompletado/${linkId}/revocar`);
+  return Boolean(response?.ok);
 }
 
 export async function uploadPersonalFoto(personalId, blob) {

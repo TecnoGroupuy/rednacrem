@@ -174,10 +174,18 @@ function InitialsSquare({ nombre, apellido }) {
   return <div className="cf-foto-square cf-foto-initials">{initials}</div>;
 }
 
-export default function CompletarFichaScreen() {
-  const linkToken = React.useMemo(() => new URLSearchParams(window.location.search).get('token'), []);
+export default function CompletarFichaScreen({ linkCodigo }) {
+  // linkCodigo viene de main.jsx cuando la ruta es /f/<codigo> (mecanismo
+  // actual, migracion 084). Si es null, estamos en /completar-ficha?token=
+  // (mecanismo viejo, se mantiene por los links largos ya enviados) y se
+  // lee el token de la query string.
+  const linkToken = React.useMemo(
+    () => (linkCodigo ? null : new URLSearchParams(window.location.search).get('token')),
+    [linkCodigo]
+  );
+  const hasLink = Boolean(linkCodigo || linkToken);
 
-  const [step, setStep] = React.useState(linkToken ? 'documento' : 'link_invalido');
+  const [step, setStep] = React.useState(hasLink ? 'documento' : 'link_invalido');
   // A que step volver despues de re-verificar tras una sesion vencida --
   // por default 'ficha' (el primer paso post-verificacion), pero si la
   // sesion vence en 'foto' o 'documentos' se guarda ese paso aca, para
@@ -247,7 +255,7 @@ export default function CompletarFichaScreen() {
     setLoading(true);
     setErrorMessage('');
     try {
-      const result = await verificarFicha({ token: linkToken, documento: onlyDigits(documento), fechaNacimiento: fechaIso });
+      const result = await verificarFicha({ codigo: linkCodigo, token: linkToken, documento: onlyDigits(documento), fechaNacimiento: fechaIso });
       setSessionToken(result.session_token);
       setPersona(result.persona);
       // Si ya habia un draft cargado (volviendo de una sesion vencida en el
