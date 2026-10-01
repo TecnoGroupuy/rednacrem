@@ -57,6 +57,33 @@ export async function listPersonalVencimientos({ days = 30 } = {}) {
   return response?.items || [];
 }
 
+export async function generateFichaLink() {
+  // Devuelve { ok, token, expiresAt, url } -- url ya viene armada por el
+  // backend con el origin del propio request (ver index.mjs).
+  return api.post('/operaciones/personal/link-autocompletado');
+}
+
+export async function uploadPersonalFoto(personalId, blob) {
+  // blob: JPEG ya recortado/redimensionado por PersonFotoCapture. api.post
+  // detecta que el body es un Blob y no lo serializa como JSON (ver
+  // apiClient.js) -- el Content-Type explicito es necesario igual, el
+  // helper generico no lo infiere de un Blob sin tipo seteado por fetch.
+  const response = await api.post(`/operaciones/personal/${personalId}/foto`, blob, {
+    headers: { 'Content-Type': 'image/jpeg' }
+  });
+  return response?.foto_url || null;
+}
+
+export async function deletePersonalFoto(personalId) {
+  const response = await api.del(`/operaciones/personal/${personalId}/foto`);
+  return Boolean(response?.ok);
+}
+
+export async function getCambiosPublicos(personalId) {
+  const response = await api.get(`/operaciones/personal/${personalId}/cambios-publicos`);
+  return response?.items || [];
+}
+
 export async function updatePersonalBases(personalId, bases) {
   // Reemplaza el conjunto completo de bases de la persona (migracion 081) --
   // PUT, no PATCH: la unica via de escritura de bases desde el form, ver

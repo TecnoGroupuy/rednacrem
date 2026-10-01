@@ -1,7 +1,8 @@
 import React from 'react';
-import { MapPin, Star, Shield, GraduationCap, HeartPulse, UserCircle2, Plus, Trash2, AlertTriangle, CalendarClock } from 'lucide-react';
+import { MapPin, Star, Shield, GraduationCap, HeartPulse, UserCircle2, Plus, Trash2, AlertTriangle, CalendarClock, Camera, History } from 'lucide-react';
 import { StatusPill, LICENCIA_TIPO_LABELS } from './PersonalList.jsx';
-import { displayBases } from './personDisplay.js';
+import { displayBases, displayFullName } from './personDisplay.js';
+import PersonFotoCapture from '../../../components/PersonFotoCapture.jsx';
 
 const TABS = [
   { key: 'datos_generales', label: 'Datos generales' },
@@ -9,8 +10,17 @@ const TABS = [
   { key: 'habilitaciones', label: 'Habilitaciones' },
   { key: 'capacitaciones', label: 'Capacitaciones' },
   { key: 'carnet_salud', label: 'Carné de salud' },
-  { key: 'licencias', label: 'Licencias' }
+  { key: 'licencias', label: 'Licencias' },
+  { key: 'cambios', label: 'Cambios' }
 ];
+
+const CAMBIO_CAMPO_LABELS = {
+  telefono: 'Teléfono',
+  email: 'Email',
+  domicilio: 'Domicilio',
+  fecha_nacimiento: 'Fecha de nacimiento',
+  foto_url: 'Foto'
+};
 
 // Campos opcionales de su_personal (todo menos nombre/apellido/tipo_personal,
 // que son los unicos NOT NULL) -- se usan para marcar visualmente que le
@@ -145,9 +155,17 @@ export default function PersonalDetail({
   onAddCarnetSalud,
   onAddLicencia,
   onUpdateLicencia,
-  onDarDeBaja
+  onDarDeBaja,
+  onUploadFoto,
+  onDeleteFoto,
+  fotoUploading,
+  cambiosPublicos,
+  cambiosLoading,
+  cambiosError
 }) {
   const [roleToAdd, setRoleToAdd] = React.useState('');
+  const [showFotoMenu, setShowFotoMenu] = React.useState(false);
+  const [showFotoCapture, setShowFotoCapture] = React.useState(false);
   const [showHabilitacionForm, setShowHabilitacionForm] = React.useState(false);
   const [showCapacitacionForm, setShowCapacitacionForm] = React.useState(false);
   const [showCarnetForm, setShowCarnetForm] = React.useState(false);
@@ -173,6 +191,8 @@ export default function PersonalDetail({
     setCarnetDraft(emptyCarnetDraft);
     setShowBajaConfirm(false);
     setBajaFechaEgreso(todayDateOnly());
+    setShowFotoMenu(false);
+    setShowFotoCapture(false);
   }, [personal?.id]);
 
   if (loading) {
@@ -298,13 +318,44 @@ export default function PersonalDetail({
     onDarDeBaja(bajaFechaEgreso);
   };
 
+  const handleCapturarFoto = async (blob) => {
+    await onUploadFoto(blob);
+    setShowFotoCapture(false);
+  };
+
+  const handleQuitarFoto = async () => {
+    setShowFotoMenu(false);
+    await onDeleteFoto();
+  };
+
   return (
     <div className="rrhh-modal-root" role="dialog" aria-modal="true" aria-label="Ficha de personal">
       <div className="lot-wizard-overlay" onClick={onClose} />
       <div className="rrhh-detail-panel">
         <div className="rrhh-detail-header">
           <div className="rrhh-detail-identity">
-            <div className="rrhh-detail-avatar">{`${personal.nombre?.[0] || ''}${personal.apellido?.[0] || ''}`.toUpperCase() || 'SU'}</div>
+            <div className="rrhh-detail-avatar-wrap">
+              <button
+                type="button"
+                className="rrhh-detail-avatar rrhh-detail-avatar-button"
+                onClick={() => setShowFotoMenu((prev) => !prev)}
+                aria-label="Cambiar foto"
+                style={personal.foto_url ? { backgroundImage: `url(${personal.foto_url})` } : undefined}
+              >
+                {!personal.foto_url ? (`${personal.nombre?.[0] || ''}${personal.apellido?.[0] || ''}`.toUpperCase() || 'SU') : null}
+                <span className="rrhh-detail-avatar-overlay"><Camera size={16} /></span>
+              </button>
+              {showFotoMenu ? (
+                <div className="rrhh-detail-avatar-menu">
+                  <button type="button" onClick={() => { setShowFotoMenu(false); setShowFotoCapture(true); }}>
+                    {personal.foto_url ? 'Cambiar foto' : 'Subir foto'}
+                  </button>
+                  {personal.foto_url ? (
+                    <button type="button" onClick={handleQuitarFoto} disabled={fotoUploading}>Quitar foto</button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
             <div>
               <h2>{fullName}</h2>
               <p>{primaryRole ? formatRol(primaryRole) : 'Sin rol principal definido'}</p>
@@ -615,8 +666,53 @@ export default function PersonalDetail({
               )}
             </section>
           ) : null}
+
+          {activeTab === 'cambios' ? (
+            <section className="rrhh-detail-card">
+              <div className="rrhh-section-title">
+                <div className="rrhh-inline-title"><History size={18} /><span>Cambios hechos por el funcionario</span></div>
+              </div>
+              <p className="rrhh-subtle" style={{ marginTop: -6, marginBottom: 14 }}>
+                Historial de ediciones hechas desde el link público de autocompletado (no incluye cambios hechos desde esta ficha).
+              </p>
+
+              {cambiosLoading ? (
+                <div className="rrhh-empty-inline">Cargando historial...</div>
+              ) : cambiosError ? (
+                <div className="rrhh-empty-inline" style={{ color: '#fdba74' }}>{cambiosError}</div>
+              ) : (cambiosPublicos || []).length ? (
+                <div className="rrhh-kv-list">
+                  {cambiosPublicos.map((item) => (
+                    <div key={item.id}>
+                      <span>{CAMBIO_CAMPO_LABELS[item.campo] || item.campo}</span>
+                      <strong>
+                        {item.campo === 'foto_url'
+                          ? 'Foto actualizada'
+                          : item.campo === 'fecha_nacimiento'
+                            ? `${item.valor_anterior ? formatDateOnlyDisplay(item.valor_anterior) : 'Sin dato'} → ${item.valor_nuevo ? formatDateOnlyDisplay(item.valor_nuevo) : 'Sin dato'}`
+                            : `${item.valor_anterior || 'Sin dato'} → ${item.valor_nuevo || 'Sin dato'}`}
+                        {' · '}
+                        {formatDateOnlyDisplay(item.created_at)}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rrhh-empty-inline">Todavía no hizo cambios por el link público.</div>
+              )}
+            </section>
+          ) : null}
         </div>
       </div>
+
+      {showFotoCapture ? (
+        <PersonFotoCapture
+          title={`Foto de ${displayFullName(personal)}`}
+          onCapture={handleCapturarFoto}
+          onClose={() => { if (!fotoUploading) setShowFotoCapture(false); }}
+          busy={fotoUploading}
+        />
+      ) : null}
     </div>
   );
 }

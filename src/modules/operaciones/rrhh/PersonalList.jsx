@@ -315,6 +315,7 @@ export default function PersonalList({
   onFilterChange,
   onCreate,
   onView,
+  onGenerateLink,
   formatRol,
   getAlertMeta
 }) {
@@ -337,7 +338,10 @@ export default function PersonalList({
             <option value="baja">Baja</option>
           </select>
         </div>
-        <Button icon={null} onClick={onCreate}>Nuevo personal</Button>
+        <div className="rrhh-inline-actions">
+          <Button variant="secondary" icon={null} onClick={onGenerateLink}>Link para completar fichas</Button>
+          <Button icon={null} onClick={onCreate}>Nuevo personal</Button>
+        </div>
       </div>
 
       {isEmpty ? (

@@ -21,7 +21,11 @@ import {
   addCapacitacion,
   addCarnetSalud,
   addLicencia,
-  updateLicencia
+  updateLicencia,
+  generateFichaLink,
+  uploadPersonalFoto,
+  deletePersonalFoto,
+  getCambiosPublicos
 } from '../../../services/rrhhService.js';
 import { listBases, listVehiculos } from '../../../services/flotasService.js';
 import { getMissingFields } from './PersonalDetail.jsx';
@@ -204,6 +208,25 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
   const [empresaFormMode, setEmpresaFormMode] = React.useState('create');
   const [empresaDraft, setEmpresaDraft] = React.useState(emptyEmpresaDraft);
 
+  // Link de autocompletado (POST /operaciones/personal/link-autocompletado):
+  // modal chico con el link ya generado, copiar/compartir por WhatsApp.
+  const [fichaLinkOpen, setFichaLinkOpen] = React.useState(false);
+  const [fichaLinkUrl, setFichaLinkUrl] = React.useState('');
+  const [fichaLinkLoading, setFichaLinkLoading] = React.useState(false);
+  const [fichaLinkError, setFichaLinkError] = React.useState('');
+  const [fichaLinkCopied, setFichaLinkCopied] = React.useState(false);
+
+  // Foto de personal (POST/DELETE /operaciones/personal/:id/foto, autenticado).
+  const [fotoUploading, setFotoUploading] = React.useState(false);
+
+  // Historial de cambios hechos por el propio funcionario via el link
+  // publico (GET /operaciones/personal/:id/cambios-publicos) -- se carga
+  // bajo demanda, solo cuando se entra a la pestaña "Cambios" de la ficha,
+  // no en cada apertura de ficha (es un endpoint aparte del detalle).
+  const [cambiosPublicos, setCambiosPublicos] = React.useState([]);
+  const [cambiosLoading, setCambiosLoading] = React.useState(false);
+  const [cambiosError, setCambiosError] = React.useState('');
+
   const loadRrhh = React.useCallback(async () => {
     setLoading(true);
     setError('');
@@ -263,6 +286,26 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
   }, [selectedPersonalId, detailRefreshToken]);
 
   const refreshSelectedDetail = () => setDetailRefreshToken((token) => token + 1);
+
+  React.useEffect(() => {
+    if (!selectedPersonalId || detailTab !== 'cambios') return undefined;
+    let cancelled = false;
+    setCambiosLoading(true);
+    setCambiosError('');
+    getCambiosPublicos(selectedPersonalId)
+      .then((items) => {
+        if (!cancelled) setCambiosPublicos(items);
+      })
+      .catch((err) => {
+        if (!cancelled) setCambiosError(err?.message || 'No se pudo cargar el historial de cambios.');
+      })
+      .finally(() => {
+        if (!cancelled) setCambiosLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPersonalId, detailTab]);
 
   const baseById = React.useMemo(
     () => Object.fromEntries(bases.map((base) => [base.id, base])),
@@ -635,6 +678,63 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
     }
   };
 
+  const handleGenerateFichaLink = async () => {
+    setFichaLinkOpen(true);
+    setFichaLinkLoading(true);
+    setFichaLinkError('');
+    setFichaLinkCopied(false);
+    try {
+      const result = await generateFichaLink();
+      setFichaLinkUrl(result?.url || '');
+    } catch (err) {
+      setFichaLinkError(err?.message || 'No se pudo generar el link.');
+    } finally {
+      setFichaLinkLoading(false);
+    }
+  };
+
+  const handleCopyFichaLink = async () => {
+    try {
+      await navigator.clipboard.writeText(fichaLinkUrl);
+      setFichaLinkCopied(true);
+    } catch {
+      setFichaLinkError('No se pudo copiar el link. Copialo manualmente.');
+    }
+  };
+
+  // Mismo refresco doble que ya usan licencias/baja: refreshSelectedDetail
+  // actualiza la ficha abierta, refreshPersonalList actualiza la foto que se
+  // ve detras en la tarjeta de la jerarquia.
+  const handleUploadFoto = async (blob) => {
+    if (!selectedPersonalId) return;
+    setFotoUploading(true);
+    setActionError('');
+    try {
+      await uploadPersonalFoto(selectedPersonalId, blob);
+      refreshSelectedDetail();
+      refreshPersonalList();
+    } catch (err) {
+      setActionError(err?.message || 'No se pudo subir la foto.');
+    } finally {
+      setFotoUploading(false);
+    }
+  };
+
+  const handleDeleteFoto = async () => {
+    if (!selectedPersonalId) return;
+    setFotoUploading(true);
+    setActionError('');
+    try {
+      await deletePersonalFoto(selectedPersonalId);
+      refreshSelectedDetail();
+      refreshPersonalList();
+    } catch (err) {
+      setActionError(err?.message || 'No se pudo quitar la foto.');
+    } finally {
+      setFotoUploading(false);
+    }
+  };
+
   const openCreateEmpresa = () => {
     setEmpresaFormMode('create');
     setEmpresaDraft({ ...emptyEmpresaDraft, id: `ec-${Date.now()}` });
@@ -682,6 +782,7 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
               onFilterChange={handleFilterChange}
               onCreate={openCreatePersonal}
               onView={openDetail}
+              onGenerateLink={handleGenerateFichaLink}
               formatRol={formatRol}
               getAlertMeta={getAlertMeta}
             />
@@ -715,7 +816,51 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
           onAddLicencia={handleAddLicencia}
           onUpdateLicencia={handleUpdateLicencia}
           onDarDeBaja={handleDarDeBaja}
+          onUploadFoto={handleUploadFoto}
+          onDeleteFoto={handleDeleteFoto}
+          fotoUploading={fotoUploading}
+          cambiosPublicos={cambiosPublicos}
+          cambiosLoading={cambiosLoading}
+          cambiosError={cambiosError}
         />
+      ) : null}
+
+      {fichaLinkOpen ? (
+        <div className="rrhh-modal-root" role="dialog" aria-modal="true" aria-label="Link para completar fichas">
+          <div className="lot-wizard-overlay" onClick={() => setFichaLinkOpen(false)} />
+          <div className="rrhh-modal-panel rrhh-modal-panel-narrow">
+            <div className="rrhh-modal-header" style={{ flexWrap: 'nowrap', alignItems: 'flex-start' }}>
+              <div>
+                <h3>Link para completar fichas</h3>
+                <p>Compartilo con el funcionario para que cargue sus datos y su foto. Válido por 24 horas.</p>
+              </div>
+              <Button variant="ghost" onClick={() => setFichaLinkOpen(false)}>Cerrar</Button>
+            </div>
+
+            {fichaLinkLoading ? (
+              <div className="rrhh-empty-inline">Generando link...</div>
+            ) : fichaLinkError ? (
+              <div className="rrhh-form-error">{fichaLinkError}</div>
+            ) : (
+              <>
+                <div className="rrhh-ficha-link-box">
+                  <input type="text" readOnly value={fichaLinkUrl} onFocus={(event) => event.target.select()} />
+                </div>
+                <div className="rrhh-inline-actions" style={{ marginTop: 14 }}>
+                  <Button variant="secondary" onClick={handleCopyFichaLink}>
+                    {fichaLinkCopied ? 'Copiado' : 'Copiar'}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(fichaLinkUrl)}`, '_blank', 'noopener,noreferrer')}
+                  >
+                    Compartir por WhatsApp
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       ) : null}
 
       {personalFormOpen ? (

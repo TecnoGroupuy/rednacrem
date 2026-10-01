@@ -1,0 +1,223 @@
+/* Pantalla publica de autocompletado de ficha -- tema propio, claro y
+   mobile-first, independiente del tema oscuro del resto de la app (no hay
+   sesion ni layout autenticado detras de esta pantalla). */
+
+.cf-root {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: linear-gradient(180deg, #f8fafc, #e2e8f0);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 16px;
+  box-sizing: border-box;
+}
+
+.cf-card {
+  width: 100%;
+  max-width: 420px;
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 20px 50px rgba(2, 6, 23, 0.12);
+  padding: 28px 24px 32px;
+  box-sizing: border-box;
+}
+
+.cf-logo {
+  display: block;
+  height: 48px;
+  margin: 0 auto 20px;
+}
+
+.cf-step {
+  display: grid;
+  gap: 14px;
+  text-align: center;
+}
+
+.cf-step h1 {
+  margin: 0;
+  font-size: 20px;
+  color: #0f172a;
+}
+
+.cf-subtitle {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.cf-field {
+  display: grid;
+  gap: 6px;
+  text-align: left;
+}
+
+.cf-field span,
+.cf-field-group-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.cf-field input {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  border-radius: 12px;
+  border: 1px solid #cbd5e1;
+  padding: 0 14px;
+  font-size: 16px;
+  color: #0f172a;
+  box-sizing: border-box;
+}
+
+.cf-field input:focus {
+  outline: none;
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.12);
+}
+
+.cf-field-group {
+  display: grid;
+  gap: 6px;
+  text-align: left;
+  min-width: 0;
+}
+
+.cf-fecha-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.3fr;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cf-fecha-field {
+  display: grid;
+  gap: 6px;
+  /* Sin esto, el grid item no se achica por debajo del ancho minimo de
+     contenido del <input> (el default del navegador, ~20 caracteres) y
+     termina desbordando la tarjeta en vez de repartirse en 1fr/1fr/1.3fr --
+     el bug real que mostro el primer test en viewport angosto (390px). */
+  min-width: 0;
+}
+
+.cf-fecha-field span {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.cf-fecha-field input {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  border-radius: 12px;
+  border: 1px solid #cbd5e1;
+  text-align: center;
+  font-size: 16px;
+  color: #0f172a;
+  box-sizing: border-box;
+}
+
+.cf-fecha-field input:focus {
+  outline: none;
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.12);
+}
+
+.cf-primary-button,
+.cf-secondary-button,
+.cf-link-button {
+  min-height: 50px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.cf-primary-button {
+  border: 0;
+  background: #0f172a;
+  color: #fff;
+}
+
+.cf-primary-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cf-secondary-button {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0f172a;
+}
+
+.cf-link-button {
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  min-height: auto;
+  text-decoration: underline;
+}
+
+.cf-error {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 13px;
+  background: rgba(185, 28, 28, 0.08);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.cf-icon-warning {
+  color: #d97706;
+  margin: 0 auto;
+}
+
+.cf-icon-success {
+  color: #16a34a;
+  margin: 0 auto;
+}
+
+.cf-spin {
+  animation: cf-spin 0.8s linear infinite;
+}
+
+@keyframes cf-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.cf-foto-square {
+  width: 140px;
+  height: 140px;
+  border-radius: 20px;
+  object-fit: cover;
+  margin: 0 auto;
+  background: #f1f5f9;
+}
+
+.cf-foto-initials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 42px;
+  font-weight: 800;
+  color: #64748b;
+  background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+}
+
+@media (max-width: 380px) {
+  .cf-card {
+    padding: 22px 18px 26px;
+  }
+
+  .cf-foto-square {
+    width: 120px;
+    height: 120px;
+  }
+}

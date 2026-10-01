@@ -3,6 +3,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { AuthProvider as OidcAuthProvider, useAuth as useOidcAuth } from 'react-oidc-context';
 import { buildCognitoHostedUiLogoutUrl, cognitoAuthConfig } from './auth/cognitoConfig';
+import CompletarFichaScreen from './modules/public/CompletarFichaScreen.jsx';
 import './tailwind.css';
 import {
   Menu, X, Bell, Search, ChevronDown, ChevronUp, Briefcase, Users, UserCheck, Building2, Phone,
@@ -20984,14 +20985,24 @@ const formatCurrency = (value) => {
       );
     }
 
+// /completar-ficha?token=... es publica (link de autocompletado de RRHH,
+// sin Cognito) -- se detecta ANTES de montar OidcAuthProvider/AuthGate,
+// nunca pide login. El resto de la app sigue intacto para cualquier otra
+// ruta.
+const isCompletarFichaRoute = window.location.pathname === '/completar-ficha';
+
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <OidcAuthProvider {...cognitoAuthConfig}>
-      <AppAuthProvider>
-        <AuthGate>
-          <App />
-        </AuthGate>
-      </AppAuthProvider>
-    </OidcAuthProvider>
+    {isCompletarFichaRoute ? (
+      <CompletarFichaScreen />
+    ) : (
+      <OidcAuthProvider {...cognitoAuthConfig}>
+        <AppAuthProvider>
+          <AuthGate>
+            <App />
+          </AuthGate>
+        </AppAuthProvider>
+      </OidcAuthProvider>
+    )}
   </React.StrictMode>
 );
