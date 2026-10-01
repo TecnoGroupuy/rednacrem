@@ -221,9 +221,23 @@
   gap: 6px;
 }
 
-.rrhh-avatar,
-.rrhh-detail-avatar {
+.rrhh-avatar {
   border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  color: #fff;
+  background-size: cover;
+  background-position: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 12px 24px rgba(2, 6, 23, 0.26);
+}
+
+/* Cuadrada con esquinas levemente redondeadas, igual que la foto de la
+   tarjeta (rrhh-card2-photo) -- antes compartia el border-radius:999px
+   (circular) de .rrhh-avatar, que dejaba la foto del header "cortada" de
+   forma distinta a como se ve en la tarjeta. */
+.rrhh-detail-avatar {
+  border-radius: 14px;
   display: grid;
   place-items: center;
   font-weight: 800;
@@ -1195,4 +1209,153 @@
   padding: 0 14px;
   font-size: 13px;
   box-sizing: border-box;
+}
+
+/* Pestaña "Documentación" de la ficha interna (PersonalDocumentosTab.jsx) */
+
+.rrhh-doc-tab-list {
+  display: grid;
+  gap: 12px;
+}
+
+.rrhh-doc-tab-cursos {
+  margin-top: 8px;
+  display: grid;
+  gap: 12px;
+}
+
+.rrhh-doc-tab-item {
+  border: 1px solid rgba(51, 65, 85, 0.9);
+  border-radius: 14px;
+  padding: 14px;
+  background: rgba(15, 23, 42, 0.5);
+  display: grid;
+  gap: 8px;
+}
+
+.rrhh-doc-tab-item-rechazado {
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+.rrhh-doc-tab-item-validado {
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.rrhh-doc-tab-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.rrhh-doc-tab-item-label {
+  font-weight: 700;
+  color: var(--rrhh-text);
+  font-size: 14px;
+}
+
+.rrhh-doc-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.rrhh-doc-tab-badge-falta {
+  background: rgba(148, 163, 184, 0.14);
+  color: #cbd5e1;
+}
+
+.rrhh-doc-tab-badge-pendiente {
+  background: rgba(217, 119, 6, 0.14);
+  color: #fcd34d;
+}
+
+.rrhh-doc-tab-badge-rechazado {
+  background: rgba(239, 68, 68, 0.14);
+  color: #fca5a5;
+}
+
+.rrhh-doc-tab-badge-validado {
+  background: rgba(34, 197, 94, 0.14);
+  color: #86efac;
+}
+
+.rrhh-doc-tab-motivo {
+  margin: 0;
+  font-size: 12px;
+  color: #fca5a5;
+}
+
+.rrhh-doc-tab-edit {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(51, 65, 85, 0.7);
+}
+
+.rrhh-doc-tab-field {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: #cbd5e1;
+}
+
+.rrhh-doc-tab-field input,
+.rrhh-doc-tab-edit > input {
+  min-height: 38px;
+  border-radius: 10px;
+  border: 1px solid var(--rrhh-line);
+  background: rgba(15, 23, 42, 0.88);
+  color: var(--rrhh-text);
+  padding: 0 12px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.rrhh-doc-fecha-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.3fr;
+  gap: 6px;
+}
+
+.rrhh-doc-fecha-row input {
+  min-width: 0;
+  min-height: 38px;
+  border-radius: 10px;
+  border: 1px solid var(--rrhh-line);
+  background: rgba(15, 23, 42, 0.88);
+  color: var(--rrhh-text);
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.rrhh-doc-action-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(251, 146, 60, 0.28);
+  background: rgba(30, 41, 59, 0.6);
+  color: #fdba74;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rrhh-doc-action-button:hover {
+  background: rgba(249, 115, 22, 0.14);
+}
+
+.rrhh-doc-action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

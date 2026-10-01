@@ -61,3 +61,47 @@ export async function subirFotoFichaPublica(sessionToken, blob) {
   });
   return assertOk(response, 'No se pudo subir la foto.');
 }
+
+// -> { ok, checklist, cursos, turno }. El backend es la UNICA fuente de que
+// documentos aplican a cada rol -- esto se dibuja tal cual, sin ninguna
+// configuracion propia del lado del cliente.
+export async function getDocumentosFichaPublica(sessionToken) {
+  const response = await fetch(buildApiUrl('/publico/ficha-personal/documentos'), {
+    method: 'GET',
+    headers: { 'X-Ficha-Session': sessionToken }
+  });
+  return assertOk(response, 'No se pudo cargar la documentación.');
+}
+
+// blob: JPEG (DocumentoCapture, sin recorte) o el PDF original tal cual.
+// Metadata por header, nunca en query string. -> { ok, archivo_id, checklist, cursos }
+export async function subirDocumentoFichaPublica(sessionToken, { categoria, nombreArchivo, contentType, blob, numero, fechaVencimiento, fechaEmision, cursoNombre, cursoInstitucion }) {
+  const headers = {
+    'Content-Type': contentType,
+    'X-Ficha-Session': sessionToken,
+    'X-Doc-Categoria': categoria,
+    'X-Doc-Nombre-Archivo': encodeURIComponent(nombreArchivo)
+  };
+  if (numero) headers['X-Doc-Numero'] = encodeURIComponent(numero);
+  if (fechaVencimiento) headers['X-Doc-Fecha-Vencimiento'] = fechaVencimiento;
+  if (fechaEmision) headers['X-Doc-Fecha-Emision'] = fechaEmision;
+  if (cursoNombre) headers['X-Doc-Curso-Nombre'] = encodeURIComponent(cursoNombre);
+  if (cursoInstitucion) headers['X-Doc-Curso-Institucion'] = encodeURIComponent(cursoInstitucion);
+
+  const response = await fetch(buildApiUrl('/publico/ficha-personal/documentos'), {
+    method: 'POST',
+    headers,
+    body: blob
+  });
+  return assertOk(response, 'No se pudo subir el documento.');
+}
+
+// comentario opcional -> { ok }
+export async function avisarTurnoFichaPublica(sessionToken, comentario) {
+  const response = await fetch(buildApiUrl('/publico/ficha-personal/turno/aviso'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Ficha-Session': sessionToken },
+    body: JSON.stringify({ comentario: comentario || null })
+  });
+  return assertOk(response, 'No se pudo registrar el aviso.');
+}

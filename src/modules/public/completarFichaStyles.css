@@ -221,3 +221,185 @@
     height: 120px;
   }
 }
+
+/* Paso "Tu documentación" -- mas contenido que el resto de los pasos
+   (lista + cursos + turno), se ensancha la tarjeta un poco si el navegador
+   soporta :has() (no rompe nada si no lo soporta, solo queda mas angosto). */
+.cf-card:has(.cf-step-wide) {
+  max-width: 480px;
+}
+
+.cf-step-wide {
+  text-align: left;
+}
+
+.cf-step-wide h1,
+.cf-step-wide > .cf-subtitle {
+  text-align: center;
+}
+
+.cf-status {
+  color: #64748b;
+  font-size: 14px;
+  text-align: center;
+}
+
+.cf-doc-list {
+  display: grid;
+  gap: 12px;
+}
+
+.cf-doc-item {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px;
+  display: grid;
+  gap: 8px;
+}
+
+.cf-doc-item-rechazado {
+  border-color: #fecaca;
+  background: rgba(239, 68, 68, 0.04);
+}
+
+.cf-doc-item-validado {
+  border-color: #bbf7d0;
+  background: rgba(34, 197, 94, 0.04);
+}
+
+.cf-doc-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cf-doc-item-label {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.cf-doc-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cf-doc-badge-falta {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.cf-doc-badge-pendiente {
+  background: rgba(217, 119, 6, 0.12);
+  color: #b45309;
+}
+
+.cf-doc-badge-rechazado {
+  background: rgba(239, 68, 68, 0.12);
+  color: #b91c1c;
+}
+
+.cf-doc-badge-validado {
+  background: rgba(34, 197, 94, 0.12);
+  color: #15803d;
+}
+
+.cf-doc-motivo {
+  margin: 0;
+  font-size: 13px;
+  color: #b91c1c;
+}
+
+.cf-doc-nombre-archivo {
+  margin: 0;
+  font-size: 13px;
+  color: #475569;
+}
+
+.cf-doc-edit {
+  display: grid;
+  gap: 12px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.cf-doc-edit-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+}
+
+.cf-doc-cursos {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.cf-doc-curso-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #334155;
+  font-size: 13px;
+}
+
+.cf-doc-curso-item > div {
+  display: grid;
+  gap: 4px;
+}
+
+.cf-doc-validados {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 12px;
+}
+
+.cf-doc-collapse-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: #475569;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 10px;
+}
+
+.cf-doc-turno {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.cf-doc-turno-kv {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.cf-doc-turno-kv span:first-child {
+  min-width: 110px;
+  color: #94a3b8;
+}
+
+.cf-doc-aviso-ok {
+  margin: 0;
+  font-size: 13px;
+  color: #15803d;
+}

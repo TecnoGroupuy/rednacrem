@@ -14,6 +14,7 @@ import {
   createPersonal,
   updatePersonal,
   listPersonalVencimientos,
+  listPersonalConDocumentosPendientes,
   addPersonalRole,
   deletePersonalRole,
   updatePersonalBases,
@@ -113,6 +114,17 @@ export const toDateOnly = (value) => {
   return str.length > 10 && str.includes('T') ? str.slice(0, 10) : str;
 };
 
+// Puramente por string, sin pasar por ningun objeto Date -- mismo criterio
+// (y misma duplicacion a proposito) que su gemela en PersonalDetail.jsx/
+// PersonalList.jsx.
+const formatDateOnlyDisplay = (value) => {
+  const dateOnly = toDateOnly(value);
+  const parts = dateOnly.split('-');
+  if (parts.length !== 3) return dateOnly;
+  const [year, month, day] = parts;
+  return `${day}/${month}/${year}`;
+};
+
 const diffDays = (dateValue) => {
   const dateOnly = toDateOnly(dateValue);
   if (!dateOnly) return null;
@@ -125,11 +137,11 @@ const diffDays = (dateValue) => {
 
 const getVencimientoMeta = (dateValue) => {
   const days = diffDays(dateValue);
-  const dateOnly = toDateOnly(dateValue);
+  const dateDisplay = formatDateOnlyDisplay(dateValue);
   if (days === null) return { variant: 'info', label: 'Sin fecha' };
-  if (days < 0) return { variant: 'danger', label: `Vencida ${dateOnly}` };
-  if (days <= 30) return { variant: 'warning', label: `Vence ${dateOnly}` };
-  return { variant: 'success', label: `Vigente ${dateOnly}` };
+  if (days < 0) return { variant: 'danger', label: `Vencida ${dateDisplay}` };
+  if (days <= 30) return { variant: 'warning', label: `Vence ${dateDisplay}` };
+  return { variant: 'success', label: `Vigente ${dateDisplay}` };
 };
 
 // Mapa explicito de los 13 roles del CHECK de su_personal_roles.rol, con
@@ -166,6 +178,10 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
   const [bases, setBases] = React.useState([]);
   const [vehiculos, setVehiculos] = React.useState([]);
   const [vencimientos, setVencimientos] = React.useState([]);
+  // Set de personal_id con al menos un documento pendiente de revision --
+  // alimenta el mismo icono/lugar que las alertas de vencimiento en la
+  // tarjeta de la jerarquia (ver getAlertMeta mas abajo).
+  const [personalConDocumentosPendientes, setPersonalConDocumentosPendientes] = React.useState(() => new Set());
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
 
@@ -231,16 +247,18 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
     setLoading(true);
     setError('');
     try {
-      const [personalItems, basesItems, vehiculosItems, vencimientosItems] = await Promise.all([
+      const [personalItems, basesItems, vehiculosItems, vencimientosItems, pendientesIds] = await Promise.all([
         listPersonal(),
         listBases(),
         listVehiculos(),
-        listPersonalVencimientos({ days: 30 })
+        listPersonalVencimientos({ days: 30 }),
+        listPersonalConDocumentosPendientes()
       ]);
       setPersonal(personalItems);
       setBases(basesItems);
       setVehiculos(vehiculosItems);
       setVencimientos(vencimientosItems);
+      setPersonalConDocumentosPendientes(new Set(pendientesIds));
     } catch (err) {
       setError(err?.message || 'No se pudo cargar el personal.');
     } finally {
@@ -358,13 +376,22 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
   const getStatusVariant = React.useCallback((status) => statusToVariant[status] || 'info', []);
   const getDocumentStatusVariant = React.useCallback((status) => docStatusToVariant[status] || 'info', []);
 
+  // Mismo icono/lugar para dos señales distintas: vencimientos (rojo si ya
+  // venció, nunca se opaca por nada menos urgente) y documentos nuevos
+  // pendientes de revisión (ambar, igual que "próximo a vencer" -- si las
+  // dos aplican a la vez, se combinan en un solo label sin perder ninguna).
   const getAlertMeta = React.useCallback((row) => {
     const items = vencimientosByPersonalId[row.id] || [];
     const level = getDocumentAlertLevel(items);
+    const tienePendientes = personalConDocumentosPendientes.has(row.id);
     if (level === 'danger') return { hasAlert: true, variant: 'danger', label: 'Documentación vencida' };
+    if (level === 'warning' && tienePendientes) {
+      return { hasAlert: true, variant: 'warning', label: 'Próximo a vencer y con documentación pendiente de revisión' };
+    }
     if (level === 'warning') return { hasAlert: true, variant: 'warning', label: 'Próximo a vencer' };
+    if (tienePendientes) return { hasAlert: true, variant: 'warning', label: 'Documentación pendiente de revisión' };
     return { hasAlert: false, variant: 'success', label: 'Sin alertas' };
-  }, [vencimientosByPersonalId]);
+  }, [vencimientosByPersonalId, personalConDocumentosPendientes]);
 
   const handleFilterChange = (field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
@@ -559,8 +586,16 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
     setDetailTab('datos_generales');
   };
 
+  // Refresca el icono de "documentos pendientes" de la jerarquia al cerrar
+  // la ficha -- la pestaña Documentación (PersonalDocumentosTab.jsx) maneja
+  // su propio estado y no avisa a este componente en cada validar/rechazar/
+  // subir, asi que el momento natural de refrescar es cuando RRHH termina
+  // de revisar y vuelve a la vista de jerarquia.
   const closeDetail = () => {
     setSelectedPersonalId(null);
+    listPersonalConDocumentosPendientes()
+      .then((ids) => setPersonalConDocumentosPendientes(new Set(ids)))
+      .catch(() => {});
   };
 
   const refreshVencimientos = async () => {

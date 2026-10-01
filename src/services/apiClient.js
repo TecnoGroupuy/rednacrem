@@ -225,7 +225,11 @@ export function createApiClient({ baseUrl, getAccessToken }) {
     }
 
     const buffer = await response.arrayBuffer();
-    const blob = new Blob([buffer], { type: 'application/pdf' });
+    // Content-Type real de la respuesta (antes hardcodeado a 'application/pdf'
+    // -- unico uso hasta ahora era PDF, asi que coincidia por casualidad; con
+    // documentos de personal el mismo endpoint tambien devuelve image/jpeg).
+    const responseContentType = response.headers.get('content-type') || 'application/pdf';
+    const blob = new Blob([buffer], { type: responseContentType });
     const contentDisposition = response.headers.get('content-disposition') || '';
     const filenameMatch = /filename\\*=UTF-8''([^;]+)|filename=\"?([^\";]+)\"?/i.exec(contentDisposition);
     const filename = filenameMatch ? decodeURIComponent(filenameMatch[1] || filenameMatch[2] || '') : '';

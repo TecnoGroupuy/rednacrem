@@ -57,6 +57,11 @@ export async function listPersonalVencimientos({ days = 30 } = {}) {
   return response?.items || [];
 }
 
+export async function listPersonalConDocumentosPendientes() {
+  const response = await api.get('/operaciones/personal/documentos-pendientes');
+  return response?.personal_ids || [];
+}
+
 export async function generateFichaLink() {
   // Devuelve { ok, token, expiresAt, url } -- url ya viene armada por el
   // backend con el origin del propio request (ver index.mjs).
@@ -82,6 +87,41 @@ export async function deletePersonalFoto(personalId) {
 export async function getCambiosPublicos(personalId) {
   const response = await api.get(`/operaciones/personal/${personalId}/cambios-publicos`);
   return response?.items || [];
+}
+
+export async function getDocumentosPersonal(personalId) {
+  const response = await api.get(`/operaciones/personal/${personalId}/documentos`);
+  return { checklist: response?.checklist || [], cursos: response?.cursos || [] };
+}
+
+// blob: JPEG (DocumentoCapture, sin recorte) o el PDF original tal cual.
+// Origen interno: el backend lo guarda ya validado (RRHH lo esta subiendo
+// a mano, no hace falta revisión aparte).
+export async function uploadDocumentoPersonal(personalId, { categoria, nombreArchivo, contentType, blob, numero, fechaVencimiento, fechaEmision, cursoNombre, cursoInstitucion }) {
+  const headers = {
+    'Content-Type': contentType,
+    'X-Doc-Categoria': categoria,
+    'X-Doc-Nombre-Archivo': encodeURIComponent(nombreArchivo)
+  };
+  if (numero) headers['X-Doc-Numero'] = encodeURIComponent(numero);
+  if (fechaVencimiento) headers['X-Doc-Fecha-Vencimiento'] = fechaVencimiento;
+  if (fechaEmision) headers['X-Doc-Fecha-Emision'] = fechaEmision;
+  if (cursoNombre) headers['X-Doc-Curso-Nombre'] = encodeURIComponent(cursoNombre);
+  if (cursoInstitucion) headers['X-Doc-Curso-Institucion'] = encodeURIComponent(cursoInstitucion);
+
+  const response = await api.post(`/operaciones/personal/${personalId}/documentos`, blob, { headers });
+  return { checklist: response?.checklist || [], cursos: response?.cursos || [] };
+}
+
+// -> { blob, filename } -- nunca una URL, el archivo viaja en la respuesta.
+export async function getDocumentoContenido(personalId, archivoId) {
+  const result = await api.getBlob(`/operaciones/personal/${personalId}/documentos/${archivoId}/contenido`);
+  return { blob: result.blob, filename: result.filename };
+}
+
+export async function revisarDocumentoPersonal(personalId, archivoId, { estado_revision, motivo_rechazo }) {
+  const response = await api.patch(`/operaciones/personal/${personalId}/documentos/${archivoId}`, { estado_revision, motivo_rechazo });
+  return response?.item || null;
 }
 
 export async function updatePersonalBases(personalId, bases) {

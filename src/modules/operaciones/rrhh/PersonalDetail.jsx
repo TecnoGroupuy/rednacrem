@@ -3,10 +3,12 @@ import { MapPin, Star, Shield, GraduationCap, HeartPulse, UserCircle2, Plus, Tra
 import { StatusPill, LICENCIA_TIPO_LABELS } from './PersonalList.jsx';
 import { displayBases, displayFullName } from './personDisplay.js';
 import PersonFotoCapture from '../../../components/PersonFotoCapture.jsx';
+import PersonalDocumentosTab from './PersonalDocumentosTab.jsx';
 
 const TABS = [
   { key: 'datos_generales', label: 'Datos generales' },
   { key: 'roles', label: 'Roles' },
+  { key: 'documentos', label: 'Documentación' },
   { key: 'habilitaciones', label: 'Habilitaciones' },
   { key: 'capacitaciones', label: 'Capacitaciones' },
   { key: 'carnet_salud', label: 'Carné de salud' },
@@ -422,12 +424,12 @@ export default function PersonalDetail({
                 <div className="rrhh-section-title"><UserCircle2 size={18} /> Datos generales</div>
                 <div className="rrhh-kv-list">
                   <div><span>Documento</span>{renderField(personal.documento, !personal.documento)}</div>
-                  <div><span>Fecha de nacimiento</span>{renderField(toDateOnly(personal.fecha_nacimiento), !personal.fecha_nacimiento)}</div>
+                  <div><span>Fecha de nacimiento</span>{renderField(formatDateOnlyDisplay(personal.fecha_nacimiento), !personal.fecha_nacimiento)}</div>
                   <div><span>Teléfono</span>{renderField(personal.telefono, !personal.telefono)}</div>
                   <div><span>Email</span>{renderField(personal.email, !personal.email)}</div>
                   <div><span>Domicilio</span>{renderField(personal.domicilio, !personal.domicilio)}</div>
-                  <div><span>Fecha de ingreso</span>{renderField(toDateOnly(personal.fecha_ingreso), !personal.fecha_ingreso)}</div>
-                  <div><span>Fecha de egreso</span><strong>{personal.fecha_egreso ? toDateOnly(personal.fecha_egreso) : 'Activo'}</strong></div>
+                  <div><span>Fecha de ingreso</span>{renderField(formatDateOnlyDisplay(personal.fecha_ingreso), !personal.fecha_ingreso)}</div>
+                  <div><span>Fecha de egreso</span><strong>{personal.fecha_egreso ? formatDateOnlyDisplay(personal.fecha_egreso) : 'Activo'}</strong></div>
                   <div><span>Estado</span><strong><StatusPill person={personal} getStatusVariant={getStatusVariant} Tag={Tag} /></strong></div>
                   <div><span>Tipo de personal</span><strong><Tag variant={personal.tipo_personal === 'externo' ? 'info' : 'success'}>{personal.tipo_personal}</Tag></strong></div>
                   {personal.tipo_personal === 'externo' ? (
@@ -499,6 +501,10 @@ export default function PersonalDetail({
             </section>
           ) : null}
 
+          {activeTab === 'documentos' ? (
+            <PersonalDocumentosTab personalId={personal.id} />
+          ) : null}
+
           {activeTab === 'habilitaciones' ? (
             <section className="rrhh-detail-card">
               <div className="rrhh-section-title">
@@ -536,7 +542,7 @@ export default function PersonalDetail({
                     <div className="rrhh-doc-grid">
                       <span>Número</span><strong>{item.numero || 'Sin dato'}</strong>
                       <span>Organismo emisor</span><strong>{item.organismo_emisor || 'Sin dato'}</strong>
-                      <span>Fecha emisión</span><strong>{item.fecha_emision ? toDateOnly(item.fecha_emision) : 'Sin dato'}</strong>
+                      <span>Fecha emisión</span><strong>{item.fecha_emision ? formatDateOnlyDisplay(item.fecha_emision) : 'Sin dato'}</strong>
                       <span>Fecha vencimiento</span><strong>{renderVencimientoTag(item.fecha_vencimiento)}</strong>
                       <span>Documento</span><strong>{item.documento_url || 'Sin adjunto'}</strong>
                     </div>
@@ -577,8 +583,8 @@ export default function PersonalDetail({
                     </div>
                     <div className="rrhh-doc-grid">
                       <span>Institución</span><strong>{item.institucion || 'Sin dato'}</strong>
-                      <span>Fecha emisión</span><strong>{item.fecha_emision ? toDateOnly(item.fecha_emision) : 'Sin dato'}</strong>
-                      <span>Fecha vencimiento</span><strong>{item.fecha_vencimiento ? toDateOnly(item.fecha_vencimiento) : 'Sin dato'}</strong>
+                      <span>Fecha emisión</span><strong>{item.fecha_emision ? formatDateOnlyDisplay(item.fecha_emision) : 'Sin dato'}</strong>
+                      <span>Fecha vencimiento</span><strong>{item.fecha_vencimiento ? formatDateOnlyDisplay(item.fecha_vencimiento) : 'Sin dato'}</strong>
                       <span>Documento</span><strong>{item.documento_url || 'Sin adjunto'}</strong>
                     </div>
                   </article>
@@ -609,7 +615,7 @@ export default function PersonalDetail({
 
               {carnetSalud ? (
                 <div className="rrhh-kv-list">
-                  <div><span>Fecha emisión</span><strong>{toDateOnly(carnetSalud.fecha_emision)}</strong></div>
+                  <div><span>Fecha emisión</span><strong>{formatDateOnlyDisplay(carnetSalud.fecha_emision)}</strong></div>
                   <div><span>Fecha vencimiento</span><strong>{renderVencimientoTag(carnetSalud.fecha_vencimiento)}</strong></div>
                   <div><span>Documento adjunto</span><strong>{carnetSalud.documento_url || 'Sin adjunto'}</strong></div>
                 </div>
