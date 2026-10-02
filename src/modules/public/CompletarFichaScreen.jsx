@@ -105,10 +105,20 @@ const CATEGORIA_CAMPOS = {
 
 const ESTADO_LABELS = {
   falta: 'Falta',
-  pendiente: 'Pendiente de revisión',
+  pendiente: 'Cargado ✓ · pendiente de revisión',
   rechazado: 'Rechazado',
   validado: 'Validado'
 };
+
+// Que campos son obligatorios antes de habilitar "Elegir archivo" -- items
+// sin entrada en CATEGORIA_CAMPOS (ci_frente, ci_dorso, titulo) no tienen
+// datos que completar, asi que siempre devuelve true para ellos.
+function camposCompletos(categoria, { numero, fechaParts }) {
+  const campos = CATEGORIA_CAMPOS[categoria] || {};
+  if (campos.numero && !String(numero || '').trim()) return false;
+  if (campos.fechaVencimiento && !partsToIso(fechaParts)) return false;
+  return true;
+}
 
 function FechaInputs({ parts, onChange, idPrefix }) {
   const diaRef = React.useRef(null);
@@ -211,12 +221,14 @@ export default function CompletarFichaScreen({ linkCodigo }) {
   const [showValidados, setShowValidados] = React.useState(false);
 
   // Edicion de UN item de la checklist a la vez ("cada item se carga por
-  // separado"): categoria actualmente expandida, sus campos de datos, el
-  // archivo ya capturado (todavia no subido) y el estado de guardado.
+  // separado"): categoria actualmente expandida, sus campos de datos, y el
+  // estado de guardado -- no hay "archivo elegido en espera de Guardar": al
+  // confirmar el archivo en DocumentoCapture se sube y guarda de una, por
+  // eso no existe un editFile en React (el blob vive adentro de
+  // DocumentoCapture hasta que el guardado termina bien).
   const [editingCategoria, setEditingCategoria] = React.useState(null);
   const [editNumero, setEditNumero] = React.useState('');
   const [editFechaParts, setEditFechaParts] = React.useState({ dia: '', mes: '', anio: '' });
-  const [editFile, setEditFile] = React.useState(null);
   const [editShowCapture, setEditShowCapture] = React.useState(false);
   const [editUploading, setEditUploading] = React.useState(false);
   const [editError, setEditError] = React.useState('');
@@ -226,7 +238,6 @@ export default function CompletarFichaScreen({ linkCodigo }) {
   const [cursoNombre, setCursoNombre] = React.useState('');
   const [cursoInstitucion, setCursoInstitucion] = React.useState('');
   const [cursoFechaParts, setCursoFechaParts] = React.useState({ dia: '', mes: '', anio: '' });
-  const [cursoFile, setCursoFile] = React.useState(null);
   const [cursoShowCapture, setCursoShowCapture] = React.useState(false);
   const [cursoUploading, setCursoUploading] = React.useState(false);
   const [cursoError, setCursoError] = React.useState('');
@@ -381,27 +392,29 @@ export default function CompletarFichaScreen({ linkCodigo }) {
     setEditingCategoria(item.categoria);
     setEditNumero(item.numero || '');
     setEditFechaParts(isoToParts(item.fecha_vencimiento));
-    setEditFile(null);
     setEditError('');
   };
 
   const closeEditItem = () => {
     setEditingCategoria(null);
-    setEditFile(null);
+    setEditShowCapture(false);
     setEditError('');
   };
 
-  const handleGuardarItem = async () => {
-    if (!editFile) return;
+  // Dispara ante onCapture de DocumentoCapture -- sube y guarda apenas se
+  // confirma el archivo, sin paso intermedio de "Guardar". Si falla, el
+  // modal queda abierto (no se toca editShowCapture) mostrando el error con
+  // "Reintentar": el blob sigue vivo adentro de DocumentoCapture.
+  const handleCapturarDocumentoItem = async (file) => {
     setEditUploading(true);
     setEditError('');
     try {
       const campos = CATEGORIA_CAMPOS[editingCategoria] || {};
       const result = await subirDocumentoFichaPublica(sessionToken, {
         categoria: editingCategoria,
-        nombreArchivo: editFile.nombreArchivo,
-        contentType: editFile.contentType,
-        blob: editFile.blob,
+        nombreArchivo: file.nombreArchivo,
+        contentType: file.contentType,
+        blob: file.blob,
         numero: campos.numero ? editNumero || null : null,
         fechaVencimiento: campos.fechaVencimiento ? (partsToIso(editFechaParts) || null) : null
       });
@@ -410,6 +423,7 @@ export default function CompletarFichaScreen({ linkCodigo }) {
       closeEditItem();
     } catch (err) {
       if (err instanceof FichaPublicaError && err.status === 401) {
+        setEditShowCapture(false);
         volverADocumentoPorSesionVencida(err.message, 'documentos');
       } else {
         setEditError(err?.message || 'No se pudo subir el documento.');
@@ -421,32 +435,36 @@ export default function CompletarFichaScreen({ linkCodigo }) {
 
   const resetCursoForm = () => {
     setShowCursoForm(false);
+    setCursoShowCapture(false);
     setCursoNombre('');
     setCursoInstitucion('');
     setCursoFechaParts({ dia: '', mes: '', anio: '' });
-    setCursoFile(null);
     setCursoError('');
   };
 
-  const handleGuardarCurso = async () => {
-    if (!cursoFile || !cursoNombre.trim()) return;
+  // cursoCamposCompletos: nombre, institucion y fecha son obligatorios para
+  // habilitar "Elegir archivo" (antes institucion/fecha eran opcionales).
+  const cursoCamposCompletos = Boolean(cursoNombre.trim() && cursoInstitucion.trim() && partsToIso(cursoFechaParts));
+
+  const handleCapturarCurso = async (file) => {
     setCursoUploading(true);
     setCursoError('');
     try {
       const result = await subirDocumentoFichaPublica(sessionToken, {
         categoria: 'curso',
-        nombreArchivo: cursoFile.nombreArchivo,
-        contentType: cursoFile.contentType,
-        blob: cursoFile.blob,
+        nombreArchivo: file.nombreArchivo,
+        contentType: file.contentType,
+        blob: file.blob,
         cursoNombre: cursoNombre.trim(),
-        cursoInstitucion: cursoInstitucion.trim() || null,
-        fechaEmision: partsToIso(cursoFechaParts) || null
+        cursoInstitucion: cursoInstitucion.trim(),
+        fechaEmision: partsToIso(cursoFechaParts)
       });
       setDocumentosChecklist(result.checklist || []);
       setDocumentosCursos(result.cursos || []);
       resetCursoForm();
     } catch (err) {
       if (err instanceof FichaPublicaError && err.status === 401) {
+        setCursoShowCapture(false);
         volverADocumentoPorSesionVencida(err.message, 'documentos');
       } else {
         setCursoError(err?.message || 'No se pudo subir el curso.');
@@ -478,6 +496,31 @@ export default function CompletarFichaScreen({ linkCodigo }) {
   const itemsValidados = documentosChecklist.filter((item) => item.estado === 'validado');
   const totalRequeridos = documentosChecklist.length;
   const totalFaltantes = itemsActivos.length;
+
+  // Hay una carga de documento/foto en curso o un modal de captura abierto
+  // (archivo elegido/en preview, todavia sin confirmar) -- usado para avisar
+  // antes de salir en vez de perder ese trabajo en silencio.
+  const hayCargaDocumentalPendiente = () =>
+    fotoUploading || showFotoCapture || editUploading || editShowCapture || cursoUploading || cursoShowCapture;
+
+  React.useEffect(() => {
+    const handler = (event) => {
+      if (!hayCargaDocumentalPendiente()) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fotoUploading, showFotoCapture, editUploading, editShowCapture, cursoUploading, cursoShowCapture]);
+
+  const handleTerminarPorAhora = () => {
+    if (hayCargaDocumentalPendiente()
+      && !window.confirm('Tenés una carga en curso o un archivo sin confirmar. ¿Seguro que querés salir?')) {
+      return;
+    }
+    setStep('listo');
+  };
 
   return (
     <div className="cf-root">
@@ -591,7 +634,7 @@ export default function CompletarFichaScreen({ linkCodigo }) {
             <button type="button" className="cf-primary-button" onClick={() => setStep('documentos')}>
               Continuar
             </button>
-            <button type="button" className="cf-link-button" onClick={() => setStep('listo')}>
+            <button type="button" className="cf-link-button" onClick={handleTerminarPorAhora}>
               Terminar por ahora
             </button>
           </div>
@@ -644,20 +687,17 @@ export default function CompletarFichaScreen({ linkCodigo }) {
                                 </div>
                               ) : null}
 
-                              {editFile ? (
-                                <p className="cf-doc-nombre-archivo">Archivo listo: {editFile.nombreArchivo}</p>
-                              ) : (
-                                <button type="button" className="cf-secondary-button" onClick={() => setEditShowCapture(true)}>
-                                  Elegir archivo
-                                </button>
-                              )}
-
-                              {editError ? <p className="cf-error">{editError}</p> : null}
-
                               <div className="cf-doc-edit-actions">
                                 <button type="button" className="cf-link-button" onClick={closeEditItem} disabled={editUploading}>Cancelar</button>
-                                <button type="button" className="cf-primary-button" onClick={handleGuardarItem} disabled={!editFile || editUploading}>
-                                  {editUploading ? 'Guardando...' : 'Guardar'}
+                                <button
+                                  type="button"
+                                  className="cf-primary-button"
+                                  onClick={() => setEditShowCapture(true)}
+                                  disabled={!camposCompletos(item.categoria, { numero: editNumero, fechaParts: editFechaParts }) || editUploading}
+                                >
+                                  {camposCompletos(item.categoria, { numero: editNumero, fechaParts: editFechaParts })
+                                    ? 'Elegir archivo'
+                                    : 'Completa los datos para cargar el documento'}
                                 </button>
                               </div>
                             </div>
@@ -694,30 +734,22 @@ export default function CompletarFichaScreen({ linkCodigo }) {
                         <input type="text" value={cursoNombre} onChange={(event) => setCursoNombre(event.target.value)} />
                       </label>
                       <label className="cf-field">
-                        <span>Institución (opcional)</span>
+                        <span>Institución</span>
                         <input type="text" value={cursoInstitucion} onChange={(event) => setCursoInstitucion(event.target.value)} />
                       </label>
                       <div className="cf-field-group">
-                        <span className="cf-field-group-label">Fecha (opcional)</span>
+                        <span className="cf-field-group-label">Fecha</span>
                         <FechaInputs idPrefix="curso-fecha" parts={cursoFechaParts} onChange={setCursoFechaParts} />
                       </div>
-                      {cursoFile ? (
-                        <p className="cf-doc-nombre-archivo">Archivo listo: {cursoFile.nombreArchivo}</p>
-                      ) : (
-                        <button type="button" className="cf-secondary-button" onClick={() => setCursoShowCapture(true)}>
-                          Elegir archivo
-                        </button>
-                      )}
-                      {cursoError ? <p className="cf-error">{cursoError}</p> : null}
                       <div className="cf-doc-edit-actions">
                         <button type="button" className="cf-link-button" onClick={resetCursoForm} disabled={cursoUploading}>Cancelar</button>
                         <button
                           type="button"
                           className="cf-primary-button"
-                          onClick={handleGuardarCurso}
-                          disabled={!cursoFile || !cursoNombre.trim() || cursoUploading}
+                          onClick={() => setCursoShowCapture(true)}
+                          disabled={!cursoCamposCompletos || cursoUploading}
                         >
-                          {cursoUploading ? 'Guardando...' : 'Guardar curso'}
+                          {cursoCamposCompletos ? 'Elegir archivo' : 'Completa los datos para cargar el documento'}
                         </button>
                       </div>
                     </div>
@@ -814,7 +846,7 @@ export default function CompletarFichaScreen({ linkCodigo }) {
               </>
             ) : null}
 
-            <button type="button" className="cf-primary-button" onClick={() => setStep('listo')}>
+            <button type="button" className="cf-primary-button" onClick={handleTerminarPorAhora}>
               Terminar por ahora
             </button>
           </div>
@@ -841,16 +873,22 @@ export default function CompletarFichaScreen({ linkCodigo }) {
       {editShowCapture ? (
         <DocumentoCapture
           title="Documento"
-          onCapture={(file) => { setEditFile(file); setEditShowCapture(false); }}
-          onClose={() => setEditShowCapture(false)}
+          onCapture={handleCapturarDocumentoItem}
+          onClose={() => { if (!editUploading) { setEditShowCapture(false); setEditError(''); } }}
+          onPickAnother={() => setEditError('')}
+          busy={editUploading}
+          uploadError={editError}
         />
       ) : null}
 
       {cursoShowCapture ? (
         <DocumentoCapture
           title="Curso"
-          onCapture={(file) => { setCursoFile(file); setCursoShowCapture(false); }}
-          onClose={() => setCursoShowCapture(false)}
+          onCapture={handleCapturarCurso}
+          onClose={() => { if (!cursoUploading) { setCursoShowCapture(false); setCursoError(''); } }}
+          onPickAnother={() => setCursoError('')}
+          busy={cursoUploading}
+          uploadError={cursoError}
         />
       ) : null}
     </div>

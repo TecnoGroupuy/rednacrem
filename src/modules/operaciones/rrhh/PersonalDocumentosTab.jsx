@@ -51,7 +51,16 @@ const CATEGORIA_CAMPOS = {
   libreta_conducir: { numero: true, numeroLabel: 'Categoría', fechaVencimiento: true }
 };
 
-const ESTADO_LABELS = { falta: 'Falta', pendiente: 'Pendiente de revisión', rechazado: 'Rechazado', validado: 'Validado' };
+const ESTADO_LABELS = { falta: 'Falta', pendiente: 'Cargado ✓ · pendiente de revisión', rechazado: 'Rechazado', validado: 'Validado' };
+
+// Que campos son obligatorios antes de habilitar "Elegir archivo" -- items
+// sin entrada en CATEGORIA_CAMPOS no tienen datos que completar.
+function camposCompletos(categoria, { numero, fechaParts }) {
+  const campos = CATEGORIA_CAMPOS[categoria] || {};
+  if (campos.numero && !String(numero || '').trim()) return false;
+  if (campos.fechaVencimiento && !partsToIso(fechaParts)) return false;
+  return true;
+}
 
 export default function PersonalDocumentosTab({ personalId }) {
   const [checklist, setChecklist] = React.useState([]);
@@ -62,7 +71,6 @@ export default function PersonalDocumentosTab({ personalId }) {
   const [editingCategoria, setEditingCategoria] = React.useState(null);
   const [editNumero, setEditNumero] = React.useState('');
   const [editFechaParts, setEditFechaParts] = React.useState({ dia: '', mes: '', anio: '' });
-  const [editFile, setEditFile] = React.useState(null);
   const [editShowCapture, setEditShowCapture] = React.useState(false);
   const [editUploading, setEditUploading] = React.useState(false);
   const [editError, setEditError] = React.useState('');
@@ -71,7 +79,6 @@ export default function PersonalDocumentosTab({ personalId }) {
   const [cursoNombre, setCursoNombre] = React.useState('');
   const [cursoInstitucion, setCursoInstitucion] = React.useState('');
   const [cursoFechaParts, setCursoFechaParts] = React.useState({ dia: '', mes: '', anio: '' });
-  const [cursoFile, setCursoFile] = React.useState(null);
   const [cursoShowCapture, setCursoShowCapture] = React.useState(false);
   const [cursoUploading, setCursoUploading] = React.useState(false);
   const [cursoError, setCursoError] = React.useState('');
@@ -101,31 +108,44 @@ export default function PersonalDocumentosTab({ personalId }) {
     cargar();
   }, [cargar]);
 
+  // Avisa antes de cerrar la pestaña/recargar con una subida en curso o el
+  // modal de captura abierto (archivo elegido/en preview sin confirmar).
+  React.useEffect(() => {
+    const handler = (event) => {
+      if (!(editUploading || editShowCapture || cursoUploading || cursoShowCapture)) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [editUploading, editShowCapture, cursoUploading, cursoShowCapture]);
+
   const openEditItem = (item) => {
     setEditingCategoria(item.categoria);
     setEditNumero(item.numero || '');
     setEditFechaParts(isoToParts(item.fecha_vencimiento));
-    setEditFile(null);
     setEditError('');
   };
 
   const closeEditItem = () => {
     setEditingCategoria(null);
-    setEditFile(null);
+    setEditShowCapture(false);
     setEditError('');
   };
 
-  const handleGuardarItem = async () => {
-    if (!editFile) return;
+  // Sube y guarda apenas se confirma el archivo en DocumentoCapture -- sin
+  // paso intermedio de "Guardar". Si falla, el modal queda abierto (no se
+  // toca editShowCapture) con el error y "Reintentar", sin perder el blob.
+  const handleCapturarDocumentoItem = async (file) => {
     setEditUploading(true);
     setEditError('');
     try {
       const campos = CATEGORIA_CAMPOS[editingCategoria] || {};
       const result = await uploadDocumentoPersonal(personalId, {
         categoria: editingCategoria,
-        nombreArchivo: editFile.nombreArchivo,
-        contentType: editFile.contentType,
-        blob: editFile.blob,
+        nombreArchivo: file.nombreArchivo,
+        contentType: file.contentType,
+        blob: file.blob,
         numero: campos.numero ? editNumero || null : null,
         fechaVencimiento: campos.fechaVencimiento ? (partsToIso(editFechaParts) || null) : null
       });
@@ -141,26 +161,29 @@ export default function PersonalDocumentosTab({ personalId }) {
 
   const resetCursoForm = () => {
     setShowCursoForm(false);
+    setCursoShowCapture(false);
     setCursoNombre('');
     setCursoInstitucion('');
     setCursoFechaParts({ dia: '', mes: '', anio: '' });
-    setCursoFile(null);
     setCursoError('');
   };
 
-  const handleGuardarCurso = async () => {
-    if (!cursoFile || !cursoNombre.trim()) return;
+  // nombre, institucion y fecha son obligatorios para habilitar "Elegir
+  // archivo" (antes institucion/fecha eran opcionales).
+  const cursoCamposCompletos = Boolean(cursoNombre.trim() && cursoInstitucion.trim() && partsToIso(cursoFechaParts));
+
+  const handleCapturarCurso = async (file) => {
     setCursoUploading(true);
     setCursoError('');
     try {
       const result = await uploadDocumentoPersonal(personalId, {
         categoria: 'curso',
-        nombreArchivo: cursoFile.nombreArchivo,
-        contentType: cursoFile.contentType,
-        blob: cursoFile.blob,
+        nombreArchivo: file.nombreArchivo,
+        contentType: file.contentType,
+        blob: file.blob,
         cursoNombre: cursoNombre.trim(),
-        cursoInstitucion: cursoInstitucion.trim() || null,
-        fechaEmision: partsToIso(cursoFechaParts) || null
+        cursoInstitucion: cursoInstitucion.trim(),
+        fechaEmision: partsToIso(cursoFechaParts)
       });
       setChecklist(result.checklist);
       setCursos(result.cursos);
@@ -284,16 +307,17 @@ export default function PersonalDocumentosTab({ personalId }) {
                       <FechaInputs idPrefix={`int-doc-${item.categoria}`} parts={editFechaParts} onChange={setEditFechaParts} />
                     </label>
                   ) : null}
-                  {editFile ? (
-                    <p className="rrhh-subtle">Archivo listo: {editFile.nombreArchivo}</p>
-                  ) : (
-                    <button type="button" className="rrhh-doc-action-button" onClick={() => setEditShowCapture(true)}>Elegir archivo</button>
-                  )}
-                  {editError ? <div className="rrhh-form-error">{editError}</div> : null}
                   <div className="rrhh-inline-actions">
                     <button type="button" className="rrhh-doc-action-button" onClick={closeEditItem} disabled={editUploading}>Cancelar</button>
-                    <button type="button" className="rrhh-doc-action-button" onClick={handleGuardarItem} disabled={!editFile || editUploading}>
-                      {editUploading ? 'Guardando...' : 'Guardar'}
+                    <button
+                      type="button"
+                      className="rrhh-doc-action-button"
+                      onClick={() => setEditShowCapture(true)}
+                      disabled={!camposCompletos(item.categoria, { numero: editNumero, fechaParts: editFechaParts }) || editUploading}
+                    >
+                      {camposCompletos(item.categoria, { numero: editNumero, fechaParts: editFechaParts })
+                        ? 'Elegir archivo'
+                        : 'Completa los datos para cargar el documento'}
                     </button>
                   </div>
                 </div>
@@ -355,23 +379,22 @@ export default function PersonalDocumentosTab({ personalId }) {
               <input type="text" value={cursoNombre} onChange={(event) => setCursoNombre(event.target.value)} />
             </label>
             <label className="rrhh-doc-tab-field">
-              <span>Institución (opcional)</span>
+              <span>Institución</span>
               <input type="text" value={cursoInstitucion} onChange={(event) => setCursoInstitucion(event.target.value)} />
             </label>
             <label className="rrhh-doc-tab-field">
-              <span>Fecha (opcional)</span>
+              <span>Fecha</span>
               <FechaInputs idPrefix="int-curso-fecha" parts={cursoFechaParts} onChange={setCursoFechaParts} />
             </label>
-            {cursoFile ? (
-              <p className="rrhh-subtle">Archivo listo: {cursoFile.nombreArchivo}</p>
-            ) : (
-              <button type="button" className="rrhh-doc-action-button" onClick={() => setCursoShowCapture(true)}>Elegir archivo</button>
-            )}
-            {cursoError ? <div className="rrhh-form-error">{cursoError}</div> : null}
             <div className="rrhh-inline-actions">
               <button type="button" className="rrhh-doc-action-button" onClick={resetCursoForm} disabled={cursoUploading}>Cancelar</button>
-              <button type="button" className="rrhh-doc-action-button" onClick={handleGuardarCurso} disabled={!cursoFile || !cursoNombre.trim() || cursoUploading}>
-                {cursoUploading ? 'Guardando...' : 'Guardar curso'}
+              <button
+                type="button"
+                className="rrhh-doc-action-button"
+                onClick={() => setCursoShowCapture(true)}
+                disabled={!cursoCamposCompletos || cursoUploading}
+              >
+                {cursoCamposCompletos ? 'Elegir archivo' : 'Completa los datos para cargar el documento'}
               </button>
             </div>
           </div>
@@ -383,15 +406,21 @@ export default function PersonalDocumentosTab({ personalId }) {
       {editShowCapture ? (
         <DocumentoCapture
           title="Documento"
-          onCapture={(file) => { setEditFile(file); setEditShowCapture(false); }}
-          onClose={() => setEditShowCapture(false)}
+          onCapture={handleCapturarDocumentoItem}
+          onClose={() => { if (!editUploading) { setEditShowCapture(false); setEditError(''); } }}
+          onPickAnother={() => setEditError('')}
+          busy={editUploading}
+          uploadError={editError}
         />
       ) : null}
       {cursoShowCapture ? (
         <DocumentoCapture
           title="Curso"
-          onCapture={(file) => { setCursoFile(file); setCursoShowCapture(false); }}
-          onClose={() => setCursoShowCapture(false)}
+          onCapture={handleCapturarCurso}
+          onClose={() => { if (!cursoUploading) { setCursoShowCapture(false); setCursoError(''); } }}
+          onPickAnother={() => setCursoError('')}
+          busy={cursoUploading}
+          uploadError={cursoError}
         />
       ) : null}
     </section>

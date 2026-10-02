@@ -25,6 +25,14 @@ import './PersonFotoCapture.css';
 // (~33% mas grande) tanto al subir como al verlo desde RRHH (que tambien
 // devuelve el archivo en la respuesta de la Lambda). 4MB crudos ~= 5.33MB en
 // base64, con margen real bajo ese techo.
+//
+// Guardado automatico: quien use este componente sube el archivo apenas
+// llega onCapture (no hay boton "Guardar" en ningun lado) y controla el
+// estado de red con los props busy/uploadError -- "Usar este archivo" pasa a
+// decir "Subiendo..." (busy) o "Reintentar" (uploadError, sin perder el
+// blob ya cargado: blobRef no se limpia hasta elegir otro archivo).
+// onPickAnother avisa al padre que debe descartar un uploadError viejo
+// cuando se elige un archivo nuevo despues de un fallo.
 const OUTPUT_MAX_SIDE = 1600;
 const OUTPUT_QUALITY = 0.85;
 const DOCUMENTO_MAX_BYTES = 4 * 1024 * 1024;
@@ -56,7 +64,7 @@ function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export default function DocumentoCapture({ title, onCapture, onClose, busy }) {
+export default function DocumentoCapture({ title, onCapture, onClose, busy, uploadError, onPickAnother }) {
   const [step, setStep] = React.useState('pick'); // pick | loading | preview | error
   const [errorMessage, setErrorMessage] = React.useState('');
   const [previewUrl, setPreviewUrl] = React.useState('');
@@ -137,6 +145,7 @@ export default function DocumentoCapture({ title, onCapture, onClose, busy }) {
     setFileInfo(null);
     blobRef.current = null;
     contentTypeRef.current = '';
+    if (onPickAnother) onPickAnother();
   };
 
   return (
@@ -181,10 +190,11 @@ export default function DocumentoCapture({ title, onCapture, onClose, busy }) {
                   <span className="pfc-preview-pdf-size">{formatBytes(fileInfo?.tamano || 0)}</span>
                 </div>
               )}
+              {uploadError ? <p className="pfc-error">{uploadError}</p> : null}
               <div className="pfc-preview-actions">
                 <button type="button" className="pfc-secondary-button" onClick={handlePickAnother} disabled={busy}>Elegir otro</button>
                 <button type="button" className="pfc-primary-button" onClick={handleUseThisFile} disabled={busy}>
-                  {busy ? 'Subiendo...' : 'Usar este archivo'}
+                  {busy ? 'Subiendo...' : (uploadError ? 'Reintentar' : 'Usar este archivo')}
                 </button>
               </div>
             </>
