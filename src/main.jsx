@@ -72,6 +72,7 @@ import {
   listAssignedRetentionTicketsAsync,
   listMyRetentionTicketsAsync,
   listClosedRetentionTicketsAsync,
+  listManualTicketClosersAsync,
   assignRetentionTicket
 } from './services/ticketsService.js';
 import { listTicketsByClientId } from './services/ticketClientService.js';
@@ -14800,7 +14801,7 @@ const formatCurrency = (value) => {
     // puede crecer sin límite con el tiempo, así que pagina contra el
     // backend de verdad (GET /manual-tickets/cerrados). Maneja su propio
     // estado de filtros/página -- no comparte el `tickets` de RetencionModule.
-    function RetencionCerradosView({ sellers, onOpenTicket }) {
+    function RetencionCerradosView({ onOpenTicket }) {
       const [items, setItems] = React.useState([]);
       const [total, setTotal] = React.useState(0);
       const [page, setPage] = React.useState(1);
@@ -14811,6 +14812,15 @@ const formatCurrency = (value) => {
       const [dateFrom, setDateFrom] = React.useState('');
       const [dateTo, setDateTo] = React.useState('');
       const [resultadoFilter, setResultadoFilter] = React.useState('');
+      // Propio, NO el roster de /api/supervisor/agents (sellers) que usan
+      // "Sin asignar"/"En gestión" -- ese solo trae comercial.asignable
+      // (vendedor/backoffice), y acá puede aparecer un supervisor que
+      // cerró un ticket como caso excepcional.
+      const [closers, setClosers] = React.useState([]);
+
+      React.useEffect(() => {
+        listManualTicketClosersAsync().then(setClosers).catch(() => setClosers([]));
+      }, []);
 
       const totalPages = Math.max(1, Math.ceil(total / limit));
 
@@ -14853,8 +14863,8 @@ const formatCurrency = (value) => {
               <select className="input" style={{ width: 220, padding: '11px 12px' }} value={closedByFilter} onChange={(event) => setClosedByFilter(event.target.value)}>
                 <option value="">Todos los usuarios</option>
                 <option value="unidentified">Sin identificar</option>
-                {sellers.map((seller) => (
-                  <option key={seller.id} value={seller.id}>{seller.label}</option>
+                {closers.map((closer) => (
+                  <option key={closer.id} value={closer.id}>{closer.label}</option>
                 ))}
               </select>
               <select className="input" style={{ width: 180, padding: '11px 12px' }} value={resultadoFilter} onChange={(event) => setResultadoFilter(event.target.value)}>
@@ -15139,7 +15149,7 @@ const formatCurrency = (value) => {
             </section>
           ) : null}
           {isSupervisor && section === 'cerrados' ? (
-            <RetencionCerradosView sellers={sellers} onOpenTicket={openTicket} />
+            <RetencionCerradosView onOpenTicket={openTicket} />
           ) : (
             <SupportTicketsView
               mode="retencion"

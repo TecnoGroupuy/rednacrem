@@ -422,6 +422,18 @@ export const listClosedRetentionTicketsAsync = async ({ page = 1, limit = 10, cl
   };
 };
 
+// Filtro "usuario que cerró" de la tab "Cerrados" (2026-10): NO sale del
+// roster de /api/supervisor/agents (ese solo trae comercial.asignable --
+// vendedor/backoffice) -- un supervisor también puede cerrar un ticket
+// (caso excepcional, ver closeManualTicket) y no aparecería ahí. Sale de
+// quienes EFECTIVAMENTE cerraron algo en la organización.
+export const listManualTicketClosersAsync = async () => {
+  if (!hasApiConfigured()) return [];
+  const response = await api.get('/manual-tickets/cerrados/usuarios');
+  const items = Array.isArray(response?.items) ? response.items : [];
+  return items.map((item) => ({ id: item.id, label: item.nombre || 'Usuario' }));
+};
+
 // Asignar (o reasignar) un ticket de retención a un vendedor específico.
 export const assignRetentionTicket = async (ticketId, sellerId) => {
   return updateTicket(ticketId, { assignedTo: sellerId });
