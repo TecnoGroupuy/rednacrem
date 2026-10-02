@@ -11,7 +11,7 @@ import {
 } from '../../services/fichaPublicaService.js';
 import PersonFotoCapture from '../../components/PersonFotoCapture.jsx';
 import FramedDocumentCapture from '../../components/FramedDocumentCapture.jsx';
-import suEmergenciaLogo from '../operaciones/monitor/assets/su-emergencia-logo.png';
+import suEmergenciaLogo from '../../assets/su-emergencia-logo-hd.png';
 import './completarFichaStyles.css';
 
 // Pantalla publica de autocompletado de ficha (sin Cognito, sin AuthGate --

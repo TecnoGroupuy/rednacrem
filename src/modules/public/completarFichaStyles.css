@@ -25,12 +25,16 @@
 
 .cf-logo {
   display: block;
-  height: 48px;
+  height: 56px;
+  width: auto;
+  object-fit: contain;
   margin: 0 auto 20px;
 }
 
 .cf-logo-grande {
-  height: 88px;
+  height: 96px;
+  width: auto;
+  object-fit: contain;
   margin-bottom: 24px;
 }
 

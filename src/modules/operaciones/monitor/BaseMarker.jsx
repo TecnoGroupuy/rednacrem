@@ -1,7 +1,7 @@
 import React from 'react';
 import L from 'leaflet';
 import { Marker } from 'react-leaflet';
-import logoUrl from './assets/su-emergencia-logo.png';
+import logoUrl from '../../../assets/su-emergencia-logo-hd.png';
 
 export default function BaseMarker({ base, onClick }) {
   const baseIcon = L.divIcon({
