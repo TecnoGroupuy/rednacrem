@@ -15,7 +15,7 @@ import React from 'react';
 // principal al crear" cuando la persona todavia no tiene ningun rol
 // asignado (alta nueva, o una edicion de alguien que quedo sin rol) -- una
 // vez que tiene al menos uno, la gestion pasa exclusivamente por la ficha.
-const REGIMEN_TURNO_ROLES = new Set(['Enfermero', 'Chofer']);
+const REGIMEN_TURNO_ROLES = new Set(['Enfermero', 'Jefe_de_enfermeria', 'Chofer', 'Jefe_de_choferes']);
 const FRANJA_TURNO_OPTIONS = ['00-06', '06-12', '12-18', '18-00'];
 
 export default function PersonalForm({

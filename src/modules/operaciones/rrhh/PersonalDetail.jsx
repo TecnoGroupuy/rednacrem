@@ -133,6 +133,13 @@ const emptyCapacitacionDraft = { tipo_capacitacion: '', institucion: '', fecha_e
 const emptyCarnetDraft = { fecha_emision: '', fecha_vencimiento: '', documento_url: '' };
 const emptyLicenciaDraft = { tipo: '', fecha_desde: '', fecha_hasta: '', observaciones: '' };
 
+// Mismos 4 roles que REGIMEN_TURNO_ROLES en PersonalForm.jsx (duplicado a
+// proposito, mismo criterio que el resto de los helpers de este archivo).
+const REGIMEN_TURNO_ROLES = new Set(['Enfermero', 'Jefe_de_enfermeria', 'Chofer', 'Jefe_de_choferes']);
+const FRANJA_TURNO_OPTIONS = ['00-06', '06-12', '12-18', '18-00'];
+const emptyRegimenDraft = { regimen_turno: '', vehiculo_id: '', franja_turno: '', fecha_ref_descanso: '' };
+const REGIMEN_TURNO_LABELS = { fijo: 'Fijo', turnante: 'Turnante', suplente: 'Suplente' };
+
 export default function PersonalDetail({
   Button,
   Tag,
@@ -158,6 +165,8 @@ export default function PersonalDetail({
   onAddLicencia,
   onUpdateLicencia,
   onDarDeBaja,
+  onUpdateRegimen,
+  vehiculos,
   onUploadFoto,
   onDeleteFoto,
   fotoUploading,
@@ -179,6 +188,9 @@ export default function PersonalDetail({
   const [licenciaDraft, setLicenciaDraft] = React.useState(emptyLicenciaDraft);
   const [showBajaConfirm, setShowBajaConfirm] = React.useState(false);
   const [bajaFechaEgreso, setBajaFechaEgreso] = React.useState(todayDateOnly());
+  const [showRegimenEdit, setShowRegimenEdit] = React.useState(false);
+  const [regimenDraft, setRegimenDraft] = React.useState(emptyRegimenDraft);
+  const [regimenSaving, setRegimenSaving] = React.useState(false);
 
   React.useEffect(() => {
     setRoleToAdd('');
@@ -195,6 +207,7 @@ export default function PersonalDetail({
     setBajaFechaEgreso(todayDateOnly());
     setShowFotoMenu(false);
     setShowFotoCapture(false);
+    setShowRegimenEdit(false);
   }, [personal?.id]);
 
   if (loading) {
@@ -252,6 +265,20 @@ export default function PersonalDetail({
       ? <strong className="rrhh-missing-value">Sin completar</strong>
       : <strong>{value}</strong>
   );
+
+  // Regimen (fijo/turnante/suplente) solo tiene sentido para estos 4 roles
+  // -- mismo criterio que PersonalForm.jsx, pero aca SI se conoce el rol
+  // real de la persona (a diferencia del formulario, que a veces no sabe
+  // cual es "el" rol relevante), asi que no hace falta el fallback de
+  // "mostrar siempre si ya tiene algun rol".
+  const hasRegimenRole = roles.some((item) => REGIMEN_TURNO_ROLES.has(item.rol));
+  const hasEnfermeroRole = roles.some((item) => item.rol === 'Enfermero');
+  const showRegimenFijoEditFields = regimenDraft.regimen_turno === 'fijo';
+  const showFranjaEditSelect = showRegimenFijoEditFields && hasEnfermeroRole;
+  const selectedBaseIds = (personal.bases || []).map((b) => b.base_id);
+  const vehiculosFiltrados = selectedBaseIds.length
+    ? (vehiculos || []).filter((v) => selectedBaseIds.includes(v.base_id))
+    : (vehiculos || []);
 
   const handleAddRole = () => {
     if (!roleToAdd) return;
@@ -318,6 +345,45 @@ export default function PersonalDetail({
   const handleConfirmBaja = () => {
     if (!bajaFechaEgreso) return;
     onDarDeBaja(bajaFechaEgreso);
+  };
+
+  const openRegimenEdit = () => {
+    setRegimenDraft({
+      regimen_turno: personal.regimen_turno || '',
+      vehiculo_id: personal.vehiculo_id || '',
+      franja_turno: personal.franja_turno || '',
+      fecha_ref_descanso: toDateOnly(personal.fecha_ref_descanso)
+    });
+    setShowRegimenEdit(true);
+  };
+
+  const setRegimenField = (field, value) => {
+    setRegimenDraft((prev) => {
+      const next = { ...prev, [field]: value };
+      // Igual criterio que PersonalForm.jsx: salir de "fijo" limpia los 3
+      // campos que solo aplican a ese regimen.
+      if (field === 'regimen_turno' && value !== 'fijo') {
+        next.vehiculo_id = '';
+        next.franja_turno = '';
+        next.fecha_ref_descanso = '';
+      }
+      return next;
+    });
+  };
+
+  const handleSaveRegimen = async () => {
+    setRegimenSaving(true);
+    try {
+      await onUpdateRegimen({
+        regimen_turno: regimenDraft.regimen_turno || null,
+        vehiculo_id: regimenDraft.vehiculo_id || null,
+        franja_turno: regimenDraft.franja_turno || null,
+        fecha_ref_descanso: regimenDraft.fecha_ref_descanso || null
+      });
+      setShowRegimenEdit(false);
+    } finally {
+      setRegimenSaving(false);
+    }
   };
 
   const handleCapturarFoto = async (blob) => {
@@ -445,22 +511,83 @@ export default function PersonalDetail({
                 </div>
               </section>
 
-              {personal.regimen_turno === 'fijo' ? (
+              {hasRegimenRole ? (
                 <section className="rrhh-detail-card">
-                  <div className="rrhh-section-title"><CalendarClock size={18} /> Régimen fijo</div>
-                  <div className="rrhh-kv-list">
-                    <div><span>Móvil</span>{renderField(personal.vehiculo_numero_interno, !personal.vehiculo_numero_interno)}</div>
-                    <div><span>Franja</span>{renderField(personal.franja_turno, !personal.franja_turno)}</div>
-                    <div><span>Fecha de referencia</span>{renderField(personal.fecha_ref_descanso ? formatDateOnlyDisplay(personal.fecha_ref_descanso) : '', !personal.fecha_ref_descanso)}</div>
-                    <div>
-                      <span>Próximos francos</span>
-                      <strong>
-                        {personal.fecha_ref_descanso
-                          ? getProximosFrancos(toDateOnly(personal.fecha_ref_descanso), 3).map(formatDateOnlyDisplay).join(', ')
-                          : 'Ciclo sin definir'}
-                      </strong>
-                    </div>
+                  <div className="rrhh-section-title">
+                    <div className="rrhh-inline-title"><CalendarClock size={18} /><span>Régimen</span></div>
+                    {!showRegimenEdit ? (
+                      <Button variant="secondary" onClick={openRegimenEdit}>Editar régimen</Button>
+                    ) : null}
                   </div>
+
+                  {showRegimenEdit ? (
+                    <div className="rrhh-inline-form" style={{ gridTemplateColumns: 'minmax(0,1fr)' }}>
+                      <label style={{ display: 'grid', gap: 4 }}>
+                        <span style={{ fontSize: 12 }}>Régimen</span>
+                        <select value={regimenDraft.regimen_turno} onChange={(event) => setRegimenField('regimen_turno', event.target.value)}>
+                          <option value="">Sin asignar</option>
+                          <option value="fijo">Fijo</option>
+                          <option value="turnante">Turnante</option>
+                          <option value="suplente">Suplente</option>
+                        </select>
+                      </label>
+                      {showRegimenFijoEditFields ? (
+                        <label style={{ display: 'grid', gap: 4 }}>
+                          <span style={{ fontSize: 12 }}>Móvil</span>
+                          <select value={regimenDraft.vehiculo_id} onChange={(event) => setRegimenField('vehiculo_id', event.target.value)}>
+                            <option value="">Sin asignar</option>
+                            {vehiculosFiltrados.map((v) => (
+                              <option key={v.id} value={v.id}>{v.numero_interno || v.matricula || v.id}</option>
+                            ))}
+                          </select>
+                        </label>
+                      ) : null}
+                      {showRegimenFijoEditFields ? (
+                        <label style={{ display: 'grid', gap: 4 }}>
+                          <span style={{ fontSize: 12 }}>Fecha de referencia de franco</span>
+                          <input
+                            type="date"
+                            value={regimenDraft.fecha_ref_descanso}
+                            onChange={(event) => setRegimenField('fecha_ref_descanso', event.target.value)}
+                          />
+                        </label>
+                      ) : null}
+                      {showFranjaEditSelect ? (
+                        <label style={{ display: 'grid', gap: 4 }}>
+                          <span style={{ fontSize: 12 }}>Franja</span>
+                          <select value={regimenDraft.franja_turno} onChange={(event) => setRegimenField('franja_turno', event.target.value)}>
+                            <option value="">Sin asignar</option>
+                            {FRANJA_TURNO_OPTIONS.map((franja) => <option key={franja} value={franja}>{franja}</option>)}
+                          </select>
+                        </label>
+                      ) : null}
+                      <div className="rrhh-inline-actions">
+                        <Button variant="ghost" onClick={() => setShowRegimenEdit(false)} disabled={regimenSaving}>Cancelar</Button>
+                        <Button onClick={handleSaveRegimen} disabled={regimenSaving}>{regimenSaving ? 'Guardando...' : 'Guardar'}</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rrhh-kv-list">
+                      <div><span>Régimen</span><strong>{REGIMEN_TURNO_LABELS[personal.regimen_turno] || 'Sin asignar'}</strong></div>
+                      {personal.regimen_turno === 'fijo' ? (
+                        <>
+                          <div><span>Móvil</span>{renderField(personal.vehiculo_numero_interno, !personal.vehiculo_numero_interno)}</div>
+                          {hasEnfermeroRole ? (
+                            <div><span>Franja</span>{renderField(personal.franja_turno, !personal.franja_turno)}</div>
+                          ) : null}
+                          <div><span>Fecha de referencia</span>{renderField(personal.fecha_ref_descanso ? formatDateOnlyDisplay(personal.fecha_ref_descanso) : '', !personal.fecha_ref_descanso)}</div>
+                          <div>
+                            <span>Próximos francos</span>
+                            <strong>
+                              {personal.fecha_ref_descanso
+                                ? getProximosFrancos(toDateOnly(personal.fecha_ref_descanso), 3).map(formatDateOnlyDisplay).join(', ')
+                                : 'Ciclo sin definir'}
+                            </strong>
+                          </div>
+                        </>
+                      ) : null}
+                    </div>
+                  )}
                 </section>
               ) : null}
             </div>

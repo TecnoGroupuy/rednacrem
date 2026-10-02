@@ -1,16 +1,18 @@
 import React from 'react';
-import { FileText, Eye, Check, X as XIcon, Upload } from 'lucide-react';
+import { FileText, Upload } from 'lucide-react';
 import { getDocumentosPersonal, uploadDocumentoPersonal, getDocumentoContenido, revisarDocumentoPersonal } from '../../../services/rrhhService.js';
 import DocumentoCapture from '../../../components/DocumentoCapture.jsx';
+import DocumentViewerModal from './DocumentViewerModal.jsx';
 
 // Pestaña "Documentación" de la ficha interna -- se maneja con estado
 // propio (no via RrhhScreen.jsx, a diferencia del resto de la ficha) porque
 // la cantidad de estado por item (edicion/validar/rechazar/subir, cada uno
 // con sus propios campos) haria ilegible a RrhhScreen.jsx si se centralizara
 // ahi. Mismo criterio de "cada item se carga por separado" que la ficha
-// publica (ver CompletarFichaScreen.jsx), con los agregados de RRHH: Ver,
-// Validar, Rechazar, y que el "Subir"/"Reemplazar" no tiene la restriccion
-// de "no tocar lo ya validado" que si tiene el lado publico.
+// publica (ver CompletarFichaScreen.jsx), con los agregados de RRHH: grilla
+// de tarjetas con miniatura + visor modal (Validar/Rechazar/Reemplazar/
+// Descargar), y que el "Subir"/"Reemplazar" no tiene la restriccion de "no
+// tocar lo ya validado" que si tiene el lado publico.
 
 function onlyDigits(value) {
   return String(value || '').replace(/\D/g, '');
@@ -25,6 +27,12 @@ function isoToParts(iso) {
   if (!iso) return { dia: '', mes: '', anio: '' };
   const [anio, mes, dia] = String(iso).split('-');
   return { dia: dia || '', mes: mes || '', anio: anio || '' };
+}
+
+function formatDateDisplay(iso) {
+  if (!iso) return '';
+  const [anio, mes, dia] = String(iso).split('-');
+  return anio && mes && dia ? `${dia}/${mes}/${anio}` : '';
 }
 
 function FechaInputs({ parts, onChange, idPrefix }) {
@@ -62,6 +70,30 @@ function camposCompletos(categoria, { numero, fechaParts }) {
   return true;
 }
 
+// Miniatura de una tarjeta ya cargada: imagen real si el archivo es imagen,
+// icono de PDF si no, spinner/placeholder mientras se resuelve.
+function CardThumbnail({ content, onClick }) {
+  if (!content || content.status === 'loading') {
+    return <div className="rrhh-doc-card-thumb rrhh-doc-card-thumb-loading" onClick={onClick}>Cargando...</div>;
+  }
+  if (content.status === 'error') {
+    return <div className="rrhh-doc-card-thumb rrhh-doc-card-thumb-error" onClick={onClick}>No se pudo cargar</div>;
+  }
+  if ((content.contentType || '').startsWith('image/')) {
+    return (
+      <div className="rrhh-doc-card-thumb" onClick={onClick}>
+        <img src={content.url} alt="" />
+      </div>
+    );
+  }
+  return (
+    <div className="rrhh-doc-card-thumb rrhh-doc-card-thumb-pdf" onClick={onClick}>
+      <FileText size={32} />
+      <span>PDF</span>
+    </div>
+  );
+}
+
 export default function PersonalDocumentosTab({ personalId }) {
   const [checklist, setChecklist] = React.useState([]);
   const [cursos, setCursos] = React.useState([]);
@@ -83,12 +115,19 @@ export default function PersonalDocumentosTab({ personalId }) {
   const [cursoUploading, setCursoUploading] = React.useState(false);
   const [cursoError, setCursoError] = React.useState('');
 
-  // Rechazar: motivo obligatorio, se pide inline antes de confirmar.
-  const [rejectingId, setRejectingId] = React.useState(null);
-  const [rejectMotivo, setRejectMotivo] = React.useState('');
   const [revisando, setRevisando] = React.useState(null);
   const [revisarError, setRevisarError] = React.useState('');
-  const [viendoId, setViendoId] = React.useState(null);
+
+  // Miniaturas/contenido: { [archivoId]: { status: 'loading'|'ready'|'error', url, contentType } }
+  // -- se cargan en paralelo al abrir la pestaña (ver efecto mas abajo) y se
+  // cachean mientras el componente este montado; las blob URLs se liberan
+  // (revokeObjectURL) al desmontar (cambiar de pestaña o cerrar la ficha).
+  const [thumbnails, setThumbnails] = React.useState({});
+  const loadedIdsRef = React.useRef(new Set());
+  const urlsToRevokeRef = React.useRef([]);
+
+  // Visor modal: null = cerrado, numero = indice dentro de viewerItems.
+  const [viewerIndex, setViewerIndex] = React.useState(null);
 
   const cargar = React.useCallback(async () => {
     setLoading(true);
@@ -107,6 +146,41 @@ export default function PersonalDocumentosTab({ personalId }) {
   React.useEffect(() => {
     cargar();
   }, [cargar]);
+
+  const loadThumbnail = React.useCallback(async (archivoId) => {
+    setThumbnails((prev) => ({ ...prev, [archivoId]: { status: 'loading' } }));
+    try {
+      const { blob } = await getDocumentoContenido(personalId, archivoId);
+      const url = URL.createObjectURL(blob);
+      urlsToRevokeRef.current.push(url);
+      setThumbnails((prev) => ({ ...prev, [archivoId]: { status: 'ready', url, contentType: blob.type } }));
+    } catch {
+      setThumbnails((prev) => ({ ...prev, [archivoId]: { status: 'error' } }));
+    }
+  }, [personalId]);
+
+  // Dispara la carga de TODOS los archivos todavia no vistos, en paralelo
+  // (no se espera uno para pedir el siguiente) -- nunca vuelve a pedir uno
+  // ya cacheado, aunque cargar() refresque el checklist despues de validar/
+  // rechazar/subir.
+  React.useEffect(() => {
+    const ids = [
+      ...checklist.filter((item) => item.archivo_id).map((item) => item.archivo_id),
+      ...cursos.filter((curso) => curso.archivo_id).map((curso) => curso.archivo_id)
+    ];
+    ids.forEach((id) => {
+      if (loadedIdsRef.current.has(id)) return;
+      loadedIdsRef.current.add(id);
+      loadThumbnail(id);
+    });
+  }, [checklist, cursos, loadThumbnail]);
+
+  // Libera todas las blob URLs cacheadas al desmontar -- pasa tanto al
+  // cerrar la ficha como al cambiar de pestaña (PersonalDetail.jsx monta
+  // este componente solo mientras activeTab === 'documentos').
+  React.useEffect(() => () => {
+    urlsToRevokeRef.current.forEach((url) => URL.revokeObjectURL(url));
+  }, []);
 
   // Avisa antes de cerrar la pestaña/recargar con una subida en curso o el
   // modal de captura abierto (archivo elegido/en preview sin confirmar).
@@ -195,21 +269,6 @@ export default function PersonalDocumentosTab({ personalId }) {
     }
   };
 
-  const handleVer = async (archivoId) => {
-    setViendoId(archivoId);
-    setRevisarError('');
-    try {
-      const { blob } = await getDocumentoContenido(personalId, archivoId);
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank', 'noopener,noreferrer');
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch (err) {
-      setRevisarError(err?.message || 'No se pudo abrir el documento.');
-    } finally {
-      setViendoId(null);
-    }
-  };
-
   const handleValidar = async (archivoId) => {
     setRevisando(archivoId);
     setRevisarError('');
@@ -223,20 +282,65 @@ export default function PersonalDocumentosTab({ personalId }) {
     }
   };
 
-  const handleRechazar = async (archivoId) => {
-    if (!rejectMotivo.trim()) return;
+  const handleRechazar = async (archivoId, motivo) => {
     setRevisando(archivoId);
     setRevisarError('');
     try {
-      await revisarDocumentoPersonal(personalId, archivoId, { estado_revision: 'rechazado', motivo_rechazo: rejectMotivo.trim() });
-      setRejectingId(null);
-      setRejectMotivo('');
+      await revisarDocumentoPersonal(personalId, archivoId, { estado_revision: 'rechazado', motivo_rechazo: motivo });
       await cargar();
     } catch (err) {
       setRevisarError(err?.message || 'No se pudo rechazar el documento.');
     } finally {
       setRevisando(null);
     }
+  };
+
+  // Items navegables del visor: checklist + cursos, solo los que ya tienen
+  // archivo (los vacios no se pueden "ver"). Se recalcula en cada render a
+  // partir de checklist/cursos/thumbnails, asi que el visor abierto refleja
+  // Validar/Rechazar/un nuevo archivo sin tener que cerrarlo y reabrirlo.
+  const viewerItems = [
+    ...checklist.filter((item) => item.archivo_id).map((item) => {
+      const campos = CATEGORIA_CAMPOS[item.categoria] || {};
+      return {
+        id: item.archivo_id,
+        categoria: item.categoria,
+        isCurso: false,
+        label: item.label,
+        estado: item.estado,
+        motivoRechazo: item.motivo_rechazo,
+        nombreArchivo: item.nombre_archivo,
+        numero: campos.numero ? item.numero : null,
+        numeroLabel: campos.numeroLabel,
+        fechaVencimientoDisplay: campos.fechaVencimiento ? formatDateDisplay(item.fecha_vencimiento) : '',
+        content: thumbnails[item.archivo_id]
+      };
+    }),
+    ...cursos.filter((curso) => curso.archivo_id).map((curso) => ({
+      id: curso.archivo_id,
+      categoria: 'curso',
+      isCurso: true,
+      label: curso.tipo_capacitacion,
+      estado: curso.estado,
+      motivoRechazo: curso.motivo_rechazo,
+      nombreArchivo: curso.institucion,
+      numero: null,
+      numeroLabel: null,
+      fechaVencimientoDisplay: '',
+      content: thumbnails[curso.archivo_id]
+    }))
+  ];
+
+  const openViewerFor = (archivoId) => {
+    const idx = viewerItems.findIndex((item) => item.id === archivoId);
+    if (idx >= 0) setViewerIndex(idx);
+  };
+
+  const handleReemplazarDesdeVisor = (item) => {
+    setViewerIndex(null);
+    if (item.isCurso) return; // los cursos no tienen reemplazo -- ver nota en DocumentViewerModal.
+    const checklistItem = checklist.find((ci) => ci.categoria === item.categoria);
+    if (checklistItem) openEditItem(checklistItem);
   };
 
   if (loading) return <div className="rrhh-empty-inline">Cargando documentación...</div>;
@@ -248,84 +352,75 @@ export default function PersonalDocumentosTab({ personalId }) {
         <div className="rrhh-inline-title"><FileText size={18} /><span>Documentación</span></div>
       </div>
 
-      {revisarError ? <div className="rrhh-form-error">{revisarError}</div> : null}
+      {revisarError && viewerIndex === null ? <div className="rrhh-form-error">{revisarError}</div> : null}
 
-      <div className="rrhh-doc-tab-list">
+      <div className="rrhh-doc-grid">
         {checklist.map((item) => {
           const campos = CATEGORIA_CAMPOS[item.categoria] || {};
           const isEditing = editingCategoria === item.categoria;
-          return (
-            <div key={item.categoria} className={`rrhh-doc-tab-item rrhh-doc-tab-item-${item.estado}`}>
-              <div className="rrhh-doc-tab-item-head">
-                <span className="rrhh-doc-tab-item-label">{item.label}</span>
-                <span className={`rrhh-doc-tab-badge rrhh-doc-tab-badge-${item.estado}`}>{ESTADO_LABELS[item.estado]}</span>
-              </div>
-              {item.motivo_rechazo ? <p className="rrhh-doc-tab-motivo">Motivo: {item.motivo_rechazo}</p> : null}
-              {item.nombre_archivo ? <p className="rrhh-subtle">{item.nombre_archivo}</p> : null}
+          const completos = camposCompletos(item.categoria, { numero: editNumero, fechaParts: editFechaParts });
 
-              {item.archivo_id ? (
-                <div className="rrhh-inline-actions" style={{ justifyContent: 'flex-start' }}>
-                  <button type="button" className="rrhh-doc-action-button" onClick={() => handleVer(item.archivo_id)} disabled={viendoId === item.archivo_id}>
-                    <Eye size={14} /> {viendoId === item.archivo_id ? 'Abriendo...' : 'Ver'}
+          if (isEditing) {
+            return (
+              <div key={item.categoria} className="rrhh-doc-card rrhh-doc-card-editing">
+                <div className="rrhh-doc-card-head">
+                  <span className="rrhh-doc-card-label">{item.label}</span>
+                  <span className={`rrhh-doc-tab-badge rrhh-doc-tab-badge-${item.estado}`}>{ESTADO_LABELS[item.estado]}</span>
+                </div>
+                {campos.numero ? (
+                  <label className="rrhh-doc-tab-field">
+                    <span>{campos.numeroLabel}</span>
+                    <input type="text" value={editNumero} onChange={(event) => setEditNumero(event.target.value)} />
+                  </label>
+                ) : null}
+                {campos.fechaVencimiento ? (
+                  <label className="rrhh-doc-tab-field">
+                    <span>Fecha de vencimiento</span>
+                    <FechaInputs idPrefix={`int-doc-${item.categoria}`} parts={editFechaParts} onChange={setEditFechaParts} />
+                  </label>
+                ) : null}
+                <div className="rrhh-inline-actions">
+                  <button type="button" className="rrhh-doc-action-button" onClick={closeEditItem} disabled={editUploading}>Cancelar</button>
+                  <button
+                    type="button"
+                    className="rrhh-doc-action-button"
+                    onClick={() => setEditShowCapture(true)}
+                    disabled={!completos || editUploading}
+                  >
+                    {completos ? 'Elegir archivo' : 'Completa los datos'}
                   </button>
-                  {item.estado !== 'validado' ? (
-                    <button type="button" className="rrhh-doc-action-button" onClick={() => handleValidar(item.archivo_id)} disabled={revisando === item.archivo_id}>
-                      <Check size={14} /> Validar
-                    </button>
-                  ) : null}
-                  {rejectingId === item.archivo_id ? null : (
-                    <button type="button" className="rrhh-doc-action-button" onClick={() => { setRejectingId(item.archivo_id); setRejectMotivo(''); }} disabled={revisando === item.archivo_id}>
-                      <XIcon size={14} /> Rechazar
-                    </button>
-                  )}
                 </div>
-              ) : null}
+              </div>
+            );
+          }
 
-              {item.archivo_id && rejectingId === item.archivo_id ? (
-                <div className="rrhh-doc-tab-edit">
-                  <input type="text" placeholder="Motivo del rechazo (obligatorio)" value={rejectMotivo} onChange={(event) => setRejectMotivo(event.target.value)} />
-                  <div className="rrhh-inline-actions">
-                    <button type="button" className="rrhh-doc-action-button" onClick={() => setRejectingId(null)}>Cancelar</button>
-                    <button type="button" className="rrhh-doc-action-button" onClick={() => handleRechazar(item.archivo_id)} disabled={!rejectMotivo.trim() || revisando === item.archivo_id}>
-                      Confirmar rechazo
-                    </button>
-                  </div>
+          if (!item.archivo_id) {
+            return (
+              <div key={item.categoria} className="rrhh-doc-card rrhh-doc-card-empty">
+                <div className="rrhh-doc-card-head">
+                  <span className="rrhh-doc-card-label">{item.label}</span>
+                  <span className={`rrhh-doc-tab-badge rrhh-doc-tab-badge-${item.estado}`}>{ESTADO_LABELS[item.estado]}</span>
                 </div>
-              ) : null}
-
-              {isEditing ? (
-                <div className="rrhh-doc-tab-edit">
-                  {campos.numero ? (
-                    <label className="rrhh-doc-tab-field">
-                      <span>{campos.numeroLabel}</span>
-                      <input type="text" value={editNumero} onChange={(event) => setEditNumero(event.target.value)} />
-                    </label>
-                  ) : null}
-                  {campos.fechaVencimiento ? (
-                    <label className="rrhh-doc-tab-field">
-                      <span>Fecha de vencimiento</span>
-                      <FechaInputs idPrefix={`int-doc-${item.categoria}`} parts={editFechaParts} onChange={setEditFechaParts} />
-                    </label>
-                  ) : null}
-                  <div className="rrhh-inline-actions">
-                    <button type="button" className="rrhh-doc-action-button" onClick={closeEditItem} disabled={editUploading}>Cancelar</button>
-                    <button
-                      type="button"
-                      className="rrhh-doc-action-button"
-                      onClick={() => setEditShowCapture(true)}
-                      disabled={!camposCompletos(item.categoria, { numero: editNumero, fechaParts: editFechaParts }) || editUploading}
-                    >
-                      {camposCompletos(item.categoria, { numero: editNumero, fechaParts: editFechaParts })
-                        ? 'Elegir archivo'
-                        : 'Completa los datos para cargar el documento'}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button type="button" className="rrhh-doc-action-button" onClick={() => openEditItem(item)}>
-                  <Upload size={14} /> {item.archivo_id ? 'Reemplazar' : 'Subir'}
+                <button type="button" className="rrhh-doc-card-upload-button" onClick={() => openEditItem(item)}>
+                  <Upload size={20} />
+                  <span>Subir</span>
                 </button>
-              )}
+              </div>
+            );
+          }
+
+          return (
+            <div key={item.categoria} className={`rrhh-doc-card rrhh-doc-card-${item.estado}`}>
+              <CardThumbnail content={thumbnails[item.archivo_id]} onClick={() => openViewerFor(item.archivo_id)} />
+              <div className="rrhh-doc-card-body" onClick={() => openViewerFor(item.archivo_id)}>
+                <div className="rrhh-doc-card-head">
+                  <span className="rrhh-doc-card-label">{item.label}</span>
+                  <span className={`rrhh-doc-tab-badge rrhh-doc-tab-badge-${item.estado}`}>{ESTADO_LABELS[item.estado]}</span>
+                </div>
+                {campos.numero && item.numero ? <p className="rrhh-subtle">{campos.numeroLabel}: {item.numero}</p> : null}
+                {campos.fechaVencimiento && item.fecha_vencimiento ? <p className="rrhh-subtle">Vence: {formatDateDisplay(item.fecha_vencimiento)}</p> : null}
+                {item.motivo_rechazo ? <p className="rrhh-doc-tab-motivo">Motivo: {item.motivo_rechazo}</p> : null}
+              </div>
             </div>
           );
         })}
@@ -335,42 +430,24 @@ export default function PersonalDocumentosTab({ personalId }) {
         <div className="rrhh-section-title" style={{ marginTop: 18 }}>
           <span>Cursos</span>
         </div>
-        {cursos.map((curso) => (
-          <div key={curso.archivo_id} className="rrhh-doc-tab-item">
-            <div className="rrhh-doc-tab-item-head">
-              <span className="rrhh-doc-tab-item-label">{curso.tipo_capacitacion}</span>
-              <span className={`rrhh-doc-tab-badge rrhh-doc-tab-badge-${curso.estado}`}>{ESTADO_LABELS[curso.estado]}</span>
-            </div>
-            {curso.institucion ? <p className="rrhh-subtle">{curso.institucion}</p> : null}
-            {curso.motivo_rechazo ? <p className="rrhh-doc-tab-motivo">Motivo: {curso.motivo_rechazo}</p> : null}
-            <div className="rrhh-inline-actions" style={{ justifyContent: 'flex-start' }}>
-              <button type="button" className="rrhh-doc-action-button" onClick={() => handleVer(curso.archivo_id)} disabled={viendoId === curso.archivo_id}>
-                <Eye size={14} /> Ver
-              </button>
-              {curso.estado !== 'validado' ? (
-                <button type="button" className="rrhh-doc-action-button" onClick={() => handleValidar(curso.archivo_id)} disabled={revisando === curso.archivo_id}>
-                  <Check size={14} /> Validar
-                </button>
-              ) : null}
-              {rejectingId === curso.archivo_id ? null : (
-                <button type="button" className="rrhh-doc-action-button" onClick={() => { setRejectingId(curso.archivo_id); setRejectMotivo(''); }}>
-                  <XIcon size={14} /> Rechazar
-                </button>
-              )}
-            </div>
-            {rejectingId === curso.archivo_id ? (
-              <div className="rrhh-doc-tab-edit">
-                <input type="text" placeholder="Motivo del rechazo (obligatorio)" value={rejectMotivo} onChange={(event) => setRejectMotivo(event.target.value)} />
-                <div className="rrhh-inline-actions">
-                  <button type="button" className="rrhh-doc-action-button" onClick={() => setRejectingId(null)}>Cancelar</button>
-                  <button type="button" className="rrhh-doc-action-button" onClick={() => handleRechazar(curso.archivo_id)} disabled={!rejectMotivo.trim()}>
-                    Confirmar rechazo
-                  </button>
+
+        {cursos.length ? (
+          <div className="rrhh-doc-grid">
+            {cursos.map((curso) => (
+              <div key={curso.archivo_id} className={`rrhh-doc-card rrhh-doc-card-${curso.estado}`}>
+                <CardThumbnail content={thumbnails[curso.archivo_id]} onClick={() => openViewerFor(curso.archivo_id)} />
+                <div className="rrhh-doc-card-body" onClick={() => openViewerFor(curso.archivo_id)}>
+                  <div className="rrhh-doc-card-head">
+                    <span className="rrhh-doc-card-label">{curso.tipo_capacitacion}</span>
+                    <span className={`rrhh-doc-tab-badge rrhh-doc-tab-badge-${curso.estado}`}>{ESTADO_LABELS[curso.estado]}</span>
+                  </div>
+                  {curso.institucion ? <p className="rrhh-subtle">{curso.institucion}</p> : null}
+                  {curso.motivo_rechazo ? <p className="rrhh-doc-tab-motivo">Motivo: {curso.motivo_rechazo}</p> : null}
                 </div>
               </div>
-            ) : null}
+            ))}
           </div>
-        ))}
+        ) : null}
 
         {showCursoForm ? (
           <div className="rrhh-doc-tab-edit">
@@ -399,7 +476,7 @@ export default function PersonalDocumentosTab({ personalId }) {
             </div>
           </div>
         ) : (
-          <button type="button" className="rrhh-doc-action-button" onClick={() => setShowCursoForm(true)}>Agregar curso</button>
+          <button type="button" className="rrhh-doc-action-button" style={{ marginTop: cursos.length ? 14 : 0 }} onClick={() => setShowCursoForm(true)}>Agregar curso</button>
         )}
       </div>
 
@@ -421,6 +498,20 @@ export default function PersonalDocumentosTab({ personalId }) {
           onPickAnother={() => setCursoError('')}
           busy={cursoUploading}
           uploadError={cursoError}
+        />
+      ) : null}
+
+      {viewerIndex !== null && viewerItems[viewerIndex] ? (
+        <DocumentViewerModal
+          items={viewerItems}
+          index={viewerIndex}
+          onIndexChange={setViewerIndex}
+          onClose={() => setViewerIndex(null)}
+          onValidar={handleValidar}
+          onRechazar={handleRechazar}
+          onReemplazar={handleReemplazarDesdeVisor}
+          revisando={revisando}
+          revisarError={revisarError}
         />
       ) : null}
     </section>

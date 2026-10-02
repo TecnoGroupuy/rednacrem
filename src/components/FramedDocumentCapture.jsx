@@ -299,10 +299,21 @@ export default function FramedDocumentCapture({
     }
   };
 
-  const handleWheelZoom = (event) => {
-    event.preventDefault();
-    applyZoom(zoom + (event.deltaY < 0 ? 0.15 : -0.15));
-  };
+  // Listener nativo, NO el prop onWheel de React: los synthetic handlers de
+  // onWheel son pasivos por default desde React 17 -- un preventDefault()
+  // ahi adentro no frena el scroll de la pagina de verdad (y tira el
+  // warning "Unable to preventDefault inside passive event listener
+  // invocation" en consola).
+  React.useEffect(() => {
+    const guide = frameGuideRef.current;
+    if (!guide || mode !== 'gallery-adjust') return undefined;
+    const handleWheelZoom = (event) => {
+      event.preventDefault();
+      applyZoom(zoom + (event.deltaY < 0 ? 0.15 : -0.15));
+    };
+    guide.addEventListener('wheel', handleWheelZoom, { passive: false });
+    return () => guide.removeEventListener('wheel', handleWheelZoom);
+  }, [mode, zoom]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const confirmGalleryAdjust = () => {
     if (!galleryImg) return;
@@ -450,7 +461,6 @@ export default function FramedDocumentCapture({
               onPointerMove={handlePointerMove}
               onPointerUp={endPointer}
               onPointerCancel={endPointer}
-              onWheel={handleWheelZoom}
             >
               <img
                 src={galleryImg.url}

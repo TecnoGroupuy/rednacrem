@@ -1243,35 +1243,90 @@
 
 /* Pestaña "Documentación" de la ficha interna (PersonalDocumentosTab.jsx) */
 
-.rrhh-doc-tab-list {
-  display: grid;
-  gap: 12px;
-}
-
 .rrhh-doc-tab-cursos {
   margin-top: 8px;
+}
+
+/* Grilla de tarjetas (rediseño): 2 columnas en desktop, 1 en mobile. */
+.rrhh-doc-grid {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
-.rrhh-doc-tab-item {
-  border: 1px solid rgba(51, 65, 85, 0.9);
-  border-radius: 14px;
-  padding: 14px;
-  background: rgba(15, 23, 42, 0.5);
-  display: grid;
-  gap: 8px;
+@media (max-width: 640px) {
+  .rrhh-doc-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
-.rrhh-doc-tab-item-rechazado {
+.rrhh-doc-card {
+  border: 1px solid rgba(51, 65, 85, 0.9);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.5);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.rrhh-doc-card-rechazado {
   border-color: rgba(239, 68, 68, 0.35);
 }
 
-.rrhh-doc-tab-item-validado {
+.rrhh-doc-card-validado {
   border-color: rgba(34, 197, 94, 0.3);
 }
 
-.rrhh-doc-tab-item-head {
+.rrhh-doc-card-empty,
+.rrhh-doc-card-editing {
+  padding: 14px;
+  gap: 10px;
+}
+
+.rrhh-doc-card-thumb {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: rgba(2, 6, 23, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.rrhh-doc-card-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.rrhh-doc-card-thumb-loading,
+.rrhh-doc-card-thumb-error {
+  color: var(--rrhh-muted);
+  font-size: 12px;
+}
+
+.rrhh-doc-card-thumb-error {
+  color: #fca5a5;
+}
+
+.rrhh-doc-card-thumb-pdf {
+  flex-direction: column;
+  gap: 6px;
+  color: #fdba74;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.rrhh-doc-card-body {
+  padding: 12px 14px 14px;
+  display: grid;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.rrhh-doc-card-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1279,10 +1334,31 @@
   flex-wrap: wrap;
 }
 
-.rrhh-doc-tab-item-label {
+.rrhh-doc-card-label {
   font-weight: 700;
   color: var(--rrhh-text);
   font-size: 14px;
+}
+
+.rrhh-doc-card-upload-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 90px;
+  border: 1px dashed rgba(148, 163, 184, 0.4);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--rrhh-muted);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.rrhh-doc-card-upload-button:hover {
+  border-color: rgba(251, 146, 60, 0.5);
+  color: #fdba74;
 }
 
 .rrhh-doc-tab-badge {

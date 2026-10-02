@@ -1,0 +1,275 @@
+/* Visor modal de documentos (pestaña Documentación, ficha interna) -- tema
+   oscuro propio (mas oscuro que rrhhStyles.css a proposito, para que la
+   imagen/PDF resalte), independiente de --rrhh-* para no acoplarse a si el
+   resto del tema cambia. */
+
+.dvm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 440;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+}
+
+.dvm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  color: #f8fafc;
+  flex-shrink: 0;
+}
+
+.dvm-title {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.dvm-close {
+  border: 0;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.dvm-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.dvm-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+}
+
+.dvm-stage {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.dvm-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  user-select: none;
+  cursor: grab;
+}
+
+.dvm-pdf {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+}
+
+.dvm-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: #94a3b8;
+  font-size: 13px;
+  text-align: center;
+  padding: 20px;
+}
+
+.dvm-status-error {
+  color: #fca5a5;
+}
+
+.dvm-nav {
+  flex-shrink: 0;
+  width: 44px;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dvm-nav:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.dvm-zoom-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  flex-shrink: 0;
+}
+
+.dvm-zoom-button {
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.dvm-zoom-slider {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+}
+
+.dvm-panel {
+  flex-shrink: 0;
+  background: #0f172a;
+  border-top: 1px solid rgba(51, 65, 85, 0.9);
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+  max-height: 44vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.dvm-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dvm-panel-label {
+  font-weight: 700;
+  color: #f8fafc;
+  font-size: 15px;
+}
+
+.dvm-panel-motivo {
+  margin: 0;
+  font-size: 13px;
+  color: #fca5a5;
+}
+
+.dvm-panel-meta {
+  margin: 0;
+  font-size: 13px;
+  color: #cbd5e1;
+}
+
+.dvm-panel-filename {
+  color: #94a3b8;
+  word-break: break-all;
+}
+
+.dvm-panel-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.dvm-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(30, 41, 59, 0.7);
+  color: #e2e8f0;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dvm-action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dvm-action-validar {
+  border-color: rgba(34, 197, 94, 0.4);
+  color: #86efac;
+}
+
+.dvm-action-validar:hover {
+  background: rgba(34, 197, 94, 0.14);
+}
+
+.dvm-action-rechazar {
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+
+.dvm-action-rechazar:hover {
+  background: rgba(239, 68, 68, 0.14);
+}
+
+.dvm-reject-form {
+  display: grid;
+  gap: 10px;
+}
+
+.dvm-reject-form input {
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--rrhh-line, #334155);
+  background: rgba(15, 23, 42, 0.88);
+  color: #f8fafc;
+  padding: 0 14px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* Desktop: panel lateral al costado, no debajo. */
+@media (min-width: 860px) {
+  .dvm-body {
+    flex-direction: row;
+  }
+
+  .dvm-panel {
+    width: 320px;
+    border-top: 0;
+    border-left: 1px solid rgba(51, 65, 85, 0.9);
+    max-height: none;
+  }
+
+  .dvm-zoom-row {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(320px, 70%);
+    background: rgba(15, 23, 42, 0.75);
+    border-radius: 999px;
+    padding: 8px 16px;
+  }
+
+  .dvm-main {
+    position: relative;
+  }
+}

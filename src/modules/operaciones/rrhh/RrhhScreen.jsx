@@ -736,6 +736,21 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
     }
   };
 
+  // Mismo patron que handleDarDeBaja: PATCH directo sin pasar por el
+  // formulario completo (PersonalForm), para poder cambiar el regimen desde
+  // la propia ficha (Datos generales) en vez de obligar a abrir "Editar".
+  const handleUpdateRegimen = async (payload) => {
+    if (!selectedPersonalId) return;
+    setActionError('');
+    try {
+      await updatePersonal(selectedPersonalId, payload);
+      refreshSelectedDetail();
+      refreshPersonalList();
+    } catch (err) {
+      setActionError(err?.message || 'No se pudo actualizar el régimen.');
+    }
+  };
+
   const cargarFichaLinksList = async () => {
     setFichaLinksListLoading(true);
     setFichaLinksListError('');
@@ -901,6 +916,8 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
           onAddLicencia={handleAddLicencia}
           onUpdateLicencia={handleUpdateLicencia}
           onDarDeBaja={handleDarDeBaja}
+          onUpdateRegimen={handleUpdateRegimen}
+          vehiculos={vehiculos}
           onUploadFoto={handleUploadFoto}
           onDeleteFoto={handleDeleteFoto}
           fotoUploading={fotoUploading}
