@@ -174,7 +174,13 @@ export function createApiClient({ baseUrl, getAccessToken }) {
       method,
       headers: finalHeaders,
       body: shouldSerializeJson ? JSON.stringify(body) : (hasBody ? body : undefined),
-      signal
+      signal,
+      // Esta es una API dinamica (CRM): ningun GET puede quedar servido por
+      // un cache HTTP intermedio (navegador, o lo que sea que corra delante
+      // en produccion) -- la UI ya tiene su propio estado de React como
+      // unica fuente de verdad de "que tan fresco" esta cada dato, via los
+      // refreshXxx() despues de cada mutacion.
+      cache: 'no-store'
     });
 
     const contentType = response.headers.get('content-type') || '';
@@ -227,7 +233,8 @@ export function createApiClient({ baseUrl, getAccessToken }) {
 
     const response = await fetch(finalUrl, {
       method,
-      headers: finalHeaders
+      headers: finalHeaders,
+      cache: 'no-store'
     });
 
     if (!response.ok) {
