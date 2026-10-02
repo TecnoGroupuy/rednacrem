@@ -130,7 +130,12 @@ export function buildPersonalHierarchy(personal = []) {
         label: 'Contratados',
         members: medicos.filter((p) => p.tipo_personal === 'externo'),
         emptyMessage: 'Todavía no hay forma de cargar personal médico externo desde el alta (ver gap de empresas contratistas) -- esta subsección va a seguir vacía hasta que se resuelva.'
-      }
+      },
+      // 'facturador' (2026-10, carga de médicos que facturan por cuenta
+      // propia): sin este subgrupo quedaban con rol Medico pero sin
+      // matchear ni 'interno' ni 'externo' -- invisibles en esta jerarquía
+      // aunque estuvieran bien cargados en la base.
+      { key: 'facturadores', label: 'Facturadores', members: medicos.filter((p) => p.tipo_personal === 'facturador') }
     ]
   });
 

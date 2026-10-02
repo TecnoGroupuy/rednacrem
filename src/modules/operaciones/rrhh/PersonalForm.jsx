@@ -21,7 +21,10 @@ import { Star } from 'lucide-react';
 const REGIMEN_TURNO_ROLES = new Set(['Enfermero', 'Jefe_de_enfermeria', 'Chofer', 'Jefe_de_choferes']);
 const FRANJA_TURNO_OPTIONS = ['00-06', '06-12', '12-18', '18-00'];
 const ESTADO_LABELS = { activo: 'Activo', licencia: 'Licencia', suspendido: 'Suspendido', baja: 'Baja' };
-const TIPO_PERSONAL_LABELS = { interno: 'Interno', externo: 'Externo' };
+// 'facturador' (2026-10): factura por cuenta propia, no lleva empresa
+// contratista (igual que 'interno' en ese sentido) -- ver chk_personal_tipo_empresa
+// en la migración 087 del backend.
+const TIPO_PERSONAL_LABELS = { interno: 'Interno', externo: 'Externo', facturador: 'Facturador' };
 
 // Un chip = dos <button> hermanos dentro de un mismo contenedor (no se
 // puede anidar un <button> dentro de otro): el cuerpo togglea

@@ -19,7 +19,7 @@ const TABS = [
   { key: 'cambios', label: 'Cambios' }
 ];
 
-const TIPO_PERSONAL_LABELS = { interno: 'Interno', externo: 'Externo' };
+const TIPO_PERSONAL_LABELS = { interno: 'Interno', externo: 'Externo', facturador: 'Facturador' };
 
 const CAMBIO_CAMPO_LABELS = {
   telefono: 'Teléfono',
