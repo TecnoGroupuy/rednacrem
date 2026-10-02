@@ -1,15 +1,8 @@
-import { getApiClient } from './apiClient.js';
-import { listTickets } from './ticketsService.js';
-
-const api = getApiClient();
-const hasApiConfigured = () => Boolean(import.meta.env?.VITE_API_URL);
-
-export const listTicketsByClientId = async (clientId) => {
-  if (!clientId) return [];
-  if (!hasApiConfigured()) {
-    return listTickets().filter((ticket) => String(ticket.clientId) === String(clientId));
-  }
-  const response = await api.get(`/tickets/by-client/${clientId}`);
-  const items = response?.items || response?.data || response || [];
-  return Array.isArray(items) ? items : [];
-};
+// GET /tickets/by-client/:id no existe en el backend (ni una coincidencia
+// en index.mjs) -- esto pegaba 404 para CUALQUIER rol que abriera la ficha
+// de un cliente en ClientsView, desde siempre, no solo backoffice (hallazgo
+// de la auditoría "rol backoffice" 2026-10). ticketsService.js ya tiene
+// una versión que sí funciona (GET /manual-tickets?clienteId=..., mapeada
+// con mapBackendManualTicket + hydrateTicketsWithDirectory) -- se delega
+// ahí en vez de duplicar esa lógica de mapeo.
+export { listTicketsByClientId } from './ticketsService.js';
