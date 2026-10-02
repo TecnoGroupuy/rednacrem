@@ -97,6 +97,10 @@ function CardThumbnail({ content, onClick }) {
 export default function PersonalDocumentosTab({ personalId }) {
   const [checklist, setChecklist] = React.useState([]);
   const [cursos, setCursos] = React.useState([]);
+  // Habilitaciones/carnet/capacitaciones viejos, sin archivo vinculado (ver
+  // getRegistrosDocumentalesAnteriores en el backend) -- solo lectura,
+  // seccion aparte al pie de la pestaña.
+  const [registrosAnteriores, setRegistrosAnteriores] = React.useState({ habilitaciones: [], carnet_salud: [], capacitaciones: [] });
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
 
@@ -136,6 +140,7 @@ export default function PersonalDocumentosTab({ personalId }) {
       const result = await getDocumentosPersonal(personalId);
       setChecklist(result.checklist);
       setCursos(result.cursos);
+      setRegistrosAnteriores(result.registrosAnteriores);
     } catch (err) {
       setError(err?.message || 'No se pudo cargar la documentación.');
     } finally {
@@ -479,6 +484,44 @@ export default function PersonalDocumentosTab({ personalId }) {
           <button type="button" className="rrhh-doc-action-button" style={{ marginTop: cursos.length ? 14 : 0 }} onClick={() => setShowCursoForm(true)}>Agregar curso</button>
         )}
       </div>
+
+      {registrosAnteriores.habilitaciones.length || registrosAnteriores.carnet_salud.length || registrosAnteriores.capacitaciones.length ? (
+        <div className="rrhh-doc-legacy">
+          <div className="rrhh-section-title" style={{ marginTop: 18 }}>
+            <span>Registros anteriores</span>
+          </div>
+          <p className="rrhh-subtle">
+            Cargados antes de que existiera esta pestaña, sin ningún archivo adjunto. Solo lectura -- para
+            completarlos, subí el documento correspondiente arriba.
+          </p>
+          <div className="rrhh-doc-legacy-list">
+            {registrosAnteriores.habilitaciones.map((item) => (
+              <div key={`hab-${item.id}`} className="rrhh-doc-legacy-item">
+                <span className="rrhh-doc-legacy-label">{item.label}</span>
+                <span className="rrhh-subtle">
+                  {[item.numero, item.fecha_vencimiento ? `vence ${formatDateDisplay(item.fecha_vencimiento)}` : null].filter(Boolean).join(' · ') || 'Sin datos adicionales'}
+                </span>
+              </div>
+            ))}
+            {registrosAnteriores.carnet_salud.map((item) => (
+              <div key={`carnet-${item.id}`} className="rrhh-doc-legacy-item">
+                <span className="rrhh-doc-legacy-label">Carné de salud</span>
+                <span className="rrhh-subtle">
+                  {item.fecha_vencimiento ? `vence ${formatDateDisplay(item.fecha_vencimiento)}` : 'Sin fecha de vencimiento'}
+                </span>
+              </div>
+            ))}
+            {registrosAnteriores.capacitaciones.map((item) => (
+              <div key={`cap-${item.id}`} className="rrhh-doc-legacy-item">
+                <span className="rrhh-doc-legacy-label">{item.tipo_capacitacion || 'Curso'}</span>
+                <span className="rrhh-subtle">
+                  {[item.institucion, item.fecha_emision ? `emitido ${formatDateDisplay(item.fecha_emision)}` : null].filter(Boolean).join(' · ') || 'Sin datos adicionales'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {editShowCapture ? (
         <DocumentoCapture

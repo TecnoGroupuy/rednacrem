@@ -84,6 +84,13 @@
   color: #fdba74;
 }
 
+.rrhh-screen .tag.neutral,
+.rrhh-modal-root .tag.neutral {
+  background: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.3);
+  color: #cbd5e1;
+}
+
 .rrhh-screen .button.ghost,
 .rrhh-modal-root .button.ghost {
   background: rgba(15, 23, 42, 0.8);
@@ -103,6 +110,13 @@
   background: linear-gradient(180deg, var(--rrhh-orange), var(--rrhh-orange-strong));
   border-color: rgba(249, 115, 22, 0.5);
   color: #fff7ed;
+}
+
+.rrhh-screen .button.danger,
+.rrhh-modal-root .button.danger {
+  background: rgba(30, 41, 59, 0.96);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #fca5a5;
 }
 
 .rrhh-hero-panel {
@@ -649,38 +663,127 @@
 
 .rrhh-detail-header {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 18px;
   flex-wrap: wrap;
   margin-bottom: 20px;
+  padding-right: 36px;
 }
 
 .rrhh-detail-identity {
   display: flex;
   align-items: center;
   gap: 16px;
+  min-width: 0;
 }
 
 .rrhh-detail-avatar {
   width: 84px;
   height: 84px;
   font-size: 28px;
-  background: linear-gradient(135deg, #0f766e, #2563eb);
+  flex: none;
+  background-image: linear-gradient(135deg, #0f766e, #2563eb);
 }
 
-.rrhh-detail-base {
+.rrhh-detail-subtitle {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0 6px;
+}
+
+.rrhh-detail-base-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #93c5fd;
+}
+
+.rrhh-detail-header-chips {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.rrhh-detail-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.rrhh-detail-status {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: #93c5fd;
-  margin-top: 10px;
+  min-height: 26px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.rrhh-detail-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.rrhh-detail-status-activo {
+  background: rgba(34, 197, 94, 0.14);
+  border: 1px solid rgba(34, 197, 94, 0.26);
+  color: #86efac;
+}
+
+.rrhh-detail-status-licencia {
+  background: rgba(217, 119, 6, 0.14);
+  border: 1px solid rgba(217, 119, 6, 0.28);
+  color: #fcd34d;
+}
+
+.rrhh-detail-status-suspendido {
+  background: rgba(249, 115, 22, 0.14);
+  border: 1px solid rgba(249, 115, 22, 0.28);
+  color: #fdba74;
+}
+
+.rrhh-detail-status-baja {
+  background: rgba(148, 163, 184, 0.14);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  color: #cbd5e1;
+}
+
+.rrhh-detail-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid var(--rrhh-line);
+  background: rgba(15, 23, 42, 0.8);
+  color: var(--rrhh-text-soft);
+  cursor: pointer;
+}
+
+.rrhh-detail-close:hover {
+  background: rgba(51, 65, 85, 0.6);
 }
 
 .rrhh-detail-tabs {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 8px;
   margin-bottom: 20px;
+  overflow-x: auto;
 }
 
 .rrhh-detail-tabs button {
@@ -691,6 +794,7 @@
   padding: 10px 14px;
   cursor: pointer;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .rrhh-detail-tabs button.active {
@@ -889,6 +993,36 @@
   .rrhh-doc-grid,
   .rrhh-person-card-body {
     grid-template-columns: 1fr;
+  }
+
+  /* Encabezado de la ficha apilado (foto, nombre, chips, acciones) -- la X
+     de cerrar queda fija arriba a la derecha (position:absolute) en
+     cualquier ancho, no hace falta tocarla aca. */
+  .rrhh-detail-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .rrhh-detail-identity {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .rrhh-detail-header-actions .button {
+    flex: 1;
+  }
+
+  /* Pestañas: en desktop son un grid de columnas iguales (ver regla base);
+     en mobile eso las aplastaria, asi que pasan a ancho natural con scroll
+     horizontal en una sola fila. */
+  .rrhh-detail-tabs {
+    display: flex;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .rrhh-detail-tabs button {
+    flex: none;
   }
 }
 
@@ -1129,13 +1263,10 @@
   font-weight: 600;
 }
 
-/* Foto clickeable del header de la ficha (PersonalDetail.jsx) -- mismo
-   avatar circular de siempre, con overlay de camara al hover/focus y un
-   menu chico "Cambiar/Subir foto" + "Quitar foto". */
-
-.rrhh-detail-avatar-wrap {
-  position: relative;
-}
+/* Foto clickeable del header de la ficha (PersonalDetail.jsx): cuadrada
+   (mismo radio que .rrhh-detail-avatar), con overlay de camara al
+   hover/focus. El click abre el visor grande (.rrhh-photo-viewer), que
+   reemplazo al menu chico "Cambiar/Quitar" que colgaba de la foto. */
 
 .rrhh-detail-avatar-button {
   border: 0;
@@ -1147,7 +1278,7 @@
 .rrhh-detail-avatar-overlay {
   position: absolute;
   inset: 0;
-  border-radius: 999px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1162,39 +1293,58 @@
   opacity: 1;
 }
 
-.rrhh-detail-avatar-menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  z-index: 5;
-  background: #0f172a;
-  border: 1px solid var(--rrhh-line);
-  border-radius: 14px;
-  padding: 6px;
+/* Visor grande de foto (click en la foto del header): mismo overlay +
+   panel flotante que el resto de los modales de este modulo, con las
+   acciones "Cambiar foto" / "Quitar foto" debajo. */
+
+.rrhh-photo-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rrhh-photo-viewer-panel {
+  position: relative;
+  z-index: 1;
   display: grid;
-  gap: 4px;
-  min-width: 160px;
-  box-shadow: 0 18px 36px rgba(2, 6, 23, 0.4);
+  gap: 16px;
+  justify-items: center;
+  background: linear-gradient(180deg, #0f172a, #111827);
+  border: 1px solid var(--rrhh-line);
+  border-radius: 24px;
+  padding: 28px;
+  width: min(420px, calc(100vw - 48px));
+  box-shadow: 0 28px 80px rgba(2, 6, 23, 0.5);
 }
 
-.rrhh-detail-avatar-menu button {
-  border: 0;
-  background: transparent;
-  color: var(--rrhh-text-soft);
-  text-align: left;
-  padding: 8px 10px;
-  border-radius: 10px;
-  cursor: pointer;
-  font-size: 13px;
+.rrhh-photo-viewer-img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 16px;
 }
 
-.rrhh-detail-avatar-menu button:hover {
-  background: rgba(51, 65, 85, 0.6);
+.rrhh-photo-viewer-placeholder {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  font-size: 48px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #0f766e, #2563eb);
 }
 
-.rrhh-detail-avatar-menu button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.rrhh-photo-viewer-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 /* Caja de solo-lectura del link de autocompletado (RrhhScreen.jsx) */
@@ -1245,6 +1395,39 @@
 
 .rrhh-doc-tab-cursos {
   margin-top: 8px;
+}
+
+/* "Registros anteriores" (habilitaciones/carnet/capacitaciones sin archivo
+   vinculado) -- solo lectura, visualmente mas apagado que las tarjetas de
+   arriba para que quede claro que no es parte del flujo activo. */
+.rrhh-doc-legacy {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px dashed rgba(51, 65, 85, 0.9);
+}
+
+.rrhh-doc-legacy-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.rrhh-doc-legacy-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid rgba(51, 65, 85, 0.6);
+}
+
+.rrhh-doc-legacy-label {
+  font-weight: 700;
+  color: var(--rrhh-text-soft);
+  font-size: 13px;
 }
 
 /* Grilla de tarjetas (rediseño): 2 columnas en desktop, 1 en mobile. */

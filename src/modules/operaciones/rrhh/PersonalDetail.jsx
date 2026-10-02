@@ -1,20 +1,25 @@
 import React from 'react';
-import { MapPin, Star, Shield, GraduationCap, HeartPulse, UserCircle2, Plus, Trash2, AlertTriangle, CalendarClock, Camera, History } from 'lucide-react';
-import { StatusPill, LICENCIA_TIPO_LABELS } from './PersonalList.jsx';
+import { MapPin, Star, UserCircle2, Plus, Trash2, AlertTriangle, CalendarClock, Camera, History, X } from 'lucide-react';
+import { StatusPill, LICENCIA_TIPO_LABELS, estadoEfectivoDisplay } from './PersonalList.jsx';
 import { displayBases, displayFullName } from './personDisplay.js';
 import PersonFotoCapture from '../../../components/PersonFotoCapture.jsx';
 import PersonalDocumentosTab from './PersonalDocumentosTab.jsx';
 
+// Habilitaciones/Capacitaciones/Carné de salud se sacaron de aca (ver
+// PersonalDocumentosTab.jsx, seccion "Registros anteriores"): esas 3
+// pestañas viejas permitian cargar datos sin ningun archivo adjunto, un
+// flujo paralelo a Documentación que ya cubre lo mismo con el archivo
+// subido. Los registros que ya existian sin archivo se migraron a esa
+// seccion de solo lectura antes de sacar las pestañas, para no perderlos.
 const TABS = [
   { key: 'datos_generales', label: 'Datos generales' },
   { key: 'roles', label: 'Roles' },
   { key: 'documentos', label: 'Documentación' },
-  { key: 'habilitaciones', label: 'Habilitaciones' },
-  { key: 'capacitaciones', label: 'Capacitaciones' },
-  { key: 'carnet_salud', label: 'Carné de salud' },
   { key: 'licencias', label: 'Licencias' },
   { key: 'cambios', label: 'Cambios' }
 ];
+
+const TIPO_PERSONAL_LABELS = { interno: 'Interno', externo: 'Externo' };
 
 const CAMBIO_CAMPO_LABELS = {
   telefono: 'Teléfono',
@@ -128,9 +133,6 @@ function getProximosFrancos(refDateOnly, count = 3) {
   return francos;
 }
 
-const emptyHabilitacionDraft = { tipo: '', numero: '', organismo_emisor: '', fecha_emision: '', fecha_vencimiento: '', documento_url: '', estado: 'vigente' };
-const emptyCapacitacionDraft = { tipo_capacitacion: '', institucion: '', fecha_emision: '', fecha_vencimiento: '', documento_url: '' };
-const emptyCarnetDraft = { fecha_emision: '', fecha_vencimiento: '', documento_url: '' };
 const emptyLicenciaDraft = { tipo: '', fecha_desde: '', fecha_hasta: '', observaciones: '' };
 
 // Mismos 4 roles que REGIMEN_TURNO_ROLES en PersonalForm.jsx (duplicado a
@@ -155,13 +157,8 @@ export default function PersonalDetail({
   formatRol,
   getBaseLabel,
   getStatusVariant,
-  getDocumentStatusVariant,
-  getVencimientoMeta,
   onAddRole,
   onRemoveRole,
-  onAddHabilitacion,
-  onAddCapacitacion,
-  onAddCarnetSalud,
   onAddLicencia,
   onUpdateLicencia,
   onDarDeBaja,
@@ -175,16 +172,10 @@ export default function PersonalDetail({
   cambiosError
 }) {
   const [roleToAdd, setRoleToAdd] = React.useState('');
-  const [showFotoMenu, setShowFotoMenu] = React.useState(false);
   const [showFotoCapture, setShowFotoCapture] = React.useState(false);
-  const [showHabilitacionForm, setShowHabilitacionForm] = React.useState(false);
-  const [showCapacitacionForm, setShowCapacitacionForm] = React.useState(false);
-  const [showCarnetForm, setShowCarnetForm] = React.useState(false);
+  const [showPhotoViewer, setShowPhotoViewer] = React.useState(false);
   const [showLicenciaForm, setShowLicenciaForm] = React.useState(false);
   const [editingLicenciaId, setEditingLicenciaId] = React.useState(null);
-  const [habilitacionDraft, setHabilitacionDraft] = React.useState(emptyHabilitacionDraft);
-  const [capacitacionDraft, setCapacitacionDraft] = React.useState(emptyCapacitacionDraft);
-  const [carnetDraft, setCarnetDraft] = React.useState(emptyCarnetDraft);
   const [licenciaDraft, setLicenciaDraft] = React.useState(emptyLicenciaDraft);
   const [showBajaConfirm, setShowBajaConfirm] = React.useState(false);
   const [bajaFechaEgreso, setBajaFechaEgreso] = React.useState(todayDateOnly());
@@ -194,30 +185,58 @@ export default function PersonalDetail({
 
   React.useEffect(() => {
     setRoleToAdd('');
-    setShowHabilitacionForm(false);
-    setShowCapacitacionForm(false);
-    setShowCarnetForm(false);
     setShowLicenciaForm(false);
     setEditingLicenciaId(null);
     setLicenciaDraft(emptyLicenciaDraft);
-    setHabilitacionDraft(emptyHabilitacionDraft);
-    setCapacitacionDraft(emptyCapacitacionDraft);
-    setCarnetDraft(emptyCarnetDraft);
     setShowBajaConfirm(false);
     setBajaFechaEgreso(todayDateOnly());
-    setShowFotoMenu(false);
     setShowFotoCapture(false);
+    setShowPhotoViewer(false);
     setShowRegimenEdit(false);
   }, [personal?.id]);
+
+  // Escape cierra la ficha -- mismo criterio que el boton X. No se registra
+  // si hay un sub-modal propio abierto (foto grande, captura, confirmar
+  // baja): en esos casos Escape deberia cerrar ESE paso primero, no saltar
+  // directo a cerrar toda la ficha.
+  //
+  // El listener se suscribe UNA sola vez (deps []) y lee el estado actual
+  // via ref, en vez de volver a suscribirse en cada cambio de
+  // showPhotoViewer/showFotoCapture/onClose: hay un listener de actividad
+  // global (registerActivity en main.jsx) que corre en CADA keydown de toda
+  // la app y re-renderiza el arbol completo, incluida esta ficha -- si este
+  // efecto dependiera de esos valores, React desuscribe y vuelve a
+  // suscribir el listener de window EN MEDIO del mismo despacho del evento
+  // Escape (el listener de actividad, montado antes, se ejecuta primero en
+  // bubble phase), y por spec del DOM un listener removido durante el
+  // despacho de un evento ya no se invoca para ESE evento -- Escape se
+  // perdia silenciosamente. Con deps [] el listener nunca se recrea, asi
+  // que no hay carrera posible.
+  const escapeStateRef = React.useRef(null);
+  escapeStateRef.current = { showPhotoViewer, showFotoCapture, onClose };
+
+  React.useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key !== 'Escape') return;
+      const { showPhotoViewer: isPhotoViewerOpen, showFotoCapture: isCaptureOpen, onClose: close } = escapeStateRef.current;
+      if (isPhotoViewerOpen) { setShowPhotoViewer(false); return; }
+      if (isCaptureOpen) return;
+      close();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   if (loading) {
     return (
       <div className="rrhh-modal-root" role="dialog" aria-modal="true" aria-label="Ficha de personal">
         <div className="lot-wizard-overlay" onClick={onClose} />
         <div className="rrhh-detail-panel">
+          <button type="button" className="rrhh-detail-close" onClick={onClose} aria-label="Cerrar">
+            <X size={18} />
+          </button>
           <div className="rrhh-detail-header">
             <div>Cargando funcionario...</div>
-            <Button variant="ghost" onClick={onClose}>Cerrar</Button>
           </div>
         </div>
       </div>
@@ -229,9 +248,11 @@ export default function PersonalDetail({
       <div className="rrhh-modal-root" role="dialog" aria-modal="true" aria-label="Ficha de personal">
         <div className="lot-wizard-overlay" onClick={onClose} />
         <div className="rrhh-detail-panel">
+          <button type="button" className="rrhh-detail-close" onClick={onClose} aria-label="Cerrar">
+            <X size={18} />
+          </button>
           <div className="rrhh-detail-header">
             <div>{error}</div>
-            <Button variant="ghost" onClick={onClose}>Cerrar</Button>
           </div>
         </div>
       </div>
@@ -241,22 +262,12 @@ export default function PersonalDetail({
   if (!personal) return null;
 
   const roles = personal.roles || [];
-  const habilitaciones = personal.habilitaciones || [];
-  const capacitaciones = personal.capacitaciones || [];
-  // El backend ordena carnet_salud DESC por created_at: el primero es el mas
-  // reciente / vigente.
-  const carnetSalud = (personal.carnet_salud || [])[0] || null;
   const licencias = personal.licencias || [];
 
-  const fullName = [personal.nombre, personal.apellido].filter(Boolean).join(' ');
   const primaryRole = roles.find((item) => item.rol_principal)?.rol || '';
   const missingFields = getMissingFields(personal);
   const availableRolesToAdd = roleOptions.filter((rol) => !roles.some((item) => item.rol === rol));
-
-  const renderVencimientoTag = (dateValue) => {
-    const meta = getVencimientoMeta(dateValue);
-    return <Tag variant={meta.variant}>{meta.label}</Tag>;
-  };
+  const estadoIndicator = estadoEfectivoDisplay(personal);
 
   // Valor de un campo opcional: si esta vacio, lo marca visualmente como
   // pendiente en vez de mostrar un simple "Sin dato" igual al resto.
@@ -284,27 +295,6 @@ export default function PersonalDetail({
     if (!roleToAdd) return;
     onAddRole(roleToAdd, { rol_principal: !roles.length });
     setRoleToAdd('');
-  };
-
-  const handleAddHabilitacion = () => {
-    if (!habilitacionDraft.tipo.trim()) return;
-    onAddHabilitacion(habilitacionDraft);
-    setHabilitacionDraft(emptyHabilitacionDraft);
-    setShowHabilitacionForm(false);
-  };
-
-  const handleAddCapacitacion = () => {
-    if (!capacitacionDraft.tipo_capacitacion.trim()) return;
-    onAddCapacitacion(capacitacionDraft);
-    setCapacitacionDraft(emptyCapacitacionDraft);
-    setShowCapacitacionForm(false);
-  };
-
-  const handleAddCarnet = () => {
-    if (!carnetDraft.fecha_emision) return;
-    onAddCarnetSalud(carnetDraft);
-    setCarnetDraft(emptyCarnetDraft);
-    setShowCarnetForm(false);
   };
 
   const startEditLicencia = (licencia) => {
@@ -392,7 +382,7 @@ export default function PersonalDetail({
   };
 
   const handleQuitarFoto = async () => {
-    setShowFotoMenu(false);
+    setShowPhotoViewer(false);
     await onDeleteFoto();
   };
 
@@ -400,49 +390,47 @@ export default function PersonalDetail({
     <div className="rrhh-modal-root" role="dialog" aria-modal="true" aria-label="Ficha de personal">
       <div className="lot-wizard-overlay" onClick={onClose} />
       <div className="rrhh-detail-panel">
+        <button type="button" className="rrhh-detail-close" onClick={onClose} aria-label="Cerrar">
+          <X size={18} />
+        </button>
         <div className="rrhh-detail-header">
           <div className="rrhh-detail-identity">
-            <div className="rrhh-detail-avatar-wrap">
-              <button
-                type="button"
-                className="rrhh-detail-avatar rrhh-detail-avatar-button"
-                onClick={() => setShowFotoMenu((prev) => !prev)}
-                aria-label="Cambiar foto"
-                style={personal.foto_url ? { backgroundImage: `url(${personal.foto_url})` } : undefined}
-              >
-                {!personal.foto_url ? (`${personal.nombre?.[0] || ''}${personal.apellido?.[0] || ''}`.toUpperCase() || 'SU') : null}
-                <span className="rrhh-detail-avatar-overlay"><Camera size={16} /></span>
-              </button>
-              {showFotoMenu ? (
-                <div className="rrhh-detail-avatar-menu">
-                  <button type="button" onClick={() => { setShowFotoMenu(false); setShowFotoCapture(true); }}>
-                    {personal.foto_url ? 'Cambiar foto' : 'Subir foto'}
-                  </button>
-                  {personal.foto_url ? (
-                    <button type="button" onClick={handleQuitarFoto} disabled={fotoUploading}>Quitar foto</button>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
+            <button
+              type="button"
+              className="rrhh-detail-avatar rrhh-detail-avatar-button"
+              onClick={() => setShowPhotoViewer(true)}
+              aria-label="Ver foto"
+              style={personal.foto_url ? { backgroundImage: `url(${personal.foto_url})` } : undefined}
+            >
+              {!personal.foto_url ? (`${personal.nombre?.[0] || ''}${personal.apellido?.[0] || ''}`.toUpperCase() || 'SU') : null}
+              <span className="rrhh-detail-avatar-overlay"><Camera size={16} /></span>
+            </button>
             <div>
-              <h2>{fullName}</h2>
-              <p>{primaryRole ? formatRol(primaryRole) : 'Sin rol principal definido'}</p>
-              <div className="rrhh-detail-base">
-                <MapPin size={16} />
-                <span>{displayBases(personal.bases)}</span>
-              </div>
+              <h2>{displayFullName(personal)}</h2>
+              <p className="rrhh-detail-subtitle">
+                <span>{primaryRole ? formatRol(primaryRole) : 'Sin rol principal definido'}</span>
+                <span aria-hidden="true"> · </span>
+                <span className="rrhh-detail-base-inline">
+                  <MapPin size={14} />
+                  {displayBases(personal.bases)}
+                </span>
+              </p>
             </div>
           </div>
-          <div className="rrhh-detail-header-actions">
-            <StatusPill person={personal} getStatusVariant={getStatusVariant} Tag={Tag} />
-            <Tag variant={personal.tipo_personal === 'externo' ? 'info' : 'success'}>
-              {personal.tipo_personal}
+          <div className="rrhh-detail-header-chips">
+            <span className={`rrhh-detail-status rrhh-detail-status-${estadoIndicator.className}`}>
+              <span className="rrhh-detail-status-dot" />
+              {estadoIndicator.label}
+            </span>
+            <Tag variant={personal.tipo_personal === 'externo' ? 'info' : 'neutral'}>
+              {TIPO_PERSONAL_LABELS[personal.tipo_personal] || personal.tipo_personal}
             </Tag>
+          </div>
+          <div className="rrhh-detail-header-actions">
             <Button variant="secondary" onClick={() => onEdit(personal.id)}>Editar</Button>
             {personal.estado !== 'baja' ? (
-              <Button variant="ghost" onClick={() => setShowBajaConfirm((prev) => !prev)}>Dar de baja</Button>
+              <Button variant="danger" onClick={() => setShowBajaConfirm((prev) => !prev)}>Dar de baja</Button>
             ) : null}
-            <Button variant="ghost" onClick={onClose}>Cerrar</Button>
           </div>
         </div>
 
@@ -632,126 +620,6 @@ export default function PersonalDetail({
             <PersonalDocumentosTab personalId={personal.id} />
           ) : null}
 
-          {activeTab === 'habilitaciones' ? (
-            <section className="rrhh-detail-card">
-              <div className="rrhh-section-title">
-                <div className="rrhh-inline-title"><Shield size={18} /><span>Habilitaciones</span></div>
-                <Button variant="secondary" icon={<Plus size={16} />} onClick={() => setShowHabilitacionForm((prev) => !prev)}>Cargar nueva</Button>
-              </div>
-
-              {showHabilitacionForm ? (
-                <div className="rrhh-inline-form">
-                  <input placeholder="Tipo (ej. Registro MSP)" value={habilitacionDraft.tipo} onChange={(event) => setHabilitacionDraft((prev) => ({ ...prev, tipo: event.target.value }))} />
-                  <input placeholder="Numero" value={habilitacionDraft.numero} onChange={(event) => setHabilitacionDraft((prev) => ({ ...prev, numero: event.target.value }))} />
-                  <input placeholder="Organismo emisor" value={habilitacionDraft.organismo_emisor} onChange={(event) => setHabilitacionDraft((prev) => ({ ...prev, organismo_emisor: event.target.value }))} />
-                  <select value={habilitacionDraft.estado} onChange={(event) => setHabilitacionDraft((prev) => ({ ...prev, estado: event.target.value }))}>
-                    <option value="vigente">vigente</option>
-                    <option value="vencida">vencida</option>
-                    <option value="en_tramite">en_tramite</option>
-                  </select>
-                  <input type="date" value={habilitacionDraft.fecha_emision} onChange={(event) => setHabilitacionDraft((prev) => ({ ...prev, fecha_emision: event.target.value }))} />
-                  <input type="date" value={habilitacionDraft.fecha_vencimiento} onChange={(event) => setHabilitacionDraft((prev) => ({ ...prev, fecha_vencimiento: event.target.value }))} />
-                  <input placeholder="documento_url" value={habilitacionDraft.documento_url} onChange={(event) => setHabilitacionDraft((prev) => ({ ...prev, documento_url: event.target.value }))} />
-                  <div className="rrhh-inline-actions">
-                    <Button variant="ghost" onClick={() => setShowHabilitacionForm(false)}>Cancelar</Button>
-                    <Button onClick={handleAddHabilitacion}>Guardar habilitación</Button>
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="rrhh-detail-list">
-                {habilitaciones.map((item) => (
-                  <article key={item.id} className="rrhh-doc-card">
-                    <div className="rrhh-doc-head">
-                      <strong>{item.tipo}</strong>
-                      <Tag variant={getDocumentStatusVariant(item.estado)}>{item.estado || 'sin estado'}</Tag>
-                    </div>
-                    <div className="rrhh-doc-grid">
-                      <span>Número</span><strong>{item.numero || 'Sin dato'}</strong>
-                      <span>Organismo emisor</span><strong>{item.organismo_emisor || 'Sin dato'}</strong>
-                      <span>Fecha emisión</span><strong>{item.fecha_emision ? formatDateOnlyDisplay(item.fecha_emision) : 'Sin dato'}</strong>
-                      <span>Fecha vencimiento</span><strong>{renderVencimientoTag(item.fecha_vencimiento)}</strong>
-                      <span>Documento</span><strong>{item.documento_url || 'Sin adjunto'}</strong>
-                    </div>
-                  </article>
-                ))}
-                {!habilitaciones.length ? <div className="rrhh-empty-inline">No hay habilitaciones cargadas.</div> : null}
-              </div>
-            </section>
-          ) : null}
-
-          {activeTab === 'capacitaciones' ? (
-            <section className="rrhh-detail-card">
-              <div className="rrhh-section-title">
-                <div className="rrhh-inline-title"><GraduationCap size={18} /><span>Capacitaciones</span></div>
-                <Button variant="secondary" icon={<Plus size={16} />} onClick={() => setShowCapacitacionForm((prev) => !prev)}>Cargar nueva</Button>
-              </div>
-
-              {showCapacitacionForm ? (
-                <div className="rrhh-inline-form">
-                  <input placeholder="Tipo de capacitacion" value={capacitacionDraft.tipo_capacitacion} onChange={(event) => setCapacitacionDraft((prev) => ({ ...prev, tipo_capacitacion: event.target.value }))} />
-                  <input placeholder="Institucion" value={capacitacionDraft.institucion} onChange={(event) => setCapacitacionDraft((prev) => ({ ...prev, institucion: event.target.value }))} />
-                  <input type="date" value={capacitacionDraft.fecha_emision} onChange={(event) => setCapacitacionDraft((prev) => ({ ...prev, fecha_emision: event.target.value }))} />
-                  <input type="date" value={capacitacionDraft.fecha_vencimiento} onChange={(event) => setCapacitacionDraft((prev) => ({ ...prev, fecha_vencimiento: event.target.value }))} />
-                  <input placeholder="documento_url" value={capacitacionDraft.documento_url} onChange={(event) => setCapacitacionDraft((prev) => ({ ...prev, documento_url: event.target.value }))} />
-                  <div className="rrhh-inline-actions">
-                    <Button variant="ghost" onClick={() => setShowCapacitacionForm(false)}>Cancelar</Button>
-                    <Button onClick={handleAddCapacitacion}>Guardar capacitación</Button>
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="rrhh-detail-list">
-                {capacitaciones.map((item) => (
-                  <article key={item.id} className="rrhh-doc-card">
-                    <div className="rrhh-doc-head">
-                      <strong>{item.tipo_capacitacion}</strong>
-                      {renderVencimientoTag(item.fecha_vencimiento)}
-                    </div>
-                    <div className="rrhh-doc-grid">
-                      <span>Institución</span><strong>{item.institucion || 'Sin dato'}</strong>
-                      <span>Fecha emisión</span><strong>{item.fecha_emision ? formatDateOnlyDisplay(item.fecha_emision) : 'Sin dato'}</strong>
-                      <span>Fecha vencimiento</span><strong>{item.fecha_vencimiento ? formatDateOnlyDisplay(item.fecha_vencimiento) : 'Sin dato'}</strong>
-                      <span>Documento</span><strong>{item.documento_url || 'Sin adjunto'}</strong>
-                    </div>
-                  </article>
-                ))}
-                {!capacitaciones.length ? <div className="rrhh-empty-inline">No hay capacitaciones cargadas.</div> : null}
-              </div>
-            </section>
-          ) : null}
-
-          {activeTab === 'carnet_salud' ? (
-            <section className="rrhh-detail-card">
-              <div className="rrhh-section-title">
-                <div className="rrhh-inline-title"><HeartPulse size={18} /><span>Carné de salud</span></div>
-                <Button variant="secondary" icon={<Plus size={16} />} onClick={() => setShowCarnetForm((prev) => !prev)}>Cargar nuevo</Button>
-              </div>
-
-              {showCarnetForm ? (
-                <div className="rrhh-inline-form">
-                  <input type="date" value={carnetDraft.fecha_emision} onChange={(event) => setCarnetDraft((prev) => ({ ...prev, fecha_emision: event.target.value }))} />
-                  <input type="date" value={carnetDraft.fecha_vencimiento} onChange={(event) => setCarnetDraft((prev) => ({ ...prev, fecha_vencimiento: event.target.value }))} />
-                  <input placeholder="documento_url" value={carnetDraft.documento_url} onChange={(event) => setCarnetDraft((prev) => ({ ...prev, documento_url: event.target.value }))} />
-                  <div className="rrhh-inline-actions">
-                    <Button variant="ghost" onClick={() => setShowCarnetForm(false)}>Cancelar</Button>
-                    <Button onClick={handleAddCarnet}>Guardar carné</Button>
-                  </div>
-                </div>
-              ) : null}
-
-              {carnetSalud ? (
-                <div className="rrhh-kv-list">
-                  <div><span>Fecha emisión</span><strong>{formatDateOnlyDisplay(carnetSalud.fecha_emision)}</strong></div>
-                  <div><span>Fecha vencimiento</span><strong>{renderVencimientoTag(carnetSalud.fecha_vencimiento)}</strong></div>
-                  <div><span>Documento adjunto</span><strong>{carnetSalud.documento_url || 'Sin adjunto'}</strong></div>
-                </div>
-              ) : (
-                <div className="rrhh-empty-inline">No hay carné de salud cargado.</div>
-              )}
-            </section>
-          ) : null}
-
           {activeTab === 'licencias' ? (
             <section className="rrhh-detail-card">
               <div className="rrhh-section-title">
@@ -837,6 +705,32 @@ export default function PersonalDetail({
           ) : null}
         </div>
       </div>
+
+      {showPhotoViewer && !showFotoCapture ? (
+        <div className="rrhh-photo-viewer" role="dialog" aria-modal="true" aria-label={`Foto de ${displayFullName(personal)}`}>
+          <div className="lot-wizard-overlay" onClick={() => setShowPhotoViewer(false)} />
+          <div className="rrhh-photo-viewer-panel">
+            <button type="button" className="rrhh-detail-close" onClick={() => setShowPhotoViewer(false)} aria-label="Cerrar">
+              <X size={18} />
+            </button>
+            {personal.foto_url ? (
+              <img className="rrhh-photo-viewer-img" src={personal.foto_url} alt={`Foto de ${displayFullName(personal)}`} />
+            ) : (
+              <div className="rrhh-photo-viewer-placeholder">
+                {`${personal.nombre?.[0] || ''}${personal.apellido?.[0] || ''}`.toUpperCase() || 'SU'}
+              </div>
+            )}
+            <div className="rrhh-photo-viewer-actions">
+              <Button variant="secondary" onClick={() => { setShowPhotoViewer(false); setShowFotoCapture(true); }}>
+                {personal.foto_url ? 'Cambiar foto' : 'Subir foto'}
+              </Button>
+              {personal.foto_url ? (
+                <Button variant="ghost" onClick={handleQuitarFoto} disabled={fotoUploading}>Quitar foto</Button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {showFotoCapture ? (
         <PersonFotoCapture

@@ -99,7 +99,7 @@ const LICENCIA_ESTADO_LABELS = {
 // subtipo si se reconoce), suspendido (naranja), baja (gris). Independiente
 // de StatusPill/statusToVariant (que sigue usando PersonalDetail.jsx sin
 // cambios) -- esta tarjeta tiene su propio chip mas compacto.
-function estadoEfectivoDisplay(person) {
+export function estadoEfectivoDisplay(person) {
   const effective = getEffectiveEstado(person);
   if (effective.estado === 'licencia') {
     const tipo = effective.licencia?.tipo;

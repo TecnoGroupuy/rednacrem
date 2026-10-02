@@ -2,15 +2,6 @@ import { getApiClient } from './apiClient.js';
 
 // Mismo patron que flotasService.js: getApiClient(), sin enviar organization_id
 // (lo resuelve el backend via el contexto de sesion/org activa).
-//
-// Nota sobre rutas confirmadas contra index.mjs (no contra el prompt que las
-// pidio): las rutas PATCH de habilitaciones/capacitaciones/carnet-salud SI
-// requieren personal_id en el path -- los regex reales son
-// /operaciones/personal/:id/habilitaciones/:habId,
-// /operaciones/personal/:id/capacitaciones/:capId y
-// /operaciones/personal/:id/carnet-salud/:carnetId (operacionesPersonalHabMatch
-// / CapMatch / CarnetMatch en index.mjs), no las rutas "planas" sin
-// personal_id que se habian asumido antes.
 
 const api = getApiClient();
 
@@ -102,7 +93,14 @@ export async function getCambiosPublicos(personalId) {
 
 export async function getDocumentosPersonal(personalId) {
   const response = await api.get(`/operaciones/personal/${personalId}/documentos`);
-  return { checklist: response?.checklist || [], cursos: response?.cursos || [] };
+  return {
+    checklist: response?.checklist || [],
+    cursos: response?.cursos || [],
+    // Habilitaciones/carnet de salud/capacitaciones cargados por las
+    // pestañas viejas (antes de Documentación), sin ningun archivo
+    // vinculado -- ver getRegistrosDocumentalesAnteriores en el backend.
+    registrosAnteriores: response?.registros_anteriores || { habilitaciones: [], carnet_salud: [], capacitaciones: [] }
+  };
 }
 
 // blob: JPEG (DocumentoCapture, sin recorte) o el PDF original tal cual.
@@ -151,36 +149,6 @@ export async function addPersonalRole(personalId, payload) {
 export async function deletePersonalRole(personalId, roleId) {
   const response = await api.del(`/operaciones/personal/${personalId}/roles/${roleId}`);
   return Boolean(response?.ok);
-}
-
-export async function addHabilitacion(personalId, payload) {
-  const response = await api.post(`/operaciones/personal/${personalId}/habilitaciones`, payload);
-  return response?.item || null;
-}
-
-export async function updateHabilitacion(personalId, habilitacionId, payload) {
-  const response = await api.patch(`/operaciones/personal/${personalId}/habilitaciones/${habilitacionId}`, payload);
-  return response?.item || null;
-}
-
-export async function addCapacitacion(personalId, payload) {
-  const response = await api.post(`/operaciones/personal/${personalId}/capacitaciones`, payload);
-  return response?.item || null;
-}
-
-export async function updateCapacitacion(personalId, capacitacionId, payload) {
-  const response = await api.patch(`/operaciones/personal/${personalId}/capacitaciones/${capacitacionId}`, payload);
-  return response?.item || null;
-}
-
-export async function addCarnetSalud(personalId, payload) {
-  const response = await api.post(`/operaciones/personal/${personalId}/carnet-salud`, payload);
-  return response?.item || null;
-}
-
-export async function updateCarnetSalud(personalId, carnetId, payload) {
-  const response = await api.patch(`/operaciones/personal/${personalId}/carnet-salud/${carnetId}`, payload);
-  return response?.item || null;
 }
 
 export async function listLicencias(personalId) {

@@ -18,9 +18,6 @@ import {
   addPersonalRole,
   deletePersonalRole,
   updatePersonalBases,
-  addHabilitacion,
-  addCapacitacion,
-  addCarnetSalud,
   addLicencia,
   updateLicencia,
   generateFichaLink,
@@ -99,12 +96,6 @@ const statusToVariant = {
   baja: 'info'
 };
 
-const docStatusToVariant = {
-  vigente: 'success',
-  vencida: 'danger',
-  en_tramite: 'warning'
-};
-
 // Las columnas de fecha de su_personal_* se confirmaron por nombre contra
 // produccion, no por tipo de dato exacto. Segun como esten tipadas
 // (date vs. timestamptz/text), el backend puede devolver "2026-01-10" o
@@ -116,18 +107,7 @@ export const toDateOnly = (value) => {
   return str.length > 10 && str.includes('T') ? str.slice(0, 10) : str;
 };
 
-// Puramente por string, sin pasar por ningun objeto Date -- mismo criterio
-// (y misma duplicacion a proposito) que su gemela en PersonalDetail.jsx/
-// PersonalList.jsx.
-const formatDateOnlyDisplay = (value) => {
-  const dateOnly = toDateOnly(value);
-  const parts = dateOnly.split('-');
-  if (parts.length !== 3) return dateOnly;
-  const [year, month, day] = parts;
-  return `${day}/${month}/${year}`;
-};
-
-// A diferencia de formatDateOnlyDisplay (fechas sin hora, ej.
+// A diferencia de un formateo de fecha sin hora (ej.
 // fecha_nacimiento -- ahi reinterpretar en hora local corre el dia), esto
 // es un timestamptz real (expires_at de un link) -- mostrar en hora local
 // del navegador es exactamente lo que corresponde, no hay corrimiento que
@@ -150,15 +130,6 @@ const diffDays = (dateValue) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-};
-
-const getVencimientoMeta = (dateValue) => {
-  const days = diffDays(dateValue);
-  const dateDisplay = formatDateOnlyDisplay(dateValue);
-  if (days === null) return { variant: 'info', label: 'Sin fecha' };
-  if (days < 0) return { variant: 'danger', label: `Vencida ${dateDisplay}` };
-  if (days <= 30) return { variant: 'warning', label: `Vence ${dateDisplay}` };
-  return { variant: 'success', label: `Vigente ${dateDisplay}` };
 };
 
 // Mapa explicito de los 13 roles del CHECK de su_personal_roles.rol, con
@@ -397,7 +368,6 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
 
   const getBaseLabel = React.useCallback((baseId) => baseById[baseId]?.nombre || 'Sin base', [baseById]);
   const getStatusVariant = React.useCallback((status) => statusToVariant[status] || 'info', []);
-  const getDocumentStatusVariant = React.useCallback((status) => docStatusToVariant[status] || 'info', []);
 
   // Mismo icono/lugar para dos señales distintas: vencimientos (rojo si ya
   // venció, nunca se opaca por nada menos urgente) y documentos nuevos
@@ -650,39 +620,6 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
     }
   };
 
-  const handleAddHabilitacion = async (draft) => {
-    if (!selectedPersonalId) return;
-    try {
-      await addHabilitacion(selectedPersonalId, draft);
-      refreshSelectedDetail();
-      refreshVencimientos();
-    } catch (err) {
-      setActionError(err?.message || 'No se pudo guardar la habilitación.');
-    }
-  };
-
-  const handleAddCapacitacion = async (draft) => {
-    if (!selectedPersonalId) return;
-    try {
-      await addCapacitacion(selectedPersonalId, draft);
-      refreshSelectedDetail();
-      refreshVencimientos();
-    } catch (err) {
-      setActionError(err?.message || 'No se pudo guardar la capacitación.');
-    }
-  };
-
-  const handleAddCarnetSalud = async (draft) => {
-    if (!selectedPersonalId) return;
-    try {
-      await addCarnetSalud(selectedPersonalId, draft);
-      refreshSelectedDetail();
-      refreshVencimientos();
-    } catch (err) {
-      setActionError(err?.message || 'No se pudo guardar el carné de salud.');
-    }
-  };
-
   // Igual que refreshVencimientos: refresco liviano sin el loading global de
   // loadRrhh -- hace falta ademas de refreshSelectedDetail (que solo
   // actualiza la ficha abierta) porque licencia_vigente tambien se muestra
@@ -906,13 +843,8 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
           formatRol={formatRol}
           getBaseLabel={getBaseLabel}
           getStatusVariant={getStatusVariant}
-          getDocumentStatusVariant={getDocumentStatusVariant}
-          getVencimientoMeta={getVencimientoMeta}
           onAddRole={handleAddRole}
           onRemoveRole={handleRemoveRole}
-          onAddHabilitacion={handleAddHabilitacion}
-          onAddCapacitacion={handleAddCapacitacion}
-          onAddCarnetSalud={handleAddCarnetSalud}
           onAddLicencia={handleAddLicencia}
           onUpdateLicencia={handleUpdateLicencia}
           onDarDeBaja={handleDarDeBaja}
