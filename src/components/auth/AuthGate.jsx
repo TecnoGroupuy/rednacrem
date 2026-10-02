@@ -2,7 +2,8 @@ import React from 'react';
 import { Loader2 } from 'lucide-react';
 import { useAuth as useOidcAuth } from 'react-oidc-context';
 import { useAuth as useAppAuth } from '../../auth/AuthProvider.jsx';
-import { setUnauthorizedHandler } from '../../services/apiClient.js';
+import { setUnauthorizedHandler, isAuthLoggingOut } from '../../services/apiClient.js';
+import { closeCognitoSession } from '../../auth/logoutFlow.js';
 import EstadoNoAutenticado from './EstadoNoAutenticado.jsx';
 import RequireApprovedUser from '../guards/RequireApprovedUser.jsx';
 
@@ -76,6 +77,10 @@ export default function AuthGate({ children }) {
   const redirectingRef = React.useRef(false);
   React.useEffect(() => {
     setUnauthorizedHandler(() => {
+      // Mientras se esta cerrando sesion (handleLogout / closeCognitoSession)
+      // un 401 tardio (ej. el evento LOGOUT del agente) no debe re-loguear
+      // al usuario -- ver isAuthLoggingOut en apiClient.js.
+      if (isAuthLoggingOut()) return;
       if (redirectingRef.current) return;
       const isLocalDevSession = authSession?.accessToken === 'dev-token';
       if (isLocalDevSession || !oidcAuth?.signinRedirect) return;
@@ -128,12 +133,7 @@ export default function AuthGate({ children }) {
           accessToken: oidcAuth.user.access_token || null,
           idToken: oidcAuth.user.id_token || null
         })}
-        onLogout={async () => {
-          try {
-            await oidcAuth.removeUser();
-          } catch {}
-          await logout();
-        }}
+        onLogout={() => closeCognitoSession({ oidcAuth, logout })}
       />
     );
   }

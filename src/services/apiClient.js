@@ -89,6 +89,22 @@ export function setUnauthorizedHandler(handler) {
   unauthorizedHandler = typeof handler === 'function' ? handler : null;
 }
 
+// Flag global para la ventana de "cerrando sesion" (ver src/auth/logoutFlow.js).
+// Mientras esta activo, el handler de 401 registrado en AuthGate.jsx lo
+// consulta y no dispara signinRedirect -- sin esto, un 401 que llegara
+// durante el propio cierre de sesion (por ejemplo el evento LOGOUT del
+// agente, que corre en paralelo con el resto del flujo) podia re-loguear al
+// usuario mientras la sesion "ya estaba cerrada" localmente.
+let loggingOut = false;
+
+export function setAuthLoggingOut(value) {
+  loggingOut = Boolean(value);
+}
+
+export function isAuthLoggingOut() {
+  return loggingOut;
+}
+
 function notifyUnauthorized(status) {
   if (status === 401 && unauthorizedHandler) {
     try {
@@ -112,7 +128,7 @@ function extractErrorMessage(parsed, status) {
 }
 
 export function createApiClient({ baseUrl, getAccessToken }) {
-  const request = async (path, { method = 'GET', headers = {}, body } = {}) => {
+  const request = async (path, { method = 'GET', headers = {}, body, signal } = {}) => {
     const rawUrl = buildApiUrl(path, baseUrl);
     const finalUrl = (() => {
       if (!activeOrganizationId) return rawUrl;
@@ -157,7 +173,8 @@ export function createApiClient({ baseUrl, getAccessToken }) {
     const response = await fetch(finalUrl, {
       method,
       headers: finalHeaders,
-      body: shouldSerializeJson ? JSON.stringify(body) : (hasBody ? body : undefined)
+      body: shouldSerializeJson ? JSON.stringify(body) : (hasBody ? body : undefined),
+      signal
     });
 
     const contentType = response.headers.get('content-type') || '';

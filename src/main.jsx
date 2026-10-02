@@ -2,7 +2,8 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { AuthProvider as OidcAuthProvider, useAuth as useOidcAuth } from 'react-oidc-context';
-import { buildCognitoHostedUiLogoutUrl, cognitoAuthConfig } from './auth/cognitoConfig';
+import { cognitoAuthConfig } from './auth/cognitoConfig';
+import { closeCognitoSession } from './auth/logoutFlow.js';
 import CompletarFichaScreen from './modules/public/CompletarFichaScreen.jsx';
 import './tailwind.css';
 import {
@@ -127,7 +128,7 @@ import { useRolEfectivo } from './hooks/useRolEfectivo.js';
 import AuthGate from './components/auth/AuthGate.jsx';
 import { downloadCsvFile } from './utils/importWizardHelpers.js';
 import { formatDate } from './utils/dateFormat.js';
-import { buildApiUrl, getActiveOrganizationId, getApiClient, getApiBaseUrl, setActiveOrganizationId } from './services/apiClient.js';
+import { buildApiUrl, getActiveOrganizationId, getApiClient, getApiBaseUrl, setActiveOrganizationId, setAuthLoggingOut } from './services/apiClient.js';
 import { listMyOrganizations } from './services/organizationsService.js';
 import { io } from 'socket.io-client';
 import {
@@ -20240,10 +20241,27 @@ const formatCurrency = (value) => {
       };
 
       const handleLogout = async () => {
+        // 1) Desactivar el auto-signinRedirect-ante-401 de AuthGate ANTES de
+        // cualquier request: el evento LOGOUT de abajo corre con await pero
+        // puede volver con 401 (token ya vencido/limpiado), y sin este flag
+        // eso disparaba un signinRedirect que competia con la navegacion a
+        // Cognito del paso final (ver isAuthLoggingOut en apiClient.js).
+        setAuthLoggingOut(true);
+
         const api = getApiClient();
         const agenteId = authUser?.id || '';
         if (agenteId) {
-          api.post('/api/agent/event', { agente_id: agenteId, tipo: 'LOGOUT' }).catch(() => {});
+          // Con await pero con timeout corto: el evento es best-effort, no
+          // puede trabar ni demorar mas de 2s el cierre de sesion.
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 2000);
+          try {
+            await api.post('/api/agent/event', { agente_id: agenteId, tipo: 'LOGOUT' }, { signal: controller.signal });
+          } catch {
+            // no-op: si falla o se aborta por timeout, se sigue igual.
+          } finally {
+            clearTimeout(timeoutId);
+          }
         }
         setActiveOrganizationId(null);
         setActiveOrg(null);
@@ -20255,20 +20273,11 @@ const formatCurrency = (value) => {
         } catch {
           // no-op
         }
-        // 1) Cerrar sesion OIDC local para evitar estado stale en el frontend.
-        if (oidcAuth?.removeUser) {
-          try {
-            await oidcAuth.removeUser();
-          } catch {
-            // no-op
-          }
-        }
-        // 2) Limpiar sesion interna de la app.
-        await logout();
         setMenuOpen(isDesktop);
         volverAlTrabajo();
-        // 3) Cerrar sesion en Hosted UI de Cognito y volver a logout_uri.
-        window.location.assign(buildCognitoHostedUiLogoutUrl());
+        // 2) Cerrar sesion OIDC local, sesion interna de la app y navegar al
+        // /logout de Cognito -- misma funcion que usa SessionErrorView.
+        await closeCognitoSession({ oidcAuth, logout });
       };
 
       const handleOpenProfile = () => {
