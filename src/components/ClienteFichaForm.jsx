@@ -695,7 +695,10 @@ export default function ClienteFichaForm({ open, client, onClose, onUpdated, det
   };
 
   const supervisorName = [authUser?.nombre, authUser?.apellido].filter(Boolean).join(' ') || authUser?.name || authUser?.email || 'Usuario';
-  const canBajarServicio = ['supervisor', 'superadministrador'].includes(viewerRole) && !isBaja && Boolean(client?.id && bajaProductId);
+  // + backoffice (auditoría "rol backoffice" 2026-10, capacidad
+  // clientes.baja_directa -- backend ya acepta backoffice en el endpoint
+  // POST .../products/:id/baja, ver src/lib/permissions.js).
+  const canBajarServicio = ['supervisor', 'superadministrador', 'backoffice'].includes(viewerRole) && !isBaja && Boolean(client?.id && bajaProductId);
   const isRednacremOrg = String(activeOrgId || '') === REDNACREM_ORG_ID;
   const certificateButtonStyle = {
     border: 'none',

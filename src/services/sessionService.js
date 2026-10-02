@@ -83,10 +83,41 @@ export async function getBusinessSession() {
   const token = await getAccessToken();
   if (isLocalDevToken(token)) {
     const session = buildLocalDevSession();
+    // La sesión dev es sintética (no pasa por /me), pero `permissions` ahora
+    // gatea menú/rutas reales (ver src/navCapabilities.js) -- sin esto,
+    // cualquier preset "Entrar como X" quedaría con permissions:[] y un menú
+    // vacío. local-server.mjs ya sirve /me con los mismos headers X-Dev-*
+    // que apiClient.js adjunta automáticamente para tokens dev, así que lo
+    // pedimos como mejor esfuerzo y nos quedamos con [] si el backend local
+    // no está levantado (no debe romper el login dev sin backend).
+    try {
+      const apiBaseUrl = getApiBaseUrl();
+      if (apiBaseUrl) {
+        const meEndpoint = ensureApiPrefix(ME_ENDPOINT, apiBaseUrl);
+        const meUrl = buildApiUrl(meEndpoint, apiBaseUrl);
+        const response = await apiClient.get(meUrl);
+        const payload = response?.data ?? response;
+        const real = normalizeSessionPayload(payload);
+        if (real && Array.isArray(real.permissions)) {
+          session.permissions = real.permissions;
+        }
+        // La sesión sintética pone `id: sub` (el cognito sub, un string),
+        // no el uuid real de `users.id` -- rompe cualquier código que use
+        // authUser.id para filtrar por uuid contra el backend (ej. "mis
+        // tickets de Retención" en main.jsx, listMyRetentionTicketsAsync).
+        // El id real sí viene en /me.
+        if (real?.id) {
+          session.id = real.id;
+        }
+      }
+    } catch (err) {
+      console.info('[sessionService] no se pudo enriquecer la sesión dev con /me real, permissions queda []', err?.message);
+    }
     console.info('[sessionService] using local dev session', {
       role: session.role,
       email: session.email,
-      organization_id: session.organization_id || null
+      organization_id: session.organization_id || null,
+      permissions: session.permissions
     });
     return session;
   }

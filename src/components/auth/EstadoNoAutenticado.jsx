@@ -37,6 +37,13 @@ export default function EstadoNoAutenticado() {
       name: 'Dev Vendedor'
     },
     {
+      id: 'backoffice',
+      label: 'Backoffice',
+      email: import.meta.env?.VITE_LOCAL_DEV_USER_EMAIL_BACKOFFICE || 'backoffice@rednacrem.com',
+      sub: 'dev-backoffice-rednacrem',
+      name: 'Dev Backoffice'
+    },
+    {
       id: 'vendedor',
       label: 'Matias Decker (Vendedor)',
       email: import.meta.env?.VITE_LOCAL_DEV_USER_EMAIL_VENDEDOR || 'vendedor@rednacrem.com',

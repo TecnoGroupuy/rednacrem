@@ -18,7 +18,7 @@ import { IMPORT_SAMPLE_CSV, NO_LLAMAR_SAMPLE_CSV, RESULTADOS_SAMPLE_CSV, DATOS_T
 import { toEsUyDate, toEsUyDateTime } from '../utils/dateFormat.js';
 import Conexiones from './Conexiones.jsx';
 
-const USER_ROLE_OPTIONS = ['superadministrador', 'director', 'supervisor', 'operaciones', 'atencion_cliente'];
+const USER_ROLE_OPTIONS = ['superadministrador', 'director', 'supervisor', 'operaciones', 'atencion_cliente', 'backoffice'];
 const USER_STATUS_OPTIONS = [
   { value: 'approved', label: 'Aprobado' },
   { value: 'inactive', label: 'Inactivo' },
@@ -1098,7 +1098,14 @@ export default function SuperadminWorkbench({
   const moduleRows = React.useMemo(() => {
     const map = new Map();
     roleNav.forEach((item) => {
-      if (!item.roles.includes(moduleRoleFilter)) return;
+      // backoffice (auditoría 2026-10) no aparece en ningún `item.roles` --
+      // entra a sus 5 pantallas por `item.capability` (pantalla.*, ver
+      // navCapabilities.js). Ningún otro rol depende de `capability` para
+      // verse acá, así que esta excepción puntual alcanza sin necesitar el
+      // mapa completo rol->capacidades del lado del frontend.
+      const visible = item.roles.includes(moduleRoleFilter)
+        || (moduleRoleFilter === 'backoffice' && Boolean(item.capability));
+      if (!visible) return;
       if (!map.has(item.path)) {
         map.set(item.path, { path: item.path, label: item.label, caption: item.caption });
       }

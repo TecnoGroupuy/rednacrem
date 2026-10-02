@@ -20,6 +20,14 @@ import {
   BarChart, Bar, PieChart as RePieChart, Pie, Cell, AreaChart, Area
 } from 'recharts';
 import { ROLE_META as ROLE_META_BASE } from './domain/roles.js';
+import {
+  ROLE_NAV,
+  isNavItemVisibleForRole,
+  canRenderSoporte,
+  canRenderRetencion,
+  canRenderRecuperoVendorView,
+  canRenderAgendaVendorView
+} from './navCapabilities.js';
 import { getRoleUsersDictionary } from './services/usersService.js';
 import { listProducts, listProductsAsync, createProduct, updateProduct } from './services/productsService.js';
 import {
@@ -194,48 +202,11 @@ const TEAM_ROWS = getTeamRows();
 const SALES_CONTACTS_SEED = listCommercialContacts();
 const SUPERVISOR_LOTS_SEED = listLots();
 
-const ROLE_NAV = [
-      { path: 'dashboard_global', label: 'Vista general', caption: 'Control transversal', roles: ['superadministrador'], icon: Activity },
-      { path: 'sa_importaciones', label: 'Importaciones', caption: 'CSV por tipo de carga', roles: ['superadministrador'], icon: Upload },
-      { path: 'sa_no_llamar', label: 'Base No llamar', caption: 'Bloqueos de contacto', roles: ['superadministrador'], icon: Phone },
-      { path: 'sa_resultados', label: 'Resultados telefónicos', caption: 'Historial de gestiones', roles: ['superadministrador'], icon: PhoneCall },
-      { path: 'sa_datos_trabajar', label: 'Datos para trabajar', caption: 'Preparación operativa', roles: ['superadministrador'], icon: FileText },
-      { path: 'sa_productos', label: 'Productos', caption: 'Catálogo comercial', roles: ['superadministrador'], icon: Briefcase },
-      { path: 'sa_usuarios', label: 'Usuarios y roles', caption: 'Accesos del sistema', roles: ['superadministrador'], icon: UserCheck },
-      { path: 'sa_logs_actividad', label: 'Logs y actividad', caption: 'Monitoreo e inactividad', roles: ['superadministrador'], icon: Zap },
-      { path: 'sa_estado_modulos', label: 'Estado de módulos', caption: 'Visibilidad por rol', roles: ['superadministrador'], icon: Layers },
-      { path: 'sa_configuracion', label: 'Configuración', caption: 'Identidad y parámetros', roles: ['superadministrador'], icon: Settings },
-      { path: 'sa_conexiones', label: 'Conexiones', caption: 'Webhooks externos', roles: ['superadministrador'], icon: Webhook },
-      { path: 'dashboard', label: 'Monitor', caption: 'Resumen principal', roles: ['director', 'supervisor', 'vendedor', 'operaciones'], icon: Activity },
-      { path: 'panel_control', label: 'Panel de control', caption: 'Resumen del día', roles: ['director', 'supervisor'], icon: BarChart3 },
-      { path: 'operaciones/monitor', label: 'Monitor', caption: 'Seguimiento operativo', roles: ['director', 'operaciones'], icon: Activity },
-      { path: 'operaciones/flotas', label: 'Flotas', caption: 'Vehiculos y mantenimiento', roles: ['director', 'operaciones'], icon: Ambulance },
-      { path: 'operaciones/rrhh', label: 'RRHH', caption: 'Dotación y legajos', roles: ['director', 'operaciones'], icon: Users },
-      { path: 'operaciones/servicios', label: 'Servicios', caption: 'Despacho y seguimiento', roles: ['director', 'operaciones'], icon: PhoneCall },
-      { path: 'operaciones/economato', label: 'Economato', caption: 'Stock y movimientos', roles: ['director', 'operaciones'], icon: Package },
-      { path: 'operaciones/equipos', label: 'Equipos', caption: 'Biomédicos y revisiones', roles: ['director', 'operaciones'], icon: HeartPulse },
-      { path: 'operaciones/turnos', label: 'Turnos', caption: 'Cobertura y cambios', roles: ['director', 'operaciones'], icon: Calendar },
-      { path: 'contactos', label: 'Contacto', caption: 'Base comercial', roles: ['director', 'vendedor'], icon: Users },
-      { path: 'soporte', label: 'Atención al cliente', caption: 'Tickets y llamadas', roles: ['atencion_cliente'], icon: Headphones, badge: 12 },
-      { path: 'recupero', label: 'Recupero', caption: 'Cartera en baja', roles: ['vendedor', 'atencion_cliente'], icon: FileText },
-      { path: 'retencion', label: 'Retención', caption: 'Contratos en riesgo de baja', roles: ['supervisor', 'vendedor'], icon: Shield },
-      { path: 'clientes', label: 'Clientes', caption: 'Cartera activa', roles: ['superadministrador', 'director', 'operaciones', 'supervisor'], icon: UserCheck },
-      { path: 'campanas_redes', label: 'Datos calientes', caption: 'Datos en tiempo real', roles: ['superadministrador', 'director', 'supervisor'], icon: Flame },
-      { path: 'contratos', label: 'Recupero', caption: 'Cartera de clientes', roles: ['director', 'supervisor', 'operaciones'], icon: FileText },
-      { path: 'clientes', label: 'Mis ventas', caption: 'Clientes que cerré', roles: ['vendedor'], icon: UserCheck },
-      { path: 'base_general', label: 'Mercado Abierto', caption: 'Datos fríos por CSV', roles: ['supervisor'], icon: Users },
-      { path: 'equipo', label: 'Mi equipo', caption: 'Vendedores', roles: ['director', 'supervisor'], icon: Users },
-      { path: 'lotes', label: 'Lotes', caption: 'Asignacion comercial', roles: ['supervisor'], icon: Layers },
-      { path: 'seguimiento_vendedores', label: 'Codificaciones', caption: 'Codificaciones', roles: ['supervisor'], icon: BarChart3 },
-      { path: 'numeros_error', label: 'Numeros con errores', caption: 'Fuera de flujo comercial', roles: ['supervisor'], icon: AlertTriangle },
-      { path: 'solicitudes_registro', label: 'Solicitudes registro', caption: 'Aprobación vendedores', roles: ['supervisor'], icon: Bell },
-      { path: 'agenda', label: 'Agenda', caption: 'Compromisos del día', roles: ['vendedor'], icon: Calendar },
-      { path: 'pagos', label: 'Pagos', caption: 'Cobranza y convenios', roles: ['director', 'operaciones'], icon: CreditCard },
-      { path: 'servicios', label: 'Servicios', caption: 'Circuito operativo', roles: ['director', 'operaciones'], icon: Briefcase, badge: 12 },
-      { path: 'proveedores', label: 'Proveedores', caption: 'Red de soporte', roles: ['director', 'operaciones'], icon: Building2 },
-      { path: 'reportes', label: 'Reportes', caption: 'Exportables', roles: ['director', 'supervisor'], icon: BarChart3 },
-      { path: 'config', label: 'Configuración', caption: 'Parámetros del sistema', roles: ['director'], icon: Settings }
-    ];
+// ROLE_NAV vivía acá hardcodeado -- se movió a src/navCapabilities.js
+// (junto con isNavItemVisibleForRole, el predicado de visibilidad) para
+// poder testearlo con node:test sin pasar por JSX. Ver ese archivo para
+// el array completo y los comentarios de las capacidades de pantalla
+// (auditoría "rol backoffice", 2026-10).
 
 const NAV_GROUP_DEFINITIONS = [
   {
@@ -15609,7 +15580,7 @@ const formatCurrency = (value) => {
       return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Montevideo' });
     }
 
-    function ClientsView({ productsCatalog = [], prefillContact = null, onPrefillUsed = null, viewerRole = '', origenDatoOptions = [] }) {
+    function ClientsView({ productsCatalog = [], prefillContact = null, onPrefillUsed = null, viewerRole = '', viewerPermissions = [], origenDatoOptions = [] }) {
         const { user: authUser } = useAuth();
         const origenDatoResolvedOptions = normalizeOrigenOptions(origenDatoOptions);
         const [clientRows, setClientRows] = React.useState([]);
@@ -16337,8 +16308,16 @@ const formatCurrency = (value) => {
                     />
                   </div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <Button variant="secondary" icon={<Upload size={18} />} onClick={() => console.log('TODO: abrir modal de baja masiva')}>Baja masiva</Button>
-                    <Button className="clients-new-btn" icon={<Plus size={18} />} onClick={() => handleOpenNewClient()}>Nuevo cliente</Button>
+                    {/* Antes sin ningún gate de rol -- se mostraban a cualquiera
+                        que viera esta pantalla. Capacidades explícitas (auditoría
+                        "rol backoffice" 2026-10): mismos 4 roles que ya veían
+                        Clientes, sin backoffice (punto 3: no alta, no baja masiva). */}
+                    {viewerPermissions.includes('clientes.baja_masiva') ? (
+                      <Button variant="secondary" icon={<Upload size={18} />} onClick={() => console.log('TODO: abrir modal de baja masiva')}>Baja masiva</Button>
+                    ) : null}
+                    {viewerPermissions.includes('clientes.alta') ? (
+                      <Button className="clients-new-btn" icon={<Plus size={18} />} onClick={() => handleOpenNewClient()}>Nuevo cliente</Button>
+                    ) : null}
                   </div>
                 </div>
                 {clientsError ? (
@@ -19509,7 +19488,7 @@ const formatCurrency = (value) => {
       const oidcAuth = useOidcAuth();
       const { user, logout, refreshSession, loginSyncedAt } = useAuth();
       const authUser = user;
-      const { rolReal, rolEfectivo, esSuperadmin } = useRolEfectivo();
+      const { rolReal, rolEfectivo, esSuperadmin, permissions: userPermissions } = useRolEfectivo();
       const role = rolEfectivo;
       const localDevOrgBootstrap = import.meta.env.DEV ? readLocalDevOrganization() : null;
       const [route, setRoute] = React.useState('dashboard_global');
@@ -19644,7 +19623,7 @@ const formatCurrency = (value) => {
         const activeOrgName = String(activeOrg?.nombre || activeOrg?.name || '').trim().toLowerCase();
         return activeOrgId === GLOBAL_ASSIST_ORG_ID || activeOrgName === 'global assist';
       }, [activeOrg?.id, activeOrg?.organization_id, activeOrg?.nombre, activeOrg?.name]);
-      const canLoadProducts = ['superadministrador', 'supervisor', 'vendedor', 'atencion_cliente'].includes(role);
+      const canLoadProducts = ['superadministrador', 'supervisor', 'vendedor', 'atencion_cliente', 'backoffice'].includes(role);
       const canLoadCommercialData = ['superadministrador', 'supervisor', 'vendedor'].includes(role);
       const resolveLogoUrl = React.useCallback((value) => {
         const raw = String(value || '').trim();
@@ -19693,11 +19672,11 @@ const formatCurrency = (value) => {
 
       React.useEffect(() => {
         const visible = roleNavResolved
-          .filter((item) => item.roles.includes(role) && isModuleVisible(moduleStates, role, item.path))
+          .filter((item) => isNavItemVisibleForRole(item, role, userPermissions) && isModuleVisible(moduleStates, role, item.path))
           .map((item) => item.path);
         if (route === 'lotes_crear') return;
         if (!visible.includes(route)) setRoute(visible[0] || 'dashboard');
-      }, [role, route, moduleStates, roleNavResolved]);
+      }, [role, route, moduleStates, roleNavResolved, userPermissions]);
 
       React.useEffect(() => {
         persistModuleStates(moduleStates);
@@ -19783,7 +19762,7 @@ const formatCurrency = (value) => {
       }, [authUser?.id, canLoadProducts, activeOrg?.id]);
 
       React.useEffect(() => {
-        if (!authUser?.id || role !== 'atencion_cliente') return;
+        if (!authUser?.id || (role !== 'atencion_cliente' && role !== 'backoffice')) return;
         let active = true;
         let intervalId = null;
         let pollingBlockedByAuth = false;
@@ -20313,7 +20292,8 @@ const formatCurrency = (value) => {
         roleNav: roleNavResolved,
         role: effectiveRoleForUi,
         moduleStates,
-        isModuleVisible
+        isModuleVisible,
+        capabilities: userPermissions
       });
       const orgScopedNavItems = React.useMemo(() => {
         // Este recorte por organización existe para no mostrarle a
@@ -20329,10 +20309,18 @@ const formatCurrency = (value) => {
         // acotado a esos dos paths por getVisibleNavItemsForRole, y este
         // filtro los volvía a recortar contra un allowlist que nunca los
         // incluía — vaciando el sidebar entero para el rol.
+        //
+        // backoffice (auditoría 2026-10) entra en la misma excepción que
+        // atencion_cliente: su territorio en ROLE_NAV (soporte, retencion,
+        // recupero, clientes, agenda) tampoco es comercial de Rednacrem, es
+        // la misma lógica aplicada a un rol nuevo -- sin esto, backoffice
+        // vería el sidebar vacío apenas la organización activa fuera SU
+        // Emergencia.
         if (
           !isSuEmergenciaActiveOrg
           || effectiveRoleForUi === 'superadministrador'
           || effectiveRoleForUi === 'atencion_cliente'
+          || effectiveRoleForUi === 'backoffice'
         ) return navItems;
         const allowedPaths = new Set(
           NAV_GROUP_DEFINITIONS
@@ -20563,7 +20551,7 @@ const formatCurrency = (value) => {
           );
         }
         if (route === 'recupero') {
-          if (role === 'vendedor' || role === 'atencion_cliente') {
+          if (canRenderRecuperoVendorView(role)) {
             return (
               <RecuperoContactsView
                 contacts={recuperoContacts}
@@ -20606,7 +20594,7 @@ const formatCurrency = (value) => {
           return <ContactsView />;
         }
         if (route === 'agenda') {
-          if (role === 'vendedor') return (
+          if (canRenderAgendaVendorView(role)) return (
             <SalesAgendaView
               onVentaCerrada={(contactData, gestion_id = null, onSuccessCb = null) => handleOpenVendedorNewClient(contactData, gestion_id, onSuccessCb)}
               origenDatoOptions={origenDatoOptions}
@@ -20622,7 +20610,7 @@ const formatCurrency = (value) => {
               origenDatoOptions={origenDatoOptions}
             />
           );
-          return <ClientsView productsCatalog={productsCatalog} viewerRole={role} origenDatoOptions={origenDatoOptions} />;
+          return <ClientsView productsCatalog={productsCatalog} viewerRole={role} viewerPermissions={userPermissions} origenDatoOptions={origenDatoOptions} />;
         }
         if (route === 'contratos') {
           return (
@@ -20662,8 +20650,8 @@ const formatCurrency = (value) => {
             />
           );
         }
-      if (route === 'soporte' && role === 'atencion_cliente') return <CustomerSupportModule />;
-      if (route === 'retencion' && (role === 'supervisor' || role === 'vendedor')) return <RetencionModule />;
+      if (route === 'soporte' && canRenderSoporte(role)) return <CustomerSupportModule />;
+      if (route === 'retencion' && canRenderRetencion(role)) return <RetencionModule />;
       if (route === 'operaciones/monitor') return <MonitorScreen />;
       if (route === 'operaciones/flotas') return <FlotasScreen Button={Button} Panel={Panel} Tag={Tag} />;
       if (route === 'operaciones/rrhh') return <RrhhScreen Button={Button} Panel={Panel} Tag={Tag} />;

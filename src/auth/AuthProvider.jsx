@@ -9,14 +9,19 @@ export const VIEWABLE_ROLES = [
   'supervisor',
   'vendedor',
   'operaciones',
-  'atencion_cliente'
+  'atencion_cliente',
+  'backoffice'
 ];
 
+// Orden = precedencia de mapeo de grupos de Cognito a un único rol --
+// mismo orden que ROLE_KEYS en el backend (src/lib/constants.js), backoffice
+// entre 'operaciones' y 'vendedor' por el mismo motivo documentado ahí.
 const ROLE_PRECEDENCE = [
   'superadministrador',
   'director',
   'supervisor',
   'operaciones',
+  'backoffice',
   'vendedor',
   'atencion_cliente'
 ];
