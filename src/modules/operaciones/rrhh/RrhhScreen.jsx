@@ -407,11 +407,29 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
     // "2026-09-27" (columna date, corrimiento de zona horaria al serializar)
     // -- un <input type="date"> no lo muestra, y reenviarlo tal cual en el
     // PATCH da 400 en fecha_ref_descanso (unico campo con validacion
-    // estricta de formato en el backend, ver Fase 1).
+    // estricta de formato en el backend, ver Fase 1). toDateOnly ya
+    // devuelve '' para null/undefined, asi que estos 4 ya quedaban a salvo
+    // del warning de abajo -- se dejan igual por claridad.
+    //
+    // Los campos de texto en cambio llegaban tal cual del backend (null
+    // para cualquier opcional sin completar, dado que el alta solo exige
+    // nombre/apellido): un <input value={null}> dispara el warning de React
+    // "value prop on input should not be null". textOrEmpty normaliza a ''
+    // para mostrar -- savePersonal ya vuelve a mandar null si queda vacio
+    // (ver payload mas abajo), asi que esto no cambia nada de lo que se
+    // guarda.
+    const textOrEmpty = (value) => value ?? '';
     const existingRoles = item.roles || [];
     setPersonalDraft({
       ...emptyPersonalDraft,
       ...item,
+      nombre: textOrEmpty(item.nombre),
+      nombre_uso: textOrEmpty(item.nombre_uso),
+      apellido: textOrEmpty(item.apellido),
+      documento: textOrEmpty(item.documento),
+      telefono: textOrEmpty(item.telefono),
+      email: textOrEmpty(item.email),
+      domicilio: textOrEmpty(item.domicilio),
       roles: existingRoles.map((r) => ({ id: r.id, rol: r.rol, rol_principal: Boolean(r.rol_principal) })),
       // Se normaliza a { base_id, es_principal } -- item.bases trae ademas
       // `nombre` (para mostrar en la tarjeta/ficha), que el form no necesita
