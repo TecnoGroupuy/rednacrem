@@ -1,5 +1,5 @@
 import React from 'react';
-import { Loader2, CheckCircle2, AlertTriangle, ChevronDown, ChevronRight, FileText, MapPin } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertTriangle, FileText, MapPin } from 'lucide-react';
 import {
   verificarFicha,
   actualizarFichaPublica,
@@ -10,7 +10,7 @@ import {
   FichaPublicaError
 } from '../../services/fichaPublicaService.js';
 import PersonFotoCapture from '../../components/PersonFotoCapture.jsx';
-import DocumentoCapture from '../../components/DocumentoCapture.jsx';
+import FramedDocumentCapture from '../../components/FramedDocumentCapture.jsx';
 import suEmergenciaLogo from '../operaciones/monitor/assets/su-emergencia-logo.png';
 import './completarFichaStyles.css';
 
@@ -25,6 +25,14 @@ import './completarFichaStyles.css';
 // `new Date(string)` en ningun punto de este archivo: la fecha viaja
 // siempre como string 'YYYY-MM-DD' armado por concatenacion simple, para no
 // pisar el dia por un corrimiento de zona horaria.
+//
+// Flujo paso a paso (REDISEÑO): bienvenida -> documento -> fecha -> datos ->
+// foto -> un documento pendiente/rechazado por pantalla -> cursos -> turno
+// -> resumen final. docQueue es una FOTO fija de las categorias que
+// necesitaban accion al entrar a la fase de documentos -- no se recalcula
+// en cada guardado, para que "Documento 2 de 6" no cambie de numero a mitad
+// de camino; el estado de CADA categoria (si ya se guardo, motivo de
+// rechazo, etc.) siempre se lee en vivo de documentosChecklist.
 
 function onlyDigits(value) {
   return String(value || '').replace(/\D/g, '');
@@ -103,6 +111,20 @@ const CATEGORIA_CAMPOS = {
   libreta_conducir: { numero: true, numeroLabel: 'Categoría', fechaVencimiento: true }
 };
 
+// Marco de encuadre por categoria -- "card" (tarjeta ID-1 85.6x54mm,
+// apaisada: cedula, carne de salud, libreta) o "a4" (hoja A4 vertical:
+// titulo, registro MSP, cursos). PDF solo tiene sentido como alternativa
+// para documentos tipo "hoja" -- una cedula nunca se escanea como PDF.
+const CAPTURA_CONFIG = {
+  ci_frente: { frame: 'card', allowPdf: false },
+  ci_dorso: { frame: 'card', allowPdf: false },
+  carne_salud: { frame: 'card', allowPdf: false },
+  libreta_conducir: { frame: 'card', allowPdf: false },
+  titulo: { frame: 'a4', allowPdf: true },
+  registro_msp: { frame: 'a4', allowPdf: true }
+};
+const CURSO_CAPTURA_CONFIG = { frame: 'a4', allowPdf: true };
+
 const ESTADO_LABELS = {
   falta: 'Falta',
   pendiente: 'Cargado ✓ · pendiente de revisión',
@@ -110,9 +132,9 @@ const ESTADO_LABELS = {
   validado: 'Validado'
 };
 
-// Que campos son obligatorios antes de habilitar "Elegir archivo" -- items
-// sin entrada en CATEGORIA_CAMPOS (ci_frente, ci_dorso, titulo) no tienen
-// datos que completar, asi que siempre devuelve true para ellos.
+// Que campos son obligatorios antes de habilitar la captura -- items sin
+// entrada en CATEGORIA_CAMPOS (ci_frente, ci_dorso) no tienen datos que
+// completar, asi que siempre devuelve true para ellos.
 function camposCompletos(categoria, { numero, fechaParts }) {
   const campos = CATEGORIA_CAMPOS[categoria] || {};
   if (campos.numero && !String(numero || '').trim()) return false;
@@ -184,6 +206,19 @@ function InitialsSquare({ nombre, apellido }) {
   return <div className="cf-foto-square cf-foto-initials">{initials}</div>;
 }
 
+// Pasos que llevan barra de progreso (bienvenida y resumen quedan afuera:
+// ninguno de los dos es "un paso mas" del formulario en si).
+const FIXED_STEPS = ['documento', 'fecha', 'datos', 'foto'];
+
+function ProgressBar({ current, total }) {
+  const pct = total > 0 ? Math.min(100, Math.round((current / total) * 100)) : 0;
+  return (
+    <div className="cf-progress" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+      <div className="cf-progress-fill" style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
 export default function CompletarFichaScreen({ linkCodigo }) {
   // linkCodigo viene de main.jsx cuando la ruta es /f/<codigo> (mecanismo
   // actual, migracion 084). Si es null, estamos en /completar-ficha?token=
@@ -195,12 +230,13 @@ export default function CompletarFichaScreen({ linkCodigo }) {
   );
   const hasLink = Boolean(linkCodigo || linkToken);
 
-  const [step, setStep] = React.useState(hasLink ? 'documento' : 'link_invalido');
+  const [step, setStep] = React.useState('bienvenida');
+  const [linkInvalido, setLinkInvalido] = React.useState(!hasLink);
   // A que step volver despues de re-verificar tras una sesion vencida --
-  // por default 'ficha' (el primer paso post-verificacion), pero si la
-  // sesion vence en 'foto' o 'documentos' se guarda ese paso aca, para
-  // "volver y seguir" en vez de reiniciar el flujo desde cero.
-  const [resumeStep, setResumeStep] = React.useState('ficha');
+  // por default 'datos' (el primer paso post-verificacion), pero si la
+  // sesion vence en 'foto'/'documentos'/'cursos'/'turno' se guarda ese paso
+  // aca, para "volver y seguir" en vez de reiniciar el flujo desde cero.
+  const [resumeStep, setResumeStep] = React.useState('datos');
   const [documento, setDocumento] = React.useState('');
   const [fechaVerificar, setFechaVerificar] = React.useState({ dia: '', mes: '', anio: '' });
   const [sessionToken, setSessionToken] = React.useState('');
@@ -212,29 +248,27 @@ export default function CompletarFichaScreen({ linkCodigo }) {
   const [fotoUploading, setFotoUploading] = React.useState(false);
   const [fotoError, setFotoError] = React.useState('');
 
-  // Documentacion (checklist por rol)
+  // Documentacion (checklist por rol) -- se carga apenas hay sessionToken
+  // (no recien al llegar al paso de documentos) para que la barra de
+  // progreso ya sepa el total de pasos desde el principio del flujo.
   const [documentosChecklist, setDocumentosChecklist] = React.useState([]);
   const [documentosCursos, setDocumentosCursos] = React.useState([]);
   const [documentosTurno, setDocumentosTurno] = React.useState(null);
   const [documentosLoading, setDocumentosLoading] = React.useState(false);
   const [documentosError, setDocumentosError] = React.useState('');
-  const [showValidados, setShowValidados] = React.useState(false);
 
-  // Edicion de UN item de la checklist a la vez ("cada item se carga por
-  // separado"): categoria actualmente expandida, sus campos de datos, y el
-  // estado de guardado -- no hay "archivo elegido en espera de Guardar": al
-  // confirmar el archivo en DocumentoCapture se sube y guarda de una, por
-  // eso no existe un editFile en React (el blob vive adentro de
-  // DocumentoCapture hasta que el guardado termina bien).
-  const [editingCategoria, setEditingCategoria] = React.useState(null);
-  const [editNumero, setEditNumero] = React.useState('');
-  const [editFechaParts, setEditFechaParts] = React.useState({ dia: '', mes: '', anio: '' });
-  const [editShowCapture, setEditShowCapture] = React.useState(false);
-  const [editUploading, setEditUploading] = React.useState(false);
-  const [editError, setEditError] = React.useState('');
+  // docQueue: snapshot de categorias en 'falta'/'rechazado' al entrar a la
+  // fase de documentos -- "al volver con un link nuevo, directo a lo
+  // faltante o rechazado; lo validado (y lo ya pendiente de revision) no se
+  // vuelve a pedir".
+  const [docQueue, setDocQueue] = React.useState([]);
+  const [docIndex, setDocIndex] = React.useState(0);
+  const [docNumero, setDocNumero] = React.useState('');
+  const [docFechaParts, setDocFechaParts] = React.useState({ dia: '', mes: '', anio: '' });
+  const [docShowCapture, setDocShowCapture] = React.useState(false);
+  const [docUploading, setDocUploading] = React.useState(false);
+  const [docError, setDocError] = React.useState('');
 
-  // Alta de un nuevo curso (repetible, nunca "reemplaza" uno existente).
-  const [showCursoForm, setShowCursoForm] = React.useState(false);
   const [cursoNombre, setCursoNombre] = React.useState('');
   const [cursoInstitucion, setCursoInstitucion] = React.useState('');
   const [cursoFechaParts, setCursoFechaParts] = React.useState({ dia: '', mes: '', anio: '' });
@@ -248,6 +282,8 @@ export default function CompletarFichaScreen({ linkCodigo }) {
   const [avisoSending, setAvisoSending] = React.useState(false);
   const [avisoSent, setAvisoSent] = React.useState(false);
   const [avisoError, setAvisoError] = React.useState('');
+
+  const handleComenzar = () => setStep('documento');
 
   const handleContinuarDocumento = (event) => {
     event.preventDefault();
@@ -270,8 +306,8 @@ export default function CompletarFichaScreen({ linkCodigo }) {
       setSessionToken(result.session_token);
       setPersona(result.persona);
       // Si ya habia un draft cargado (volviendo de una sesion vencida en el
-      // paso de ficha/foto), se conserva lo que la persona ya habia
-      // escrito -- solo se inicializa desde el servidor la primera vez.
+      // paso de datos/foto/documentos), se conserva lo que la persona ya
+      // habia escrito -- solo se inicializa desde el servidor la primera vez.
       setDraft((prev) => {
         const alreadyStarted = prev.telefono || prev.email || prev.domicilio || prev.fechaParts.dia;
         if (alreadyStarted) return prev;
@@ -285,8 +321,9 @@ export default function CompletarFichaScreen({ linkCodigo }) {
       setStep(resumeStep);
     } catch (err) {
       if (err instanceof FichaPublicaError && err.status === 401) {
-        setStep('link_invalido');
+        setLinkInvalido(true);
         setErrorMessage(err.message);
+        setStep('bienvenida');
       } else {
         setErrorMessage(err?.message || 'No se pudo verificar la ficha.');
       }
@@ -331,7 +368,7 @@ export default function CompletarFichaScreen({ linkCodigo }) {
       setStep('foto');
     } catch (err) {
       if (err instanceof FichaPublicaError && err.status === 401) {
-        volverADocumentoPorSesionVencida(err.message, 'ficha');
+        volverADocumentoPorSesionVencida(err.message, 'datos');
       } else {
         setErrorMessage(err?.message || 'No se pudieron guardar los cambios.');
       }
@@ -381,70 +418,92 @@ export default function CompletarFichaScreen({ linkCodigo }) {
     } finally {
       setDocumentosLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionToken]);
 
   React.useEffect(() => {
-    if (step === 'documentos' && sessionToken) cargarDocumentos();
+    if (sessionToken) cargarDocumentos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, sessionToken]);
+  }, [sessionToken]);
 
-  const openEditItem = (item) => {
-    setEditingCategoria(item.categoria);
-    setEditNumero(item.numero || '');
-    setEditFechaParts(isoToParts(item.fecha_vencimiento));
-    setEditError('');
+  const entrarAFaseDocumentos = () => {
+    const pendientes = documentosChecklist
+      .filter((item) => item.estado === 'falta' || item.estado === 'rechazado')
+      .map((item) => item.categoria);
+    setDocQueue(pendientes);
+    setDocIndex(0);
+    setStep('documentos');
   };
 
-  const closeEditItem = () => {
-    setEditingCategoria(null);
-    setEditShowCapture(false);
-    setEditError('');
+  const currentDocCategoria = docQueue[docIndex] || null;
+  const currentDocItem = currentDocCategoria
+    ? documentosChecklist.find((item) => item.categoria === currentDocCategoria) || null
+    : null;
+
+  const openDocItemFields = (item) => {
+    setDocNumero(item.numero || '');
+    setDocFechaParts(isoToParts(item.fecha_vencimiento));
+    setDocError('');
   };
 
-  // Dispara ante onCapture de DocumentoCapture -- sube y guarda apenas se
-  // confirma el archivo, sin paso intermedio de "Guardar". Si falla, el
-  // modal queda abierto (no se toca editShowCapture) mostrando el error con
-  // "Reintentar": el blob sigue vivo adentro de DocumentoCapture.
+  React.useEffect(() => {
+    if (step === 'documentos' && currentDocItem) openDocItemFields(currentDocItem);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, docIndex]);
+
+  const avanzarDocIndex = () => {
+    setDocError('');
+    setDocShowCapture(false);
+    setDocIndex((prev) => prev + 1);
+  };
+
+  React.useEffect(() => {
+    // Se paso del ultimo item de la cola (o la cola esta vacia) -> cursos.
+    if (step === 'documentos' && docIndex >= docQueue.length) {
+      setStep('cursos');
+    }
+  }, [step, docIndex, docQueue.length]);
+
   const handleCapturarDocumentoItem = async (file) => {
-    setEditUploading(true);
-    setEditError('');
+    if (!currentDocCategoria) return;
+    setDocUploading(true);
+    setDocError('');
     try {
-      const campos = CATEGORIA_CAMPOS[editingCategoria] || {};
+      const campos = CATEGORIA_CAMPOS[currentDocCategoria] || {};
       const result = await subirDocumentoFichaPublica(sessionToken, {
-        categoria: editingCategoria,
+        categoria: currentDocCategoria,
         nombreArchivo: file.nombreArchivo,
         contentType: file.contentType,
         blob: file.blob,
-        numero: campos.numero ? editNumero || null : null,
-        fechaVencimiento: campos.fechaVencimiento ? (partsToIso(editFechaParts) || null) : null
+        numero: campos.numero ? docNumero || null : null,
+        fechaVencimiento: campos.fechaVencimiento ? (partsToIso(docFechaParts) || null) : null
       });
       setDocumentosChecklist(result.checklist || []);
       setDocumentosCursos(result.cursos || []);
-      closeEditItem();
+      setDocShowCapture(false);
     } catch (err) {
       if (err instanceof FichaPublicaError && err.status === 401) {
-        setEditShowCapture(false);
+        setDocShowCapture(false);
         volverADocumentoPorSesionVencida(err.message, 'documentos');
       } else {
-        setEditError(err?.message || 'No se pudo subir el documento.');
+        setDocError(err?.message || 'No se pudo subir el documento.');
       }
     } finally {
-      setEditUploading(false);
+      setDocUploading(false);
     }
   };
 
+  // cursoCamposCompletos: nombre, institucion y fecha son obligatorios para
+  // habilitar la captura (antes institucion/fecha eran opcionales).
+  const cursoCamposCompletos = Boolean(cursoNombre.trim() && cursoInstitucion.trim() && partsToIso(cursoFechaParts));
+
   const resetCursoForm = () => {
-    setShowCursoForm(false);
     setCursoShowCapture(false);
     setCursoNombre('');
     setCursoInstitucion('');
     setCursoFechaParts({ dia: '', mes: '', anio: '' });
     setCursoError('');
   };
-
-  // cursoCamposCompletos: nombre, institucion y fecha son obligatorios para
-  // habilitar "Elegir archivo" (antes institucion/fecha eran opcionales).
-  const cursoCamposCompletos = Boolean(cursoNombre.trim() && cursoInstitucion.trim() && partsToIso(cursoFechaParts));
 
   const handleCapturarCurso = async (file) => {
     setCursoUploading(true);
@@ -465,7 +524,7 @@ export default function CompletarFichaScreen({ linkCodigo }) {
     } catch (err) {
       if (err instanceof FichaPublicaError && err.status === 401) {
         setCursoShowCapture(false);
-        volverADocumentoPorSesionVencida(err.message, 'documentos');
+        volverADocumentoPorSesionVencida(err.message, 'cursos');
       } else {
         setCursoError(err?.message || 'No se pudo subir el curso.');
       }
@@ -483,7 +542,7 @@ export default function CompletarFichaScreen({ linkCodigo }) {
       setAvisoOpen(false);
     } catch (err) {
       if (err instanceof FichaPublicaError && err.status === 401) {
-        volverADocumentoPorSesionVencida(err.message, 'documentos');
+        volverADocumentoPorSesionVencida(err.message, 'turno');
       } else {
         setAvisoError(err?.message || 'No se pudo registrar el aviso.');
       }
@@ -492,16 +551,20 @@ export default function CompletarFichaScreen({ linkCodigo }) {
     }
   };
 
-  const itemsActivos = documentosChecklist.filter((item) => item.estado !== 'validado');
-  const itemsValidados = documentosChecklist.filter((item) => item.estado === 'validado');
-  const totalRequeridos = documentosChecklist.length;
-  const totalFaltantes = itemsActivos.length;
+  // --- Progreso y salida con aviso ---
+  const totalSteps = FIXED_STEPS.length + docQueue.length + 1 /* cursos */ + 1 /* turno */;
+  const currentStepNumber = (() => {
+    const fixedIdx = FIXED_STEPS.indexOf(step);
+    if (fixedIdx >= 0) return fixedIdx + 1;
+    if (step === 'documentos') return FIXED_STEPS.length + Math.min(docIndex, docQueue.length) + 1;
+    if (step === 'cursos') return FIXED_STEPS.length + docQueue.length + 1;
+    if (step === 'turno') return FIXED_STEPS.length + docQueue.length + 2;
+    return totalSteps;
+  })();
+  const showProgress = FIXED_STEPS.includes(step) || step === 'documentos' || step === 'cursos' || step === 'turno';
 
-  // Hay una carga de documento/foto en curso o un modal de captura abierto
-  // (archivo elegido/en preview, todavia sin confirmar) -- usado para avisar
-  // antes de salir en vez de perder ese trabajo en silencio.
   const hayCargaDocumentalPendiente = () =>
-    fotoUploading || showFotoCapture || editUploading || editShowCapture || cursoUploading || cursoShowCapture;
+    fotoUploading || showFotoCapture || docUploading || docShowCapture || cursoUploading || cursoShowCapture;
 
   React.useEffect(() => {
     const handler = (event) => {
@@ -512,28 +575,51 @@ export default function CompletarFichaScreen({ linkCodigo }) {
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fotoUploading, showFotoCapture, editUploading, editShowCapture, cursoUploading, cursoShowCapture]);
+  }, [fotoUploading, showFotoCapture, docUploading, docShowCapture, cursoUploading, cursoShowCapture]);
 
   const handleTerminarPorAhora = () => {
     if (hayCargaDocumentalPendiente()
       && !window.confirm('Tenés una carga en curso o un archivo sin confirmar. ¿Seguro que querés salir?')) {
       return;
     }
-    setStep('listo');
+    setStep('resumen');
   };
+
+  // --- Resumen final ---
+  const resumenCargados = documentosChecklist.filter((item) => item.estado === 'pendiente' || item.estado === 'validado').length;
+  const resumenTotal = documentosChecklist.length;
+  const resumenFaltantes = documentosChecklist.filter((item) => item.estado === 'falta' || item.estado === 'rechazado');
 
   return (
     <div className="cf-root">
       <div className="cf-card">
-        <img src={suEmergenciaLogo} alt="SU Emergencia" className="cf-logo" />
-
-        {step === 'link_invalido' ? (
-          <div className="cf-step">
-            <AlertTriangle size={32} className="cf-icon-warning" />
-            <h1>Enlace no disponible</h1>
-            <p>{errorMessage || 'El enlace no es válido o venció. Pedí uno nuevo a tu contacto de RRHH.'}</p>
+        {step === 'bienvenida' ? (
+          <div className="cf-step cf-step-bienvenida">
+            <img src={suEmergenciaLogo} alt="SU Emergencia" className="cf-logo cf-logo-grande" />
+            {linkInvalido ? (
+              <>
+                <AlertTriangle size={32} className="cf-icon-warning" />
+                <h1>Enlace no disponible</h1>
+                <p>{errorMessage || 'El enlace no es válido o venció. Pedí uno nuevo a tu contacto de RRHH.'}</p>
+              </>
+            ) : (
+              <>
+                <h1>Formulario de funcionario</h1>
+                <p>Completá este formulario con los datos solicitados, que serán presentados ante el MSP.</p>
+                <p>Es importante cargar toda la información. Si en este momento no tenés algún dato o documento, podés continuar igual y completarlo más adelante.</p>
+                <p className="cf-nota-privacidad">Tus datos se usan únicamente para la gestión de personal de SU Emergencia y su presentación ante el MSP.</p>
+                <button type="button" className="cf-primary-button cf-primary-button-verde" onClick={handleComenzar}>
+                  Comenzar
+                </button>
+              </>
+            )}
           </div>
-        ) : null}
+        ) : (
+          <>
+            <img src={suEmergenciaLogo} alt="SU Emergencia" className="cf-logo" />
+            {showProgress ? <ProgressBar current={currentStepNumber} total={totalSteps} /> : null}
+          </>
+        )}
 
         {step === 'documento' ? (
           <form className="cf-step" onSubmit={handleContinuarDocumento}>
@@ -572,7 +658,7 @@ export default function CompletarFichaScreen({ linkCodigo }) {
           </form>
         ) : null}
 
-        {step === 'ficha' && persona ? (
+        {step === 'datos' && persona ? (
           <form className="cf-step" onSubmit={handleGuardarFicha}>
             <h1>{persona.nombre} {persona.apellido}</h1>
             <p className="cf-subtitle">Revisá y completá tus datos.</p>
@@ -610,7 +696,7 @@ export default function CompletarFichaScreen({ linkCodigo }) {
             {errorMessage ? <p className="cf-error">{errorMessage}</p> : null}
             <button type="submit" className="cf-primary-button" disabled={loading}>
               {loading ? <Loader2 size={16} className="cf-spin" /> : null}
-              {loading ? 'Guardando...' : 'Guardar'}
+              {loading ? 'Guardando...' : 'Continuar'}
             </button>
           </form>
         ) : null}
@@ -631,7 +717,7 @@ export default function CompletarFichaScreen({ linkCodigo }) {
             <button type="button" className="cf-secondary-button" onClick={() => setShowFotoCapture(true)}>
               {persona.foto_url ? 'Cambiar foto' : 'Cargar foto'}
             </button>
-            <button type="button" className="cf-primary-button" onClick={() => setStep('documentos')}>
+            <button type="button" className="cf-primary-button" onClick={entrarAFaseDocumentos}>
               Continuar
             </button>
             <button type="button" className="cf-link-button" onClick={handleTerminarPorAhora}>
@@ -640,223 +726,192 @@ export default function CompletarFichaScreen({ linkCodigo }) {
           </div>
         ) : null}
 
-        {step === 'documentos' && persona ? (
-          <div className="cf-step cf-step-wide">
-            <h1>Tu documentación</h1>
-            {totalRequeridos ? (
-              <p className="cf-subtitle">
-                {totalFaltantes === 0
-                  ? 'Completaste toda la documentación requerida.'
-                  : `Te falta${totalFaltantes === 1 ? '' : 'n'} ${totalFaltantes} de ${totalRequeridos}.`}
-              </p>
-            ) : null}
+        {step === 'documentos' ? (
+          documentosLoading ? (
+            <p className="cf-status">Cargando documentación...</p>
+          ) : documentosError ? (
+            <p className="cf-error">{documentosError}</p>
+          ) : currentDocItem ? (
+            <div className="cf-step cf-step-doc">
+              <p className="cf-doc-counter">Documento {docIndex + 1} de {docQueue.length} · {currentDocItem.label}</p>
+              {currentDocItem.estado === 'rechazado' && currentDocItem.motivo_rechazo ? (
+                <p className="cf-doc-motivo">Motivo del rechazo: {currentDocItem.motivo_rechazo}</p>
+              ) : null}
 
-            {documentosLoading ? <p className="cf-status">Cargando documentación...</p> : null}
-            {documentosError ? <p className="cf-error">{documentosError}</p> : null}
-
-            {!documentosLoading && !documentosError ? (
-              <>
-                <div className="cf-doc-list">
-                  {itemsActivos.map((item) => {
-                    const campos = CATEGORIA_CAMPOS[item.categoria] || {};
-                    const isEditing = editingCategoria === item.categoria;
+              {currentDocItem.estado === 'pendiente' ? (
+                <>
+                  <CheckCircle2 size={40} className="cf-icon-success" />
+                  <p className="cf-subtitle">Cargado correctamente. Queda pendiente de revisión.</p>
+                  <button type="button" className="cf-primary-button" onClick={avanzarDocIndex}>Siguiente</button>
+                </>
+              ) : (
+                <>
+                  {(() => {
+                    const campos = CATEGORIA_CAMPOS[currentDocCategoria] || {};
+                    const completos = camposCompletos(currentDocCategoria, { numero: docNumero, fechaParts: docFechaParts });
                     return (
-                      <div key={item.categoria} className={`cf-doc-item cf-doc-item-${item.estado}`}>
-                        <div className="cf-doc-item-head">
-                          <span className="cf-doc-item-label">{item.label}</span>
-                          <span className={`cf-doc-badge cf-doc-badge-${item.estado}`}>{ESTADO_LABELS[item.estado]}</span>
-                        </div>
-                        {item.motivo_rechazo ? <p className="cf-doc-motivo">Motivo: {item.motivo_rechazo}</p> : null}
-                        {item.estado === 'pendiente' ? (
-                          <p className="cf-doc-nombre-archivo">Ya subiste: {item.nombre_archivo}</p>
+                      <>
+                        {campos.numero ? (
+                          <label className="cf-field">
+                            <span>{campos.numeroLabel}</span>
+                            <input type="text" value={docNumero} onChange={(event) => setDocNumero(event.target.value)} />
+                          </label>
                         ) : null}
-
-                        {(item.estado === 'falta' || item.estado === 'rechazado') ? (
-                          isEditing ? (
-                            <div className="cf-doc-edit">
-                              {campos.numero ? (
-                                <label className="cf-field">
-                                  <span>{campos.numeroLabel}</span>
-                                  <input type="text" value={editNumero} onChange={(event) => setEditNumero(event.target.value)} />
-                                </label>
-                              ) : null}
-                              {campos.fechaVencimiento ? (
-                                <div className="cf-field-group">
-                                  <span className="cf-field-group-label">Fecha de vencimiento</span>
-                                  <FechaInputs idPrefix={`doc-${item.categoria}`} parts={editFechaParts} onChange={setEditFechaParts} />
-                                </div>
-                              ) : null}
-
-                              <div className="cf-doc-edit-actions">
-                                <button type="button" className="cf-link-button" onClick={closeEditItem} disabled={editUploading}>Cancelar</button>
-                                <button
-                                  type="button"
-                                  className="cf-primary-button"
-                                  onClick={() => setEditShowCapture(true)}
-                                  disabled={!camposCompletos(item.categoria, { numero: editNumero, fechaParts: editFechaParts }) || editUploading}
-                                >
-                                  {camposCompletos(item.categoria, { numero: editNumero, fechaParts: editFechaParts })
-                                    ? 'Elegir archivo'
-                                    : 'Completa los datos para cargar el documento'}
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <button type="button" className="cf-secondary-button" onClick={() => openEditItem(item)}>
-                              {item.estado === 'rechazado' ? 'Volver a cargar' : 'Cargar'}
-                            </button>
-                          )
+                        {campos.fechaVencimiento ? (
+                          <div className="cf-field-group">
+                            <span className="cf-field-group-label">Fecha de vencimiento</span>
+                            <FechaInputs idPrefix={`doc-${currentDocCategoria}`} parts={docFechaParts} onChange={setDocFechaParts} />
+                          </div>
                         ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="cf-doc-cursos">
-                  <div className="cf-doc-item-head">
-                    <span className="cf-doc-item-label">Cursos</span>
-                  </div>
-                  {documentosCursos.map((curso) => (
-                    <div key={curso.archivo_id} className="cf-doc-curso-item">
-                      <FileText size={16} />
-                      <div>
-                        <strong>{curso.tipo_capacitacion}</strong>
-                        <span className={`cf-doc-badge cf-doc-badge-${curso.estado}`}>{ESTADO_LABELS[curso.estado]}</span>
-                        {curso.motivo_rechazo ? <p className="cf-doc-motivo">Motivo: {curso.motivo_rechazo}</p> : null}
-                      </div>
-                    </div>
-                  ))}
-
-                  {showCursoForm ? (
-                    <div className="cf-doc-edit">
-                      <label className="cf-field">
-                        <span>Nombre del curso</span>
-                        <input type="text" value={cursoNombre} onChange={(event) => setCursoNombre(event.target.value)} />
-                      </label>
-                      <label className="cf-field">
-                        <span>Institución</span>
-                        <input type="text" value={cursoInstitucion} onChange={(event) => setCursoInstitucion(event.target.value)} />
-                      </label>
-                      <div className="cf-field-group">
-                        <span className="cf-field-group-label">Fecha</span>
-                        <FechaInputs idPrefix="curso-fecha" parts={cursoFechaParts} onChange={setCursoFechaParts} />
-                      </div>
-                      <div className="cf-doc-edit-actions">
-                        <button type="button" className="cf-link-button" onClick={resetCursoForm} disabled={cursoUploading}>Cancelar</button>
                         <button
                           type="button"
                           className="cf-primary-button"
-                          onClick={() => setCursoShowCapture(true)}
-                          disabled={!cursoCamposCompletos || cursoUploading}
+                          onClick={() => setDocShowCapture(true)}
+                          disabled={!completos}
                         >
-                          {cursoCamposCompletos ? 'Elegir archivo' : 'Completa los datos para cargar el documento'}
+                          {completos ? 'Cargar documento' : 'Completa los datos para cargar el documento'}
                         </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button type="button" className="cf-secondary-button" onClick={() => setShowCursoForm(true)}>
-                      Agregar curso
-                    </button>
-                  )}
-                </div>
-
-                {itemsValidados.length ? (
-                  <div className="cf-doc-validados">
-                    <button type="button" className="cf-doc-collapse-toggle" onClick={() => setShowValidados((prev) => !prev)}>
-                      {showValidados ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                      <span>Ya validados ({itemsValidados.length})</span>
-                    </button>
-                    {showValidados ? (
-                      <div className="cf-doc-list">
-                        {itemsValidados.map((item) => (
-                          <div key={item.categoria} className="cf-doc-item cf-doc-item-validado">
-                            <div className="cf-doc-item-head">
-                              <span className="cf-doc-item-label">{item.label}</span>
-                              <span className="cf-doc-badge cf-doc-badge-validado">Validado</span>
-                            </div>
-                            <p className="cf-doc-nombre-archivo">{item.nombre_archivo}</p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                {documentosTurno ? (
-                  <div className="cf-doc-turno">
-                    <div className="cf-doc-item-head">
-                      <span className="cf-doc-item-label">Tu turno</span>
-                    </div>
-                    <div className="cf-doc-turno-kv">
-                      <span>Régimen</span>
-                      <strong>{REGIMEN_TURNO_LABELS[documentosTurno.regimen_turno] || 'Sin asignar'}</strong>
-                    </div>
-                    {documentosTurno.regimen_turno === 'fijo' ? (
-                      <>
-                        <div className="cf-doc-turno-kv">
-                          <span>Móvil</span>
-                          <strong>{documentosTurno.vehiculo_numero_interno || 'Sin asignar'}</strong>
-                        </div>
-                        <div className="cf-doc-turno-kv">
-                          <span>Franja</span>
-                          <strong>{documentosTurno.franja_turno || 'Sin asignar'}</strong>
-                        </div>
-                        <div className="cf-doc-turno-kv">
-                          <span>Próximos francos</span>
-                          <strong>
-                            {documentosTurno.fecha_ref_descanso
-                              ? getProximosFrancos(documentosTurno.fecha_ref_descanso, 3).map(formatDateOnlyDisplay).join(', ')
-                              : 'Ciclo sin definir'}
-                          </strong>
-                        </div>
                       </>
-                    ) : null}
-                    <div className="cf-doc-turno-kv">
-                      <MapPin size={14} />
-                      <strong>
-                        {(documentosTurno.bases || []).length
-                          ? documentosTurno.bases.map((b) => b.nombre).join(' · ')
-                          : 'Sin base'}
-                      </strong>
-                    </div>
+                    );
+                  })()}
+                  <button type="button" className="cf-link-button" onClick={avanzarDocIndex}>Saltar por ahora</button>
+                </>
+              )}
+              <button type="button" className="cf-link-button" onClick={handleTerminarPorAhora}>Terminar por ahora</button>
+            </div>
+          ) : null
+        ) : null}
 
-                    {avisoSent ? (
-                      <p className="cf-doc-aviso-ok">Gracias, le avisamos a RRHH.</p>
-                    ) : avisoOpen ? (
-                      <div className="cf-doc-edit">
-                        <label className="cf-field">
-                          <span>Comentario (opcional)</span>
-                          <input type="text" value={avisoComentario} onChange={(event) => setAvisoComentario(event.target.value)} />
-                        </label>
-                        {avisoError ? <p className="cf-error">{avisoError}</p> : null}
-                        <div className="cf-doc-edit-actions">
-                          <button type="button" className="cf-link-button" onClick={() => setAvisoOpen(false)} disabled={avisoSending}>Cancelar</button>
-                          <button type="button" className="cf-primary-button" onClick={handleEnviarAviso} disabled={avisoSending}>
-                            {avisoSending ? 'Enviando...' : 'Avisar'}
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button type="button" className="cf-link-button" onClick={() => setAvisoOpen(true)}>
-                        No coincide, avisar a RRHH
-                      </button>
-                    )}
+        {step === 'cursos' ? (
+          <div className="cf-step cf-step-doc">
+            <h1>Cursos</h1>
+            <p className="cf-subtitle">Si hiciste algún curso o capacitación, cargalo acá. Es opcional.</p>
+
+            {documentosCursos.length ? (
+              <div className="cf-doc-list">
+                {documentosCursos.map((curso) => (
+                  <div key={curso.archivo_id} className="cf-doc-curso-item">
+                    <FileText size={16} />
+                    <div>
+                      <strong>{curso.tipo_capacitacion}</strong>
+                      <span className={`cf-doc-badge cf-doc-badge-${curso.estado}`}>{ESTADO_LABELS[curso.estado]}</span>
+                      {curso.motivo_rechazo ? <p className="cf-doc-motivo">Motivo: {curso.motivo_rechazo}</p> : null}
+                    </div>
                   </div>
-                ) : null}
-              </>
+                ))}
+              </div>
             ) : null}
 
-            <button type="button" className="cf-primary-button" onClick={handleTerminarPorAhora}>
-              Terminar por ahora
-            </button>
+            <div className="cf-doc-edit">
+              <label className="cf-field">
+                <span>Nombre del curso</span>
+                <input type="text" value={cursoNombre} onChange={(event) => setCursoNombre(event.target.value)} />
+              </label>
+              <label className="cf-field">
+                <span>Institución</span>
+                <input type="text" value={cursoInstitucion} onChange={(event) => setCursoInstitucion(event.target.value)} />
+              </label>
+              <div className="cf-field-group">
+                <span className="cf-field-group-label">Fecha</span>
+                <FechaInputs idPrefix="curso-fecha" parts={cursoFechaParts} onChange={setCursoFechaParts} />
+              </div>
+              <button
+                type="button"
+                className="cf-secondary-button"
+                onClick={() => setCursoShowCapture(true)}
+                disabled={!cursoCamposCompletos}
+              >
+                {cursoCamposCompletos ? 'Agregar curso' : 'Completa los datos para cargar el documento'}
+              </button>
+            </div>
+
+            <button type="button" className="cf-primary-button" onClick={() => setStep('turno')}>Continuar</button>
+            <button type="button" className="cf-link-button" onClick={handleTerminarPorAhora}>Terminar por ahora</button>
           </div>
         ) : null}
 
-        {step === 'listo' ? (
+        {step === 'turno' ? (
+          <div className="cf-step cf-step-doc">
+            <h1>Tu turno</h1>
+            {documentosTurno ? (
+              <div className="cf-doc-turno">
+                <div className="cf-doc-turno-kv">
+                  <span>Régimen</span>
+                  <strong>{REGIMEN_TURNO_LABELS[documentosTurno.regimen_turno] || 'Sin asignar'}</strong>
+                </div>
+                {documentosTurno.regimen_turno === 'fijo' ? (
+                  <>
+                    <div className="cf-doc-turno-kv">
+                      <span>Móvil</span>
+                      <strong>{documentosTurno.vehiculo_numero_interno || 'Sin asignar'}</strong>
+                    </div>
+                    <div className="cf-doc-turno-kv">
+                      <span>Franja</span>
+                      <strong>{documentosTurno.franja_turno || 'Sin asignar'}</strong>
+                    </div>
+                    <div className="cf-doc-turno-kv">
+                      <span>Próximos francos</span>
+                      <strong>
+                        {documentosTurno.fecha_ref_descanso
+                          ? getProximosFrancos(documentosTurno.fecha_ref_descanso, 3).map(formatDateOnlyDisplay).join(', ')
+                          : 'Ciclo sin definir'}
+                      </strong>
+                    </div>
+                  </>
+                ) : null}
+                <div className="cf-doc-turno-kv">
+                  <MapPin size={14} />
+                  <strong>
+                    {(documentosTurno.bases || []).length
+                      ? documentosTurno.bases.map((b) => b.nombre).join(' · ')
+                      : 'Sin base'}
+                  </strong>
+                </div>
+
+                {avisoSent ? (
+                  <p className="cf-doc-aviso-ok">Gracias, le avisamos a RRHH.</p>
+                ) : avisoOpen ? (
+                  <div className="cf-doc-edit">
+                    <label className="cf-field">
+                      <span>Comentario (opcional)</span>
+                      <input type="text" value={avisoComentario} onChange={(event) => setAvisoComentario(event.target.value)} />
+                    </label>
+                    {avisoError ? <p className="cf-error">{avisoError}</p> : null}
+                    <div className="cf-doc-edit-actions">
+                      <button type="button" className="cf-link-button" onClick={() => setAvisoOpen(false)} disabled={avisoSending}>Cancelar</button>
+                      <button type="button" className="cf-primary-button" onClick={handleEnviarAviso} disabled={avisoSending}>
+                        {avisoSending ? 'Enviando...' : 'Avisar'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button type="button" className="cf-link-button" onClick={() => setAvisoOpen(true)}>
+                    No coincide, avisar a RRHH
+                  </button>
+                )}
+              </div>
+            ) : (
+              <p className="cf-subtitle">Todavía no tenés un turno asignado.</p>
+            )}
+
+            <button type="button" className="cf-primary-button" onClick={() => setStep('resumen')}>Finalizar</button>
+          </div>
+        ) : null}
+
+        {step === 'resumen' ? (
           <div className="cf-step">
             <CheckCircle2 size={40} className="cf-icon-success" />
             <h1>¡Listo, gracias!</h1>
-            <p>Podés volver a completar lo que falta con un nuevo link.</p>
+            {resumenTotal ? (
+              <p className="cf-subtitle">
+                Cargaste {resumenCargados} de {resumenTotal}.
+                {resumenFaltantes.length
+                  ? ` Te faltan: ${resumenFaltantes.map((item) => item.label).join(', ')}. Podés completarlos más adelante con un nuevo link.`
+                  : ' Completaste toda la documentación requerida.'}
+              </p>
+            ) : (
+              <p>Podés volver a completar lo que falta con un nuevo link.</p>
+            )}
           </div>
         ) : null}
       </div>
@@ -870,20 +925,26 @@ export default function CompletarFichaScreen({ linkCodigo }) {
         />
       ) : null}
 
-      {editShowCapture ? (
-        <DocumentoCapture
-          title="Documento"
+      {docShowCapture && currentDocItem ? (
+        <FramedDocumentCapture
+          title={currentDocItem.label}
+          frame={(CAPTURA_CONFIG[currentDocCategoria] || {}).frame || 'card'}
+          allowPdf={Boolean((CAPTURA_CONFIG[currentDocCategoria] || {}).allowPdf)}
+          instruccion={`Ubicá ${currentDocItem.label.toLowerCase()} dentro del recuadro`}
           onCapture={handleCapturarDocumentoItem}
-          onClose={() => { if (!editUploading) { setEditShowCapture(false); setEditError(''); } }}
-          onPickAnother={() => setEditError('')}
-          busy={editUploading}
-          uploadError={editError}
+          onClose={() => { if (!docUploading) { setDocShowCapture(false); setDocError(''); } }}
+          onPickAnother={() => setDocError('')}
+          busy={docUploading}
+          uploadError={docError}
         />
       ) : null}
 
       {cursoShowCapture ? (
-        <DocumentoCapture
+        <FramedDocumentCapture
           title="Curso"
+          frame={CURSO_CAPTURA_CONFIG.frame}
+          allowPdf={CURSO_CAPTURA_CONFIG.allowPdf}
+          instruccion="Ubicá el certificado del curso dentro del recuadro"
           onCapture={handleCapturarCurso}
           onClose={() => { if (!cursoUploading) { setCursoShowCapture(false); setCursoError(''); } }}
           onPickAnother={() => setCursoError('')}

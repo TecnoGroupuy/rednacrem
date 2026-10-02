@@ -1,0 +1,342 @@
+/* Captura con encuadre -- overlay a pantalla completa (a diferencia de
+   PersonFotoCapture.css/pfc-*, que es un modal chico centrado): la camara en
+   vivo necesita todo el alto disponible para que el marco guia se vea con
+   margen real, sobre todo en telefonos angostos (360px). */
+
+.fdc-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 420;
+  background: #0f172a;
+  display: flex;
+  flex-direction: column;
+}
+
+.fdc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  color: #fff;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.fdc-close {
+  border: 0;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+}
+
+.fdc-close:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.fdc-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.fdc-error {
+  margin: 0;
+  color: #fecaca;
+  font-size: 13px;
+  text-align: center;
+  background: rgba(239, 68, 68, 0.15);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+/* --- Pantalla de eleccion (sacar foto / galeria / PDF) --- */
+.fdc-choice {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  max-width: 420px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.fdc-choice-button {
+  position: relative;
+  min-height: 56px;
+  border-radius: 16px;
+  border: 0;
+  background: #fff;
+  color: #0f172a;
+  font-weight: 700;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.fdc-choice-button-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.fdc-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+}
+
+/* --- Camara en vivo / ajuste de galeria: ocupan el resto de la pantalla --- */
+.fdc-stage {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 16px;
+  box-sizing: border-box;
+  gap: 16px;
+}
+
+.fdc-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* En camara en vivo el marco va absoluto y centrado por .fdc-dim-overlay;
+   instruccion+obturador (los unicos hijos en flujo de .fdc-stage en este
+   modo) se empujan al pie para no superponerse visualmente con el marco. */
+.fdc-stage-camera {
+  justify-content: flex-end;
+  padding-bottom: 28px;
+}
+
+.fdc-dim-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* El "agujero" del marco se logra con un box-shadow enorme en
+     .fdc-frame-guide en vez de un mask -- mas compatible y simple. */
+}
+
+.fdc-frame-guide {
+  position: relative;
+  border: 2px solid #fff;
+  border-radius: 10px;
+  box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.55);
+}
+
+.fdc-frame-card {
+  width: 84%;
+  aspect-ratio: 85.6 / 54;
+}
+
+.fdc-frame-a4 {
+  height: 72%;
+  max-width: 90%;
+  aspect-ratio: 210 / 297;
+}
+
+.fdc-frame-guide-standalone {
+  overflow: hidden;
+  touch-action: none;
+  background: #000;
+  cursor: grab;
+}
+
+.fdc-instruccion {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+.fdc-shutter {
+  position: relative;
+  z-index: 1;
+  width: 64px;
+  height: 64px;
+  min-height: 64px;
+  border-radius: 999px;
+  border: 4px solid #fff;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.fdc-shutter-dot {
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  background: #fff;
+}
+
+.fdc-shutter:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* --- Imagen de galeria dentro del marco (pan/zoom) --- */
+.fdc-gallery-img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  max-width: none;
+  max-height: none;
+  pointer-events: none;
+  user-select: none;
+}
+
+.fdc-zoom-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 320px;
+}
+
+.fdc-zoom-button {
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.fdc-zoom-slider {
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+}
+
+/* --- Vista previa final (foto recortada o PDF elegido) --- */
+.fdc-preview-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.fdc-preview-img-wrap {
+  width: 84%;
+  max-width: 360px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #000;
+}
+
+.fdc-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.fdc-preview-pdf {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #e2e8f0;
+  text-align: center;
+  word-break: break-all;
+  padding: 20px;
+}
+
+.fdc-preview-pdf-size {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* --- Botones de accion (foto/PDF confirmados, ajuste de galeria) --- */
+.fdc-preview-actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  max-width: 360px;
+}
+
+.fdc-primary-button,
+.fdc-secondary-button {
+  flex: 1;
+  min-height: 48px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.fdc-primary-button {
+  background: #16a34a;
+  color: #fff;
+}
+
+.fdc-secondary-button {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.fdc-primary-button:disabled,
+.fdc-secondary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 380px) {
+  .fdc-choice-button {
+    font-size: 15px;
+  }
+
+  .fdc-preview-img-wrap {
+    width: 94%;
+  }
+}

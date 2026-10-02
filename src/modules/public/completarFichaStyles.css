@@ -29,6 +29,61 @@
   margin: 0 auto 20px;
 }
 
+.cf-logo-grande {
+  height: 88px;
+  margin-bottom: 24px;
+}
+
+.cf-step-bienvenida {
+  gap: 12px;
+}
+
+.cf-step-bienvenida h1 {
+  font-size: 24px;
+}
+
+.cf-step-bienvenida p {
+  margin: 0;
+  color: #334155;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.cf-nota-privacidad {
+  color: #94a3b8 !important;
+  font-size: 12.5px !important;
+  margin-top: 4px !important;
+}
+
+.cf-progress {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+  margin: 4px 0 18px;
+}
+
+.cf-progress-fill {
+  height: 100%;
+  background: #16a34a;
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+
+.cf-step-doc {
+  gap: 14px;
+}
+
+.cf-doc-counter {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #16a34a;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
 .cf-step {
   display: grid;
   gap: 14px;
@@ -145,6 +200,13 @@
   color: #fff;
 }
 
+.cf-primary-button-verde {
+  background: #16a34a;
+  margin-top: 10px;
+  min-height: 54px;
+  font-size: 16px;
+}
+
 .cf-primary-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -160,7 +222,8 @@
   border: 0;
   background: transparent;
   color: #64748b;
-  min-height: auto;
+  min-height: 48px;
+  padding: 0 4px;
   text-decoration: underline;
 }
 
