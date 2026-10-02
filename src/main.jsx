@@ -71,6 +71,7 @@ import {
   listUnassignedRetentionTicketsAsync,
   listAssignedRetentionTicketsAsync,
   listMyRetentionTicketsAsync,
+  listClosedRetentionTicketsAsync,
   assignRetentionTicket
 } from './services/ticketsService.js';
 import { listTicketsByClientId } from './services/ticketClientService.js';
@@ -14793,6 +14794,138 @@ const formatCurrency = (value) => {
       );
     }
 
+    // Tab "Cerrados" de Retención (vista supervisor, 2026-10): a diferencia
+    // de "Sin asignar"/"En gestión" (colas acotadas, paginadas en el
+    // cliente sobre la lista completa -- ver SupportTicketsView), esta
+    // puede crecer sin límite con el tiempo, así que pagina contra el
+    // backend de verdad (GET /manual-tickets/cerrados). Maneja su propio
+    // estado de filtros/página -- no comparte el `tickets` de RetencionModule.
+    function RetencionCerradosView({ sellers, onOpenTicket }) {
+      const [items, setItems] = React.useState([]);
+      const [total, setTotal] = React.useState(0);
+      const [page, setPage] = React.useState(1);
+      const limit = 10;
+      const [loading, setLoading] = React.useState(true);
+      const [error, setError] = React.useState('');
+      const [closedByFilter, setClosedByFilter] = React.useState('');
+      const [dateFrom, setDateFrom] = React.useState('');
+      const [dateTo, setDateTo] = React.useState('');
+      const [resultadoFilter, setResultadoFilter] = React.useState('');
+
+      const totalPages = Math.max(1, Math.ceil(total / limit));
+
+      const load = React.useCallback(() => {
+        setLoading(true);
+        setError('');
+        listClosedRetentionTicketsAsync({
+          page,
+          limit,
+          closedBy: closedByFilter || undefined,
+          dateFrom: dateFrom || undefined,
+          dateTo: dateTo || undefined,
+          resultado: resultadoFilter || undefined
+        })
+          .then((data) => {
+            setItems(data.items);
+            setTotal(data.total);
+          })
+          .catch((err) => {
+            if (err?.status === 401 || err?.status === 403) {
+              setError('No tenés permisos para ver las solicitudes cerradas.');
+              return;
+            }
+            setError('No se pudieron cargar las solicitudes cerradas.');
+          })
+          .finally(() => setLoading(false));
+      }, [page, closedByFilter, dateFrom, dateTo, resultadoFilter]);
+
+      React.useEffect(() => { load(); }, [load]);
+      // Cualquier cambio de filtro vuelve a la página 1 -- si no, se puede
+      // quedar en una página que ya no existe para el nuevo resultado.
+      React.useEffect(() => { setPage(1); }, [closedByFilter, dateFrom, dateTo, resultadoFilter]);
+
+      const resultadoLabel = (value) => (value === 'baja_confirmada' ? 'Baja confirmada' : (value === 'retenido' ? 'Retenido' : (value || '—')));
+
+      return (
+        <section className="content-grid">
+          <Panel className="span-12" title="Retención — cerrados" subtitle="Solicitudes de baja ya resueltas" action={<Tag variant="info">{total} registros</Tag>}>
+            <div className="toolbar" style={{ marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+              <select className="input" style={{ width: 220, padding: '11px 12px' }} value={closedByFilter} onChange={(event) => setClosedByFilter(event.target.value)}>
+                <option value="">Todos los usuarios</option>
+                <option value="unidentified">Sin identificar</option>
+                {sellers.map((seller) => (
+                  <option key={seller.id} value={seller.id}>{seller.label}</option>
+                ))}
+              </select>
+              <select className="input" style={{ width: 180, padding: '11px 12px' }} value={resultadoFilter} onChange={(event) => setResultadoFilter(event.target.value)}>
+                <option value="">Todos los resultados</option>
+                <option value="retenido">Retenido</option>
+                <option value="baja_confirmada">Baja confirmada</option>
+              </select>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)' }}>
+                Desde
+                <input type="date" className="input" style={{ padding: '10px 12px' }} value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)' }}>
+                Hasta
+                <input type="date" className="input" style={{ padding: '10px 12px' }} value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
+              </label>
+            </div>
+
+            {error ? (
+              <div className="toolbar" style={{ marginBottom: 12 }}>
+                <span style={{ color: '#be123c', fontWeight: 700 }}>{error}</span>
+                <Button variant="secondary" onClick={load}>Reintentar</Button>
+              </div>
+            ) : null}
+
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Número</th>
+                    <th>Cliente</th>
+                    <th>Resultado</th>
+                    <th>Usuario</th>
+                    <th>Fecha de cierre</th>
+                    <th>Nota</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--muted)', padding: 18 }}>Cargando...</td></tr>
+                  ) : items.map((ticket) => (
+                    <tr key={ticket.id} className="support-row" onClick={() => onOpenTicket(ticket.id)} style={{ cursor: 'pointer' }}>
+                      <td><div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Hash size={14} /><strong>{String(ticket.numero || ticket.id).padStart(6, '0')}</strong></div></td>
+                      <td>{ticket.cliente}</td>
+                      <td>
+                        <span style={{ display: 'inline-block', padding: '4px 8px', borderRadius: 999, fontSize: '0.78rem', fontWeight: 700, background: ticket.cierreResultado === 'baja_confirmada' ? 'rgba(190,18,60,0.1)' : 'rgba(15,118,110,0.1)', color: ticket.cierreResultado === 'baja_confirmada' ? '#be123c' : '#0f766e' }}>
+                          {resultadoLabel(ticket.cierreResultado)}
+                        </span>
+                      </td>
+                      <td>{ticket.closedByNombre || 'Sin identificar'}</td>
+                      <td>{formatDateTimeShort(ticket.cierreFecha) || ticket.cierreFecha}</td>
+                      <td style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ticket.cierreNota || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {!loading && !items.length ? <div style={{ padding: 18, textAlign: 'center', color: 'var(--muted)' }}>No hay solicitudes cerradas para los filtros aplicados.</div> : null}
+            </div>
+
+            <div className="toolbar" style={{ justifyContent: 'space-between', marginTop: 12 }}>
+              <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Mostrando {items.length} de {total}</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <Button variant="ghost" disabled={page <= 1} onClick={() => setPage((prev) => Math.max(1, prev - 1))}>Anterior</Button>
+                <div style={{ fontWeight: 600 }}>Página {page} de {totalPages}</div>
+                <Button variant="ghost" disabled={page >= totalPages} onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}>Siguiente</Button>
+              </div>
+            </div>
+          </Panel>
+        </section>
+      );
+    }
+
     function RetencionModule() {
       const { user: authUser } = useAuth();
       const { rolEfectivo } = useRolEfectivo();
@@ -14812,6 +14945,12 @@ const formatCurrency = (value) => {
       const [assignError, setAssignError] = React.useState('');
 
       const loadTickets = React.useCallback(() => {
+        // "Cerrados" maneja su propia carga/paginación/filtros en
+        // RetencionCerradosView, no pasa por este `tickets` compartido.
+        if (isSupervisor && section === 'cerrados') {
+          setLoading(false);
+          return;
+        }
         setLoading(true);
         setError('');
         const loader = !isSupervisor
@@ -14872,7 +15011,14 @@ const formatCurrency = (value) => {
         setView('detalle');
         getTicketById(id)
           .then((fresh) => {
-            setTickets((prev) => prev.map((ticket) => ticket.id === fresh.id ? fresh : ticket));
+            // "Cerrados" abre tickets que no están en este `tickets`
+            // compartido (tiene su propia lista/paginación) -- si no
+            // estaba, se agrega; si estaba (otras secciones), se reemplaza.
+            setTickets((prev) => (
+              prev.some((ticket) => ticket.id === fresh.id)
+                ? prev.map((ticket) => ticket.id === fresh.id ? fresh : ticket)
+                : [...prev, fresh]
+            ));
           })
           .catch(() => {});
       };
@@ -14971,6 +15117,13 @@ const formatCurrency = (value) => {
                   >
                     En gestión
                   </Button>
+                  <Button
+                    variant={section === 'cerrados' ? 'secondary' : 'ghost'}
+                    style={section === 'cerrados' ? { background: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.08)', border: 'none' } : { border: 'none', background: 'transparent' }}
+                    onClick={() => setSection('cerrados')}
+                  >
+                    Cerrados
+                  </Button>
                 </div>
               </Panel>
             </section>
@@ -14985,26 +15138,30 @@ const formatCurrency = (value) => {
               </Panel>
             </section>
           ) : null}
-          <SupportTicketsView
-            mode="retencion"
-            title={
-              !isSupervisor
-                ? 'Retención — mis tickets'
-                : (section === 'en_gestion' ? 'Retención — en gestión' : 'Retención — sin asignar')
-            }
-            subtitle={
-              !isSupervisor
-                ? 'Solicitudes de baja que te asignó tu supervisor'
-                : (section === 'en_gestion'
-                  ? 'Solicitudes de baja ya asignadas a un vendedor'
-                  : 'Solicitudes de baja pendientes de asignar a un vendedor')
-            }
-            tickets={displayTickets}
-            onSelect={openTicket}
-            selectedId={selectedId}
-            onAssign={isSupervisor && section === 'sin_asignar' ? openAssignModal : undefined}
-            showAssignee={isSupervisor && section === 'en_gestion'}
-          />
+          {isSupervisor && section === 'cerrados' ? (
+            <RetencionCerradosView sellers={sellers} onOpenTicket={openTicket} />
+          ) : (
+            <SupportTicketsView
+              mode="retencion"
+              title={
+                !isSupervisor
+                  ? 'Retención — mis tickets'
+                  : (section === 'en_gestion' ? 'Retención — en gestión' : 'Retención — sin asignar')
+              }
+              subtitle={
+                !isSupervisor
+                  ? 'Solicitudes de baja que te asignó tu supervisor'
+                  : (section === 'en_gestion'
+                    ? 'Solicitudes de baja ya asignadas a un vendedor'
+                    : 'Solicitudes de baja pendientes de asignar a un vendedor')
+              }
+              tickets={displayTickets}
+              onSelect={openTicket}
+              selectedId={selectedId}
+              onAssign={isSupervisor && section === 'sin_asignar' ? openAssignModal : undefined}
+              showAssignee={isSupervisor && section === 'en_gestion'}
+            />
+          )}
           <RetencionAssignModal
             ticket={assignTarget}
             sellers={sellers}

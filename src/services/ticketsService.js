@@ -274,7 +274,15 @@ const mapBackendManualTicket = (item = {}) => {
     timeline: item.timeline || [],
     esSolicitudServicio: ticketType === 'solicitud_servicio',
     serviceRequest: mapServiceRequest(item.serviceRequest || item.service_request),
-    assignedTo: item.assignedTo || item.assigned_to || null
+    assignedTo: item.assignedTo || item.assigned_to || null,
+    // Tab "Cerrados" de Retención (2026-10) -- datos del ÚLTIMO cierre,
+    // ya resueltos por el backend (GET /manual-tickets/cerrados). Pasan de
+    // largo para el resto de las tabs, que no los traen.
+    cierreResultado: item.cierreResultado || '',
+    cierreFecha: item.cierreFecha || item.cierre_fecha || '',
+    cierreNota: item.cierreNota || '',
+    closedBy: item.closedBy || null,
+    closedByNombre: item.closedByNombre || ''
   };
 };
 
@@ -382,6 +390,36 @@ export const listMyRetentionTicketsAsync = async (sellerId) => {
     ? response
     : (Array.isArray(response?.items) ? response.items : (Array.isArray(response?.data) ? response.data : []));
   return hydrateTicketsWithDirectory(items.map(mapBackendManualTicket));
+};
+
+// Módulo Retención — tab "Cerrados" del supervisor (2026-10): solicitudes
+// de baja ya cerradas, con paginación real de backend (a diferencia de
+// "Sin asignar"/"En gestión", que son colas acotadas y se paginan en el
+// cliente, esta puede crecer sin límite con el tiempo). filters acepta
+// closedBy ('unidentified' para los cierres sin usuario resuelto),
+// dateFrom/dateTo (YYYY-MM-DD) y resultado ('retenido'|'baja_confirmada').
+export const listClosedRetentionTicketsAsync = async ({ page = 1, limit = 10, closedBy, dateFrom, dateTo, resultado } = {}) => {
+  if (!hasApiConfigured()) {
+    await delay(160);
+    const items = listTickets().filter((ticket) => ticket.tipoRaw === 'solicitud_baja' && ticket.estado === 'cerrado');
+    return { items, total: items.length, page: 1, limit: items.length || 1 };
+  }
+  const params = new URLSearchParams();
+  params.set('page', String(page));
+  params.set('limit', String(limit));
+  if (closedBy) params.set('closed_by', closedBy);
+  if (dateFrom) params.set('date_from', dateFrom);
+  if (dateTo) params.set('date_to', dateTo);
+  if (resultado) params.set('resultado', resultado);
+  const response = await api.get(`/manual-tickets/cerrados?${params.toString()}`);
+  const items = Array.isArray(response?.items) ? response.items : [];
+  const hydrated = await hydrateTicketsWithDirectory(items.map(mapBackendManualTicket));
+  return {
+    items: hydrated,
+    total: response?.total || 0,
+    page: response?.page || page,
+    limit: response?.limit || limit
+  };
 };
 
 // Asignar (o reasignar) un ticket de retención a un vendedor específico.
