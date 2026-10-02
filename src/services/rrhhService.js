@@ -151,6 +151,14 @@ export async function deletePersonalRole(personalId, roleId) {
   return Boolean(response?.ok);
 }
 
+// Unico campo que acepta el PATCH: rol_principal=true -- lo desmarca de
+// cualquier otro rol de la misma persona en el mismo request (ver el
+// endpoint en el backend). No existe forma de "desmarcar sin marcar otro".
+export async function setPersonalRolePrincipal(personalId, roleId) {
+  const response = await api.patch(`/operaciones/personal/${personalId}/roles/${roleId}`, { rol_principal: true });
+  return response?.item || null;
+}
+
 export async function listLicencias(personalId) {
   const response = await api.get(`/operaciones/personal/${personalId}/licencias`);
   return response?.items || [];

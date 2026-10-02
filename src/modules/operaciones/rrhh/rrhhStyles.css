@@ -552,6 +552,56 @@
   gap: 14px;
 }
 
+/* PersonalForm rediseñado: header y footer (Guardar/Cancelar) fijos, solo
+   el cuerpo central hace scroll -- a diferencia de .rrhh-modal-panel "a
+   secas" (que usan tambien EmpresaContratistaForm y los modales de link),
+   donde el panel entero scrollea de punta a punta. Clase propia en vez de
+   tocar .rrhh-modal-panel para no afectar esos otros modales. */
+.rrhh-personal-form-panel {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.rrhh-personal-form-panel .rrhh-modal-header {
+  flex: none;
+  padding: 24px 24px 0;
+}
+
+.rrhh-personal-form-body {
+  flex: 1;
+  overflow: auto;
+  padding: 18px 24px 24px;
+}
+
+.rrhh-personal-form-footer {
+  flex: none;
+  padding: 16px 24px;
+  border-top: 1px solid rgba(51, 65, 85, 0.9);
+  background: rgba(15, 23, 42, 0.92);
+}
+
+.rrhh-form-section-block {
+  margin-bottom: 26px;
+}
+
+.rrhh-form-section-block:last-child {
+  margin-bottom: 0;
+}
+
+/* Inputs/selects y botones de 48px de alto, mismo criterio visual que la
+   ficha rediseñada -- scoped a este formulario (el resto de la app sigue
+   en 42-44px via las reglas genericas de arriba). */
+.rrhh-personal-form-panel .rrhh-form-grid input,
+.rrhh-personal-form-panel .rrhh-form-grid select {
+  min-height: 48px;
+}
+
+.rrhh-personal-form-panel .button {
+  min-height: 48px;
+}
+
 .rrhh-form-grid label {
   display: grid;
   gap: 8px;
@@ -1208,59 +1258,66 @@
   }
 }
 
-/* Seleccion multiple de bases en PersonalForm (migracion 081) */
+/* Chips seleccionables de PersonalForm (roles y bases, rediseño): cada
+   chip es un contenedor con DOS botones adentro -- el cuerpo (toggle
+   seleccionar/deseleccionar) y, solo si esta seleccionado, una estrella
+   chica (marcar como principal). Dos <button> hermanos en vez de uno
+   anidado dentro de otro porque HTML no permite anidar button -- el
+   border-radius/fondo compartido del contenedor padre hace que se vean
+   como un solo chip. Mismo componente (ChipToggle, local a
+   PersonalForm.jsx) para roles y bases. */
 
-.rrhh-bases-select {
-  display: grid;
-  gap: 8px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  border: 1px solid var(--rrhh-line);
-  background: rgba(15, 23, 42, 0.62);
-  max-height: 220px;
-  overflow: auto;
-}
-
-.rrhh-bases-select-row {
+.rrhh-chip-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
   flex-wrap: wrap;
+  gap: 8px;
 }
 
-.rrhh-bases-select-checkbox,
-.rrhh-bases-select-principal {
+.rrhh-chip-toggle {
+  display: inline-flex;
+  align-items: stretch;
+  border-radius: 999px;
+  border: 1px solid rgba(51, 65, 85, 0.9);
+  background: transparent;
+  overflow: hidden;
+}
+
+.rrhh-chip-toggle.selected {
+  background: rgba(249, 115, 22, 0.14);
+  border-color: rgba(251, 146, 60, 0.4);
+}
+
+.rrhh-chip-toggle-body {
+  border: 0;
+  background: transparent;
+  color: var(--rrhh-text-soft);
+  cursor: pointer;
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.rrhh-chip-toggle.selected .rrhh-chip-toggle-body {
+  color: #fff7ed;
+}
+
+.rrhh-chip-star {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--rrhh-text-soft);
+  border: 0;
+  border-left: 1px solid rgba(251, 146, 60, 0.3);
+  background: transparent;
+  color: rgba(253, 186, 116, 0.5);
+  cursor: pointer;
+  padding: 0 10px;
 }
 
-/* .rrhh-form-grid input ya estiliza TODO input (min-height 42px, fondo,
-   padding horizontal) para los campos de texto/fecha del formulario -- sin
-   este reset, el checkbox/radio de abajo hereda ese tamaño y padding y
-   termina como un cuadrado enorme que empuja la etiqueta a la linea de
-   abajo. Selector mas especifico que `.rrhh-form-grid input` para ganarle. */
-.rrhh-bases-select input[type='checkbox'],
-.rrhh-bases-select input[type='radio'] {
-  min-height: 0;
-  width: 16px;
-  height: 16px;
-  padding: 0;
-  flex-shrink: 0;
-  border-radius: 4px;
-  accent-color: var(--rrhh-orange);
+.rrhh-chip-star.active {
+  color: #fbbf24;
 }
 
-.rrhh-bases-select input[type='radio'] {
-  border-radius: 50%;
-}
-
-.rrhh-bases-select-principal {
-  color: #fdba74;
-  font-weight: 600;
+.rrhh-chip-star:hover {
+  color: #fbbf24;
 }
 
 /* Foto clickeable del header de la ficha (PersonalDetail.jsx): cuadrada
