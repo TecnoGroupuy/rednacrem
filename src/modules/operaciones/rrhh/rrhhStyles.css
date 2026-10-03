@@ -1221,11 +1221,33 @@
   flex-shrink: 0;
 }
 
+/* Especialidad (médico) / formación (enfermero), 2026-10 -- mismo layout
+   que .rrhh-card2-bases, ícono distinto (Stethoscope/GraduationCap). */
+.rrhh-card2-especialidades {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #c4b5fd;
+  overflow: hidden;
+}
+
+.rrhh-card2-especialidades span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rrhh-card2-especialidades svg {
+  flex-shrink: 0;
+}
+
 .rrhh-card2-estado-row {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-top: 4px;
+  flex-wrap: wrap;
 }
 
 .rrhh-card2-chip {
@@ -1261,6 +1283,15 @@
   background: rgba(148, 163, 184, 0.14);
   border: 1px solid rgba(148, 163, 184, 0.24);
   color: #cbd5e1;
+}
+
+.rrhh-card2-chip.atiende-ninos {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(14, 165, 233, 0.14);
+  border: 1px solid rgba(14, 165, 233, 0.28);
+  color: #7dd3fc;
 }
 
 /* Icono chico de alerta de vencimiento -- unica excepcion al rojo

@@ -19,6 +19,9 @@ import {
   deletePersonalRole,
   setPersonalRolePrincipal,
   updatePersonalBases,
+  listEspecialidadesCatalogo,
+  addPersonalEspecialidad,
+  deletePersonalEspecialidad,
   addLicencia,
   updateLicencia,
   generateFichaLink,
@@ -31,6 +34,7 @@ import {
 import { listBases, listVehiculos } from '../../../services/flotasService.js';
 import { getMissingFields } from './PersonalDetail.jsx';
 import { buildPersonalHierarchy } from './personalHierarchy.js';
+import { isSinClasificar } from './personalEspecialidadesHelpers.js';
 import './rrhhStyles.css';
 
 // bases y personal ahora salen del backend real (rrhhService.js /
@@ -78,7 +82,17 @@ const emptyPersonalDraft = {
   regimen_turno: null,
   vehiculo_id: null,
   franja_turno: null,
-  fecha_ref_descanso: null
+  fecha_ref_descanso: null,
+  // especialidades (2026-10): igual que roles, array editable del form
+  // ({ id, catalogo_id }, id null para las que todavía no se guardaron),
+  // sincronizado contra su_personal_especialidades via POST/DELETE
+  // después de guardar la persona (ver syncPersonalEspecialidades). Cubre
+  // especialidades de médico (varias) Y formación de enfermero (una sola,
+  // aplicada por el propio handler setFormacion del form).
+  especialidades: [],
+  // poblacion_enfermeria SÍ es una columna real de su_personal (migración
+  // 088) -- viaja en el payload normal de create/update, sin sync aparte.
+  poblacion_enfermeria: null
 };
 
 const emptyEmpresaDraft = {
@@ -185,7 +199,10 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
   const [filters, setFilters] = React.useState({
     base_id: '',
     estado: '',
-    sin_foto: false
+    sin_foto: false,
+    especialidad_id: '',
+    atiende_ninos: false,
+    sin_clasificar: false
   });
   const [personalFormOpen, setPersonalFormOpen] = React.useState(false);
   const [personalFormMode, setPersonalFormMode] = React.useState('create');
@@ -195,6 +212,11 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
   // personalDraft.roles al guardar, para saber que agregar/quitar/
   // repromover (ver syncPersonalRoles). No se edita directo, solo se lee.
   const [personalExistingRoles, setPersonalExistingRoles] = React.useState([]);
+  // Especialidades (médico)/formación (enfermero), 2026-10: mismo criterio
+  // que personalExistingRoles -- baseline contra la que se compara
+  // personalDraft.especialidades al guardar (ver syncPersonalEspecialidades).
+  const [personalExistingEspecialidades, setPersonalExistingEspecialidades] = React.useState([]);
+  const [especialidadesCatalogo, setEspecialidadesCatalogo] = React.useState([]);
   const [personalErrors, setPersonalErrors] = React.useState({});
   const [formSaving, setFormSaving] = React.useState(false);
   const [formError, setFormError] = React.useState('');
@@ -241,18 +263,25 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
     setLoading(true);
     setError('');
     try {
-      const [personalItems, basesItems, vehiculosItems, vencimientosItems, pendientesIds] = await Promise.all([
+      const [personalItems, basesItems, vehiculosItems, vencimientosItems, pendientesIds, catalogoItems] = await Promise.all([
         listPersonal(),
         listBases(),
         listVehiculos(),
         listPersonalVencimientos({ days: 30 }),
-        listPersonalConDocumentosPendientes()
+        listPersonalConDocumentosPendientes(),
+        // .catch(() => []): rrhh.gestionar (2026-10) puede faltarle a algún
+        // usuario que de todos modos llegue a ver esta pantalla -- sin esto,
+        // un 403 acá tiraría abajo TODO el Promise.all y dejaría la pantalla
+        // en blanco por un catálogo que, en el peor caso, solo deja sin
+        // etiquetas/filtro de especialidad (degrada, no rompe).
+        listEspecialidadesCatalogo().catch(() => [])
       ]);
       setPersonal(personalItems);
       setBases(basesItems);
       setVehiculos(vehiculosItems);
       setVencimientos(vencimientosItems);
       setPersonalConDocumentosPendientes(new Set(pendientesIds));
+      setEspecialidadesCatalogo(catalogoItems);
     } catch (err) {
       setError(err?.message || 'No se pudo cargar el personal.');
     } finally {
@@ -358,6 +387,15 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
     // Foto de perfil obligatoria en el link de autocompletado (2026-10) --
     // filtro para que RRHH ubique rápido a quién pedirle que la cargue.
     if (filters.sin_foto && row.foto_url) return false;
+    // Especialidad/formación (2026-10): especialidad_id matchea contra
+    // CUALQUIER especialidad/formación asignada (mismo criterio que
+    // filters.base_id arriba). atiende_ninos y sin_clasificar ya vienen
+    // resueltos por fila (atiende_ninos desde el backend, sin_clasificar
+    // calculado acá con el mismo criterio que usa PersonalList para la
+    // etiqueta).
+    if (filters.especialidad_id && !(row.especialidades || []).some((e) => e.catalogo_id === filters.especialidad_id)) return false;
+    if (filters.atiende_ninos && !row.atiende_ninos) return false;
+    if (filters.sin_clasificar && !isSinClasificar(row)) return false;
     return true;
   }), [personalRows, filters]);
 
@@ -397,6 +435,7 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
     setPersonalFormMode('create');
     setPersonalDraft({ ...emptyPersonalDraft });
     setPersonalExistingRoles([]);
+    setPersonalExistingEspecialidades([]);
     setPersonalErrors({});
     setFormError('');
     setPersonalFormOpen(true);
@@ -424,6 +463,10 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
     // guarda.
     const textOrEmpty = (value) => value ?? '';
     const existingRoles = item.roles || [];
+    // especialidades: item.especialidades trae tipo/nombre/poblacion
+    // resueltos (para mostrar), pero el form solo necesita { id, catalogo_id }
+    // -- mismo criterio que bases con `nombre`.
+    const existingEspecialidades = item.especialidades || [];
     setPersonalDraft({
       ...emptyPersonalDraft,
       ...item,
@@ -440,12 +483,15 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
       // mandar de vuelta y que quedaria stale si la base se renombra entre
       // medio.
       bases: (item.bases || []).map((b) => ({ base_id: b.base_id, es_principal: Boolean(b.es_principal) })),
+      especialidades: existingEspecialidades.map((e) => ({ id: e.id, catalogo_id: e.catalogo_id })),
+      poblacion_enfermeria: item.poblacion_enfermeria || null,
       fecha_nacimiento: toDateOnly(item.fecha_nacimiento),
       fecha_ingreso: toDateOnly(item.fecha_ingreso),
       fecha_egreso: toDateOnly(item.fecha_egreso),
       fecha_ref_descanso: toDateOnly(item.fecha_ref_descanso)
     });
     setPersonalExistingRoles(existingRoles);
+    setPersonalExistingEspecialidades(existingEspecialidades.map((e) => ({ id: e.id, catalogo_id: e.catalogo_id })));
     setPersonalErrors({});
     setFormError('');
     setPersonalFormOpen(true);
@@ -506,6 +552,34 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
     return finalRoles;
   };
 
+  // Mismo criterio que syncPersonalRoles, más simple -- sin concepto de
+  // "principal". El backend ya aplica la regla de "formación única" (POST
+  // .../especialidades reemplaza cualquier formación previa), así que acá
+  // alcanza con diffear id null (a agregar) contra lo que ya no está en el
+  // draft (a borrar). Devuelve el array final resuelto (nombre/tipo/
+  // poblacion), para mergear en el estado local sin otro GET.
+  const syncPersonalEspecialidades = async (personalId, originalEspecialidades, draftEspecialidades) => {
+    const toRemove = originalEspecialidades.filter((o) => !draftEspecialidades.some((d) => d.id === o.id));
+    const toAdd = draftEspecialidades.filter((d) => !d.id);
+
+    for (const especialidad of toRemove) {
+      await deletePersonalEspecialidad(personalId, especialidad.id);
+    }
+    const created = [];
+    for (const especialidad of toAdd) {
+      const item = await addPersonalEspecialidad(personalId, especialidad.catalogo_id);
+      if (item) created.push(item);
+    }
+
+    const keptOriginal = originalEspecialidades
+      .filter((o) => draftEspecialidades.some((d) => d.id === o.id))
+      .map((o) => {
+        const catalogoItem = especialidadesCatalogo.find((c) => c.id === o.catalogo_id);
+        return catalogoItem ? { id: o.id, catalogo_id: o.catalogo_id, tipo: catalogoItem.tipo, nombre: catalogoItem.nombre, poblacion: catalogoItem.poblacion } : { id: o.id, catalogo_id: o.catalogo_id };
+      });
+    return [...keptOriginal, ...created];
+  };
+
   const savePersonal = async () => {
     if (!validatePersonalDraft()) return;
 
@@ -538,6 +612,18 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
       fecha_ref_descanso: toDateOnly(personalDraft.fecha_ref_descanso) || null
     };
 
+    // poblacion_enfermeria (2026-10): columna real de su_personal, viaja en
+    // el payload normal -- a diferencia de especialidades (tabla aparte,
+    // sync después de guardar). Se incluye SOLO si el rol la hace aplicable
+    // (mismo criterio que showFormacion en PersonalForm): el backend gatea
+    // la capacidad rrhh.gestionar apenas detecta esta clave en el body
+    // (hasOwn), así que mandarla siempre -- aunque sea null -- exigiría esa
+    // capacidad hasta para guardar un Médico sin tocar nada de esto.
+    const draftRoleNames = (personalDraft.roles || []).map((r) => r.rol);
+    if (draftRoleNames.includes('Enfermero') || draftRoleNames.includes('Jefe_de_enfermeria')) {
+      payload.poblacion_enfermeria = personalDraft.poblacion_enfermeria || null;
+    }
+
     // Mergea la respuesta del backend sobre el item que ya tenia en estado
     // local, en vez de reemplazarlo tal cual. Hace falta porque PATCH
     // /operaciones/personal/:id no devuelve `roles` en su respuesta (a
@@ -550,7 +636,14 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
     const mergePersonalItem = (previous, updated) => ({
       ...previous,
       ...updated,
-      roles: updated.roles ?? previous?.roles ?? []
+      roles: updated.roles ?? previous?.roles ?? [],
+      // especialidades/poblacion_efectiva/atiende_ninos (2026-10): mismo
+      // problema que roles -- el PATCH crudo no los trae. refreshPersonalList
+      // (al final de este mismo save) los deja correctos enseguida; esto
+      // solo evita que la tarjeta se vea vacía en el instante intermedio.
+      especialidades: updated.especialidades ?? previous?.especialidades ?? [],
+      poblacion_efectiva: updated.poblacion_efectiva ?? previous?.poblacion_efectiva ?? null,
+      atiende_ninos: updated.atiende_ninos ?? previous?.atiende_ninos ?? false
     });
 
     setFormSaving(true);
@@ -580,6 +673,25 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
         });
         setFormError(
           `El funcionario se guardó correctamente, pero no se pudieron sincronizar los roles: ${roleErr?.message || 'error desconocido'}. Completalo después desde la ficha ("Ver").`
+        );
+        setFormSaving(false);
+        return;
+      }
+
+      // Especialidades/formación (2026-10): mismo manejo de error parcial
+      // que roles arriba -- se sincronizan DESPUES de los roles (el backend
+      // valida que el rol ya exista para la persona al asignar).
+      try {
+        const finalEspecialidades = await syncPersonalEspecialidades(saved.id, personalExistingEspecialidades, personalDraft.especialidades || []);
+        savedMerged = { ...savedMerged, especialidades: finalEspecialidades };
+      } catch (especialidadErr) {
+        setPersonal((prev) => {
+          const exists = prev.some((item) => item.id === savedMerged.id);
+          if (exists) return prev.map((item) => item.id === savedMerged.id ? savedMerged : item);
+          return [savedMerged, ...prev];
+        });
+        setFormError(
+          `El funcionario se guardó correctamente, pero no se pudieron sincronizar las especialidades: ${especialidadErr?.message || 'error desconocido'}. Completalo después desde la ficha ("Ver").`
         );
         setFormSaving(false);
         return;
@@ -677,6 +789,38 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
       refreshSelectedDetail();
     } catch (err) {
       setActionError(err?.message || 'No se pudo quitar el rol.');
+    }
+  };
+
+  // Mismo criterio que handleAddRole/handleRemoveRole -- editar desde la
+  // ficha (pestaña Roles) sin pasar por el formulario completo.
+  const handleAddEspecialidad = async (catalogoId) => {
+    if (!selectedPersonalId) return;
+    try {
+      await addPersonalEspecialidad(selectedPersonalId, catalogoId);
+      refreshSelectedDetail();
+    } catch (err) {
+      setActionError(err?.message || 'No se pudo agregar la especialidad.');
+    }
+  };
+
+  const handleRemoveEspecialidad = async (especialidadId) => {
+    if (!selectedPersonalId) return;
+    try {
+      await deletePersonalEspecialidad(selectedPersonalId, especialidadId);
+      refreshSelectedDetail();
+    } catch (err) {
+      setActionError(err?.message || 'No se pudo quitar la especialidad.');
+    }
+  };
+
+  const handleSetPoblacionEnfermeria = async (poblacion) => {
+    if (!selectedPersonalId) return;
+    try {
+      await updatePersonal(selectedPersonalId, { poblacion_enfermeria: poblacion || null });
+      refreshSelectedDetail();
+    } catch (err) {
+      setActionError(err?.message || 'No se pudo guardar la población.');
     }
   };
 
@@ -876,6 +1020,7 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
               hierarchy={personalHierarchy}
               filters={filters}
               bases={bases}
+              especialidadesCatalogo={especialidadesCatalogo}
               onFilterChange={handleFilterChange}
               onCreate={openCreatePersonal}
               onView={openDetail}
@@ -905,6 +1050,10 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
           getStatusVariant={getStatusVariant}
           onAddRole={handleAddRole}
           onRemoveRole={handleRemoveRole}
+          especialidadesCatalogo={especialidadesCatalogo}
+          onAddEspecialidad={handleAddEspecialidad}
+          onRemoveEspecialidad={handleRemoveEspecialidad}
+          onSetPoblacionEnfermeria={handleSetPoblacionEnfermeria}
           onAddLicencia={handleAddLicencia}
           onUpdateLicencia={handleUpdateLicencia}
           onDarDeBaja={handleDarDeBaja}
@@ -995,6 +1144,7 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
           bases={bases}
           vehiculos={vehiculos}
           roleOptions={RRHH_ROLE_OPTIONS}
+          especialidadesCatalogo={especialidadesCatalogo}
           formatRol={formatRol}
           errors={personalErrors}
           saving={formSaving}

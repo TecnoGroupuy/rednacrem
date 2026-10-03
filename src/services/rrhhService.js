@@ -159,6 +159,22 @@ export async function setPersonalRolePrincipal(personalId, roleId) {
   return response?.item || null;
 }
 
+// Clasificación por especialidad/formación (RRHH SU Emergencia, 2026-10).
+export async function listEspecialidadesCatalogo() {
+  const response = await api.get('/operaciones/personal/especialidades-catalogo');
+  return response?.items || [];
+}
+
+export async function addPersonalEspecialidad(personalId, catalogoId) {
+  const response = await api.post(`/operaciones/personal/${personalId}/especialidades`, { catalogo_id: catalogoId });
+  return response?.item || null;
+}
+
+export async function deletePersonalEspecialidad(personalId, especialidadId) {
+  const response = await api.del(`/operaciones/personal/${personalId}/especialidades/${especialidadId}`);
+  return Boolean(response?.ok);
+}
+
 export async function listLicencias(personalId) {
   const response = await api.get(`/operaciones/personal/${personalId}/licencias`);
   return response?.items || [];

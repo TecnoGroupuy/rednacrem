@@ -51,6 +51,18 @@ function ChipToggle({ label, selected, principal, onToggle, onSetPrincipal, prin
   );
 }
 
+// Chip simple sin estrella de "principal" -- especialidades de médico
+// (2026-10) no tienen ese concepto, a diferencia de roles/bases.
+function SimpleChipToggle({ label, selected, onToggle }) {
+  return (
+    <div className={'rrhh-chip-toggle' + (selected ? ' selected' : '')}>
+      <button type="button" className="rrhh-chip-toggle-body" onClick={onToggle} aria-pressed={selected}>
+        {label}
+      </button>
+    </div>
+  );
+}
+
 export default function PersonalForm({
   Button,
   draft,
@@ -59,6 +71,7 @@ export default function PersonalForm({
   bases,
   vehiculos,
   roleOptions,
+  especialidadesCatalogo,
   formatRol,
   errors,
   saving,
@@ -154,10 +167,52 @@ export default function PersonalForm({
     }));
   };
 
+  // Especialidades de médico (2026-10): selección múltiple, sin concepto de
+  // "principal" -- mismo patrón que toggleRole pero sin la estrella.
+  const toggleEspecialidad = (catalogoId) => {
+    setDraft((prev) => {
+      const already = (prev.especialidades || []).some((e) => e.catalogo_id === catalogoId);
+      const nextEspecialidades = already
+        ? prev.especialidades.filter((e) => e.catalogo_id !== catalogoId)
+        : [...(prev.especialidades || []), { id: null, catalogo_id: catalogoId }];
+      return { ...prev, especialidades: nextEspecialidades };
+    });
+  };
+
+  // Formación de enfermero: UNA sola -- elegir una reemplaza cualquier
+  // formación previa en el mismo array (que también guarda especialidades
+  // de médico, si la persona tuviera ambos roles a la vez).
+  const setFormacion = (catalogoId) => {
+    setDraft((prev) => {
+      const sinFormacionPrevia = (prev.especialidades || []).filter((e) => {
+        const cat = (especialidadesCatalogo || []).find((c) => c.id === e.catalogo_id);
+        return cat?.tipo !== 'formacion';
+      });
+      const next = catalogoId ? [...sinFormacionPrevia, { id: null, catalogo_id: catalogoId }] : sinFormacionPrevia;
+      return { ...prev, especialidades: next };
+    });
+  };
+
   const isExterno = draft.tipo_personal === 'externo';
   const selectedRoles = draft.roles || [];
   const selectedRoleNames = selectedRoles.map((r) => r.rol);
   const principalRoleName = selectedRoles.find((r) => r.rol_principal)?.rol || null;
+
+  // Especialidad (médico) / formación (enfermero), 2026-10: "jefaturas
+  // equivalentes" -- Jefe_medico cuenta como médico, Jefe_de_enfermeria
+  // como enfermero, mismo criterio que el backend (ver
+  // MEDICO_ROLES_PARA_ESPECIALIDAD/ENFERMERO_ROLES_PARA_FORMACION en
+  // index.mjs).
+  const showEspecialidades = selectedRoleNames.includes('Medico') || selectedRoleNames.includes('Jefe_medico');
+  const showFormacion = selectedRoleNames.includes('Enfermero') || selectedRoleNames.includes('Jefe_de_enfermeria');
+  const especialidadesOptions = (especialidadesCatalogo || []).filter((c) => c.tipo === 'especialidad');
+  const formacionOptions = (especialidadesCatalogo || []).filter((c) => c.tipo === 'formacion');
+  const selectedEspecialidadIds = (draft.especialidades || [])
+    .filter((e) => especialidadesOptions.some((c) => c.id === e.catalogo_id))
+    .map((e) => e.catalogo_id);
+  const currentFormacionId = (draft.especialidades || [])
+    .map((e) => e.catalogo_id)
+    .find((catalogoId) => formacionOptions.some((c) => c.id === catalogoId)) || '';
 
   // El regimen reacciona en vivo a los roles marcados -- ya no distingue
   // alta de edicion (antes solo se mostraba en edicion si la persona ya
@@ -258,6 +313,44 @@ export default function PersonalForm({
                   ))}
                 </div>
               </label>
+              {showEspecialidades ? (
+                <label className="span-2">
+                  <span>Especialidades</span>
+                  <div className="rrhh-chip-row">
+                    {especialidadesOptions.map((opt) => (
+                      <SimpleChipToggle
+                        key={opt.id}
+                        label={opt.nombre}
+                        selected={selectedEspecialidadIds.includes(opt.id)}
+                        onToggle={() => toggleEspecialidad(opt.id)}
+                      />
+                    ))}
+                  </div>
+                  <small>La población que atiende (adultos/pediátrica/ambas) se deduce de las especialidades elegidas.</small>
+                </label>
+              ) : null}
+              {showFormacion ? (
+                <label>
+                  <span>Formación</span>
+                  <select value={currentFormacionId} onChange={(event) => setFormacion(event.target.value || null)}>
+                    <option value="">Sin asignar</option>
+                    {formacionOptions.map((opt) => (
+                      <option key={opt.id} value={opt.id}>{opt.nombre}</option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              {showFormacion ? (
+                <label>
+                  <span>Población que atiende</span>
+                  <select value={draft.poblacion_enfermeria || ''} onChange={(event) => setField('poblacion_enfermeria', event.target.value || null)}>
+                    <option value="">Sin dato</option>
+                    <option value="adultos">Adultos</option>
+                    <option value="pediatrica">Pediátrica</option>
+                    <option value="ambas">Ambas</option>
+                  </select>
+                </label>
+              ) : null}
               {showRegimenSelect ? (
                 <label>
                   <span>Régimen</span>

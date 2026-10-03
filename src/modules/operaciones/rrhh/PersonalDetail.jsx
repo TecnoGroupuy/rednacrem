@@ -1,9 +1,10 @@
 import React from 'react';
-import { MapPin, Star, UserCircle2, Plus, Trash2, AlertTriangle, CalendarClock, Camera, CameraOff, History, X } from 'lucide-react';
+import { MapPin, Star, UserCircle2, Plus, Trash2, AlertTriangle, CalendarClock, Camera, CameraOff, History, X, Baby, Stethoscope, GraduationCap } from 'lucide-react';
 import { StatusPill, LICENCIA_TIPO_LABELS, estadoEfectivoDisplay } from './PersonalList.jsx';
 import { displayBases, displayFullName } from './personDisplay.js';
 import PersonFotoCapture from '../../../components/PersonFotoCapture.jsx';
 import PersonalDocumentosTab from './PersonalDocumentosTab.jsx';
+import { esMedico, esEnfermero, getEspecialidadesMedico, getFormacionEnfermero, poblacionLabel } from './personalEspecialidadesHelpers.js';
 
 // Habilitaciones/Capacitaciones/Carné de salud se sacaron de aca (ver
 // PersonalDocumentosTab.jsx, seccion "Registros anteriores"): esas 3
@@ -159,6 +160,10 @@ export default function PersonalDetail({
   getStatusVariant,
   onAddRole,
   onRemoveRole,
+  especialidadesCatalogo,
+  onAddEspecialidad,
+  onRemoveEspecialidad,
+  onSetPoblacionEnfermeria,
   onAddLicencia,
   onUpdateLicencia,
   onDarDeBaja,
@@ -172,6 +177,7 @@ export default function PersonalDetail({
   cambiosError
 }) {
   const [roleToAdd, setRoleToAdd] = React.useState('');
+  const [especialidadToAdd, setEspecialidadToAdd] = React.useState('');
   const [showFotoCapture, setShowFotoCapture] = React.useState(false);
   const [showPhotoViewer, setShowPhotoViewer] = React.useState(false);
   const [showLicenciaForm, setShowLicenciaForm] = React.useState(false);
@@ -185,6 +191,7 @@ export default function PersonalDetail({
 
   React.useEffect(() => {
     setRoleToAdd('');
+    setEspecialidadToAdd('');
     setShowLicenciaForm(false);
     setEditingLicenciaId(null);
     setLicenciaDraft(emptyLicenciaDraft);
@@ -295,6 +302,23 @@ export default function PersonalDetail({
     if (!roleToAdd) return;
     onAddRole(roleToAdd, { rol_principal: !roles.length });
     setRoleToAdd('');
+  };
+
+  // Especialidad (médico) / formación (enfermero), 2026-10 -- mismo
+  // criterio de "jefaturas equivalentes" que el backend/PersonalForm.
+  const personaEsMedico = esMedico(personal);
+  const personaEsEnfermero = esEnfermero(personal);
+  const especialidadesMedico = getEspecialidadesMedico(personal);
+  const formacionEnfermero = getFormacionEnfermero(personal);
+  const especialidadesOptions = (especialidadesCatalogo || []).filter(
+    (c) => c.tipo === 'especialidad' && !especialidadesMedico.some((e) => e.catalogo_id === c.id)
+  );
+  const formacionOptions = (especialidadesCatalogo || []).filter((c) => c.tipo === 'formacion');
+
+  const handleAddEspecialidad = () => {
+    if (!especialidadToAdd) return;
+    onAddEspecialidad(especialidadToAdd);
+    setEspecialidadToAdd('');
   };
 
   const startEditLicencia = (licencia) => {
@@ -623,6 +647,83 @@ export default function PersonalDetail({
               {/* El backend no tiene un PATCH para su_personal_roles (solo POST y
                   DELETE), asi que no se puede re-marcar "principal" en un rol ya
                   guardado -- solo el primer rol que se agrega queda como principal. */}
+            </section>
+          ) : null}
+
+          {activeTab === 'roles' && personaEsMedico ? (
+            <section className="rrhh-detail-card">
+              <div className="rrhh-section-title">
+                <Stethoscope size={18} />
+                <span>Especialidades</span>
+              </div>
+              <div className="rrhh-inline-form" style={{ gridTemplateColumns: 'minmax(0,1fr) auto' }}>
+                <select value={especialidadToAdd} onChange={(event) => setEspecialidadToAdd(event.target.value)}>
+                  <option value="">Seleccionar especialidad para agregar</option>
+                  {especialidadesOptions.map((opt) => <option key={opt.id} value={opt.id}>{opt.nombre}</option>)}
+                </select>
+                <Button variant="secondary" icon={<Plus size={16} />} onClick={handleAddEspecialidad} disabled={!especialidadToAdd}>
+                  Agregar especialidad
+                </Button>
+              </div>
+              <div className="rrhh-chip-cloud" style={{ marginTop: 14 }}>
+                {especialidadesMedico.map((esp) => (
+                  <div key={esp.id} className="rrhh-role-chip">
+                    <span>{esp.nombre}</span>
+                    <button type="button" onClick={() => onRemoveEspecialidad(esp.id)} aria-label={`Quitar ${esp.nombre}`}>
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+                {!especialidadesMedico.length ? <div className="rrhh-empty-inline">Sin clasificar -- no tiene ninguna especialidad asignada.</div> : null}
+              </div>
+              {personal.atiende_ninos ? (
+                <p className="rrhh-detail-sin-foto" style={{ color: '#7dd3fc', marginTop: 10 }}>
+                  <Baby size={14} /> Atiende niños (población: {poblacionLabel(personal.poblacion_efectiva)})
+                </p>
+              ) : null}
+            </section>
+          ) : null}
+
+          {activeTab === 'roles' && personaEsEnfermero ? (
+            <section className="rrhh-detail-card">
+              <div className="rrhh-section-title">
+                <GraduationCap size={18} />
+                <span>Formación y población</span>
+              </div>
+              <div className="rrhh-form-grid">
+                <label>
+                  <span>Formación</span>
+                  <select
+                    value={formacionEnfermero?.catalogo_id || ''}
+                    onChange={(event) => {
+                      const nextId = event.target.value;
+                      // POST /especialidades ya reemplaza cualquier formación
+                      // previa del lado del backend (misma transacción) -- acá
+                      // solo hace falta el DELETE explícito cuando se vuelve a
+                      // "Sin asignar" (no hay un "agregar nada" equivalente).
+                      if (nextId) onAddEspecialidad(nextId);
+                      else if (formacionEnfermero) onRemoveEspecialidad(formacionEnfermero.id);
+                    }}
+                  >
+                    <option value="">Sin asignar</option>
+                    {formacionOptions.map((opt) => <option key={opt.id} value={opt.id}>{opt.nombre}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>Población que atiende</span>
+                  <select value={personal.poblacion_enfermeria || ''} onChange={(event) => onSetPoblacionEnfermeria(event.target.value || null)}>
+                    <option value="">Sin dato</option>
+                    <option value="adultos">Adultos</option>
+                    <option value="pediatrica">Pediátrica</option>
+                    <option value="ambas">Ambas</option>
+                  </select>
+                </label>
+              </div>
+              {personal.atiende_ninos ? (
+                <p className="rrhh-detail-sin-foto" style={{ color: '#7dd3fc', marginTop: 10 }}>
+                  <Baby size={14} /> Atiende niños
+                </p>
+              ) : null}
             </section>
           ) : null}
 

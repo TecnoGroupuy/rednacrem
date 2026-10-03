@@ -1,7 +1,8 @@
 import React from 'react';
-import { AlertTriangle, Clock3, MapPin, ChevronDown, ChevronRight, Crown, UserMinus, CameraOff } from 'lucide-react';
+import { AlertTriangle, Clock3, MapPin, ChevronDown, ChevronRight, Crown, UserMinus, CameraOff, Baby, Stethoscope, GraduationCap } from 'lucide-react';
 import { getEffectiveEstado } from './personalHierarchy.js';
 import { displayFullName, displayBases } from './personDisplay.js';
+import { getEspecialidadesMedico, getFormacionEnfermero, isSinClasificar } from './personalEspecialidadesHelpers.js';
 
 // Duplicado a proposito, mismo criterio que ya explica PersonalDetail.jsx
 // para su propia copia de toDateOnly: evitar un import circular entre
@@ -162,6 +163,9 @@ function PersonCard({ person, isLeader, dimmed, onView, getAlertMeta, formatRol 
   const alertMeta = getAlertMeta(person);
   const estado = estadoEfectivoDisplay(person);
   const turnoLine = buildTurnoLine(person);
+  const especialidadesMedico = getEspecialidadesMedico(person);
+  const formacionEnfermero = getFormacionEnfermero(person);
+  const sinClasificar = isSinClasificar(person);
 
   return (
     <article
@@ -183,8 +187,38 @@ function PersonCard({ person, isLeader, dimmed, onView, getAlertMeta, formatRol 
           <MapPin size={12} />
           <span>{displayBases(person.bases)}</span>
         </div>
+        {especialidadesMedico.length ? (
+          <div className="rrhh-card2-especialidades">
+            <Stethoscope size={12} />
+            <span>{especialidadesMedico.map((e) => e.nombre).join(', ')}</span>
+          </div>
+        ) : null}
+        {formacionEnfermero ? (
+          <div className="rrhh-card2-especialidades">
+            <GraduationCap size={12} />
+            <span>{formacionEnfermero.nombre}</span>
+          </div>
+        ) : null}
         <div className="rrhh-card2-estado-row">
           <span className={`rrhh-card2-chip ${estado.className}`}>{estado.label}</span>
+          {person.atiende_ninos ? (
+            <span
+              className="rrhh-card2-chip atiende-ninos"
+              title="Atiende niños"
+              aria-label="Atiende niños"
+            >
+              <Baby size={12} /> Atiende niños
+            </span>
+          ) : null}
+          {sinClasificar ? (
+            <span
+              className="rrhh-card2-alert-icon warning"
+              title="Sin clasificar"
+              aria-label="Sin clasificar"
+            >
+              <AlertTriangle size={14} />
+            </span>
+          ) : null}
           {alertMeta.hasAlert ? (
             <span
               className={`rrhh-card2-alert-icon ${alertMeta.variant}`}
@@ -321,6 +355,7 @@ export default function PersonalList({
   hierarchy,
   filters,
   bases,
+  especialidadesCatalogo,
   onFilterChange,
   onCreate,
   onView,
@@ -353,6 +388,28 @@ export default function PersonalList({
               onChange={(event) => onFilterChange('sin_foto', event.target.checked)}
             />
             <span>Sin foto</span>
+          </label>
+          <select value={filters.especialidad_id || ''} onChange={(event) => onFilterChange('especialidad_id', event.target.value)}>
+            <option value="">Todas las especialidades</option>
+            {(especialidadesCatalogo || []).map((opt) => (
+              <option key={opt.id} value={opt.id}>{opt.nombre}</option>
+            ))}
+          </select>
+          <label className="rrhh-filter-checkbox">
+            <input
+              type="checkbox"
+              checked={Boolean(filters.atiende_ninos)}
+              onChange={(event) => onFilterChange('atiende_ninos', event.target.checked)}
+            />
+            <span>Atiende niños</span>
+          </label>
+          <label className="rrhh-filter-checkbox">
+            <input
+              type="checkbox"
+              checked={Boolean(filters.sin_clasificar)}
+              onChange={(event) => onFilterChange('sin_clasificar', event.target.checked)}
+            />
+            <span>Sin clasificar</span>
           </label>
         </div>
         <div className="rrhh-inline-actions">
