@@ -12,6 +12,7 @@ import {
 import PersonFotoCapture from '../../components/PersonFotoCapture.jsx';
 import FramedDocumentCapture from '../../components/FramedDocumentCapture.jsx';
 import suEmergenciaLogo from '../../assets/su-emergencia-logo-hd.png';
+import { puedeAvanzarDeFoto, faltantesConFoto } from './fichaPublicaFotoHelpers.js';
 import './completarFichaStyles.css';
 
 // Pantalla publica de autocompletado de ficha (sin Cognito, sin AuthGate --
@@ -588,7 +589,11 @@ export default function CompletarFichaScreen({ linkCodigo }) {
   // --- Resumen final ---
   const resumenCargados = documentosChecklist.filter((item) => item.estado === 'pendiente' || item.estado === 'validado').length;
   const resumenTotal = documentosChecklist.length;
-  const resumenFaltantes = documentosChecklist.filter((item) => item.estado === 'falta' || item.estado === 'rechazado');
+  // "Terminar por ahora" puede salir del flujo sin llegar nunca al paso de
+  // documentos (ej. justo en "foto") -- faltantesConFoto suma "Foto de
+  // perfil" por delante de lo que falte del checklist para que esa salida
+  // no quede silenciosa sobre la foto.
+  const resumenFaltantesLabels = faltantesConFoto(persona, documentosChecklist.filter((item) => item.estado === 'falta' || item.estado === 'rechazado'));
 
   return (
     <div className="cf-root">
@@ -704,7 +709,9 @@ export default function CompletarFichaScreen({ linkCodigo }) {
         {step === 'foto' && persona ? (
           <div className="cf-step">
             <h1>Tu foto</h1>
-            <p className="cf-subtitle">Opcional, pero ayuda a identificarte.</p>
+            <p className="cf-subtitle">
+              {puedeAvanzarDeFoto(persona) ? 'Ayuda a identificarte.' : 'Es obligatoria para continuar.'}
+            </p>
 
             {persona.foto_url ? (
               <img src={persona.foto_url} alt="Tu foto" className="cf-foto-square" />
@@ -717,9 +724,17 @@ export default function CompletarFichaScreen({ linkCodigo }) {
             <button type="button" className="cf-secondary-button" onClick={() => setShowFotoCapture(true)}>
               {persona.foto_url ? 'Cambiar foto' : 'Cargar foto'}
             </button>
-            <button type="button" className="cf-primary-button" onClick={entrarAFaseDocumentos}>
+            <button
+              type="button"
+              className="cf-primary-button"
+              onClick={entrarAFaseDocumentos}
+              disabled={!puedeAvanzarDeFoto(persona)}
+            >
               Continuar
             </button>
+            {!puedeAvanzarDeFoto(persona) ? (
+              <p className="cf-hint">Subí tu foto para poder continuar.</p>
+            ) : null}
             <button type="button" className="cf-link-button" onClick={handleTerminarPorAhora}>
               Terminar por ahora
             </button>
@@ -905,10 +920,12 @@ export default function CompletarFichaScreen({ linkCodigo }) {
             {resumenTotal ? (
               <p className="cf-subtitle">
                 Cargaste {resumenCargados} de {resumenTotal}.
-                {resumenFaltantes.length
-                  ? ` Te faltan: ${resumenFaltantes.map((item) => item.label).join(', ')}. Podés completarlos más adelante con un nuevo link.`
+                {resumenFaltantesLabels.length
+                  ? ` Te faltan: ${resumenFaltantesLabels.join(', ')}. Podés completarlos más adelante con un nuevo link.`
                   : ' Completaste toda la documentación requerida.'}
               </p>
+            ) : resumenFaltantesLabels.length ? (
+              <p className="cf-subtitle">Te falta: {resumenFaltantesLabels.join(', ')}. Podés completarlo más adelante con un nuevo link.</p>
             ) : (
               <p>Podés volver a completar lo que falta con un nuevo link.</p>
             )}

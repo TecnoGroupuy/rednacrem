@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin, Star, UserCircle2, Plus, Trash2, AlertTriangle, CalendarClock, Camera, History, X } from 'lucide-react';
+import { MapPin, Star, UserCircle2, Plus, Trash2, AlertTriangle, CalendarClock, Camera, CameraOff, History, X } from 'lucide-react';
 import { StatusPill, LICENCIA_TIPO_LABELS, estadoEfectivoDisplay } from './PersonalList.jsx';
 import { displayBases, displayFullName } from './personDisplay.js';
 import PersonFotoCapture from '../../../components/PersonFotoCapture.jsx';
@@ -415,6 +415,16 @@ export default function PersonalDetail({
                   {displayBases(personal.bases)}
                 </span>
               </p>
+              {/* Foto de perfil obligatoria en el link de autocompletado
+                  (2026-10) -- aviso explícito acá, no solo el placeholder de
+                  iniciales en el avatar (eso ya existía pero no era
+                  suficientemente accionable para que RRHH se la pida). */}
+              {!personal.foto_url ? (
+                <p className="rrhh-detail-sin-foto">
+                  <CameraOff size={14} />
+                  Sin foto cargada
+                </p>
+              ) : null}
             </div>
           </div>
           <div className="rrhh-detail-header-chips">

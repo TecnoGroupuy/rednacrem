@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Clock3, MapPin, ChevronDown, ChevronRight, Crown, UserMinus } from 'lucide-react';
+import { AlertTriangle, Clock3, MapPin, ChevronDown, ChevronRight, Crown, UserMinus, CameraOff } from 'lucide-react';
 import { getEffectiveEstado } from './personalHierarchy.js';
 import { displayFullName, displayBases } from './personDisplay.js';
 
@@ -194,6 +194,15 @@ function PersonCard({ person, isLeader, dimmed, onView, getAlertMeta, formatRol 
               {alertMeta.variant === 'danger' ? <AlertTriangle size={14} /> : <Clock3 size={14} />}
             </span>
           ) : null}
+          {!person.foto_url ? (
+            <span
+              className="rrhh-card2-alert-icon warning"
+              title="Sin foto cargada"
+              aria-label="Sin foto cargada"
+            >
+              <CameraOff size={14} />
+            </span>
+          ) : null}
         </div>
       </div>
     </article>
@@ -337,6 +346,14 @@ export default function PersonalList({
             <option value="suspendido">Suspendido</option>
             <option value="baja">Baja</option>
           </select>
+          <label className="rrhh-filter-checkbox">
+            <input
+              type="checkbox"
+              checked={Boolean(filters.sin_foto)}
+              onChange={(event) => onFilterChange('sin_foto', event.target.checked)}
+            />
+            <span>Sin foto</span>
+          </label>
         </div>
         <div className="rrhh-inline-actions">
           <Button variant="secondary" icon={null} onClick={onGenerateLink}>Link para completar fichas</Button>

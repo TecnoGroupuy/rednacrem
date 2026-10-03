@@ -240,6 +240,18 @@
   padding: 10px 12px;
 }
 
+/* Aviso de "falta algo para continuar" -- mismo tono ambar que
+   .cf-icon-warning, distinto de .cf-error (rojo) a proposito: no es un
+   error de la persona, es simplemente un paso pendiente. */
+.cf-hint {
+  margin: 0;
+  color: #92400e;
+  font-size: 13px;
+  background: rgba(217, 119, 6, 0.1);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
 .cf-icon-warning {
   color: #d97706;
   margin: 0 auto;

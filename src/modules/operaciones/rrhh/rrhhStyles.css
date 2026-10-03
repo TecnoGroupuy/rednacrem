@@ -183,6 +183,24 @@
   box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.18);
 }
 
+.rrhh-filter-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid var(--rrhh-line);
+  background: rgba(15, 23, 42, 0.88);
+  color: var(--rrhh-text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.rrhh-filter-checkbox input {
+  accent-color: #f97316;
+}
+
 .rrhh-form-grid input::placeholder {
   color: var(--rrhh-muted);
 }
@@ -748,6 +766,15 @@
   align-items: center;
   gap: 6px;
   color: #93c5fd;
+}
+
+.rrhh-detail-sin-foto {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  color: #fbbf24;
+  font-size: 13px;
 }
 
 .rrhh-detail-header-chips {

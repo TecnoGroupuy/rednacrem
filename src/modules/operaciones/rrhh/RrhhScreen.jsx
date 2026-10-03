@@ -184,7 +184,8 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
   // vaciaria "Internos" en todos lados sin razon relacionada a Medicina).
   const [filters, setFilters] = React.useState({
     base_id: '',
-    estado: ''
+    estado: '',
+    sin_foto: false
   });
   const [personalFormOpen, setPersonalFormOpen] = React.useState(false);
   const [personalFormMode, setPersonalFormMode] = React.useState('create');
@@ -354,6 +355,9 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
     // contra el unico row.base_id.
     if (filters.base_id && !(row.bases || []).some((b) => b.base_id === filters.base_id)) return false;
     if (filters.estado && row.estado !== filters.estado) return false;
+    // Foto de perfil obligatoria en el link de autocompletado (2026-10) --
+    // filtro para que RRHH ubique rápido a quién pedirle que la cargue.
+    if (filters.sin_foto && row.foto_url) return false;
     return true;
   }), [personalRows, filters]);
 
