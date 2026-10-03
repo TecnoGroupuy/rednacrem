@@ -139,11 +139,20 @@ export function buildPersonalHierarchy(personal = []) {
     ]
   });
 
-  // -- Enfermeria --
+  // -- Enfermeria -- Economato pasa a ser un subgrupo de acá (2026-10, ya
+  // no un area propia bajo Direccion tecnica) -- misma jefatura, un
+  // subgrupo mas aparte de los de regimen de turno. Como todos los filtros
+  // de esta funcion salen de `rest` de forma independiente (nunca se
+  // narrowea entre areas), una persona con Enfermero Y Economato sigue
+  // apareciendo en los DOS subgrupos a la vez -- mismo criterio que ya
+  // regía entre areas distintas (ver "Otros roles" mas abajo: "no se la
+  // saca de donde ya corresponde, solo se hace visible el rol suelto"),
+  // ahora aplicado dentro de una sola area.
   const enfermeriaLeaders = rest.filter((p) => hasRole(p, ROLES.JEFE_ENFERMERIA));
   const enfermeriaLeaderIds = idSet(enfermeriaLeaders);
   const enfermeros = rest.filter((p) => hasRole(p, ROLES.ENFERMERO) && !enfermeriaLeaderIds.has(p.id));
   const auxiliares = rest.filter((p) => hasRole(p, ROLES.AUXILIAR_DE_SERVICIO) && !enfermeriaLeaderIds.has(p.id));
+  const economatoMembers = rest.filter((p) => hasRole(p, ROLES.ECONOMATO) && !enfermeriaLeaderIds.has(p.id));
   const enfermeria = finalizeArea({
     key: 'enfermeria',
     label: 'Enfermería',
@@ -154,17 +163,9 @@ export function buildPersonalHierarchy(personal = []) {
       { key: 'turnantes', label: 'Turnantes', members: enfermeros.filter((p) => isRegimenTurno(p, 'turnante')) },
       { key: 'suplentes', label: 'Suplentes', members: enfermeros.filter((p) => isRegimenTurno(p, 'suplente')) },
       { key: 'sin_regimen', label: 'Sin régimen asignado', members: enfermeros.filter(isSinRegimen) },
-      { key: 'auxiliares', label: 'Auxiliares de servicio', members: auxiliares }
+      { key: 'auxiliares', label: 'Auxiliares de servicio', members: auxiliares },
+      { key: 'economato', label: 'Economato', members: economatoMembers }
     ]
-  });
-
-  // -- Economato -- lista simple, sin concepto de jefatura.
-  const economato = finalizeArea({
-    key: 'economato',
-    label: 'Economato',
-    leaderRoleLabel: null,
-    leaders: [],
-    subgroups: [{ key: 'todos', label: null, members: rest.filter((p) => hasRole(p, ROLES.ECONOMATO)) }]
   });
 
   // -- Choferes --
@@ -222,9 +223,9 @@ export function buildPersonalHierarchy(personal = []) {
 
   return {
     direccionTecnica: sortByEffectiveEstado(direccionTecnica),
-    areas: [medicina, enfermeria, economato, choferesArea, mantenimiento, otrosRoles, sinRolAsignado],
+    areas: [medicina, enfermeria, choferesArea, mantenimiento, otrosRoles, sinRolAsignado],
     // Orden alfabetico (ya viene asi del backend) -- no tiene sentido de
-    // jefatura/subgrupo, es una lista lisa como Economato/Mantenimiento.
+    // jefatura/subgrupo, es una lista lisa como Enfermería/Mantenimiento.
     egresados
   };
 }
