@@ -399,6 +399,16 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
     return true;
   }), [personalRows, filters]);
 
+  // Contador de cada píldora de filtro (rediseño de la barra, 2026-10):
+  // siempre sobre personalRows (el total SIN FILTRAR), no sobre
+  // filteredRows -- así cada píldora muestra cuánta gente matchea ese
+  // criterio puntual, sin importar qué otros filtros estén activos.
+  const filterCounts = React.useMemo(() => ({
+    sin_foto: personalRows.filter((row) => !row.foto_url).length,
+    atiende_ninos: personalRows.filter((row) => row.atiende_ninos).length,
+    sin_clasificar: personalRows.filter((row) => isSinClasificar(row)).length
+  }), [personalRows]);
+
   // roles y regimen_turno ya vienen en cada fila desde GET
   // /operaciones/personal (fix de N+1) -- buildPersonalHierarchy es pura,
   // solo agrupa lo que ya tenemos, sin fetches adicionales.
@@ -429,6 +439,17 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
 
   const handleFilterChange = (field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleClearFilters = () => {
+    setFilters({
+      base_id: '',
+      estado: '',
+      sin_foto: false,
+      especialidad_id: '',
+      atiende_ninos: false,
+      sin_clasificar: false
+    });
   };
 
   const openCreatePersonal = () => {
@@ -1006,6 +1027,12 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
           className="span-12 rrhh-main-panel"
           title="Personal"
           subtitle="Listado conectado al backend real, con filtros y alertas documentales."
+          action={
+            <div className="rrhh-inline-actions">
+              <Button variant="secondary" icon={null} onClick={handleGenerateFichaLink}>Link para completar fichas</Button>
+              <Button icon={null} onClick={openCreatePersonal}>Nuevo personal</Button>
+            </div>
+          }
         >
           {loading ? (
             <div className="rrhh-empty rrhh-empty-surface">Cargando personal...</div>
@@ -1016,15 +1043,14 @@ export default function RrhhScreen({ Button, Panel, Tag }) {
             </div>
           ) : (
             <PersonalList
-              Button={Button}
               hierarchy={personalHierarchy}
               filters={filters}
+              filterCounts={filterCounts}
               bases={bases}
               especialidadesCatalogo={especialidadesCatalogo}
               onFilterChange={handleFilterChange}
-              onCreate={openCreatePersonal}
+              onClearFilters={handleClearFilters}
               onView={openDetail}
-              onGenerateLink={handleGenerateFichaLink}
               formatRol={formatRol}
               getAlertMeta={getAlertMeta}
             />

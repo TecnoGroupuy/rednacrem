@@ -350,72 +350,101 @@ function AreaSection({ area, onView, getAlertMeta, formatRol, defaultExpanded })
   );
 }
 
+// Píldora de filtro on/off (reemplaza los checkbox viejos, 2026-10):
+// <button> con aria-pressed en vez de <input type="checkbox"> para que siga
+// siendo accesible por teclado/lector de pantalla como un toggle, no como un
+// link. El contador va siempre sobre el total SIN FILTRAR (filterCounts
+// viene calculado así desde RrhhScreen) para que la píldora diga cuánta
+// gente matchea ese criterio puntual, sin importar qué otros filtros estén
+// activos a la vez.
+function FilterPill({ label, count, active, onToggle }) {
+  return (
+    <button
+      type="button"
+      className={`rrhh-filter-pill${active ? ' active' : ''}`}
+      aria-pressed={active}
+      onClick={onToggle}
+    >
+      {label}
+      {typeof count === 'number' ? <span className="rrhh-filter-pill-count">· {count}</span> : null}
+    </button>
+  );
+}
+
 export default function PersonalList({
-  Button,
   hierarchy,
   filters,
+  filterCounts,
   bases,
   especialidadesCatalogo,
   onFilterChange,
-  onCreate,
+  onClearFilters,
   onView,
-  onGenerateLink,
   formatRol,
   getAlertMeta
 }) {
   const egresados = hierarchy.egresados || [];
   const isEmpty = !hierarchy.direccionTecnica.length && hierarchy.areas.every((area) => area.total === 0) && !egresados.length;
+  const hasActiveFilters = Boolean(
+    filters.base_id || filters.estado || filters.sin_foto ||
+    filters.especialidad_id || filters.atiende_ninos || filters.sin_clasificar
+  );
 
   return (
     <div className="rrhh-stack">
-      <div className="rrhh-toolbar">
-        <div className="rrhh-filters">
-          <select value={filters.base_id} onChange={(event) => onFilterChange('base_id', event.target.value)}>
-            <option value="">Todas las bases</option>
-            {bases.map((base) => <option key={base.id} value={base.id}>{base.nombre}</option>)}
-          </select>
-          <select value={filters.estado} onChange={(event) => onFilterChange('estado', event.target.value)}>
-            <option value="">Todos los estados</option>
-            <option value="activo">Activo</option>
-            <option value="licencia">Licencia</option>
-            <option value="suspendido">Suspendido</option>
-            <option value="baja">Baja</option>
-          </select>
-          <label className="rrhh-filter-checkbox">
-            <input
-              type="checkbox"
-              checked={Boolean(filters.sin_foto)}
-              onChange={(event) => onFilterChange('sin_foto', event.target.checked)}
-            />
-            <span>Sin foto</span>
-          </label>
-          <select value={filters.especialidad_id || ''} onChange={(event) => onFilterChange('especialidad_id', event.target.value)}>
-            <option value="">Todas las especialidades</option>
-            {(especialidadesCatalogo || []).map((opt) => (
-              <option key={opt.id} value={opt.id}>{opt.nombre}</option>
-            ))}
-          </select>
-          <label className="rrhh-filter-checkbox">
-            <input
-              type="checkbox"
-              checked={Boolean(filters.atiende_ninos)}
-              onChange={(event) => onFilterChange('atiende_ninos', event.target.checked)}
-            />
-            <span>Atiende niños</span>
-          </label>
-          <label className="rrhh-filter-checkbox">
-            <input
-              type="checkbox"
-              checked={Boolean(filters.sin_clasificar)}
-              onChange={(event) => onFilterChange('sin_clasificar', event.target.checked)}
-            />
-            <span>Sin clasificar</span>
-          </label>
-        </div>
-        <div className="rrhh-inline-actions">
-          <Button variant="secondary" icon={null} onClick={onGenerateLink}>Link para completar fichas</Button>
-          <Button icon={null} onClick={onCreate}>Nuevo personal</Button>
-        </div>
+      <div className="rrhh-filters-bar">
+        <select
+          className="rrhh-filter-select"
+          value={filters.base_id}
+          onChange={(event) => onFilterChange('base_id', event.target.value)}
+        >
+          <option value="">Todas las bases</option>
+          {bases.map((base) => <option key={base.id} value={base.id}>{base.nombre}</option>)}
+        </select>
+        <select
+          className="rrhh-filter-select"
+          value={filters.estado}
+          onChange={(event) => onFilterChange('estado', event.target.value)}
+        >
+          <option value="">Todos los estados</option>
+          <option value="activo">Activo</option>
+          <option value="licencia">Licencia</option>
+          <option value="suspendido">Suspendido</option>
+          <option value="baja">Baja</option>
+        </select>
+        <select
+          className="rrhh-filter-select"
+          value={filters.especialidad_id || ''}
+          onChange={(event) => onFilterChange('especialidad_id', event.target.value)}
+        >
+          <option value="">Todas las especialidades</option>
+          {(especialidadesCatalogo || []).map((opt) => (
+            <option key={opt.id} value={opt.id}>{opt.nombre}</option>
+          ))}
+        </select>
+        <FilterPill
+          label="Sin foto"
+          count={filterCounts?.sin_foto}
+          active={Boolean(filters.sin_foto)}
+          onToggle={() => onFilterChange('sin_foto', !filters.sin_foto)}
+        />
+        <FilterPill
+          label="Atiende niños"
+          count={filterCounts?.atiende_ninos}
+          active={Boolean(filters.atiende_ninos)}
+          onToggle={() => onFilterChange('atiende_ninos', !filters.atiende_ninos)}
+        />
+        <FilterPill
+          label="Sin clasificar"
+          count={filterCounts?.sin_clasificar}
+          active={Boolean(filters.sin_clasificar)}
+          onToggle={() => onFilterChange('sin_clasificar', !filters.sin_clasificar)}
+        />
+        {hasActiveFilters ? (
+          <button type="button" className="rrhh-filter-clear" onClick={onClearFilters}>
+            Limpiar filtros
+          </button>
+        ) : null}
       </div>
 
       {isEmpty ? (

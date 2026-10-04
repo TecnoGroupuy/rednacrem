@@ -48,6 +48,18 @@
   color: var(--rrhh-muted);
 }
 
+/* Encabezado del panel ("Personal" + acciones): panel-header no tiene
+   layout propio en ningun otro lado de la app (Panel lo renderiza como un
+   div sin flex), asi que esto queda scopeado a rrhh-screen a proposito --
+   no debe afectar otros paneles que tambien usan el prop `action`. */
+.rrhh-screen .panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
 .rrhh-screen .tag,
 .rrhh-modal-root .tag {
   border-radius: 999px;
@@ -137,7 +149,6 @@
   gap: 18px;
 }
 
-.rrhh-toolbar,
 .rrhh-inline-actions,
 .rrhh-modal-header,
 .rrhh-modal-footer,
@@ -156,14 +167,6 @@
   justify-content: flex-start;
 }
 
-.rrhh-filters {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  flex: 1;
-}
-
-.rrhh-filters select,
 .rrhh-form-grid input,
 .rrhh-form-grid select {
   min-height: 42px;
@@ -175,7 +178,6 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
-.rrhh-filters select:focus,
 .rrhh-form-grid input:focus,
 .rrhh-form-grid select:focus {
   outline: none;
@@ -183,22 +185,113 @@
   box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.18);
 }
 
-.rrhh-filter-checkbox {
-  display: inline-flex;
+/* Barra de filtros de Personal (rediseño 2026-10): una sola fila, todos
+   los controles con la misma altura (42px) y el mismo radio (14px) --
+   selects de Base/Estado/Especialidad comparten ancho fijo, las píldoras
+   ocupan el ancho de su contenido. Wrap ordenado: en pantallas angostas
+   los 3 selects forman su propia línea y las píldoras la siguiente, sin
+   mezclarse (ver orden del JSX en PersonalList.jsx). */
+.rrhh-filters-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
   align-items: center;
-  gap: 8px;
+}
+
+.rrhh-filter-select {
   min-height: 42px;
-  padding: 0 14px;
+  width: 230px;
+  flex: 0 1 230px;
   border-radius: 14px;
   border: 1px solid var(--rrhh-line);
   background: rgba(15, 23, 42, 0.88);
   color: var(--rrhh-text);
-  cursor: pointer;
-  user-select: none;
+  padding: 0 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
-.rrhh-filter-checkbox input {
-  accent-color: #f97316;
+.rrhh-filter-select:focus {
+  outline: none;
+  border-color: rgba(251, 146, 60, 0.5);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.18);
+}
+
+/* Píldoras ("Sin foto", "Atiende niños", "Sin clasificar"): mismo alto/
+   radio que los selects de al lado, estado activo con el mismo acento
+   naranja que .button.primary (nada de colores nuevos). */
+.rrhh-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 14px;
+  border: 1px solid var(--rrhh-line);
+  background: rgba(15, 23, 42, 0.88);
+  color: var(--rrhh-text-soft);
+  font: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.rrhh-filter-pill:hover {
+  border-color: rgba(251, 146, 60, 0.4);
+}
+
+.rrhh-filter-pill:focus-visible {
+  outline: none;
+  border-color: rgba(251, 146, 60, 0.5);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.18);
+}
+
+.rrhh-filter-pill.active {
+  background: linear-gradient(180deg, var(--rrhh-orange), var(--rrhh-orange-strong));
+  border-color: rgba(249, 115, 22, 0.6);
+  color: #fff7ed;
+}
+
+.rrhh-filter-pill-count {
+  opacity: 0.75;
+  font-weight: 500;
+}
+
+.rrhh-filter-pill.active .rrhh-filter-pill-count {
+  opacity: 0.9;
+}
+
+.rrhh-filter-clear {
+  display: inline-flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid var(--rrhh-line);
+  background: transparent;
+  color: var(--rrhh-muted);
+  font: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.rrhh-filter-clear:hover {
+  color: var(--rrhh-text-soft);
+  border-color: rgba(148, 163, 184, 0.5);
+}
+
+.rrhh-filter-clear:focus-visible {
+  outline: none;
+  border-color: rgba(251, 146, 60, 0.5);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.18);
+}
+
+@media (max-width: 640px) {
+  .rrhh-filter-select {
+    width: 100%;
+    flex: 1 1 100%;
+  }
 }
 
 .rrhh-form-grid input::placeholder {
